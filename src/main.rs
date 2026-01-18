@@ -1,28 +1,10 @@
+mod map;
+
 use bevy::prelude::*;
-use rand::Rng;
 
-const MAP_WIDTH: usize = 100;
-const MAP_HEIGHT: usize = 100;
+use crate::map::{generate_map, Terrain, MAP_HEIGHT, MAP_WIDTH};
+
 const TILE_SIZE: f32 = 8.0;
-
-#[derive(Clone, Copy)]
-enum Terrain {
-    Plains,
-    Mountain,
-    Forest,
-    Sea,
-}
-
-impl Terrain {
-    fn color(self) -> Color {
-        match self {
-            Terrain::Plains => Color::srgb_u8(120, 190, 120),
-            Terrain::Mountain => Color::srgb_u8(139, 90, 43),
-            Terrain::Forest => Color::srgb_u8(25, 110, 60),
-            Terrain::Sea => Color::srgb_u8(40, 120, 220),
-        }
-    }
-}
 
 fn main() {
     App::new()
@@ -41,31 +23,27 @@ fn spawn_field_map(mut commands: Commands) {
     let origin_x = -map_width / 2.0 + TILE_SIZE / 2.0;
     let origin_y = -map_height / 2.0 + TILE_SIZE / 2.0;
     let mut rng = rand::thread_rng();
+    let map_data = generate_map(&mut rng);
 
     for y in 0..MAP_HEIGHT {
         for x in 0..MAP_WIDTH {
-            let terrain = pick_terrain(&mut rng);
+            let terrain = map_data[y][x];
             let world_x = origin_x + x as f32 * TILE_SIZE;
             let world_y = origin_y + y as f32 * TILE_SIZE;
 
             commands.spawn((
-                Sprite::from_color(terrain.color(), Vec2::splat(TILE_SIZE - 1.0)),
+                Sprite::from_color(terrain_color(terrain), Vec2::splat(TILE_SIZE - 1.0)),
                 Transform::from_xyz(world_x, world_y, 0.0),
             ));
         }
     }
 }
 
-fn pick_terrain(rng: &mut impl Rng) -> Terrain {
-    let roll: f32 = rng.gen_range(0.0..1.0);
-
-    if roll < 0.25 {
-        Terrain::Sea
-    } else if roll < 0.55 {
-        Terrain::Forest
-    } else if roll < 0.85 {
-        Terrain::Plains
-    } else {
-        Terrain::Mountain
+fn terrain_color(terrain: Terrain) -> Color {
+    match terrain {
+        Terrain::Plains => Color::srgb_u8(120, 190, 120),
+        Terrain::Mountain => Color::srgb_u8(139, 90, 43),
+        Terrain::Forest => Color::srgb_u8(25, 110, 60),
+        Terrain::Sea => Color::srgb_u8(40, 120, 220),
     }
 }
