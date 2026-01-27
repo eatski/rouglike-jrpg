@@ -30,6 +30,23 @@ struct SpawnPosition {
     y: usize,
 }
 
+#[derive(Resource)]
+struct MovementTimer {
+    timer: Timer,
+    initial_delay: Timer,
+    is_repeating: bool,
+}
+
+impl Default for MovementTimer {
+    fn default() -> Self {
+        Self {
+            timer: Timer::from_seconds(0.08, TimerMode::Repeating),
+            initial_delay: Timer::from_seconds(0.25, TimerMode::Once),
+            is_repeating: false,
+        }
+    }
+}
+
 fn main() {
     App::new()
         .add_plugins(
@@ -44,6 +61,7 @@ fn main() {
                     ..default()
                 }),
         )
+        .init_resource::<MovementTimer>()
         .add_systems(Startup, (spawn_field_map, setup_camera, spawn_player).chain())
         .add_systems(Update, (player_movement, camera_follow).chain())
         .run();
@@ -115,6 +133,8 @@ fn spawn_player(mut commands: Commands, spawn_pos: Res<SpawnPosition>) {
 
 fn player_movement(
     keyboard: Res<ButtonInput<KeyCode>>,
+    time: Res<Time>,
+    mut move_timer: ResMut<MovementTimer>,
     mut query: Query<(&mut TilePosition, &mut Transform), With<Player>>,
 ) {
     let Ok((mut tile_pos, mut transform)) = query.single_mut() else {
@@ -124,20 +144,51 @@ fn player_movement(
     let mut dx: i32 = 0;
     let mut dy: i32 = 0;
 
-    if keyboard.just_pressed(KeyCode::KeyW) {
+    if keyboard.pressed(KeyCode::KeyW) {
         dy = 1;
     }
-    if keyboard.just_pressed(KeyCode::KeyS) {
+    if keyboard.pressed(KeyCode::KeyS) {
         dy = -1;
     }
-    if keyboard.just_pressed(KeyCode::KeyA) {
+    if keyboard.pressed(KeyCode::KeyA) {
         dx = -1;
     }
-    if keyboard.just_pressed(KeyCode::KeyD) {
+    if keyboard.pressed(KeyCode::KeyD) {
         dx = 1;
     }
 
-    if dx != 0 || dy != 0 {
+    // 方向キーが押されていない場合はタイマーをリセット
+    if dx == 0 && dy == 0 {
+        move_timer.is_repeating = false;
+        move_timer.initial_delay.reset();
+        move_timer.timer.reset();
+        return;
+    }
+
+    // 最初の押下か、リピート中かを判定
+    let should_move = if keyboard.any_just_pressed([KeyCode::KeyW, KeyCode::KeyS, KeyCode::KeyA, KeyCode::KeyD]) {
+        // 新しいキー押下時は即座に移動、リピートモードをリセット
+        move_timer.is_repeating = false;
+        move_timer.initial_delay.reset();
+        move_timer.timer.reset();
+        true
+    } else if move_timer.is_repeating {
+        // リピート中は通常のタイマーで移動
+        move_timer.timer.tick(time.delta());
+        move_timer.timer.just_finished()
+    } else {
+        // 初回遅延を待つ
+        move_timer.initial_delay.tick(time.delta());
+        if move_timer.initial_delay.just_finished() {
+            move_timer.is_repeating = true;
+            move_timer.timer.reset();
+            true
+        } else {
+            false
+        }
+    };
+
+    if should_move {
         // タイル位置はラップ
         tile_pos.x = ((tile_pos.x as i32 + dx).rem_euclid(MAP_WIDTH as i32)) as usize;
         tile_pos.y = ((tile_pos.y as i32 + dy).rem_euclid(MAP_HEIGHT as i32)) as usize;
