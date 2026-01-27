@@ -84,11 +84,11 @@ fn spawn_field_map(mut commands: Commands) {
     let origin_x = -MAP_PIXEL_WIDTH / 2.0 + TILE_SIZE / 2.0;
     let origin_y = -MAP_PIXEL_HEIGHT / 2.0 + TILE_SIZE / 2.0;
     let mut rng = rand::thread_rng();
-    let MapData { grid, spawn_position } = generate_map(&mut rng);
+    let map_data = generate_map(&mut rng);
 
     commands.insert_resource(SpawnPosition {
-        x: spawn_position.0,
-        y: spawn_position.1,
+        x: map_data.spawn_position.0,
+        y: map_data.spawn_position.1,
     });
 
     // マップを3x3で複製描画（トーラスラップの視覚化）
@@ -99,7 +99,7 @@ fn spawn_field_map(mut commands: Commands) {
 
             for y in 0..MAP_HEIGHT {
                 for x in 0..MAP_WIDTH {
-                    let terrain = grid[y][x];
+                    let terrain = map_data.grid[y][x];
                     let world_x = base_x + x as f32 * TILE_SIZE;
                     let world_y = base_y + y as f32 * TILE_SIZE;
 
@@ -111,6 +111,8 @@ fn spawn_field_map(mut commands: Commands) {
             }
         }
     }
+
+    commands.insert_resource(map_data);
 }
 
 fn spawn_player(mut commands: Commands, spawn_pos: Res<SpawnPosition>) {
@@ -134,6 +136,7 @@ fn spawn_player(mut commands: Commands, spawn_pos: Res<SpawnPosition>) {
 fn player_movement(
     keyboard: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
+    map_data: Res<MapData>,
     mut move_timer: ResMut<MovementTimer>,
     mut query: Query<(&mut TilePosition, &mut Transform), With<Player>>,
 ) {
@@ -189,9 +192,18 @@ fn player_movement(
     };
 
     if should_move {
-        // タイル位置はラップ
-        tile_pos.x = ((tile_pos.x as i32 + dx).rem_euclid(MAP_WIDTH as i32)) as usize;
-        tile_pos.y = ((tile_pos.y as i32 + dy).rem_euclid(MAP_HEIGHT as i32)) as usize;
+        // 移動先のタイル座標を計算
+        let new_x = ((tile_pos.x as i32 + dx).rem_euclid(MAP_WIDTH as i32)) as usize;
+        let new_y = ((tile_pos.y as i32 + dy).rem_euclid(MAP_HEIGHT as i32)) as usize;
+
+        // 海には移動できない
+        if map_data.grid[new_y][new_x] == Terrain::Sea {
+            return;
+        }
+
+        // タイル位置を更新
+        tile_pos.x = new_x;
+        tile_pos.y = new_y;
 
         // ワールド座標は連続的に移動
         transform.translation.x += dx as f32 * TILE_SIZE;

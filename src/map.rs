@@ -14,6 +14,7 @@ pub enum Terrain {
     Sea,
 }
 
+#[derive(bevy::prelude::Resource)]
 pub struct MapData {
     pub grid: Vec<Vec<Terrain>>,
     pub spawn_position: (usize, usize),
