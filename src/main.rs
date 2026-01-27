@@ -31,18 +31,20 @@ struct SpawnPosition {
 }
 
 #[derive(Resource)]
-struct MovementTimer {
+struct MovementState {
     timer: Timer,
     initial_delay: Timer,
     is_repeating: bool,
+    last_direction: (i32, i32),
 }
 
-impl Default for MovementTimer {
+impl Default for MovementState {
     fn default() -> Self {
         Self {
             timer: Timer::from_seconds(0.08, TimerMode::Repeating),
-            initial_delay: Timer::from_seconds(0.25, TimerMode::Once),
+            initial_delay: Timer::from_seconds(0.2, TimerMode::Once),
             is_repeating: false,
+            last_direction: (0, 0),
         }
     }
 }
@@ -61,7 +63,7 @@ fn main() {
                     ..default()
                 }),
         )
-        .init_resource::<MovementTimer>()
+        .init_resource::<MovementState>()
         .add_systems(Startup, (spawn_field_map, setup_camera, spawn_player).chain())
         .add_systems(Update, (player_movement, camera_follow).chain())
         .run();
@@ -137,7 +139,7 @@ fn player_movement(
     keyboard: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
     map_data: Res<MapData>,
-    mut move_timer: ResMut<MovementTimer>,
+    mut move_state: ResMut<MovementState>,
     mut query: Query<(&mut TilePosition, &mut Transform), With<Player>>,
 ) {
     let Ok((mut tile_pos, mut transform)) = query.single_mut() else {
@@ -147,44 +149,50 @@ fn player_movement(
     let mut dx: i32 = 0;
     let mut dy: i32 = 0;
 
-    if keyboard.pressed(KeyCode::KeyW) {
+    if keyboard.pressed(KeyCode::KeyW) || keyboard.pressed(KeyCode::ArrowUp) {
         dy = 1;
     }
-    if keyboard.pressed(KeyCode::KeyS) {
+    if keyboard.pressed(KeyCode::KeyS) || keyboard.pressed(KeyCode::ArrowDown) {
         dy = -1;
     }
-    if keyboard.pressed(KeyCode::KeyA) {
+    if keyboard.pressed(KeyCode::KeyA) || keyboard.pressed(KeyCode::ArrowLeft) {
         dx = -1;
     }
-    if keyboard.pressed(KeyCode::KeyD) {
+    if keyboard.pressed(KeyCode::KeyD) || keyboard.pressed(KeyCode::ArrowRight) {
         dx = 1;
     }
 
-    // 方向キーが押されていない場合はタイマーをリセット
+    let current_direction = (dx, dy);
+
+    // 方向キーが押されていない場合はリセット
     if dx == 0 && dy == 0 {
-        move_timer.is_repeating = false;
-        move_timer.initial_delay.reset();
-        move_timer.timer.reset();
+        move_state.is_repeating = false;
+        move_state.initial_delay.reset();
+        move_state.timer.reset();
+        move_state.last_direction = (0, 0);
         return;
     }
 
-    // 最初の押下か、リピート中かを判定
-    let should_move = if keyboard.any_just_pressed([KeyCode::KeyW, KeyCode::KeyS, KeyCode::KeyA, KeyCode::KeyD]) {
-        // 新しいキー押下時は即座に移動、リピートモードをリセット
-        move_timer.is_repeating = false;
-        move_timer.initial_delay.reset();
-        move_timer.timer.reset();
+    // 方向が変わったか判定（新しい入力として扱う）
+    let direction_changed = current_direction != move_state.last_direction;
+
+    let should_move = if direction_changed {
+        // 方向変更時は即座に移動、タイマーリセット
+        move_state.is_repeating = false;
+        move_state.initial_delay.reset();
+        move_state.timer.reset();
+        move_state.last_direction = current_direction;
         true
-    } else if move_timer.is_repeating {
+    } else if move_state.is_repeating {
         // リピート中は通常のタイマーで移動
-        move_timer.timer.tick(time.delta());
-        move_timer.timer.just_finished()
+        move_state.timer.tick(time.delta());
+        move_state.timer.just_finished()
     } else {
         // 初回遅延を待つ
-        move_timer.initial_delay.tick(time.delta());
-        if move_timer.initial_delay.just_finished() {
-            move_timer.is_repeating = true;
-            move_timer.timer.reset();
+        move_state.initial_delay.tick(time.delta());
+        if move_state.initial_delay.just_finished() {
+            move_state.is_repeating = true;
+            move_state.timer.reset();
             true
         } else {
             false
