@@ -88,3 +88,27 @@ Before finalizing any recommendation:
 5. Confirm alignment with existing codebase patterns (when applicable)
 
 Always explain your reasoning. When multiple valid approaches exist, present them with clear criteria for choosing between them. Ask clarifying questions when requirements are ambiguous—never assume critical details.
+
+## Project-Specific Architecture Guidelines
+
+This project follows a strict separation between game logic and UI:
+
+### Module Structure
+- `game/` - Pure game logic (rules, state, tile coordinates)
+- `ui/` - Presentation layer (rendering, animations, world coordinates)
+
+### Communication Pattern
+- game → ui: Use `Message` (e.g., `MovementBlockedEvent`)
+- ui → game: Use marker components (e.g., `MovementLocked`)
+- **Never** let `game/` depend on `ui/`
+
+### Coordinate Systems
+- `game/`: Tile coordinates `(usize, usize)`
+- `ui/`: World coordinates `(f32, f32)`
+
+### Decision Criteria
+Ask: "Does this make sense without a screen?"
+- Yes → belongs in `game/`
+- No → belongs in `ui/`
+
+See `.claude/skills/architecture-patterns.md` for detailed patterns.

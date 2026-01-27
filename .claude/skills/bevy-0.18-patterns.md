@@ -8,6 +8,49 @@ use bevy::prelude::*;
 use bevy::window::{Window, WindowResolution};
 ```
 
+## Message API（Bevy 0.17以降）
+
+Bevy 0.17で`Event`/`EventWriter`/`EventReader`は`Message`/`MessageWriter`/`MessageReader`に名称変更された。
+
+### メッセージ定義
+
+```rust
+#[derive(Message)]
+pub struct PlayerMovedEvent {
+    pub entity: Entity,
+    pub direction: (i32, i32),
+}
+```
+
+### メッセージ送信
+
+```rust
+fn movement(mut events: MessageWriter<PlayerMovedEvent>) {
+    events.write(PlayerMovedEvent {
+        entity,
+        direction: (dx, dy)
+    });
+}
+```
+
+### メッセージ受信
+
+```rust
+fn handle_movement(mut events: MessageReader<PlayerMovedEvent>) {
+    for event in events.read() {
+        // event.entity, event.direction を使用
+    }
+}
+```
+
+### Appへの登録
+
+```rust
+App::new()
+    .add_message::<PlayerMovedEvent>()
+    .add_message::<MovementBlockedEvent>()
+```
+
 ## カメラ設定
 
 ### 固定表示範囲のOrthographicカメラ
