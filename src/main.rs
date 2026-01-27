@@ -9,7 +9,7 @@ use crate::map::{generate_map, MapData, Terrain, MAP_HEIGHT, MAP_WIDTH};
 const TILE_SIZE: f32 = 4.0;
 const MAP_PIXEL_WIDTH: f32 = MAP_WIDTH as f32 * TILE_SIZE;
 const MAP_PIXEL_HEIGHT: f32 = MAP_HEIGHT as f32 * TILE_SIZE;
-const PLAYER_SIZE: f32 = TILE_SIZE;
+const PLAYER_SIZE: f32 = TILE_SIZE * 0.7;
 const VISIBLE_CELLS: f32 = 7.0;
 const VISIBLE_SIZE: f32 = VISIBLE_CELLS * TILE_SIZE;
 const WINDOW_SCALE: f32 = 16.0;
