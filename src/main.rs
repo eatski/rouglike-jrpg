@@ -19,6 +19,16 @@ const WINDOW_SIZE: f32 = VISIBLE_SIZE * WINDOW_SCALE;
 struct Player;
 
 #[derive(Component)]
+struct Bounce {
+    direction: Vec2,
+    timer: Timer,
+    offset: Vec2,
+}
+
+const BOUNCE_DISTANCE: f32 = TILE_SIZE * 0.3;
+const BOUNCE_DURATION: f32 = 0.12;
+
+#[derive(Component)]
 struct TilePosition {
     x: usize,
     y: usize,
@@ -65,7 +75,7 @@ fn main() {
         )
         .init_resource::<MovementState>()
         .add_systems(Startup, (spawn_field_map, setup_camera, spawn_player).chain())
-        .add_systems(Update, (player_movement, camera_follow).chain())
+        .add_systems(Update, (player_movement, update_bounce, camera_follow).chain())
         .run();
 }
 
@@ -136,15 +146,21 @@ fn spawn_player(mut commands: Commands, spawn_pos: Res<SpawnPosition>) {
 }
 
 fn player_movement(
+    mut commands: Commands,
     keyboard: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
     map_data: Res<MapData>,
     mut move_state: ResMut<MovementState>,
-    mut query: Query<(&mut TilePosition, &mut Transform), With<Player>>,
+    mut query: Query<(Entity, &mut TilePosition, &mut Transform, Option<&Bounce>), With<Player>>,
 ) {
-    let Ok((mut tile_pos, mut transform)) = query.single_mut() else {
+    let Ok((entity, mut tile_pos, mut transform, bounce)) = query.single_mut() else {
         return;
     };
+
+    // バウンス中は移動入力を無視
+    if bounce.is_some() {
+        return;
+    }
 
     let mut dx: i32 = 0;
     let mut dy: i32 = 0;
@@ -206,6 +222,12 @@ fn player_movement(
 
         // 海には移動できない
         if map_data.grid[new_y][new_x] == Terrain::Sea {
+            // バウンスフィードバックを開始
+            commands.entity(entity).insert(Bounce {
+                direction: Vec2::new(dx as f32, dy as f32).normalize(),
+                timer: Timer::from_seconds(BOUNCE_DURATION, TimerMode::Once),
+                offset: Vec2::ZERO,
+            });
             return;
         }
 
@@ -232,6 +254,37 @@ fn player_movement(
         } else if transform.translation.y < -half_height {
             transform.translation.y += MAP_PIXEL_HEIGHT;
         }
+    }
+}
+
+fn update_bounce(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut query: Query<(Entity, &mut Bounce, &mut Transform), With<Player>>,
+) {
+    let Ok((entity, mut bounce, mut transform)) = query.single_mut() else {
+        return;
+    };
+
+    // 前回のオフセットを元に戻す
+    transform.translation.x -= bounce.offset.x;
+    transform.translation.y -= bounce.offset.y;
+
+    bounce.timer.tick(time.delta());
+
+    if bounce.timer.just_finished() {
+        // バウンス終了
+        commands.entity(entity).remove::<Bounce>();
+    } else {
+        // バウンスアニメーション（往復）
+        let progress = bounce.timer.fraction();
+        // sin波で往復: 0→1→0
+        let bounce_factor = (progress * std::f32::consts::PI).sin();
+        let new_offset = bounce.direction * BOUNCE_DISTANCE * bounce_factor;
+
+        transform.translation.x += new_offset.x;
+        transform.translation.y += new_offset.y;
+        bounce.offset = new_offset;
     }
 }
 
