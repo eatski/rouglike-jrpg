@@ -14,7 +14,12 @@ pub enum Terrain {
     Sea,
 }
 
-pub fn generate_map(rng: &mut impl Rng) -> Vec<Vec<Terrain>> {
+pub struct MapData {
+    pub grid: Vec<Vec<Terrain>>,
+    pub spawn_position: (usize, usize),
+}
+
+pub fn generate_map(rng: &mut impl Rng) -> MapData {
     let mut grid = vec![vec![Terrain::Sea; MAP_WIDTH]; MAP_HEIGHT];
     let mut land_tiles = 0usize;
     let mut frontier = Vec::new();
@@ -36,6 +41,7 @@ pub fn generate_map(rng: &mut impl Rng) -> Vec<Vec<Terrain>> {
     }
 
     let protected = seeds[0];
+    let spawn_position = (protected.1, protected.0); // (x, y)に変換
     let target_land = TARGET_LAND_TILES.min(MAP_WIDTH * MAP_HEIGHT);
 
     while land_tiles < target_land {
@@ -86,7 +92,10 @@ pub fn generate_map(rng: &mut impl Rng) -> Vec<Vec<Terrain>> {
         protected,
     );
 
-    grid
+    MapData {
+        grid,
+        spawn_position,
+    }
 }
 
 fn scatter_clusters(
