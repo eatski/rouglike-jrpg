@@ -1,9 +1,11 @@
 use rand::Rng;
 
-pub const MAP_WIDTH: usize = 100;
-pub const MAP_HEIGHT: usize = 100;
-const TARGET_LAND_TILES: usize = 3_000;
+pub const MAP_WIDTH: usize = 150;
+pub const MAP_HEIGHT: usize = 150;
+const TARGET_LAND_TILES: usize = 4_500;
 const LAND_SPREAD_CHANCE: f32 = 0.65;
+const ISLAND_COUNT: usize = 15;
+const COASTAL_BORDER: usize = 5;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Terrain {
@@ -15,12 +17,31 @@ pub enum Terrain {
 
 pub fn generate_map(rng: &mut impl Rng) -> Vec<Vec<Terrain>> {
     let mut grid = vec![vec![Terrain::Sea; MAP_WIDTH]; MAP_HEIGHT];
-    let center = (MAP_HEIGHT / 2, MAP_WIDTH / 2);
-    grid[center.0][center.1] = Terrain::Plains;
+    let mut land_tiles = 0usize;
+    let mut frontier = Vec::new();
+    let mut land_positions = Vec::new();
+    let mut seeds = Vec::with_capacity(ISLAND_COUNT);
 
-    let mut land_tiles = 1usize;
-    let mut frontier = vec![center];
-    let mut land_positions = vec![center];
+    debug_assert!(
+        MAP_WIDTH > COASTAL_BORDER * 2 && MAP_HEIGHT > COASTAL_BORDER * 2,
+        "MAP dimensions must exceed twice the coastal border"
+    );
+
+    while seeds.len() < ISLAND_COUNT {
+        let y = rng.gen_range(COASTAL_BORDER..MAP_HEIGHT - COASTAL_BORDER);
+        let x = rng.gen_range(COASTAL_BORDER..MAP_WIDTH - COASTAL_BORDER);
+
+        if grid[y][x] == Terrain::Sea {
+            let pos = (y, x);
+            grid[y][x] = Terrain::Plains;
+            seeds.push(pos);
+            frontier.push(pos);
+            land_positions.push(pos);
+            land_tiles += 1;
+        }
+    }
+
+    let protected = seeds[0];
     let target_land = TARGET_LAND_TILES.min(MAP_WIDTH * MAP_HEIGHT);
 
     while land_tiles < target_land {
@@ -34,6 +55,14 @@ pub fn generate_map(rng: &mut impl Rng) -> Vec<Vec<Terrain>> {
         let mut removed = true;
 
         for (ny, nx) in neighbors(y, x) {
+            if ny < COASTAL_BORDER
+                || ny >= MAP_HEIGHT - COASTAL_BORDER
+                || nx < COASTAL_BORDER
+                || nx >= MAP_WIDTH - COASTAL_BORDER
+            {
+                continue;
+            }
+
             if grid[ny][nx] == Terrain::Sea && rng.r#gen::<f32>() < LAND_SPREAD_CHANCE {
                 grid[ny][nx] = Terrain::Plains;
                 land_tiles += 1;
@@ -59,7 +88,7 @@ pub fn generate_map(rng: &mut impl Rng) -> Vec<Vec<Terrain>> {
         Terrain::Forest,
         35,
         20..=80,
-        center,
+        protected,
     );
     scatter_clusters(
         &mut grid,
@@ -68,8 +97,10 @@ pub fn generate_map(rng: &mut impl Rng) -> Vec<Vec<Terrain>> {
         Terrain::Mountain,
         18,
         10..=45,
-        center,
+        protected,
     );
+
+    enforce_coastline(&mut grid);
 
     grid
 }
@@ -96,7 +127,13 @@ fn scatter_clusters(
             let idx = rng.gen_range(0..stack.len());
             (y, x) = stack.swap_remove(idx);
 
-            if (y, x) == protected || grid[y][x] != Terrain::Plains {
+            if (y, x) == protected
+                || grid[y][x] != Terrain::Plains
+                || y < COASTAL_BORDER
+                || y >= MAP_HEIGHT - COASTAL_BORDER
+                || x < COASTAL_BORDER
+                || x >= MAP_WIDTH - COASTAL_BORDER
+            {
                 continue;
             }
 
@@ -104,9 +141,31 @@ fn scatter_clusters(
             remaining -= 1;
 
             for (ny, nx) in neighbors(y, x) {
+                if ny < COASTAL_BORDER
+                    || ny >= MAP_HEIGHT - COASTAL_BORDER
+                    || nx < COASTAL_BORDER
+                    || nx >= MAP_WIDTH - COASTAL_BORDER
+                {
+                    continue;
+                }
+
                 if grid[ny][nx] == Terrain::Plains && rng.gen_bool(0.7) {
                     stack.push((ny, nx));
                 }
+            }
+        }
+    }
+}
+
+fn enforce_coastline(grid: &mut [Vec<Terrain>]) {
+    for y in 0..MAP_HEIGHT {
+        for x in 0..MAP_WIDTH {
+            if y < COASTAL_BORDER
+                || y >= MAP_HEIGHT - COASTAL_BORDER
+                || x < COASTAL_BORDER
+                || x >= MAP_WIDTH - COASTAL_BORDER
+            {
+                grid[y][x] = Terrain::Sea;
             }
         }
     }

@@ -4,7 +4,9 @@ use bevy::prelude::*;
 
 use crate::map::{generate_map, Terrain, MAP_HEIGHT, MAP_WIDTH};
 
-const TILE_SIZE: f32 = 8.0;
+const TILE_SIZE: f32 = 4.0;
+const MAP_PIXEL_WIDTH: f32 = MAP_WIDTH as f32 * TILE_SIZE;
+const MAP_PIXEL_HEIGHT: f32 = MAP_HEIGHT as f32 * TILE_SIZE;
 
 fn main() {
     App::new()
@@ -18,10 +20,8 @@ fn setup_camera(mut commands: Commands) {
 }
 
 fn spawn_field_map(mut commands: Commands) {
-    let map_width = MAP_WIDTH as f32 * TILE_SIZE;
-    let map_height = MAP_HEIGHT as f32 * TILE_SIZE;
-    let origin_x = -map_width / 2.0 + TILE_SIZE / 2.0;
-    let origin_y = -map_height / 2.0 + TILE_SIZE / 2.0;
+    let origin_x = -MAP_PIXEL_WIDTH / 2.0 + TILE_SIZE / 2.0;
+    let origin_y = -MAP_PIXEL_HEIGHT / 2.0 + TILE_SIZE / 2.0;
     let mut rng = rand::thread_rng();
     let map_data = generate_map(&mut rng);
 
@@ -32,7 +32,7 @@ fn spawn_field_map(mut commands: Commands) {
             let world_y = origin_y + y as f32 * TILE_SIZE;
 
             commands.spawn((
-                Sprite::from_color(terrain_color(terrain), Vec2::splat(TILE_SIZE - 1.0)),
+                Sprite::from_color(terrain_color(terrain), Vec2::splat(TILE_SIZE)),
                 Transform::from_xyz(world_x, world_y, 0.0),
             ));
         }
