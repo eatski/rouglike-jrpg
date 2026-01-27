@@ -73,16 +73,24 @@ fn spawn_field_map(mut commands: Commands) {
         y: spawn_position.1,
     });
 
-    for y in 0..MAP_HEIGHT {
-        for x in 0..MAP_WIDTH {
-            let terrain = grid[y][x];
-            let world_x = origin_x + x as f32 * TILE_SIZE;
-            let world_y = origin_y + y as f32 * TILE_SIZE;
+    // マップを3x3で複製描画（トーラスラップの視覚化）
+    for offset_y in -1..=1 {
+        for offset_x in -1..=1 {
+            let base_x = origin_x + offset_x as f32 * MAP_PIXEL_WIDTH;
+            let base_y = origin_y + offset_y as f32 * MAP_PIXEL_HEIGHT;
 
-            commands.spawn((
-                Sprite::from_color(terrain_color(terrain), Vec2::splat(TILE_SIZE)),
-                Transform::from_xyz(world_x, world_y, 0.0),
-            ));
+            for y in 0..MAP_HEIGHT {
+                for x in 0..MAP_WIDTH {
+                    let terrain = grid[y][x];
+                    let world_x = base_x + x as f32 * TILE_SIZE;
+                    let world_y = base_y + y as f32 * TILE_SIZE;
+
+                    commands.spawn((
+                        Sprite::from_color(terrain_color(terrain), Vec2::splat(TILE_SIZE)),
+                        Transform::from_xyz(world_x, world_y, 0.0),
+                    ));
+                }
+            }
         }
     }
 }
@@ -130,14 +138,29 @@ fn player_movement(
     }
 
     if dx != 0 || dy != 0 {
+        // タイル位置はラップ
         tile_pos.x = ((tile_pos.x as i32 + dx).rem_euclid(MAP_WIDTH as i32)) as usize;
         tile_pos.y = ((tile_pos.y as i32 + dy).rem_euclid(MAP_HEIGHT as i32)) as usize;
 
-        let origin_x = -MAP_PIXEL_WIDTH / 2.0 + TILE_SIZE / 2.0;
-        let origin_y = -MAP_PIXEL_HEIGHT / 2.0 + TILE_SIZE / 2.0;
+        // ワールド座標は連続的に移動
+        transform.translation.x += dx as f32 * TILE_SIZE;
+        transform.translation.y += dy as f32 * TILE_SIZE;
 
-        transform.translation.x = origin_x + tile_pos.x as f32 * TILE_SIZE;
-        transform.translation.y = origin_y + tile_pos.y as f32 * TILE_SIZE;
+        // 中央マップの範囲を超えたらワールド座標をラップ
+        let half_width = MAP_PIXEL_WIDTH / 2.0;
+        let half_height = MAP_PIXEL_HEIGHT / 2.0;
+
+        if transform.translation.x > half_width {
+            transform.translation.x -= MAP_PIXEL_WIDTH;
+        } else if transform.translation.x < -half_width {
+            transform.translation.x += MAP_PIXEL_WIDTH;
+        }
+
+        if transform.translation.y > half_height {
+            transform.translation.y -= MAP_PIXEL_HEIGHT;
+        } else if transform.translation.y < -half_height {
+            transform.translation.y += MAP_PIXEL_HEIGHT;
+        }
     }
 }
 
