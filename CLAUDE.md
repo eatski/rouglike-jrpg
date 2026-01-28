@@ -33,7 +33,7 @@ Bevy 0.18を使用した2Dローグライク風JRPGのプロトタイプ。Cargo
 ユーザー指示 → PM → エージェント → PM → ユーザーに報告
 ```
 
-- **コミット**: ユーザーが明示的に指示した場合のみ `commit-keeper` を起動
+- **コミット**: ユーザーが明示的に指示した場合のみ `task-committer` を起動
 - **Explore**: 専門エージェントが内部で使用（PMは直接起動しない）
 - **複合タスク**: まず `software-architect` で設計、その後各エージェントに委譲
 
@@ -47,7 +47,7 @@ Bevy 0.18を使用した2Dローグライク風JRPGのプロトタイプ。Cargo
 | `performance-optimizer` | パフォーマンス最適化 |
 | `test-engineer` | テスト作成・デバッグ |
 | `pixel-art-generator` | ドット絵・アセット生成 |
-| `commit-keeper` | ドキュメント更新・コミット |
+| `task-committer` | コミット・ドキュメント整理 |
 
 ## スキル
 
