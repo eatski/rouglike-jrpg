@@ -5,7 +5,7 @@ use game::map::{generate_map, Terrain, MAP_HEIGHT, MAP_WIDTH};
 use crate::components::{Player, TilePosition};
 use crate::resources::{MapDataResource, SpawnPosition};
 
-use super::constants::{MAP_PIXEL_HEIGHT, MAP_PIXEL_WIDTH, PLAYER_SIZE, TILE_SIZE};
+use super::constants::{MAP_PIXEL_HEIGHT, MAP_PIXEL_WIDTH, TILE_SIZE};
 
 #[derive(Resource)]
 pub struct TileTextures {
@@ -70,12 +70,19 @@ pub fn spawn_field_map(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.insert_resource(MapDataResource::from(map_data));
 }
 
-pub fn spawn_player(mut commands: Commands, spawn_pos: Res<SpawnPosition>) {
+pub fn spawn_player(
+    mut commands: Commands,
+    spawn_pos: Res<SpawnPosition>,
+    asset_server: Res<AssetServer>,
+) {
     let origin_x = -MAP_PIXEL_WIDTH / 2.0 + TILE_SIZE / 2.0;
     let origin_y = -MAP_PIXEL_HEIGHT / 2.0 + TILE_SIZE / 2.0;
 
     let world_x = origin_x + spawn_pos.x as f32 * TILE_SIZE;
     let world_y = origin_y + spawn_pos.y as f32 * TILE_SIZE;
+
+    let player_texture: Handle<Image> = asset_server.load("characters/player.png");
+    let scale = TILE_SIZE / 16.0;
 
     commands.spawn((
         Player,
@@ -83,8 +90,8 @@ pub fn spawn_player(mut commands: Commands, spawn_pos: Res<SpawnPosition>) {
             x: spawn_pos.x,
             y: spawn_pos.y,
         },
-        Sprite::from_color(Color::srgb_u8(255, 200, 100), Vec2::splat(PLAYER_SIZE)),
-        Transform::from_xyz(world_x, world_y, 1.0),
+        Sprite::from_image(player_texture),
+        Transform::from_xyz(world_x, world_y, 1.0).with_scale(Vec3::splat(scale)),
     ));
 }
 

@@ -24,3 +24,6 @@ target
 # Added by cargo
 
 /target
+
+# Generated assets (regenerate with: cargo run --bin generate-tiles)
+/assets/
