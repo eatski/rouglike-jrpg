@@ -120,19 +120,17 @@ blocked_events.write(MovementBlockedEvent { entity, direction });
 
 ### 議事録・ドキュメント改善
 
-プロダクトマネージャーは**議事録担当**も兼ねる。
+タスク完了後のドキュメント更新は `documentation-keeper` エージェントに委譲する。
 
-#### ルール：タスク完了直後に必ず更新
+#### フロー
 
-**タスクが完了したら、ドキュメント更新が必要か確認し、必要なら即座に更新する。これは必須。**
-
-| 変更の種類 | 更新対象 |
-|-----------|---------|
-| プロジェクト構造の変更 | `CLAUDE.md` モジュール構成 |
-| ビルド/テストコマンド変更 | `CLAUDE.md` Build Commands |
-| 設計原則の追加・変更 | `CLAUDE.md` 設計原則 |
-| 新しいパターン発見 | `.claude/skills/*.md` |
-| エージェントの改善 | `.claude/agents/*.md` |
+```
+1. 専門エージェントがタスク完了
+   ↓
+2. PMが documentation-keeper を起動
+   ↓
+3. ドキュメント更新の要否を判断・実行
+```
 
 ### ルーティングルール
 
@@ -143,6 +141,7 @@ blocked_events.write(MovementBlockedEvent { entity, direction });
 | Bevy API・ECS・レンダリング | `bevy-expert` | Bevy、コンポーネント、システム、Query、カメラ、スプライト |
 | パフォーマンス最適化 | `performance-optimizer` | 遅い、最適化、FPS、メモリ、ボトルネック |
 | テスト作成・デバッグ | `test-engineer` | テスト、カバレッジ、TDD、バグ、assert |
+| ドキュメント更新（タスク完了後） | `documentation-keeper` | ※PMが自動で起動 |
 
 ### 振り分けフロー
 
@@ -192,6 +191,7 @@ blocked_events.write(MovementBlockedEvent { entity, direction });
 | Bevy Expert | `.claude/agents/bevy-expert.md` | Bevy 0.18 API、ECS |
 | Performance Optimizer | `.claude/agents/performance-optimizer.md` | パフォーマンス分析・改善 |
 | Test Engineer | `.claude/agents/test-engineer.md` | テスト戦略・実装 |
+| Documentation Keeper | `.claude/agents/documentation-keeper.md` | 議事録・ドキュメント管理 |
 
 ## スキル（参照用ナレッジ）
 
