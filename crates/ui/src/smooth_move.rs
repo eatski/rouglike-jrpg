@@ -13,8 +13,10 @@ const MOVE_DURATION: f32 = 0.15;
 pub struct SmoothMove {
     /// 移動元の座標
     pub from: Vec2,
-    /// 移動先の座標
+    /// 移動先の座標（アニメーション用、範囲外の場合あり）
     pub to: Vec2,
+    /// ラップ後の最終座標
+    pub final_pos: Vec2,
     /// アニメーションタイマー
     pub timer: Timer,
 }
@@ -33,29 +35,30 @@ pub fn start_smooth_move(
         let (dx, dy) = event.direction;
         let current_pos = Vec2::new(transform.translation.x, transform.translation.y);
 
-        // 目標座標を計算
-        let mut target_pos = current_pos + Vec2::new(dx as f32 * TILE_SIZE, dy as f32 * TILE_SIZE);
+        // アニメーション用の目標座標（ラップしない、移動方向に素直に動く）
+        let target_pos = current_pos + Vec2::new(dx as f32 * TILE_SIZE, dy as f32 * TILE_SIZE);
 
-        // 中央マップの範囲を超える場合のラップ処理
+        // ラップ後の最終座標を計算
         let half_width = MAP_PIXEL_WIDTH / 2.0;
         let half_height = MAP_PIXEL_HEIGHT / 2.0;
 
-        if target_pos.x > half_width {
-            target_pos.x -= MAP_PIXEL_WIDTH;
-        } else if target_pos.x < -half_width {
-            target_pos.x += MAP_PIXEL_WIDTH;
+        let mut final_pos = target_pos;
+        if final_pos.x > half_width {
+            final_pos.x -= MAP_PIXEL_WIDTH;
+        } else if final_pos.x < -half_width {
+            final_pos.x += MAP_PIXEL_WIDTH;
         }
-
-        if target_pos.y > half_height {
-            target_pos.y -= MAP_PIXEL_HEIGHT;
-        } else if target_pos.y < -half_height {
-            target_pos.y += MAP_PIXEL_HEIGHT;
+        if final_pos.y > half_height {
+            final_pos.y -= MAP_PIXEL_HEIGHT;
+        } else if final_pos.y < -half_height {
+            final_pos.y += MAP_PIXEL_HEIGHT;
         }
 
         commands.entity(event.entity).insert((
             SmoothMove {
                 from: current_pos,
                 to: target_pos,
+                final_pos,
                 timer: Timer::from_seconds(MOVE_DURATION, TimerMode::Once),
             },
             MovementLocked,
@@ -76,9 +79,9 @@ pub fn update_smooth_move(
     smooth_move.timer.tick(time.delta());
 
     if smooth_move.timer.just_finished() {
-        // 移動完了、最終位置にセット
-        transform.translation.x = smooth_move.to.x;
-        transform.translation.y = smooth_move.to.y;
+        // 移動完了、ラップ後の最終位置にセット
+        transform.translation.x = smooth_move.final_pos.x;
+        transform.translation.y = smooth_move.final_pos.y;
 
         // コンポーネント削除してロック解除
         commands.entity(entity).remove::<SmoothMove>();
