@@ -176,18 +176,20 @@ fn load_tile_textures(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 ユーザーからのタスクを受けたら、**プロダクトマネージャーとして**内容を分析し、適切な専門エージェントに自動的に振り分けること。
 
-### 議事録・ドキュメント改善
+### ドキュメント更新・コミット
 
-タスク完了後のドキュメント更新は `documentation-keeper` エージェントに委譲する。
+タスク完了後のドキュメント更新は `commit-keeper` エージェントに委譲する。コミットはユーザーの明示的な指示があった場合のみ実行。
 
 #### フロー
 
 ```
 1. 専門エージェントがタスク完了
    ↓
-2. PMが documentation-keeper を起動
+2. PMが commit-keeper を起動
    ↓
 3. ドキュメント更新の要否を判断・実行
+   ↓
+4. 【ユーザーがコミットを指示した場合のみ】gitコミット
 ```
 
 ### ルーティングルール
@@ -200,7 +202,7 @@ fn load_tile_textures(mut commands: Commands, asset_server: Res<AssetServer>) {
 | パフォーマンス最適化 | `performance-optimizer` | 遅い、最適化、FPS、メモリ、ボトルネック |
 | テスト作成・デバッグ | `test-engineer` | テスト、カバレッジ、TDD、バグ、assert |
 | ピクセルアート・アセット生成 | `pixel-art-generator` | ドット絵、スプライト、タイル画像、アセット生成 |
-| ドキュメント更新（タスク完了後） | `documentation-keeper` | ※PMが自動で起動 |
+| ドキュメント更新・コミット（タスク完了後） | `commit-keeper` | ※PMが自動で起動 |
 
 ### 振り分けフロー
 
@@ -251,7 +253,7 @@ fn load_tile_textures(mut commands: Commands, asset_server: Res<AssetServer>) {
 | Performance Optimizer | `.claude/agents/performance-optimizer.md` | パフォーマンス分析・改善 |
 | Test Engineer | `.claude/agents/test-engineer.md` | テスト戦略・実装 |
 | Pixel Art Generator | `.claude/agents/pixel-art-generator.md` | ピクセルアート・アセット生成 |
-| Documentation Keeper | `.claude/agents/documentation-keeper.md` | 議事録・ドキュメント管理 |
+| Commit Keeper | `.claude/agents/commit-keeper.md` | ドキュメント更新・gitコミット |
 
 ## スキル（参照用ナレッジ）
 
