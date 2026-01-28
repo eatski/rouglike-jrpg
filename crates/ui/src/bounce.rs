@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
-use crate::game::movement::{MovementBlockedEvent, MovementLocked, Player};
+use crate::components::{MovementLocked, Player};
+use crate::events::MovementBlockedEvent;
 
 use super::constants::TILE_SIZE;
 
@@ -15,10 +16,7 @@ pub struct Bounce {
 }
 
 /// 移動ブロックイベントを受け取ってバウンスを開始
-pub fn start_bounce(
-    mut commands: Commands,
-    mut events: MessageReader<MovementBlockedEvent>,
-) {
+pub fn start_bounce(mut commands: Commands, mut events: MessageReader<MovementBlockedEvent>) {
     for event in events.read() {
         let dir = Vec2::new(event.direction.0 as f32, event.direction.1 as f32).normalize();
         commands.entity(event.entity).insert((

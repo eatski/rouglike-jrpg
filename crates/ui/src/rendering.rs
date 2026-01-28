@@ -1,7 +1,9 @@
 use bevy::prelude::*;
 
-use crate::game::map::{generate_map, Terrain, MAP_HEIGHT, MAP_WIDTH};
-use crate::game::movement::{Player, SpawnPosition, TilePosition};
+use game::map::{generate_map, Terrain, MAP_HEIGHT, MAP_WIDTH};
+
+use crate::components::{Player, TilePosition};
+use crate::resources::{MapDataResource, SpawnPosition};
 
 use super::constants::{MAP_PIXEL_HEIGHT, MAP_PIXEL_WIDTH, PLAYER_SIZE, TILE_SIZE};
 
@@ -37,7 +39,7 @@ pub fn spawn_field_map(mut commands: Commands) {
         }
     }
 
-    commands.insert_resource(map_data);
+    commands.insert_resource(MapDataResource::from(map_data));
 }
 
 pub fn spawn_player(mut commands: Commands, spawn_pos: Res<SpawnPosition>) {

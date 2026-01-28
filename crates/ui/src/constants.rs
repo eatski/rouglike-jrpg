@@ -1,4 +1,4 @@
-use crate::game::map::{MAP_HEIGHT, MAP_WIDTH};
+use game::map::{MAP_HEIGHT, MAP_WIDTH};
 
 pub const TILE_SIZE: f32 = 4.0;
 pub const MAP_PIXEL_WIDTH: f32 = MAP_WIDTH as f32 * TILE_SIZE;

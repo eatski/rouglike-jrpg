@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
-use crate::game::movement::{Player, PlayerMovedEvent};
+use crate::components::Player;
+use crate::events::PlayerMovedEvent;
 
 use super::constants::{MAP_PIXEL_HEIGHT, MAP_PIXEL_WIDTH, TILE_SIZE};
 

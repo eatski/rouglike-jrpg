@@ -5,7 +5,11 @@ edition = "2024"
 
 [dependencies]
 bevy = "0.18"
-rand = "0.8"
+game = { path = "crates/game" }
+ui = { path = "crates/ui" }
 
 [dev-dependencies]
 rand_chacha = "0.3"
+
+[workspace]
+members = ["crates/game", "crates/ui"]

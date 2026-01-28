@@ -1,7 +1,7 @@
 use bevy::camera::{OrthographicProjection, Projection, ScalingMode};
 use bevy::prelude::*;
 
-use crate::game::movement::Player;
+use crate::components::Player;
 
 use super::constants::VISIBLE_SIZE;
 

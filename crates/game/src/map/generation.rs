@@ -8,7 +8,6 @@ const TARGET_LAND_TILES: usize = 6000;
 const LAND_SPREAD_CHANCE: f32 = 0.65;
 const ISLAND_COUNT: usize = 20;
 
-#[derive(bevy::prelude::Resource)]
 pub struct MapData {
     pub grid: Vec<Vec<Terrain>>,
     pub spawn_position: (usize, usize),
