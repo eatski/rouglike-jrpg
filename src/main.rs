@@ -6,7 +6,7 @@ use ui::events::{MovementBlockedEvent, PlayerMovedEvent};
 use ui::resources::MovementState;
 use ui::{
     camera_follow, player_movement, setup_camera, spawn_field_map, spawn_player, start_bounce,
-    update_bounce, update_player_position,
+    start_smooth_move, update_bounce, update_smooth_move,
 };
 
 fn main() {
@@ -32,8 +32,9 @@ fn main() {
             (
                 player_movement,
                 start_bounce,
+                start_smooth_move,
                 ApplyDeferred,
-                update_player_position,
+                update_smooth_move,
                 update_bounce,
                 camera_follow,
             )

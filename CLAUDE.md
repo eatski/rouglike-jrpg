@@ -60,7 +60,8 @@ rouglike-jrpg/
             ├── camera.rs         # カメラ制御
             ├── rendering.rs      # スプライト描画（テクスチャベース）
             ├── player_view.rs    # プレイヤー座標更新
-            └── bounce.rs         # バウンスアニメーション
+            ├── bounce.rs         # バウンスアニメーション（移動不可時）
+            └── smooth_move.rs    # 滑らか移動アニメーション（移動成功時）
 ```
 
 ### 依存関係
