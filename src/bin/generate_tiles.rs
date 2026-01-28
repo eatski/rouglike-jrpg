@@ -147,13 +147,13 @@ fn generate_mountain(output_dir: &Path) {
     let mut img: RgbaImage = ImageBuffer::new(TILE_SIZE, TILE_SIZE);
     let mut rng = rand::thread_rng();
 
-    // 山岳カラーパレット（岩っぽいグレー系）
-    let bg = Rgba([60, 80, 60, 255]);        // 背景（暗い緑がかったグレー）
-    let rock_dark = Rgba([70, 70, 80, 255]); // 暗い岩
-    let rock_mid = Rgba([100, 100, 110, 255]); // 中間の岩
-    let rock_light = Rgba([140, 140, 150, 255]); // 明るい岩（ハイライト）
-    let snow = Rgba([220, 230, 240, 255]);   // 雪
-    let snow_shadow = Rgba([180, 190, 210, 255]); // 雪の影
+    // 岩場カラーパレット（茶色・グレー系の岩）
+    let bg = Rgba([80, 100, 70, 255]);           // 背景（草っぽい地面）
+    let rock_dark = Rgba([80, 70, 60, 255]);     // 暗い岩（茶色がかったグレー）
+    let rock_mid = Rgba([120, 110, 100, 255]);   // 中間の岩
+    let rock_light = Rgba([160, 150, 135, 255]); // 明るい岩（ハイライト）
+    let rock_edge = Rgba([60, 55, 50, 255]);     // 岩の輪郭・影
+    let moss = Rgba([70, 90, 60, 255]);          // 苔（登れそうな感じを演出）
 
     // 背景で埋める
     for y in 0..TILE_SIZE {
@@ -162,74 +162,118 @@ fn generate_mountain(output_dir: &Path) {
         }
     }
 
-    // メインの山（中央、大きめ）
-    draw_mountain_peak(&mut img, &mut rng, 8, 2, 12, rock_dark, rock_mid, rock_light, snow, snow_shadow);
+    // ゴツゴツした岩の塊を複数配置（登れそうな岩場）
+    // メインの大きな岩（中央下寄り）
+    draw_rocky_boulder(&mut img, &mut rng, 6, 5, 8, 10, rock_dark, rock_mid, rock_light, rock_edge, moss);
 
-    // サブの山（左奥、小さめ）
-    draw_mountain_peak(&mut img, &mut rng, 3, 5, 6, rock_dark, rock_mid, rock_light, snow, snow_shadow);
+    // 小さな岩（左上）
+    draw_rocky_boulder(&mut img, &mut rng, 1, 2, 5, 6, rock_dark, rock_mid, rock_light, rock_edge, moss);
 
-    // サブの山（右奥、小さめ）
-    draw_mountain_peak(&mut img, &mut rng, 13, 6, 5, rock_dark, rock_mid, rock_light, snow, snow_shadow);
+    // 小さな岩（右上）
+    draw_rocky_boulder(&mut img, &mut rng, 11, 3, 4, 5, rock_dark, rock_mid, rock_light, rock_edge, moss);
+
+    // 足場になる小石を散らす
+    for _ in 0..8 {
+        let x = rng.gen_range(0..TILE_SIZE);
+        let y = rng.gen_range(10..TILE_SIZE);
+        let color = if rng.gen_bool(0.5) { rock_mid } else { rock_dark };
+        if img.get_pixel(x, y) == &bg {
+            img.put_pixel(x, y, color);
+        }
+    }
 
     img.save(output_dir.join("mountain.png")).expect("Failed to save mountain.png");
     println!("Generated: mountain.png");
 }
 
-fn draw_mountain_peak(
+/// ゴツゴツした岩の塊を描画
+fn draw_rocky_boulder(
     img: &mut RgbaImage,
     rng: &mut impl rand::Rng,
-    peak_x: u32,
-    peak_y: u32,
+    start_x: u32,
+    start_y: u32,
+    width: u32,
     height: u32,
     rock_dark: Rgba<u8>,
     rock_mid: Rgba<u8>,
     rock_light: Rgba<u8>,
-    snow: Rgba<u8>,
-    snow_shadow: Rgba<u8>,
+    rock_edge: Rgba<u8>,
+    moss: Rgba<u8>,
 ) {
-    let snow_line = height / 4; // 上から1/4が雪
-
+    // 岩のベース形状を描画
     for dy in 0..height {
-        let y = peak_y + dy;
+        let y = start_y + dy;
         if y >= TILE_SIZE {
             break;
         }
 
-        // 山の幅は下に行くほど広がる
-        let half_width = (dy as f32 * 0.6) as u32;
+        // 岩の形状：中央が膨らんで端が狭まる不規則な形
+        let progress = dy as f32 / height as f32;
+        let bulge = if progress < 0.3 {
+            // 上部：やや狭い
+            (progress / 0.3 * 0.8 + 0.2) * width as f32
+        } else if progress < 0.7 {
+            // 中央部：最も広い
+            width as f32
+        } else {
+            // 下部：やや狭まる
+            ((1.0 - progress) / 0.3 * 0.6 + 0.4) * width as f32
+        };
 
-        for dx in 0..=half_width * 2 {
-            let x = (peak_x + dx).saturating_sub(half_width);
+        let current_width = bulge as u32;
+        let offset = (width - current_width) / 2;
+
+        for dx in 0..current_width {
+            let x = start_x + offset + dx;
             if x >= TILE_SIZE {
                 continue;
             }
 
-            // 左側は暗く、右側は明るく（立体感）
-            let is_left = dx < half_width;
-            let is_snow_zone = dy < snow_line;
+            // 不規則な凹凸を加える
+            let noise = rng.gen_range(0..3);
+            if noise == 0 && dx == 0 {
+                continue; // 左端を欠けさせる
+            }
+            if noise == 1 && dx == current_width - 1 {
+                continue; // 右端を欠けさせる
+            }
 
-            let color = if is_snow_zone {
-                // 雪ゾーン
-                if is_left {
-                    snow_shadow
-                } else if rng.gen_bool(0.3) {
-                    snow_shadow
-                } else {
-                    snow
-                }
+            // 岩の色を決定（立体感+ランダム性）
+            let is_left_edge = dx == 0;
+            let is_right_edge = dx == current_width - 1;
+            let is_top = dy < 2;
+            let is_bottom = dy >= height - 2;
+
+            let color = if is_left_edge || is_bottom {
+                // 左端・下端は輪郭（影）
+                rock_edge
+            } else if is_right_edge || is_top {
+                // 右端・上端はハイライト
+                if rng.gen_bool(0.6) { rock_light } else { rock_mid }
             } else {
-                // 岩ゾーン
+                // 内側：ランダムに色を変えてゴツゴツ感を出す
                 let r: f32 = rng.r#gen();
-                if is_left {
-                    // 左側（影）
-                    if r < 0.6 { rock_dark } else { rock_mid }
+                if r < 0.1 {
+                    moss // 苔（登れそうな雰囲気）
+                } else if r < 0.3 {
+                    rock_light
+                } else if r < 0.6 {
+                    rock_mid
                 } else {
-                    // 右側（光）
-                    if r < 0.3 { rock_light } else if r < 0.6 { rock_mid } else { rock_dark }
+                    rock_dark
                 }
             };
 
             img.put_pixel(x, y, color);
+        }
+    }
+
+    // 岩の表面にひび割れ・凹凸を追加
+    for _ in 0..3 {
+        let cx = start_x + rng.gen_range(1..width.saturating_sub(1));
+        let cy = start_y + rng.gen_range(1..height.saturating_sub(1));
+        if cx < TILE_SIZE && cy < TILE_SIZE {
+            img.put_pixel(cx, cy, rock_edge);
         }
     }
 }
