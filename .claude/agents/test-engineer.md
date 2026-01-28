@@ -34,6 +34,112 @@ Red → Green → Refactor（黄金のサイクル）
 2. 失敗するテストは、失敗させるのに十分なだけ書く
 3. テストを通すためのプロダクションコードは、通すのに十分なだけ書く
 
+### テスト粒度の原則：大きく、公開APIを
+
+**テストの粒度はなるべく大きい方がいい。** 内部実装の詳細ではなく、**公開インターフェース**をテストせよ。
+
+```
+❌ 内部の小さな関数を個別にテスト
+   → リファクタリングのたびにテストが壊れる
+   → 実装に縛られて設計変更ができない
+
+⭕ 公開APIの振る舞いをテスト
+   → 内部実装は自由に変更できる
+   → テストがリファクタリングを守る
+```
+
+#### このプロジェクトでのテスト対象
+
+`game`モジュールが`ui`に公開する関数・構造体をテストする：
+
+```rust
+// game/mod.rs の pub な関数がテスト対象
+pub fn generate_map(seed: u64) -> Map { ... }
+pub fn is_passable(terrain: &Terrain) -> bool { ... }
+pub fn try_move(pos: &TilePosition, direction: Direction, map: &Map) -> MoveResult { ... }
+```
+
+```rust
+// テストは公開APIの振る舞いを検証
+#[test]
+fn generated_map_has_landmass() {
+    let map = generate_map(12345);
+
+    let land_count = map.tiles.iter()
+        .filter(|t| *t != Terrain::Sea)
+        .count();
+
+    assert!(land_count > 0, "Map should have some land");
+}
+
+#[test]
+fn player_cannot_walk_on_sea() {
+    let map = generate_map(12345);
+    let sea_pos = find_sea_tile(&map);
+
+    let result = try_move(&adjacent_pos, Direction::into_sea, &map);
+
+    assert!(matches!(result, MoveResult::Blocked));
+}
+```
+
+#### テストのためにリファクタリングする
+
+**テストが書きにくいコードは、リファクタリングして書きやすくする。** テストはコードの「最初のユーザー」であり、テストの痛みは設計の問題を教えてくれる。
+
+```
+テストが書きにくい → 設計に問題がある → リファクタリングする → テストが書きやすくなる
+```
+
+#### 内部関数をテストしたくなったら
+
+それは**設計の匂い**。積極的にリファクタリングせよ：
+
+1. **別モジュールに抽出** - 責務を分離して公開APIにする
+2. **依存注入** - 外部依存を引数で渡せるようにする
+3. **純粋関数化** - 副作用を分離して純粋なロジックを抽出
+
+```rust
+// Before: privateをテストしたい衝動
+mod map {
+    fn cluster_terrain(...) { ... }  // privateだがテストしたい
+}
+
+// After: 責務を分離して公開
+pub mod terrain_cluster {
+    pub fn scatter_clusters(...) { ... }  // 公開APIとしてテスト可能
+}
+```
+
+```rust
+// Before: 時間依存でテスト困難
+fn generate_map() -> Map {
+    let seed = SystemTime::now().elapsed().as_secs();
+    internal_generate(seed)
+}
+
+// After: 依存注入でテスト容易
+pub fn generate_map_with_seed(seed: u64) -> Map {
+    // 決定論的なロジック
+}
+
+pub fn generate_map() -> Map {
+    generate_map_with_seed(rand::random())
+}
+```
+
+#### リファクタリングの判断基準
+
+| 状況 | アクション |
+|-----|----------|
+| 公開APIからテストできる | そのままテスト |
+| セットアップが複雑すぎる | 依存を減らすリファクタ |
+| 内部関数を直接テストしたい | モジュール抽出で公開 |
+| ランダム・時間依存 | 依存注入で制御可能に |
+| 複数の責務が混在 | 責務分離リファクタ |
+
+**テストを書くためにリファクタリングすることは正当な理由である。** テストしやすい設計は、良い設計である。
+
 ## 実践テクニック
 
 ### アサーションファースト

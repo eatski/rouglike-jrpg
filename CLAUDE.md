@@ -69,6 +69,10 @@ fn start_bounce(mut events: MessageReader<MovementBlockedEvent>) { ... }
 - **ゲームルールの定数** → `game/`内（MAP_WIDTH, MAP_HEIGHT）
 - **表示の定数** → `ui/constants.rs`（TILE_SIZE, WINDOW_SIZE）
 
+#### 4. テスト方針
+
+`game`モジュールの公開APIをテスト対象とする。詳細は`test-engineer`エージェントに従う。
+
 ### マップ生成システム
 
 150x150のタイルグリッドで、以下の地形タイプを持つ：
