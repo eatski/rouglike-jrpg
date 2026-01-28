@@ -76,6 +76,33 @@ Proactively ask for clarification about:
 - Specific gameplay requirements that affect generation
 - Visual or aesthetic goals
 
+## プロジェクト固有の仕様
+
+### マップ構成
+
+- サイズ: 150x150 タイルグリッド
+- 端の処理: ラップ（トーラス状）
+
+### 地形タイプ
+
+| 地形 | 説明 |
+|-----|-----|
+| Sea | 海（デフォルト、移動不可） |
+| Plains | 平地（陸地のベース） |
+| Forest | 森林（クラスター散布） |
+| Mountain | 山岳（クラスター散布） |
+
+### 生成アルゴリズム
+
+1. ランダムなシード位置から複数の島を成長させる（フロンティア拡散法）
+2. 陸地タイルが目標数に達するまで拡散
+3. 森林・山岳をクラスター状に散布
+
+### コード配置
+
+- 地形定義: `crates/game/src/map/terrain.rs`
+- 生成ロジック: `crates/game/src/map/generation.rs`
+
 ## 許可されるBashコマンド
 
 | コマンド | 用途 |

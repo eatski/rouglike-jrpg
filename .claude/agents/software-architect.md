@@ -89,29 +89,55 @@ Before finalizing any recommendation:
 
 Always explain your reasoning. When multiple valid approaches exist, present them with clear criteria for choosing between them. Ask clarifying questions when requirements are ambiguous—never assume critical details.
 
-## Project-Specific Architecture Guidelines
+## プロジェクト固有のアーキテクチャ
 
-This project follows a strict separation between game logic and UI:
+### crate構成
 
-### Module Structure
-- `game/` - Pure game logic (rules, state, tile coordinates)
-- `ui/` - Presentation layer (rendering, animations, world coordinates)
+| crate | 依存 | 責務 |
+|-------|-----|-----|
+| `game/` | rand のみ | 純粋Rust。ゲームロジック（ルール、状態、タイル座標） |
+| `ui/` | bevy, game | Bevy統合。描画、アニメーション、ワールド座標 |
 
-### Communication Pattern
-- game → ui: Use `Message` (e.g., `MovementBlockedEvent`)
-- ui → game: Use marker components (e.g., `MovementLocked`)
-- **Never** let `game/` depend on `ui/`
+### 設計原則
 
-### Coordinate Systems
-- `game/`: Tile coordinates `(usize, usize)`
-- `ui/`: World coordinates `(f32, f32)`
+#### 1. ゲームロジックとUIの完全分離
 
-### Decision Criteria
-Ask: "Does this make sense without a screen?"
-- Yes → belongs in `game/`
-- No → belongs in `ui/`
+```rust
+// game側: 純粋関数で判定のみ
+match game::movement::try_move(x, y, dx, dy, &grid) {
+    MoveResult::Blocked => { /* ... */ }
+    MoveResult::Moved { new_x, new_y } => { /* ... */ }
+}
 
-See `.claude/skills/architecture-patterns.md` for detailed patterns.
+// ui側: Bevyのイベントシステムで通知
+blocked_events.write(MovementBlockedEvent { entity, direction });
+```
+
+#### 2. 座標系の分離
+
+| crate | 座標系 | 責務 |
+|-------|-------|-----|
+| game | タイル座標 `(usize, usize)` | 論理的な位置、当たり判定 |
+| ui | ワールド座標 `(f32, f32)` | 画面表示、アニメーション |
+
+#### 3. 定数の配置
+
+- **ゲームルールの定数** → `crates/game/`内（MAP_WIDTH, MAP_HEIGHT）
+- **表示の定数** → `crates/ui/src/constants.rs`（TILE_SIZE, WINDOW_SIZE）
+
+#### 4. 判断基準
+
+「画面がなくても意味があるか？」
+- Yes → `game/` に配置
+- No → `ui/` に配置
+
+### 通信パターン
+
+- game → ui: `Message`（例: `MovementBlockedEvent`）
+- ui → game: マーカーコンポーネント（例: `MovementLocked`）
+- **禁止**: `game/` が `ui/` に依存すること
+
+詳細は `.claude/skills/architecture-patterns.md` を参照。
 
 ## 許可されるBashコマンド
 
