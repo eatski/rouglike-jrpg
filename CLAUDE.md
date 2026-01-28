@@ -9,10 +9,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Build Commands
 
 ```bash
-cargo build          # ビルド（rsファイル修正後は必ず実行）
-cargo run            # 実行
-cargo clippy         # リント
-cargo test           # テスト
+cargo build              # ビルド（rsファイル修正後は必ず実行）
+cargo run                # 実行
+cargo clippy --workspace # リント（全crate）
+cargo test --workspace   # テスト（全crate）
 ```
 
 **重要**: `.rs`ファイルを修正した後は必ず`cargo build`を実行してコンパイルエラーを確認すること。
@@ -21,57 +21,84 @@ cargo test           # テスト
 
 Bevy 0.18を使用した2Dローグライク風JRPGのプロトタイプ。
 
-### モジュール構成
+### プロジェクト構成（Cargoワークスペース）
 
 ```
-src/
-├── main.rs              # エントリーポイント
-├── game/                # ゲームシステム（ロジック層）
-│   ├── map/             # マップ生成ロジック
-│   │   ├── terrain.rs   # 地形タイプ定義
-│   │   └── generation.rs# 生成アルゴリズム
-│   └── movement/        # 移動ロジック
-│       ├── events.rs    # システム間通信用メッセージ
-│       └── player.rs    # タイル位置管理、移動判定
-└── ui/                  # UI層（Bevy依存）
-    ├── constants.rs     # 表示定数（タイルサイズ等）
-    ├── camera.rs        # カメラ制御
-    ├── rendering.rs     # スプライト描画
-    ├── player_view.rs   # プレイヤー座標更新
-    └── bounce.rs        # バウンスアニメーション
+rouglike-jrpg/
+├── Cargo.toml               # ワークスペース定義
+├── src/main.rs              # エントリーポイント
+└── crates/
+    ├── game/                # ゲームロジック層【Bevy非依存・純粋Rust】
+    │   ├── Cargo.toml       # 依存: rand のみ
+    │   └── src/
+    │       ├── lib.rs
+    │       ├── map/
+    │       │   ├── terrain.rs    # 地形タイプ定義
+    │       │   └── generation.rs # 生成アルゴリズム、MapData
+    │       └── movement/
+    │           ├── events.rs     # Direction型
+    │           └── player.rs     # try_move(), is_passable(), MoveResult
+    └── ui/                  # UI層【Bevy依存】
+        ├── Cargo.toml       # 依存: bevy, game
+        └── src/
+            ├── lib.rs
+            ├── components.rs     # Player, TilePosition, MovementLocked
+            ├── resources.rs      # MapDataResource, MovementState
+            ├── events.rs         # MovementBlockedEvent, PlayerMovedEvent
+            ├── player_input.rs   # 入力処理システム
+            ├── constants.rs      # 表示定数（TILE_SIZE等）
+            ├── camera.rs         # カメラ制御
+            ├── rendering.rs      # スプライト描画
+            ├── player_view.rs    # プレイヤー座標更新
+            └── bounce.rs         # バウンスアニメーション
+```
+
+### 依存関係
+
+```
+rouglike-jrpg (binary)
+    ├── game (純粋Rust - 他エンジンでも再利用可能)
+    └── ui → game
 ```
 
 ### 設計原則
 
-#### 1. ゲームロジックとUIの分離
+#### 1. ゲームロジックとUIの完全分離（crate境界）
 
-- **game/** - ゲームの「ルール」を扱う（タイル座標、移動可否判定、地形生成）
-- **ui/** - 「見た目」を扱う（ワールド座標、アニメーション、描画）
-- 両者の通信は **Message** で疎結合に
+- **game crate** - 純粋Rust。Bevy非依存。ゲームの「ルール」のみ
+  - タイル座標、移動可否判定、地形生成
+  - 他のゲームエンジンでも再利用可能
+- **ui crate** - Bevy依存。「見た目」と「Bevy統合」
+  - ワールド座標、アニメーション、描画
+  - Component, Resource, Message等のBevy型
+- 両者の通信は **ui側のMessage** で疎結合に
 
 ```rust
-// game側: 移動不可を通知
-blocked_events.write(MovementBlockedEvent { entity, direction });
+// game側: 純粋関数で判定のみ
+match game::movement::try_move(x, y, dx, dy, &grid) {
+    MoveResult::Blocked => { /* ... */ }
+    MoveResult::Moved { new_x, new_y } => { /* ... */ }
+}
 
-// ui側: アニメーションで応答
-fn start_bounce(mut events: MessageReader<MovementBlockedEvent>) { ... }
+// ui側: Bevyのイベントシステムで通知
+blocked_events.write(MovementBlockedEvent { entity, direction });
 ```
 
 #### 2. 座標系の分離
 
-| 層 | 座標系 | 責務 |
+| crate | 座標系 | 責務 |
 |---|---|---|
 | game | タイル座標 (usize, usize) | 論理的な位置、当たり判定 |
 | ui | ワールド座標 (f32, f32) | 画面表示、アニメーション |
 
 #### 3. 定数の配置
 
-- **ゲームルールの定数** → `game/`内（MAP_WIDTH, MAP_HEIGHT）
-- **表示の定数** → `ui/constants.rs`（TILE_SIZE, WINDOW_SIZE）
+- **ゲームルールの定数** → `crates/game/`内（MAP_WIDTH, MAP_HEIGHT）
+- **表示の定数** → `crates/ui/src/constants.rs`（TILE_SIZE, WINDOW_SIZE）
 
 #### 4. テスト方針
 
-`game`モジュールの公開APIをテスト対象とする。詳細は`test-engineer`エージェントに従う。
+`game` crateの公開APIをテスト対象とする。Bevy非依存のため単体テストが容易。詳細は`test-engineer`エージェントに従う。
 
 ### マップ生成システム
 
@@ -93,16 +120,19 @@ fn start_bounce(mut events: MessageReader<MovementBlockedEvent>) { ... }
 
 ### 議事録・ドキュメント改善
 
-プロダクトマネージャーは**議事録担当**も兼ねる。会話の中で得られた以下の情報は、適切なClaude用ドキュメントに反映すること：
+プロダクトマネージャーは**議事録担当**も兼ねる。
 
-- **設計上の決定事項** → `CLAUDE.md` または `.claude/skills/architecture-patterns.md`
-- **新しいパターン・ベストプラクティス** → 該当する `.claude/skills/*.md`
-- **エージェントの改善点** → 該当する `.claude/agents/*.md`
-- **プロジェクト固有のルール** → `CLAUDE.md`
+#### ルール：タスク完了直後に必ず更新
 
-**タイミング:**
-- タスク完了後、ドキュメント化すべき知見があれば専門エージェントに改善を指示
-- 明示的に「記録して」「覚えておいて」と言われた場合は必ず反映
+**タスクが完了したら、ドキュメント更新が必要か確認し、必要なら即座に更新する。これは必須。**
+
+| 変更の種類 | 更新対象 |
+|-----------|---------|
+| プロジェクト構造の変更 | `CLAUDE.md` モジュール構成 |
+| ビルド/テストコマンド変更 | `CLAUDE.md` Build Commands |
+| 設計原則の追加・変更 | `CLAUDE.md` 設計原則 |
+| 新しいパターン発見 | `.claude/skills/*.md` |
+| エージェントの改善 | `.claude/agents/*.md` |
 
 ### ルーティングルール
 
