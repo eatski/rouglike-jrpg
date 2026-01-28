@@ -37,11 +37,53 @@ rouglike-jrpg (binary)
 |---|---|
 | タイル座標 (usize) | ワールド座標 (f32) |
 | 移動可否の判定 | 移動アニメーション |
+| 島検出（Flood Fill） | 船スプライトの生成・配置 |
+| 船移動ロジック | 乗り降りの視覚演出 |
 | 当たり判定 | 衝突エフェクト |
 | ダメージ計算 | ダメージ表示 |
 | ターン管理 | ターン遷移演出 |
 
 **判断のコツ**: 「画面がなくても意味があるか？」→ Yes なら game/
+
+### 実例: 船移動システム
+
+```rust
+// game/movement/boat.rs - 船移動の判定（純粋関数）
+pub fn try_move_on_boat(
+    current_x: usize, current_y: usize,
+    dx: i32, dy: i32,
+    grid: &[Vec<Terrain>],
+) -> MoveResult {
+    let new_x = ((current_x as i32 + dx).rem_euclid(MAP_WIDTH as i32)) as usize;
+    let new_y = ((current_y as i32 + dy).rem_euclid(MAP_HEIGHT as i32)) as usize;
+
+    if grid[new_y][new_x] == Terrain::Sea {
+        MoveResult::Moved { new_x, new_y }
+    } else {
+        MoveResult::Blocked
+    }
+}
+
+// ui/player_input.rs - Bevy統合
+fn player_movement(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut player_query: Query<(&mut TilePosition, Option<&OnBoat>)>,
+    grid: Res<TerrainGrid>,
+) {
+    let is_on_boat = on_boat.is_some();
+    let move_result = if is_on_boat {
+        game::movement::boat::try_move_on_boat(pos.x, pos.y, dx, dy, &grid.0)
+    } else {
+        game::movement::player::try_move(pos.x, pos.y, dx, dy, &grid.0)
+    };
+    // Bevy Componentの更新処理...
+}
+```
+
+**ポイント**:
+- 船移動の判定ロジックは`game/`（Bevy非依存）
+- 状態管理（`OnBoat`コンポーネント）は`ui/`（Bevy依存）
+- 自動乗り降り判定は`game/`、演出は`ui/`に分離
 
 ## crate間通信パターン
 
@@ -125,6 +167,61 @@ fn tile_to_world(tile_x: usize, tile_y: usize) -> Vec2 {
     )
 }
 ```
+
+## Flood Fillパターン（マップ解析）
+
+島検出など、連結領域の探索に使用。
+
+```rust
+// game/map/islands.rs - Flood Fillで島を検出
+fn detect_islands(grid: &[Vec<Terrain>]) -> Vec<Vec<(usize, usize)>> {
+    let mut visited = vec![vec![false; MAP_WIDTH]; MAP_HEIGHT];
+    let mut islands = Vec::new();
+
+    for y in 0..MAP_HEIGHT {
+        for x in 0..MAP_WIDTH {
+            if !visited[y][x] && grid[y][x] != Terrain::Sea {
+                let island = flood_fill(x, y, grid, &mut visited);
+                islands.push(island);
+            }
+        }
+    }
+    islands
+}
+
+fn flood_fill(
+    start_x: usize,
+    start_y: usize,
+    grid: &[Vec<Terrain>],
+    visited: &mut [Vec<bool>],
+) -> Vec<(usize, usize)> {
+    let mut island = Vec::new();
+    let mut queue = VecDeque::new();
+    queue.push_back((start_x, start_y));
+    visited[start_y][start_x] = true;
+
+    while let Some((x, y)) = queue.pop_front() {
+        island.push((x, y));
+        // 4近傍を探索（ラップアラウンド対応）
+        for (dx, dy) in [(0, -1), (0, 1), (-1, 0), (1, 0)] {
+            let nx = (x as i32 + dx).rem_euclid(MAP_WIDTH as i32) as usize;
+            let ny = (y as i32 + dy).rem_euclid(MAP_HEIGHT as i32) as usize;
+
+            if !visited[ny][nx] && grid[ny][nx] != Terrain::Sea {
+                visited[ny][nx] = true;
+                queue.push_back((nx, ny));
+            }
+        }
+    }
+    island
+}
+```
+
+### 応用例
+
+- **船スポーン位置の計算**: 各島の外郭（海に隣接する陸地）を検出し、その隣の海タイルに船を配置
+- **バイオーム検出**: 同じ地形が連結している領域を抽出
+- **到達可能判定**: プレイヤーが特定の場所に行けるか判定
 
 ## 新機能追加時のチェックリスト
 
