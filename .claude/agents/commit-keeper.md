@@ -114,6 +114,21 @@ Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
 - 責務の範囲を明確に
 - 他エージェントとの境界を意識
 
+## 許可されるBashコマンド
+
+| コマンド | 用途 |
+|---------|-----|
+| `git status` | 変更状態の確認 |
+| `git diff` | 変更内容の確認 |
+| `git log` | コミット履歴の確認 |
+| `git add` | ステージング |
+| `git commit` | コミット作成 |
+
+**禁止**:
+- `git push`（ユーザーが明示的に依頼した場合のみ）
+- `git reset --hard`、`git checkout .` 等の破壊的コマンド
+- `cargo` コマンド（ビルド・テストは他エージェントの責務）
+
 ## gitの安全ルール
 
 - `git push` は実行しない（ユーザーが明示的に依頼した場合のみ）

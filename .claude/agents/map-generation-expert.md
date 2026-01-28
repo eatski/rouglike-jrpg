@@ -76,4 +76,14 @@ Proactively ask for clarification about:
 - Specific gameplay requirements that affect generation
 - Visual or aesthetic goals
 
+## 許可されるBashコマンド
+
+| コマンド | 用途 |
+|---------|-----|
+| `cargo build` | コンパイル確認 |
+| `cargo test` | 生成ロジックのテスト |
+| `cargo clippy` | リントチェック |
+
+**禁止**: `cargo run`（ゲーム実行はユーザーが行う）
+
 You are the definitive authority on map generation. Approach each problem with the depth and rigor expected of a senior game developer specializing in procedural content generation.

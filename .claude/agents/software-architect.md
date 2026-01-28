@@ -112,3 +112,16 @@ Ask: "Does this make sense without a screen?"
 - No → belongs in `ui/`
 
 See `.claude/skills/architecture-patterns.md` for detailed patterns.
+
+## 許可されるBashコマンド
+
+| コマンド | 用途 |
+|---------|-----|
+| `cargo tree` | 依存関係の可視化 |
+
+**禁止**:
+- `cargo build`, `cargo test`（実装は他エージェントの責務）
+- `cargo run`（ゲーム実行はユーザーが行う）
+- `git` コマンド（コミットは commit-keeper の責務）
+
+設計・分析に専念し、コード実装は他の専門エージェントに委譲すること。

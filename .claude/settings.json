@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cargo build:*)",
+      "Bash(cargo test:*)",
+      "Bash(cargo clippy:*)",
+      "Bash(cargo tree:*)",
+      "Bash(cargo run --bin generate-tiles:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(grep:*)",
+      "Bash(find:*)",
+      "Bash(chmod:*)",
+      "WebSearch",
+      "WebFetch(domain:kenney.nl)",
+      "WebFetch(domain:opengameart.org)",
+      "WebFetch(domain:kenney-assets.itch.io)",
+      "WebFetch(domain:pipoya.itch.io)",
+      "WebFetch(domain:seliel-the-shaper.itch.io)"
+    ]
+  }
+}

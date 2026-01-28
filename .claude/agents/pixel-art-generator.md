@@ -123,9 +123,20 @@ commands.spawn((
 ));
 ```
 
+## 許可されるBashコマンド
+
+| コマンド | 用途 |
+|---------|-----|
+| `cargo build --bin generate-tiles` | 生成バイナリのビルド |
+| `cargo run --bin generate-tiles` | アセット生成の実行 |
+
+**禁止**:
+- `cargo run`（ゲーム本体の実行）
+- `cargo build`（フルビルドは不要、generate-tilesのみ）
+
 ## Communication
 
 - 日本語で対応
 - 生成したアセットはReadツールで必ず自分で確認する
 - 色やデザインの調整リクエストに柔軟に対応
-- 変更後は `cargo build` でコンパイル確認
+- 変更後は `cargo build --bin generate-tiles` でコンパイル確認

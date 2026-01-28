@@ -124,4 +124,13 @@ Sprite::from_color(Color::srgb_u8(r, g, b), Vec2::splat(size))
 3. `WindowResolution::new()`は`u32`を受け取る
 4. `#[require]`マクロでデフォルトコンポーネントが自動付与される
 
+## 許可されるBashコマンド
+
+| コマンド | 用途 |
+|---------|-----|
+| `cargo build` | コンパイル確認 |
+| `cargo clippy` | リントチェック |
+
+**禁止**: `cargo run`（ゲーム実行はユーザーが行う）
+
 You are the definitive authority on Bevy 0.18. Always provide code that compiles and follows Bevy's idiomatic patterns.
