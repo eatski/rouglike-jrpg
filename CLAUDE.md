@@ -9,10 +9,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Build Commands
 
 ```bash
-cargo build              # ビルド（rsファイル修正後は必ず実行）
-cargo run                # 実行
-cargo clippy --workspace # リント（全crate）
-cargo test --workspace   # テスト（全crate）
+cargo build                       # ビルド（rsファイル修正後は必ず実行）
+cargo run                         # 実行
+cargo run --bin generate-tiles    # アセット生成（タイルスプライト）
+cargo clippy --workspace          # リント（全crate）
+cargo test --workspace            # テスト（全crate）
 ```
 
 **重要**: `.rs`ファイルを修正した後は必ず`cargo build`を実行してコンパイルエラーを確認すること。
@@ -25,8 +26,17 @@ Bevy 0.18を使用した2Dローグライク風JRPGのプロトタイプ。
 
 ```
 rouglike-jrpg/
-├── Cargo.toml               # ワークスペース定義
-├── src/main.rs              # エントリーポイント
+├── Cargo.toml               # ワークスペース定義、依存: bevy, game, ui, image, rand
+├── src/
+│   ├── main.rs              # エントリーポイント
+│   └── bin/
+│       └── generate_tiles.rs # アセット生成バイナリ（image, rand使用）
+├── assets/                  # ゲームアセット
+│   └── tiles/               # 地形タイルスプライト（16x16 PNG）
+│       ├── sea.png
+│       ├── plains.png
+│       ├── forest.png
+│       └── mountain.png
 └── crates/
     ├── game/                # ゲームロジック層【Bevy非依存・純粋Rust】
     │   ├── Cargo.toml       # 依存: rand のみ
@@ -43,12 +53,12 @@ rouglike-jrpg/
         └── src/
             ├── lib.rs
             ├── components.rs     # Player, TilePosition, MovementLocked
-            ├── resources.rs      # MapDataResource, MovementState
+            ├── resources.rs      # MapDataResource, MovementState, TileTextures
             ├── events.rs         # MovementBlockedEvent, PlayerMovedEvent
             ├── player_input.rs   # 入力処理システム
             ├── constants.rs      # 表示定数（TILE_SIZE等）
             ├── camera.rs         # カメラ制御
-            ├── rendering.rs      # スプライト描画
+            ├── rendering.rs      # スプライト描画（テクスチャベース）
             ├── player_view.rs    # プレイヤー座標更新
             └── bounce.rs         # バウンスアニメーション
 ```
@@ -57,8 +67,15 @@ rouglike-jrpg/
 
 ```
 rouglike-jrpg (binary)
+    ├── bevy 0.18
+    ├── image 0.24 (アセット生成用)
+    ├── rand 0.8 (アセット生成用)
     ├── game (純粋Rust - 他エンジンでも再利用可能)
     └── ui → game
+
+generate-tiles (binary)
+    ├── image 0.24
+    └── rand 0.8
 ```
 
 ### 設計原則
@@ -114,6 +131,47 @@ blocked_events.write(MovementBlockedEvent { entity, direction });
 3. 森林・山岳をクラスター状に散布
 4. グリッドは端でラップ（トーラス状）
 
+### アセット生成システム
+
+ゲームアセット（ドット絵スプライト）は`cargo run --bin generate-tiles`で生成する。
+
+#### 生成されるアセット
+
+- **assets/tiles/sea.png** - 16x16 海タイル（深い青、波模様）
+- **assets/tiles/plains.png** - 16x16 平地タイル（草緑、草テクスチャ）
+- **assets/tiles/forest.png** - 16x16 森林タイル（濃い緑、木のシルエット）
+- **assets/tiles/mountain.png** - 16x16 山岳タイル（灰色、岩と雪）
+
+#### 確認方法
+
+```bash
+cargo run --bin generate-tiles  # アセット生成
+# AIエージェントはReadツールで直接画像を確認可能
+```
+
+#### Bevyでの読み込み
+
+```rust
+// ui/src/resources.rs
+#[derive(Resource)]
+pub struct TileTextures {
+    pub sea: Handle<Image>,
+    pub plains: Handle<Image>,
+    pub forest: Handle<Image>,
+    pub mountain: Handle<Image>,
+}
+
+// ui/src/rendering.rs
+fn load_tile_textures(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands.insert_resource(TileTextures {
+        sea: asset_server.load("tiles/sea.png"),
+        plains: asset_server.load("tiles/plains.png"),
+        forest: asset_server.load("tiles/forest.png"),
+        mountain: asset_server.load("tiles/mountain.png"),
+    });
+}
+```
+
 ## タスクルーティング（自動エージェント振り分け）
 
 ユーザーからのタスクを受けたら、**プロダクトマネージャーとして**内容を分析し、適切な専門エージェントに自動的に振り分けること。
@@ -141,6 +199,7 @@ blocked_events.write(MovementBlockedEvent { entity, direction });
 | Bevy API・ECS・レンダリング | `bevy-expert` | Bevy、コンポーネント、システム、Query、カメラ、スプライト |
 | パフォーマンス最適化 | `performance-optimizer` | 遅い、最適化、FPS、メモリ、ボトルネック |
 | テスト作成・デバッグ | `test-engineer` | テスト、カバレッジ、TDD、バグ、assert |
+| ピクセルアート・アセット生成 | `pixel-art-generator` | ドット絵、スプライト、タイル画像、アセット生成 |
 | ドキュメント更新（タスク完了後） | `documentation-keeper` | ※PMが自動で起動 |
 
 ### 振り分けフロー
@@ -191,6 +250,7 @@ blocked_events.write(MovementBlockedEvent { entity, direction });
 | Bevy Expert | `.claude/agents/bevy-expert.md` | Bevy 0.18 API、ECS |
 | Performance Optimizer | `.claude/agents/performance-optimizer.md` | パフォーマンス分析・改善 |
 | Test Engineer | `.claude/agents/test-engineer.md` | テスト戦略・実装 |
+| Pixel Art Generator | `.claude/agents/pixel-art-generator.md` | ピクセルアート・アセット生成 |
 | Documentation Keeper | `.claude/agents/documentation-keeper.md` | 議事録・ドキュメント管理 |
 
 ## スキル（参照用ナレッジ）

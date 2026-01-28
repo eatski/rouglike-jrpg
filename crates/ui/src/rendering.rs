@@ -7,7 +7,23 @@ use crate::resources::{MapDataResource, SpawnPosition};
 
 use super::constants::{MAP_PIXEL_HEIGHT, MAP_PIXEL_WIDTH, PLAYER_SIZE, TILE_SIZE};
 
-pub fn spawn_field_map(mut commands: Commands) {
+#[derive(Resource)]
+pub struct TileTextures {
+    pub sea: Handle<Image>,
+    pub plains: Handle<Image>,
+    pub forest: Handle<Image>,
+    pub mountain: Handle<Image>,
+}
+
+pub fn spawn_field_map(mut commands: Commands, asset_server: Res<AssetServer>) {
+    // テクスチャをロード
+    let tile_textures = TileTextures {
+        sea: asset_server.load("tiles/sea.png"),
+        plains: asset_server.load("tiles/plains.png"),
+        forest: asset_server.load("tiles/forest.png"),
+        mountain: asset_server.load("tiles/mountain.png"),
+    };
+
     let origin_x = -MAP_PIXEL_WIDTH / 2.0 + TILE_SIZE / 2.0;
     let origin_y = -MAP_PIXEL_HEIGHT / 2.0 + TILE_SIZE / 2.0;
     let mut rng = rand::thread_rng();
@@ -17,6 +33,9 @@ pub fn spawn_field_map(mut commands: Commands) {
         x: map_data.spawn_position.0,
         y: map_data.spawn_position.1,
     });
+
+    // スプライトのスケール（16pxのテクスチャをTILE_SIZEに合わせる）
+    let scale = TILE_SIZE / 16.0;
 
     // マップを3x3で複製描画（トーラスラップの視覚化）
     for offset_y in -1..=1 {
@@ -30,15 +49,24 @@ pub fn spawn_field_map(mut commands: Commands) {
                     let world_x = base_x + x as f32 * TILE_SIZE;
                     let world_y = base_y + y as f32 * TILE_SIZE;
 
+                    let texture = match terrain {
+                        Terrain::Sea => tile_textures.sea.clone(),
+                        Terrain::Plains => tile_textures.plains.clone(),
+                        Terrain::Forest => tile_textures.forest.clone(),
+                        Terrain::Mountain => tile_textures.mountain.clone(),
+                    };
+
                     commands.spawn((
-                        Sprite::from_color(terrain_color(terrain), Vec2::splat(TILE_SIZE)),
-                        Transform::from_xyz(world_x, world_y, 0.0),
+                        Sprite::from_image(texture),
+                        Transform::from_xyz(world_x, world_y, 0.0)
+                            .with_scale(Vec3::splat(scale)),
                     ));
                 }
             }
         }
     }
 
+    commands.insert_resource(tile_textures);
     commands.insert_resource(MapDataResource::from(map_data));
 }
 
@@ -60,11 +88,3 @@ pub fn spawn_player(mut commands: Commands, spawn_pos: Res<SpawnPosition>) {
     ));
 }
 
-fn terrain_color(terrain: Terrain) -> Color {
-    match terrain {
-        Terrain::Plains => Color::srgb_u8(120, 190, 120),
-        Terrain::Mountain => Color::srgb_u8(139, 90, 43),
-        Terrain::Forest => Color::srgb_u8(25, 110, 60),
-        Terrain::Sea => Color::srgb_u8(40, 120, 220),
-    }
-}
