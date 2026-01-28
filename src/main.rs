@@ -32,6 +32,7 @@ fn main() {
             (
                 player_movement,
                 start_bounce,
+                ApplyDeferred,
                 update_player_position,
                 update_bounce,
                 camera_follow,
