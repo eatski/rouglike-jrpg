@@ -37,8 +37,10 @@ pub struct MovementState {
 impl Default for MovementState {
     fn default() -> Self {
         Self {
-            timer: Timer::from_seconds(0.08, TimerMode::Repeating),
-            initial_delay: Timer::from_seconds(0.2, TimerMode::Once),
+            // リピート間隔: 60ms (約16.7歩/秒) - キビキビした移動感
+            timer: Timer::from_seconds(0.06, TimerMode::Repeating),
+            // 初回遅延: 150ms - 誤入力防止とレスポンスのバランス
+            initial_delay: Timer::from_seconds(0.15, TimerMode::Once),
             is_repeating: false,
             last_direction: (0, 0),
         }

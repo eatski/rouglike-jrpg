@@ -6,7 +6,7 @@ use crate::events::MovementBlockedEvent;
 use super::constants::TILE_SIZE;
 
 const BOUNCE_DISTANCE: f32 = TILE_SIZE * 0.3;
-const BOUNCE_DURATION: f32 = 0.12;
+const BOUNCE_DURATION: f32 = 0.1;
 
 #[derive(Component)]
 pub struct Bounce {
@@ -18,7 +18,8 @@ pub struct Bounce {
 /// 移動ブロックイベントを受け取ってバウンスを開始
 pub fn start_bounce(mut commands: Commands, mut events: MessageReader<MovementBlockedEvent>) {
     for event in events.read() {
-        let dir = Vec2::new(event.direction.0 as f32, event.direction.1 as f32).normalize();
+        let raw_dir = Vec2::new(event.direction.0 as f32, event.direction.1 as f32);
+        let dir = raw_dir.normalize_or_zero();
         commands.entity(event.entity).insert((
             Bounce {
                 direction: dir,
