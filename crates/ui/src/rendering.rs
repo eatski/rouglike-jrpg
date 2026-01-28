@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use game::map::{generate_map, Terrain, MAP_HEIGHT, MAP_WIDTH};
 
-use crate::components::{Player, TilePosition};
+use crate::components::{MapTile, Player, TilePosition};
 use crate::resources::{MapDataResource, SpawnPosition};
 
 use super::constants::{MAP_PIXEL_HEIGHT, MAP_PIXEL_WIDTH, TILE_SIZE};
@@ -57,9 +57,11 @@ pub fn spawn_field_map(mut commands: Commands, asset_server: Res<AssetServer>) {
                     };
 
                     commands.spawn((
+                        MapTile,
                         Sprite::from_image(texture),
                         Transform::from_xyz(world_x, world_y, 0.0)
                             .with_scale(Vec3::splat(scale)),
+                        Visibility::Hidden,
                     ));
                 }
             }

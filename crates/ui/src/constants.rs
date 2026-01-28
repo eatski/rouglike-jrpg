@@ -8,3 +8,4 @@ pub const VISIBLE_CELLS: f32 = 7.0;
 pub const VISIBLE_SIZE: f32 = VISIBLE_CELLS * TILE_SIZE;
 pub const WINDOW_SCALE: f32 = 16.0;
 pub const WINDOW_SIZE: f32 = VISIBLE_SIZE * WINDOW_SCALE;
+pub const CULLING_MARGIN: f32 = TILE_SIZE; // カリング判定のマージン

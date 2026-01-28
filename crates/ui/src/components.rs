@@ -14,3 +14,7 @@ pub struct TilePosition {
     pub x: usize,
     pub y: usize,
 }
+
+/// マップタイルを識別するマーカーコンポーネント
+#[derive(Component)]
+pub struct MapTile;
