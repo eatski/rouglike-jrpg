@@ -20,79 +20,12 @@ cargo test --workspace            # テスト（全crate）
 
 ## Architecture
 
-Bevy 0.18を使用した2Dローグライク風JRPGのプロトタイプ。
+Bevy 0.18を使用した2Dローグライク風JRPGのプロトタイプ。Cargoワークスペース構成。
 
-### プロジェクト構成（Cargoワークスペース）
-
-```
-rouglike-jrpg/
-├── Cargo.toml               # ワークスペース定義、依存: bevy, game, ui, image, rand
-├── src/
-│   ├── main.rs              # エントリーポイント
-│   └── bin/
-│       └── generate_tiles.rs # アセット生成バイナリ（image, rand使用）
-├── assets/                  # ゲームアセット
-│   └── tiles/               # 地形タイルスプライト（16x16 PNG）
-│       ├── sea.png
-│       ├── plains.png
-│       ├── forest.png
-│       └── mountain.png
-└── crates/
-    ├── game/                # ゲームロジック層【Bevy非依存・純粋Rust】
-    │   ├── Cargo.toml       # 依存: rand のみ
-    │   └── src/
-    │       ├── lib.rs
-    │       ├── map/
-    │       │   ├── terrain.rs    # 地形タイプ定義
-    │       │   └── generation.rs # 生成アルゴリズム、MapData
-    │       └── movement/
-    │           ├── events.rs     # Direction型
-    │           └── player.rs     # try_move(), is_passable(), MoveResult
-    └── ui/                  # UI層【Bevy依存】
-        ├── Cargo.toml       # 依存: bevy, game
-        └── src/
-            ├── lib.rs
-            ├── components.rs     # Player, TilePosition, MovementLocked
-            ├── resources.rs      # MapDataResource, MovementState, TileTextures
-            ├── events.rs         # MovementBlockedEvent, PlayerMovedEvent
-            ├── player_input.rs   # 入力処理システム
-            ├── constants.rs      # 表示定数（TILE_SIZE等）
-            ├── camera.rs         # カメラ制御
-            ├── rendering.rs      # スプライト描画（テクスチャベース）
-            ├── player_view.rs    # プレイヤー座標更新
-            ├── bounce.rs         # バウンスアニメーション（移動不可時）
-            └── smooth_move.rs    # 滑らか移動アニメーション（移動成功時）
-```
-
-### 依存関係
-
-```
-rouglike-jrpg (binary)
-    ├── bevy 0.18
-    ├── image 0.24 (アセット生成用)
-    ├── rand 0.8 (アセット生成用)
-    ├── game (純粋Rust - 他エンジンでも再利用可能)
-    └── ui → game
-
-generate-tiles (binary)
-    ├── image 0.24
-    └── rand 0.8
-```
-
-### 設計原則
-
-- **game crate**: 純粋Rust（Bevy非依存）、ゲームロジックのみ
-- **ui crate**: Bevy依存、描画・アニメーション
+- **game crate**: 純粋Rust（Bevy非依存）、ゲームロジック
+- **ui crate**: Bevy依存、描画・入力・アニメーション
 
 詳細は `software-architect` エージェントを参照。
-
-### マップ生成
-
-詳細は `map-generation-expert` エージェントを参照。
-
-### アセット生成
-
-詳細は `pixel-art-generator` エージェントを参照。
 
 ## PMフロー
 
