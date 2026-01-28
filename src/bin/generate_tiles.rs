@@ -16,6 +16,7 @@ fn main() {
     generate_plains(tiles_dir);
     generate_forest(tiles_dir);
     generate_mountain(tiles_dir);
+    generate_boat(tiles_dir);
 
     // キャラクターを生成
     generate_player(chars_dir);
@@ -276,6 +277,91 @@ fn draw_rocky_boulder(
             img.put_pixel(cx, cy, rock_edge);
         }
     }
+}
+
+fn generate_boat(output_dir: &Path) {
+    let mut img: RgbaImage = ImageBuffer::new(TILE_SIZE, TILE_SIZE);
+
+    // 透明で初期化
+    let transparent = Rgba([0, 0, 0, 0]);
+    for y in 0..TILE_SIZE {
+        for x in 0..TILE_SIZE {
+            img.put_pixel(x, y, transparent);
+        }
+    }
+
+    // 船のカラーパレット
+    let wood_dark = Rgba([100, 60, 30, 255]);    // 暗い木
+    let wood_mid = Rgba([140, 90, 50, 255]);     // 中間の木
+    let wood_light = Rgba([180, 130, 80, 255]);  // 明るい木
+    let sail_white = Rgba([240, 240, 230, 255]); // 帆（白）
+    let sail_shadow = Rgba([200, 200, 190, 255]); // 帆の影
+    let mast = Rgba([120, 80, 40, 255]);         // マスト
+
+    // 船体（下部、楕円形）- y: 10-15
+    // 船首（左）から船尾（右）
+    for y in 10..=14 {
+        let row_width = match y {
+            10 => (4, 12),  // 上部：狭い
+            11 => (3, 13),
+            12 => (2, 14),
+            13 => (2, 14),
+            14 => (3, 13),  // 底部：やや狭い
+            _ => (4, 12),
+        };
+        for x in row_width.0..=row_width.1 {
+            let color = if x <= 4 || y == 10 {
+                wood_light  // 船首・上部はハイライト
+            } else if x >= 12 || y >= 13 {
+                wood_dark   // 船尾・底部は影
+            } else {
+                wood_mid
+            };
+            img.put_pixel(x, y, color);
+        }
+    }
+
+    // 船の縁（上部の輪郭）
+    for x in 4..=12 {
+        img.put_pixel(x, 9, wood_dark);
+    }
+
+    // マスト（中央） - x: 8
+    for y in 3..=9 {
+        img.put_pixel(8, y, mast);
+    }
+
+    // 帆（三角形、左向き） - y: 3-8
+    for y in 3..=8 {
+        let sail_width = (y - 2).min(5);
+        for dx in 1..=sail_width {
+            let x = 8 - dx;
+            if x >= 3 {
+                let color = if dx == 1 { sail_shadow } else { sail_white };
+                img.put_pixel(x, y, color);
+            }
+        }
+    }
+
+    // 帆の右側（小さい）
+    for y in 4..=7 {
+        let sail_width = ((y - 3) as i32).min(3);
+        for dx in 1..=sail_width {
+            let x = 8 + dx as u32;
+            if x <= 11 {
+                let color = if dx == 1 { sail_shadow } else { sail_white };
+                img.put_pixel(x, y, color);
+            }
+        }
+    }
+
+    // 旗（マストの上）
+    img.put_pixel(8, 2, Rgba([200, 50, 50, 255]));  // 赤い旗
+    img.put_pixel(9, 2, Rgba([200, 50, 50, 255]));
+    img.put_pixel(9, 1, Rgba([180, 40, 40, 255]));
+
+    img.save(output_dir.join("boat.png")).expect("Failed to save boat.png");
+    println!("Generated: boat.png");
 }
 
 fn generate_player(output_dir: &Path) {

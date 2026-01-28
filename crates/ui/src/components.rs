@@ -18,3 +18,14 @@ pub struct TilePosition {
 /// マップタイルを識別するマーカーコンポーネント
 #[derive(Component)]
 pub struct MapTile;
+
+/// 船エンティティを識別するマーカーコンポーネント
+#[derive(Component)]
+pub struct Boat;
+
+/// プレイヤーが船に乗っている状態を示すコンポーネント
+#[derive(Component)]
+pub struct OnBoat {
+    /// 乗っている船のエンティティ
+    pub boat_entity: Entity,
+}

@@ -6,7 +6,7 @@ use ui::events::{MovementBlockedEvent, PlayerMovedEvent};
 use ui::resources::MovementState;
 use ui::{
     camera_follow, player_movement, setup_camera, spawn_field_map, spawn_player, start_bounce,
-    start_smooth_move, tile_culling, update_bounce, update_smooth_move,
+    start_smooth_move, sync_boat_with_player, tile_culling, update_bounce, update_smooth_move,
 };
 
 fn main() {
@@ -35,6 +35,7 @@ fn main() {
                 start_smooth_move,
                 ApplyDeferred,
                 update_smooth_move,
+                sync_boat_with_player,
                 update_bounce,
                 camera_follow,
                 tile_culling,

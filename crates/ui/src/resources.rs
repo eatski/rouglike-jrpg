@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use std::collections::HashMap;
 
 use game::map::{MapData, Terrain};
 
@@ -45,4 +46,11 @@ impl Default for MovementState {
             last_direction: (0, 0),
         }
     }
+}
+
+/// 船の位置情報を管理するリソース
+#[derive(Resource, Default)]
+pub struct BoatPositions {
+    /// Entity と タイル座標のマッピング
+    pub positions: HashMap<Entity, (usize, usize)>,
 }
