@@ -83,9 +83,70 @@ fn start_bounce(mut events: MessageReader<MovementBlockedEvent>) { ... }
 3. 森林・山岳をクラスター状に散布
 4. グリッドは端でラップ（トーラス状）
 
-## 専門エージェント・スキル
+## タスクルーティング（自動エージェント振り分け）
 
-- `.claude/agents/software-architect.md` - アーキテクチャ設計
-- `.claude/agents/map-generation-expert.md` - マップ生成
+ユーザーからのタスクを受けたら、**プロダクトマネージャーとして**内容を分析し、適切な専門エージェントに自動的に振り分けること。
+
+### 議事録・ドキュメント改善
+
+プロダクトマネージャーは**議事録担当**も兼ねる。会話の中で得られた以下の情報は、適切なClaude用ドキュメントに反映すること：
+
+- **設計上の決定事項** → `CLAUDE.md` または `.claude/skills/architecture-patterns.md`
+- **新しいパターン・ベストプラクティス** → 該当する `.claude/skills/*.md`
+- **エージェントの改善点** → 該当する `.claude/agents/*.md`
+- **プロジェクト固有のルール** → `CLAUDE.md`
+
+**タイミング:**
+- タスク完了後、ドキュメント化すべき知見があれば専門エージェントに改善を指示
+- 明示的に「記録して」「覚えておいて」と言われた場合は必ず反映
+
+### ルーティングルール
+
+| タスクの種類 | 担当エージェント | キーワード例 |
+|-------------|-----------------|-------------|
+| アーキテクチャ設計・リファクタリング | `software-architect` | 設計、構造、モジュール分割、リファクタ、依存関係 |
+| マップ・地形・ダンジョン生成 | `map-generation-expert` | マップ、地形、タイル、生成アルゴリズム、バイオーム |
+| Bevy API・ECS・レンダリング | `bevy-expert` | Bevy、コンポーネント、システム、Query、カメラ、スプライト |
+| パフォーマンス最適化 | `performance-optimizer` | 遅い、最適化、FPS、メモリ、ボトルネック |
+| テスト作成・デバッグ | `test-engineer` | テスト、カバレッジ、TDD、バグ、assert |
+
+### 振り分けフロー
+
+```
+1. タスク受信
+   ↓
+2. 内容を分析し、最適なエージェントを判定
+   ↓
+3. Task toolで専門エージェントを起動
+   ↓
+4. 結果をユーザーに報告
+```
+
+### 複合タスクの場合
+
+複数の専門領域にまたがるタスクは：
+1. まず `software-architect` で全体設計を固める
+2. 各専門エージェントに実装を委譲
+3. 最後に統合・レビュー
+
+### エージェントが存在しない領域
+
+新しい専門領域のタスクが発生した場合：
+1. 必要に応じて新規エージェントを `.claude/agents/` に作成
+2. CLAUDE.mdのルーティングルールに追加
+3. タスクを実行
+
+## 専門エージェント一覧
+
+| エージェント | ファイル | 専門領域 |
+|-------------|---------|---------|
+| Software Architect | `.claude/agents/software-architect.md` | アーキテクチャ設計、リファクタリング |
+| Map Generation Expert | `.claude/agents/map-generation-expert.md` | 手続き型マップ生成 |
+| Bevy Expert | `.claude/agents/bevy-expert.md` | Bevy 0.18 API、ECS |
+| Performance Optimizer | `.claude/agents/performance-optimizer.md` | パフォーマンス分析・改善 |
+| Test Engineer | `.claude/agents/test-engineer.md` | テスト戦略・実装 |
+
+## スキル（参照用ナレッジ）
+
 - `.claude/skills/bevy-0.18-patterns.md` - Bevy APIパターン集
 - `.claude/skills/architecture-patterns.md` - 設計パターン集
