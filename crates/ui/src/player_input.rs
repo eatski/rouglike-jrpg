@@ -5,7 +5,7 @@ use game::movement::{try_move, try_move_on_boat, MoveResult};
 
 use crate::components::{Boat, MovementLocked, OnBoat, Player, TilePosition};
 use crate::events::{MovementBlockedEvent, PlayerMovedEvent};
-use crate::resources::{BoatPositions, MapDataResource, MovementState};
+use crate::resources::{MapDataResource, MovementState};
 
 /// プレイヤーの移動入力を処理するシステム
 pub fn player_movement(
@@ -14,7 +14,6 @@ pub fn player_movement(
     time: Res<Time>,
     map_data: Res<MapDataResource>,
     mut move_state: ResMut<MovementState>,
-    mut boat_positions: ResMut<BoatPositions>,
     mut query: Query<
         (
             Entity,
@@ -24,7 +23,7 @@ pub fn player_movement(
         ),
         With<Player>,
     >,
-    mut boat_query: Query<&mut TilePosition, (With<Boat>, Without<Player>)>,
+    mut boat_query: Query<(Entity, &mut TilePosition), (With<Boat>, Without<Player>)>,
     mut blocked_events: MessageWriter<MovementBlockedEvent>,
     mut moved_events: MessageWriter<PlayerMovedEvent>,
 ) {
@@ -99,12 +98,9 @@ pub fn player_movement(
         match try_move_on_boat(tile_pos.x, tile_pos.y, dx, dy, &map_data.grid) {
             MoveResult::Moved { new_x, new_y } => {
                 // 船で海を移動
-                if let Ok(mut boat_tile_pos) = boat_query.get_mut(on_boat.boat_entity) {
+                if let Ok((_, mut boat_tile_pos)) = boat_query.get_mut(on_boat.boat_entity) {
                     boat_tile_pos.x = new_x;
                     boat_tile_pos.y = new_y;
-                    boat_positions
-                        .positions
-                        .insert(on_boat.boat_entity, (new_x, new_y));
                 }
                 tile_pos.x = new_x;
                 tile_pos.y = new_y;
@@ -141,12 +137,11 @@ pub fn player_movement(
         let new_x = ((tile_pos.x as i32 + dx).rem_euclid(MAP_WIDTH as i32)) as usize;
         let new_y = ((tile_pos.y as i32 + dy).rem_euclid(MAP_HEIGHT as i32)) as usize;
 
-        // 移動先に船があるかチェック
-        let boat_at_dest = boat_positions
-            .positions
+        // 移動先に船があるかチェック（クエリで検索）
+        let boat_at_dest = boat_query
             .iter()
-            .find(|(_, pos)| **pos == (new_x, new_y))
-            .map(|(&e, _)| e);
+            .find(|(_, pos)| pos.x == new_x && pos.y == new_y)
+            .map(|(e, _)| e);
 
         if let Some(boat_entity) = boat_at_dest {
             // 船がある場所への移動 → 乗船

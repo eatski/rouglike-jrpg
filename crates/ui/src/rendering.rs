@@ -3,9 +3,9 @@ use bevy::prelude::*;
 use game::map::{calculate_boat_spawns, generate_map, Terrain, MAP_HEIGHT, MAP_WIDTH};
 
 use crate::components::{Boat, MapTile, Player, TilePosition};
-use crate::resources::{BoatPositions, MapDataResource, SpawnPosition};
+use crate::resources::{MapDataResource, SpawnPosition};
 
-use super::constants::{MAP_PIXEL_HEIGHT, MAP_PIXEL_WIDTH, TILE_SIZE};
+use super::constants::{tile_to_world, MAP_PIXEL_HEIGHT, MAP_PIXEL_WIDTH, TILE_SIZE};
 
 #[derive(Resource)]
 pub struct TileTextures {
@@ -26,8 +26,6 @@ pub fn spawn_field_map(mut commands: Commands, asset_server: Res<AssetServer>) {
         boat: asset_server.load("tiles/boat.png"),
     };
 
-    let origin_x = -MAP_PIXEL_WIDTH / 2.0 + TILE_SIZE / 2.0;
-    let origin_y = -MAP_PIXEL_HEIGHT / 2.0 + TILE_SIZE / 2.0;
     let mut rng = rand::thread_rng();
     let map_data = generate_map(&mut rng);
 
@@ -41,31 +39,27 @@ pub fn spawn_field_map(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // 船をスポーン
     let scale = TILE_SIZE / 16.0;
-    let mut boat_positions = BoatPositions::default();
 
     for spawn in &boat_spawns {
-        let world_x = origin_x + spawn.x as f32 * TILE_SIZE;
-        let world_y = origin_y + spawn.y as f32 * TILE_SIZE;
+        let (world_x, world_y) = tile_to_world(spawn.x, spawn.y);
 
-        let entity = commands
-            .spawn((
-                Boat,
-                TilePosition {
-                    x: spawn.x,
-                    y: spawn.y,
-                },
-                Sprite::from_image(tile_textures.boat.clone()),
-                Transform::from_xyz(world_x, world_y, 0.5).with_scale(Vec3::splat(scale)),
-            ))
-            .id();
-
-        boat_positions.positions.insert(entity, (spawn.x, spawn.y));
+        commands.spawn((
+            Boat,
+            TilePosition {
+                x: spawn.x,
+                y: spawn.y,
+            },
+            Sprite::from_image(tile_textures.boat.clone()),
+            Transform::from_xyz(world_x, world_y, 0.5).with_scale(Vec3::splat(scale)),
+        ));
     }
-
-    commands.insert_resource(boat_positions);
 
     // スプライトのスケール（16pxのテクスチャをTILE_SIZEに合わせる）
     let scale = TILE_SIZE / 16.0;
+
+    // 原点座標（左下タイルの中心）
+    let origin_x = -MAP_PIXEL_WIDTH / 2.0 + TILE_SIZE / 2.0;
+    let origin_y = -MAP_PIXEL_HEIGHT / 2.0 + TILE_SIZE / 2.0;
 
     // マップを3x3で複製描画（トーラスラップの視覚化）
     for offset_y in -1..=1 {
@@ -107,11 +101,7 @@ pub fn spawn_player(
     spawn_pos: Res<SpawnPosition>,
     asset_server: Res<AssetServer>,
 ) {
-    let origin_x = -MAP_PIXEL_WIDTH / 2.0 + TILE_SIZE / 2.0;
-    let origin_y = -MAP_PIXEL_HEIGHT / 2.0 + TILE_SIZE / 2.0;
-
-    let world_x = origin_x + spawn_pos.x as f32 * TILE_SIZE;
-    let world_y = origin_y + spawn_pos.y as f32 * TILE_SIZE;
+    let (world_x, world_y) = tile_to_world(spawn_pos.x, spawn_pos.y);
 
     let player_texture: Handle<Image> = asset_server.load("characters/player.png");
     let scale = TILE_SIZE / 16.0;

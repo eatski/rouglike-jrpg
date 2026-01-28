@@ -4,10 +4,11 @@ use crate::components::MapTile;
 use crate::constants::{CULLING_MARGIN, VISIBLE_SIZE};
 
 pub fn tile_culling(
-    camera_query: Query<&Transform, With<Camera2d>>,
+    camera_query: Query<&Transform, (With<Camera2d>, Changed<Transform>)>,
     mut tile_query: Query<(&Transform, &mut Visibility), (With<MapTile>, Without<Camera2d>)>,
 ) {
     let Ok(camera_transform) = camera_query.single() else {
+        // カメラが変更されていない場合はスキップ
         return;
     };
 

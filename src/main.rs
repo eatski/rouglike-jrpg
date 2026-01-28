@@ -35,8 +35,8 @@ fn main() {
                 start_smooth_move,
                 ApplyDeferred,
                 update_smooth_move,
-                sync_boat_with_player,
                 update_bounce,
+                sync_boat_with_player,
                 camera_follow,
                 tile_culling,
             )
