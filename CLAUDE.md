@@ -115,12 +115,25 @@ fn start_bounce(mut events: MessageReader<MovementBlockedEvent>) { ... }
 ```
 1. タスク受信
    ↓
-2. 内容を分析し、最適なエージェントを判定
+2. 内容を分析し、最適な専門エージェントを判定
    ↓
 3. Task toolで専門エージェントを起動
    ↓
 4. 結果をユーザーに報告
 ```
+
+### Exploreエージェントの位置づけ
+
+**重要**: `Explore`は専門エージェントではなく、**手段**として位置づける。
+
+```
+❌ 誤: ユーザー → PM → Explore（直接起動）
+⭕ 正: ユーザー → PM → 専門エージェント → Explore（内部で使用）
+```
+
+- PMがExploreを直接起動しない
+- 専門エージェント（test-engineer, software-architect等）がタスク遂行中に必要に応じてExploreを呼び出す
+- 調査・洗い出し系のタスクも、まず該当する専門エージェントに振り分ける
 
 ### 複合タスクの場合
 
