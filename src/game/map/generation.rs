@@ -139,3 +139,132 @@ fn neighbors(y: usize, x: usize) -> [(usize, usize); 4] {
         (y, (x + 1) % MAP_WIDTH),               // 右 (ラップ)
     ]
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rand::SeedableRng;
+    use rand_chacha::ChaCha8Rng;
+
+    fn create_rng(seed: u64) -> ChaCha8Rng {
+        ChaCha8Rng::seed_from_u64(seed)
+    }
+
+    #[test]
+    fn generate_map_creates_correct_size_grid() {
+        let mut rng = create_rng(12345);
+        let map = generate_map(&mut rng);
+
+        assert_eq!(map.grid.len(), MAP_HEIGHT);
+        for row in &map.grid {
+            assert_eq!(row.len(), MAP_WIDTH);
+        }
+    }
+
+    #[test]
+    fn generate_map_has_landmass() {
+        let mut rng = create_rng(12345);
+        let map = generate_map(&mut rng);
+
+        let land_count = map
+            .grid
+            .iter()
+            .flatten()
+            .filter(|t| **t != Terrain::Sea)
+            .count();
+
+        assert!(land_count > 0, "Map should have some land");
+    }
+
+    #[test]
+    fn generate_map_spawn_position_is_on_land() {
+        let mut rng = create_rng(12345);
+        let map = generate_map(&mut rng);
+
+        let (x, y) = map.spawn_position;
+        let terrain = map.grid[y][x];
+
+        assert_ne!(
+            terrain,
+            Terrain::Sea,
+            "Spawn position should be on land, not sea"
+        );
+    }
+
+    #[test]
+    fn generate_map_spawn_position_is_plains() {
+        let mut rng = create_rng(12345);
+        let map = generate_map(&mut rng);
+
+        let (x, y) = map.spawn_position;
+        let terrain = map.grid[y][x];
+
+        assert_eq!(
+            terrain,
+            Terrain::Plains,
+            "Spawn position should be on Plains (protected from forest/mountain scatter)"
+        );
+    }
+
+    #[test]
+    fn generate_map_has_forests_and_mountains() {
+        let mut rng = create_rng(12345);
+        let map = generate_map(&mut rng);
+
+        let forest_count = map
+            .grid
+            .iter()
+            .flatten()
+            .filter(|t| **t == Terrain::Forest)
+            .count();
+
+        let mountain_count = map
+            .grid
+            .iter()
+            .flatten()
+            .filter(|t| **t == Terrain::Mountain)
+            .count();
+
+        assert!(forest_count > 0, "Map should have some forests");
+        assert!(mountain_count > 0, "Map should have some mountains");
+    }
+
+    #[test]
+    fn generate_map_is_deterministic_with_same_seed() {
+        let mut rng1 = create_rng(42);
+        let mut rng2 = create_rng(42);
+
+        let map1 = generate_map(&mut rng1);
+        let map2 = generate_map(&mut rng2);
+
+        assert_eq!(map1.spawn_position, map2.spawn_position);
+        assert_eq!(map1.grid, map2.grid);
+    }
+
+    #[test]
+    fn generate_map_different_seeds_produce_different_maps() {
+        let mut rng1 = create_rng(1);
+        let mut rng2 = create_rng(2);
+
+        let map1 = generate_map(&mut rng1);
+        let map2 = generate_map(&mut rng2);
+
+        // 異なるシードでは異なるマップが生成されるはず
+        // spawn_positionかgridのどちらかが異なれば良い
+        let is_different =
+            map1.spawn_position != map2.spawn_position || map1.grid != map2.grid;
+
+        assert!(is_different, "Different seeds should produce different maps");
+    }
+
+    #[test]
+    fn spawn_position_is_within_map_bounds() {
+        let mut rng = create_rng(99999);
+        let map = generate_map(&mut rng);
+
+        let (x, y) = map.spawn_position;
+
+        assert!(x < MAP_WIDTH, "Spawn x should be within map width");
+        assert!(y < MAP_HEIGHT, "Spawn y should be within map height");
+    }
+}
