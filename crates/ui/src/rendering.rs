@@ -82,6 +82,7 @@ pub fn spawn_field_map(mut commands: Commands, asset_server: Res<AssetServer>) {
 
                     commands.spawn((
                         MapTile,
+                        TilePosition { x, y },
                         Sprite::from_image(texture),
                         Transform::from_xyz(world_x, world_y, 0.0)
                             .with_scale(Vec3::splat(scale)),

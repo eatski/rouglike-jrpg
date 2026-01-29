@@ -2,20 +2,28 @@ use bevy::prelude::*;
 
 use crate::components::MapTile;
 use crate::constants::{CULLING_MARGIN, VISIBLE_SIZE};
+use crate::map_mode::{MapModeState, MAP_MODE_ZOOM};
 
 pub fn tile_culling(
-    camera_query: Query<&Transform, (With<Camera2d>, Changed<Transform>)>,
+    map_mode_state: Res<MapModeState>,
+    camera_query: Query<&Transform, With<Camera2d>>,
     mut tile_query: Query<(&Transform, &mut Visibility), (With<MapTile>, Without<Camera2d>)>,
 ) {
     let Ok(camera_transform) = camera_query.single() else {
-        // カメラが変更されていない場合はスキップ
         return;
     };
 
     let camera_x = camera_transform.translation.x;
     let camera_y = camera_transform.translation.y;
 
-    let half_visible = VISIBLE_SIZE / 2.0;
+    // マップモード時は広い範囲を表示
+    let visible_size = if map_mode_state.enabled {
+        MAP_MODE_ZOOM
+    } else {
+        VISIBLE_SIZE
+    };
+
+    let half_visible = visible_size / 2.0;
     let left = camera_x - half_visible - CULLING_MARGIN;
     let right = camera_x + half_visible + CULLING_MARGIN;
     let bottom = camera_y - half_visible - CULLING_MARGIN;
