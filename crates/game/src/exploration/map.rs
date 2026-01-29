@@ -290,4 +290,44 @@ mod tests {
         map.update_visibility(5, 5, 1);
         assert_eq!(map.get(5, 5), Some(TileVisibility::Visible));
     }
+
+    #[test]
+    fn test_crossing_edge_maintains_visible_count() {
+        let mut map = ExplorationMap::new(150, 150);
+
+        // Visibleタイルの数をカウントするヘルパー
+        fn count_visible(map: &ExplorationMap) -> usize {
+            let mut count = 0;
+            for y in 0..map.height() {
+                for x in 0..map.width() {
+                    if map.get(x, y) == Some(TileVisibility::Visible) {
+                        count += 1;
+                    }
+                }
+            }
+            count
+        }
+
+        // 中央から開始（半径4 = 9x9 = 81タイル）
+        map.update_visibility(75, 75, 4);
+        assert_eq!(count_visible(&map), 81);
+
+        // 端に近づく
+        map.update_visibility(147, 75, 4);
+        assert_eq!(count_visible(&map), 81);
+
+        // 端を越える（x=148→149→0）
+        map.update_visibility(148, 75, 4);
+        assert_eq!(count_visible(&map), 81);
+
+        map.update_visibility(149, 75, 4);
+        assert_eq!(count_visible(&map), 81);
+
+        map.update_visibility(0, 75, 4);
+        assert_eq!(count_visible(&map), 81);
+
+        // さらに進む
+        map.update_visibility(1, 75, 4);
+        assert_eq!(count_visible(&map), 81);
+    }
 }
