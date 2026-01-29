@@ -5,10 +5,11 @@ use ui::constants::WINDOW_SIZE;
 use ui::events::{MovementBlockedEvent, PlayerMovedEvent};
 use ui::resources::MovementState;
 use ui::{
-    camera_follow, init_exploration_system, init_minimap_system, player_movement, setup_camera,
-    spawn_field_map, spawn_player, start_bounce, start_smooth_move, sync_boat_with_player,
-    tile_culling, toggle_map_mode_system, toggle_minimap_visibility_system, update_bounce,
-    update_exploration_system, update_minimap_texture_system, update_smooth_move, MapModeState,
+    camera_follow, init_exploration_system, init_minimap_system, init_tile_pool, player_movement,
+    setup_camera, spawn_field_map, spawn_player, start_bounce, start_smooth_move,
+    sync_boat_with_player, toggle_map_mode_system, toggle_minimap_visibility_system, update_bounce,
+    update_exploration_system, update_minimap_texture_system, update_smooth_move,
+    update_visible_tiles, MapModeState,
 };
 
 fn main() {
@@ -35,6 +36,7 @@ fn main() {
                 spawn_field_map,
                 setup_camera,
                 spawn_player,
+                init_tile_pool,
                 init_exploration_system,
                 init_minimap_system,
             )
@@ -46,6 +48,7 @@ fn main() {
                 toggle_map_mode_system,
                 toggle_minimap_visibility_system,
                 player_movement,
+                update_visible_tiles,
                 update_exploration_system,
                 update_minimap_texture_system,
                 start_bounce,
@@ -55,7 +58,6 @@ fn main() {
                 update_bounce,
                 sync_boat_with_player,
                 camera_follow,
-                tile_culling,
             )
                 .chain(),
         )
