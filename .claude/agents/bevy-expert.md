@@ -124,6 +124,76 @@ Sprite::from_color(Color::srgb_u8(r, g, b), Vec2::splat(size))
 3. `WindowResolution::new()`は`u32`を受け取る
 4. `#[require]`マクロでデフォルトコンポーネントが自動付与される
 
+## Message API（Bevy 0.17以降）
+
+Bevy 0.17で`Event`/`EventWriter`/`EventReader`は`Message`/`MessageWriter`/`MessageReader`に名称変更された。
+
+### メッセージ定義・送信・受信
+
+```rust
+// 定義
+#[derive(Message)]
+pub struct PlayerMovedEvent {
+    pub entity: Entity,
+    pub direction: (i32, i32),
+}
+
+// 送信
+fn movement(mut events: MessageWriter<PlayerMovedEvent>) {
+    events.write(PlayerMovedEvent { entity, direction: (dx, dy) });
+}
+
+// 受信
+fn handle_movement(mut events: MessageReader<PlayerMovedEvent>) {
+    for event in events.read() {
+        // event.entity, event.direction を使用
+    }
+}
+
+// App登録
+App::new()
+    .add_message::<PlayerMovedEvent>()
+```
+
+## リソースの受け渡し（Startup間）
+
+```rust
+#[derive(Resource)]
+struct SpawnPosition { x: usize, y: usize }
+
+// システムAでリソース登録
+fn system_a(mut commands: Commands) {
+    commands.insert_resource(SpawnPosition { x: 10, y: 20 });
+}
+
+// システムBでリソース使用（chain()で順序保証）
+fn system_b(spawn_pos: Res<SpawnPosition>) {
+    // spawn_pos.x, spawn_pos.y を使用
+}
+```
+
+## トーラスラップ（端で反対側に出る）
+
+```rust
+let new_x = ((x as i32 + dx).rem_euclid(MAP_WIDTH as i32)) as usize;
+let new_y = ((y as i32 + dy).rem_euclid(MAP_HEIGHT as i32)) as usize;
+```
+
+## カメラ追従
+
+```rust
+fn camera_follow(
+    player_query: Query<&Transform, With<Player>>,
+    mut camera_query: Query<&mut Transform, (With<Camera2d>, Without<Player>)>,
+) {
+    let Ok(player) = player_query.single() else { return; };
+    let Ok(mut camera) = camera_query.single_mut() else { return; };
+
+    camera.translation.x = player.translation.x;
+    camera.translation.y = player.translation.y;
+}
+```
+
 ## 許可されるBashコマンド
 
 | コマンド | 用途 |

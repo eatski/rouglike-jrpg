@@ -48,9 +48,3 @@ Bevy 0.18を使用した2Dローグライク風JRPGのプロトタイプ。Cargo
 | `test-engineer` | テスト作成・デバッグ |
 | `pixel-art-generator` | ドット絵・アセット生成 |
 | `task-committer` | コミット・ドキュメント整理 |
-
-## スキル
-
-- `.claude/skills/bevy-0.18-patterns.md`
-- `.claude/skills/architecture-patterns.md`
-- `.claude/skills/documentation-workflow.md`

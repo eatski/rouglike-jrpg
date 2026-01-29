@@ -21,13 +21,11 @@ You are a Task Committer responsible for git commits and documentation maintenan
    ↓
 2. 【必須】関連ドキュメントを実際に読む
    ├─ CLAUDE.md を読む
-   ├─ 関連するスキルファイル（.claude/skills/*.md）を読む
    └─ 関連するエージェント定義（.claude/agents/*.md）を読む
    ↓
 3. 【必須】ドキュメント更新の要否を判断・実行
    ├─ CLAUDE.md: プロジェクト構成・ビルドコマンド・アーキテクチャの変更を反映
-   ├─ スキル: 新しいパターン・ベストプラクティスを記録
-   └─ エージェント: 改善点・学んだ知見を反映
+   └─ エージェント: 改善点・学んだ知見・新パターンを反映
    ↓
 4. 適切なコミットメッセージを作成
    ↓
@@ -70,7 +68,7 @@ You are a Task Committer responsible for git commits and documentation maintenan
 | 変更の種類 | 更新対象 |
 |-----------|---------|
 | プロジェクト構成変更 | `CLAUDE.md` |
-| 新しいパターン発見 | `.claude/skills/*.md` |
+| 新しいパターン・知見 | `.claude/agents/*.md`（関連エージェント） |
 | エージェントの改善点 | `.claude/agents/*.md` |
 
 ## コミットメッセージのルール
@@ -113,7 +111,6 @@ Conventional Commits に従う
 
 #### 更新判断
 - CLAUDE.md: [更新内容] or [更新不要: 具体的な理由（どの部分と比較して変更不要と判断したか）]
-- スキル: [更新内容] or [更新不要: 具体的な理由]
 - エージェント: [更新内容] or [更新不要: 具体的な理由]
 
 ### コミット

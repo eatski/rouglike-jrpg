@@ -137,7 +137,56 @@ blocked_events.write(MovementBlockedEvent { entity, direction });
 - ui → game: マーカーコンポーネント（例: `MovementLocked`）
 - **禁止**: `game/` が `ui/` に依存すること
 
-詳細は `.claude/skills/architecture-patterns.md` を参照。
+## Flood Fillパターン（マップ解析）
+
+島検出など、連結領域の探索に使用。
+
+```rust
+fn flood_fill(
+    start_x: usize, start_y: usize,
+    grid: &[Vec<Terrain>],
+    visited: &mut [Vec<bool>],
+) -> Vec<(usize, usize)> {
+    let mut result = Vec::new();
+    let mut queue = VecDeque::new();
+    queue.push_back((start_x, start_y));
+    visited[start_y][start_x] = true;
+
+    while let Some((x, y)) = queue.pop_front() {
+        result.push((x, y));
+        for (dx, dy) in [(0, -1), (0, 1), (-1, 0), (1, 0)] {
+            let nx = (x as i32 + dx).rem_euclid(MAP_WIDTH as i32) as usize;
+            let ny = (y as i32 + dy).rem_euclid(MAP_HEIGHT as i32) as usize;
+            if !visited[ny][nx] && grid[ny][nx] != Terrain::Sea {
+                visited[ny][nx] = true;
+                queue.push_back((nx, ny));
+            }
+        }
+    }
+    result
+}
+```
+
+**応用例**: 船スポーン位置計算、バイオーム検出、到達可能判定
+
+## 新機能追加時のチェックリスト
+
+1. **ゲームルールか見た目か判断**
+   - ルール → `game/` に純粋関数
+   - 見た目 → `ui/` に実装
+   - 両方 → ロジックを`game/`、Bevy統合を`ui/`に分離
+
+2. **Bevy型を使うか確認**
+   - `Entity`, `Component`, `Resource`, `Message`, `Timer` → **ui/ のみ**
+
+3. **定数の配置を決定**
+   - ルールに関わる数値 → `game/`
+   - 見た目に関わる数値 → `ui/src/constants.rs`
+
+4. **依存方向を確認**
+   - `ui/` → `game/` ✓
+   - `game/` → `ui/` ✗
+   - `game/` → `bevy` ✗
 
 ## 許可されるBashコマンド
 
