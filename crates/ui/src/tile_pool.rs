@@ -7,6 +7,7 @@ use crate::components::{MapTile, Player, TilePosition};
 use crate::constants::{logical_to_world, TILE_SIZE, VISIBLE_CELLS};
 use crate::rendering::TileTextures;
 use crate::resources::MapDataResource;
+use crate::smooth_move::SmoothMove;
 
 /// 視界範囲 + バッファのサイズ（片側）
 const TILE_BUFFER: i32 = 3;
@@ -91,6 +92,7 @@ fn get_terrain_texture(terrain: Terrain, textures: &TileTextures) -> Handle<Imag
 pub fn update_visible_tiles(
     mut tile_pool: ResMut<TilePool>,
     player_query: Query<&TilePosition, With<Player>>,
+    smooth_move_query: Query<&SmoothMove, With<Player>>,
     map_data: Res<MapDataResource>,
     tile_textures: Res<TileTextures>,
     mut tile_query: Query<(
@@ -100,6 +102,11 @@ pub fn update_visible_tiles(
         &mut Visibility,
     )>,
 ) {
+    // スムーズ移動中はタイル更新をスキップ（マップ端での暗転防止）
+    if smooth_move_query.iter().next().is_some() {
+        return;
+    }
+
     let Ok(player_pos) = player_query.single() else {
         return;
     };
