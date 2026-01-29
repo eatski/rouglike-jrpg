@@ -7,3 +7,6 @@ edition = "2024"
 bevy = "0.18"
 rand = "0.8"
 game = { path = "../game" }
+
+[dev-dependencies]
+rand_chacha = "0.3"
