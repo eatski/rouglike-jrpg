@@ -148,6 +148,6 @@ blocked_events.write(MovementBlockedEvent { entity, direction });
 **禁止**:
 - `cargo build`, `cargo test`（実装は他エージェントの責務）
 - `cargo run`（ゲーム実行はユーザーが行う）
-- `git` コマンド（コミットは commit-keeper の責務）
+- `git` コマンド（コミットは task-committer の責務）
 
 設計・分析に専念し、コード実装は他の専門エージェントに委譲すること。

@@ -53,3 +53,4 @@ Bevy 0.18を使用した2Dローグライク風JRPGのプロトタイプ。Cargo
 
 - `.claude/skills/bevy-0.18-patterns.md`
 - `.claude/skills/architecture-patterns.md`
+- `.claude/skills/documentation-workflow.md`
