@@ -5,6 +5,8 @@ pub struct ExplorationMap {
     width: usize,
     height: usize,
     tiles: Vec<Vec<TileVisibility>>,
+    /// 現在Visibleなタイルの座標（差分更新用）
+    current_visible: Vec<(usize, usize)>,
 }
 
 impl ExplorationMap {
@@ -21,6 +23,7 @@ impl ExplorationMap {
             width,
             height,
             tiles: vec![vec![TileVisibility::default(); width]; height],
+            current_visible: Vec::new(),
         }
     }
 
@@ -34,13 +37,9 @@ impl ExplorationMap {
     /// * `player_y` - プレイヤーのy座標
     /// * `view_radius` - 視界半径
     pub fn update_visibility(&mut self, player_x: usize, player_y: usize, view_radius: usize) {
-        // 以前のVisible → Explored に変更
-        for row in &mut self.tiles {
-            for tile in row {
-                if *tile == TileVisibility::Visible {
-                    *tile = TileVisibility::Explored;
-                }
-            }
+        // 以前のVisibleタイルのみをExploredに変更（差分更新）
+        for (x, y) in self.current_visible.drain(..) {
+            self.tiles[y][x] = TileVisibility::Explored;
         }
 
         // 新しい視界範囲を計算して Visible に設定
@@ -49,6 +48,7 @@ impl ExplorationMap {
 
         for (x, y) in visible_tiles {
             self.tiles[y][x] = TileVisibility::Visible;
+            self.current_visible.push((x, y));
         }
     }
 
