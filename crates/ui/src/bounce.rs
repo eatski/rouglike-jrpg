@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::components::{MovementLocked, Player};
+use crate::components::{MovementLocked, PendingMove, Player};
 use crate::events::MovementBlockedEvent;
 
 use super::constants::TILE_SIZE;
@@ -48,9 +48,10 @@ pub fn update_bounce(
     bounce.timer.tick(time.delta());
 
     if bounce.timer.just_finished() {
-        // バウンス終了、ロック解除
+        // バウンス終了、ロック解除、PendingMoveもクリア
         commands.entity(entity).remove::<Bounce>();
         commands.entity(entity).remove::<MovementLocked>();
+        commands.entity(entity).remove::<PendingMove>();
     } else {
         // バウンスアニメーション（往復）
         let progress = bounce.timer.fraction();

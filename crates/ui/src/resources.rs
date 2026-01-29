@@ -32,6 +32,8 @@ pub struct MovementState {
     pub initial_delay: Timer,
     pub is_repeating: bool,
     pub last_direction: (i32, i32),
+    /// 先に押された軸（Some(true)=X軸、Some(false)=Y軸、None=なし）
+    pub first_axis: Option<bool>,
 }
 
 impl Default for MovementState {
@@ -43,6 +45,7 @@ impl Default for MovementState {
             initial_delay: Timer::from_seconds(0.15, TimerMode::Once),
             is_repeating: false,
             last_direction: (0, 0),
+            first_axis: None,
         }
     }
 }

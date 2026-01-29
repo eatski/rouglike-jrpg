@@ -29,3 +29,9 @@ pub struct OnBoat {
     /// 乗っている船のエンティティ
     pub boat_entity: Entity,
 }
+
+/// 予約された次の移動方向（斜め移動の2回目）
+#[derive(Component)]
+pub struct PendingMove {
+    pub direction: (i32, i32),
+}
