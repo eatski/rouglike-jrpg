@@ -5,8 +5,10 @@ use ui::constants::WINDOW_SIZE;
 use ui::events::{MovementBlockedEvent, PlayerMovedEvent};
 use ui::resources::MovementState;
 use ui::{
-    camera_follow, player_movement, setup_camera, spawn_field_map, spawn_player, start_bounce,
-    start_smooth_move, sync_boat_with_player, tile_culling, update_bounce, update_smooth_move,
+    apply_map_mode_fog_system, camera_follow, init_exploration_system, player_movement,
+    restore_tile_colors_system, setup_camera, spawn_field_map, spawn_player, start_bounce,
+    start_smooth_move, sync_boat_with_player, tile_culling, toggle_map_mode_system,
+    update_bounce, update_exploration_system, update_smooth_move, MapModeState,
 };
 
 fn main() {
@@ -26,11 +28,17 @@ fn main() {
         .add_message::<MovementBlockedEvent>()
         .add_message::<PlayerMovedEvent>()
         .init_resource::<MovementState>()
-        .add_systems(Startup, (spawn_field_map, setup_camera, spawn_player).chain())
+        .init_resource::<MapModeState>()
+        .add_systems(
+            Startup,
+            (spawn_field_map, setup_camera, spawn_player, init_exploration_system).chain(),
+        )
         .add_systems(
             Update,
             (
+                toggle_map_mode_system,
                 player_movement,
+                update_exploration_system,
                 start_bounce,
                 start_smooth_move,
                 ApplyDeferred,
@@ -38,6 +46,8 @@ fn main() {
                 update_bounce,
                 sync_boat_with_player,
                 camera_follow,
+                apply_map_mode_fog_system,
+                restore_tile_colors_system,
                 tile_culling,
             )
                 .chain(),

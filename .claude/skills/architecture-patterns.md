@@ -223,6 +223,123 @@ fn flood_fill(
 - **バイオーム検出**: 同じ地形が連結している領域を抽出
 - **到達可能判定**: プレイヤーが特定の場所に行けるか判定
 
+## 探索システム（Fog of War）パターン
+
+プレイヤーが訪れた場所を記録し、視界外のエリアを暗くする。
+
+### アーキテクチャ
+
+```
+crates/game/exploration/        crates/ui/map_mode.rs
+├── TileVisibility enum         ├── ExplorationData (Resource)
+│   ├── Unexplored              ├── OriginalColor (Component)
+│   ├── Explored                ├── init_exploration_system
+│   └── Visible                 ├── update_exploration_system
+├── ExplorationMap              ├── apply_map_mode_fog_system
+└── calculate_visible_tiles()   └── restore_tile_colors_system
+
+Bevy非依存 ←───────────────────→ Bevy依存
+（視界判定ロジック）               （色変更・UI制御）
+```
+
+### 実装例
+
+```rust
+// game/exploration/visibility.rs - 視界判定（純粋関数）
+pub enum TileVisibility {
+    Unexplored,  // 未探索（黒）
+    Explored,    // 探索済み（暗め）
+    Visible,     // 視界内（通常）
+}
+
+pub fn calculate_visible_tiles(
+    center_x: usize,
+    center_y: usize,
+    radius: usize,
+    map_width: usize,
+    map_height: usize,
+) -> Vec<(usize, usize)> {
+    // トーラスマップ対応の視界計算
+    // チェビシェフ距離で判定（正方形視界）
+}
+
+// game/exploration/map.rs - 探索状態管理
+pub struct ExplorationMap {
+    tiles: Vec<Vec<TileVisibility>>,
+}
+
+impl ExplorationMap {
+    pub fn update_visibility(&mut self, x: usize, y: usize, radius: usize) {
+        let visible = calculate_visible_tiles(x, y, radius, width, height);
+        // Unexplored → Explored → Visible への状態遷移
+    }
+}
+
+// ui/map_mode.rs - Bevy統合
+#[derive(Resource)]
+pub struct ExplorationData {
+    pub map: ExplorationMap,
+}
+
+fn update_exploration_system(
+    mut exploration_data: ResMut<ExplorationData>,
+    player_query: Query<&TilePosition, With<Player>>,
+    mut moved_events: MessageReader<PlayerMovedEvent>,
+) {
+    for _event in moved_events.read() {
+        if let Ok(tile_pos) = player_query.single() {
+            exploration_data.map.update_visibility(tile_pos.x, tile_pos.y, VIEW_RADIUS);
+        }
+    }
+}
+
+fn apply_map_mode_fog_system(
+    exploration_data: Res<ExplorationData>,
+    mut tile_query: Query<(&TilePosition, &mut Sprite, Option<&OriginalColor>), With<MapTile>>,
+) {
+    // TileVisibilityに応じて色を変更
+    // Visible: 元の色、Explored: 暗め（0.5倍）、Unexplored: 黒
+}
+```
+
+### マップモード（全体表示）との連携
+
+```rust
+// ui/map_mode.rs - Mキーでマップモードをトグル
+#[derive(Resource, Default)]
+pub struct MapModeState {
+    pub enabled: bool,
+}
+
+fn toggle_map_mode_system(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut map_mode_state: ResMut<MapModeState>,
+    mut camera_query: Query<&mut Projection, With<Camera2d>>,
+) {
+    if keyboard.just_pressed(KeyCode::KeyM) {
+        map_mode_state.enabled = !map_mode_state.enabled;
+        // カメラズームを切り替え（VISIBLE_SIZE ↔ MAP_PIXEL_WIDTH）
+    }
+}
+
+// ui/player_input.rs - マップモード中は移動無効化
+fn player_movement(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    map_mode_state: Res<MapModeState>,
+) {
+    if map_mode_state.enabled {
+        return; // マップモード中は入力を無視
+    }
+}
+```
+
+### ポイント
+
+- **視界判定ロジックはgame/**: トーラス対応、チェビシェフ距離計算など
+- **色変更・カメラ制御はui/**: Sprite色、Projection、入力無効化など
+- **状態遷移**: Unexplored → Explored（一度訪れる）、Explored → Visible（視界内）
+- **元の色を保存**: OriginalColorコンポーネントで復元可能に
+
 ## 新機能追加時のチェックリスト
 
 1. **ゲームルールか見た目か判断**

@@ -5,6 +5,7 @@ use game::movement::{try_move, try_move_on_boat, MoveResult};
 
 use crate::components::{Boat, MovementLocked, OnBoat, Player, TilePosition};
 use crate::events::{MovementBlockedEvent, PlayerMovedEvent};
+use crate::map_mode::MapModeState;
 use crate::resources::{MapDataResource, MovementState};
 
 /// プレイヤーの移動入力を処理するシステム
@@ -13,6 +14,7 @@ pub fn player_movement(
     keyboard: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
     map_data: Res<MapDataResource>,
+    map_mode_state: Res<MapModeState>,
     mut move_state: ResMut<MovementState>,
     mut query: Query<
         (
@@ -33,6 +35,11 @@ pub fn player_movement(
 
     // 移動ロック中は入力を無視
     if locked.is_some() {
+        return;
+    }
+
+    // マップモード中は移動を無効化
+    if map_mode_state.enabled {
         return;
     }
 
