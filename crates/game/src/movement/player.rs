@@ -13,6 +13,7 @@ pub enum MoveResult {
 ///
 /// タイル座標と方向を受け取り、移動結果を返す。
 /// マップ端ではラップアラウンドする。
+/// 斜め移動は許可しない（隣接タイルが通行不可でも斜めに抜けられてしまうため）。
 pub fn try_move(
     current_x: usize,
     current_y: usize,
@@ -20,6 +21,11 @@ pub fn try_move(
     dy: i32,
     grid: &[Vec<Terrain>],
 ) -> MoveResult {
+    // 斜め移動は禁止
+    if dx != 0 && dy != 0 {
+        return MoveResult::Blocked;
+    }
+
     let new_x = ((current_x as i32 + dx).rem_euclid(MAP_WIDTH as i32)) as usize;
     let new_y = ((current_y as i32 + dy).rem_euclid(MAP_HEIGHT as i32)) as usize;
 
@@ -137,14 +143,15 @@ mod tests {
     }
 
     #[test]
-    fn try_move_diagonal_movement() {
+    fn try_move_diagonal_movement_is_blocked() {
         let mut grid = create_test_grid(MAP_WIDTH, MAP_HEIGHT, Terrain::Sea);
         grid[5][5] = Terrain::Plains;
         grid[6][6] = Terrain::Plains;
 
+        // 斜め移動は禁止されている
         let result = try_move(5, 5, 1, 1, &grid);
 
-        assert_eq!(result, MoveResult::Moved { new_x: 6, new_y: 6 });
+        assert_eq!(result, MoveResult::Blocked);
     }
 
     #[test]

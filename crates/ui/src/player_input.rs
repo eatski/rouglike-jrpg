@@ -61,8 +61,8 @@ pub fn player_movement(
 
     let current_direction = (dx, dy);
 
-    // 方向キーが押されていない場合はリセット
-    if dx == 0 && dy == 0 {
+    // 方向キーが押されていない、または斜め入力の場合はリセット（移動を試みない）
+    if dx == 0 && dy == 0 || dx != 0 && dy != 0 {
         move_state.is_repeating = false;
         move_state.initial_delay.reset();
         move_state.timer.reset();

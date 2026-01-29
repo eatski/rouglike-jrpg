@@ -4,7 +4,7 @@ use crate::map::{Terrain, MAP_HEIGHT, MAP_WIDTH};
 
 use super::player::MoveResult;
 
-/// 船での移動を試みる（海のみ移動可能）
+/// 船での移動を試みる（海のみ移動可能、斜め移動禁止）
 pub fn try_move_on_boat(
     current_x: usize,
     current_y: usize,
@@ -12,6 +12,11 @@ pub fn try_move_on_boat(
     dy: i32,
     grid: &[Vec<Terrain>],
 ) -> MoveResult {
+    // 斜め移動は禁止
+    if dx != 0 && dy != 0 {
+        return MoveResult::Blocked;
+    }
+
     let new_x = ((current_x as i32 + dx).rem_euclid(MAP_WIDTH as i32)) as usize;
     let new_y = ((current_y as i32 + dy).rem_euclid(MAP_HEIGHT as i32)) as usize;
 
