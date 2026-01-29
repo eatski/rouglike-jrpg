@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
-use game::map::{Terrain, MAP_HEIGHT, MAP_WIDTH};
-use game::movement::{try_move, try_move_on_boat, MoveResult};
+use game::movement::{try_boat_move_or_disembark, try_move, BoatMoveResult, MoveResult};
+use game::wrap_position;
 
 use crate::components::{Boat, MovementLocked, OnBoat, Player, TilePosition};
 use crate::events::{MovementBlockedEvent, PlayerMovedEvent};
@@ -102,8 +102,8 @@ pub fn player_movement(
 
     if let Some(on_boat) = on_boat {
         // === 船での移動 ===
-        match try_move_on_boat(tile_pos.x, tile_pos.y, dx, dy, &map_data.grid) {
-            MoveResult::Moved { new_x, new_y } => {
+        match try_boat_move_or_disembark(tile_pos.x, tile_pos.y, dx, dy, &map_data.grid) {
+            BoatMoveResult::MovedOnSea { new_x, new_y } => {
                 // 船で海を移動
                 if let Ok((_, mut boat_tile_pos)) = boat_query.get_mut(on_boat.boat_entity) {
                     boat_tile_pos.x = new_x;
@@ -116,33 +116,27 @@ pub fn player_movement(
                     direction: (dx, dy),
                 });
             }
-            MoveResult::Blocked => {
-                // 陸地にブロックされた→下船して陸地に移動
-                let new_x = ((tile_pos.x as i32 + dx).rem_euclid(MAP_WIDTH as i32)) as usize;
-                let new_y = ((tile_pos.y as i32 + dy).rem_euclid(MAP_HEIGHT as i32)) as usize;
-
-                if map_data.grid[new_y][new_x] != Terrain::Sea {
-                    // 下船
-                    commands.entity(entity).remove::<OnBoat>();
-                    tile_pos.x = new_x;
-                    tile_pos.y = new_y;
-                    moved_events.write(PlayerMovedEvent {
-                        entity,
-                        direction: (dx, dy),
-                    });
-                } else {
-                    blocked_events.write(MovementBlockedEvent {
-                        entity,
-                        direction: (dx, dy),
-                    });
-                }
+            BoatMoveResult::Disembarked { new_x, new_y } => {
+                // 陸地に下船
+                commands.entity(entity).remove::<OnBoat>();
+                tile_pos.x = new_x;
+                tile_pos.y = new_y;
+                moved_events.write(PlayerMovedEvent {
+                    entity,
+                    direction: (dx, dy),
+                });
+            }
+            BoatMoveResult::Blocked => {
+                blocked_events.write(MovementBlockedEvent {
+                    entity,
+                    direction: (dx, dy),
+                });
             }
         }
     } else {
         // === 徒歩での移動 ===
         // 移動先座標を計算
-        let new_x = ((tile_pos.x as i32 + dx).rem_euclid(MAP_WIDTH as i32)) as usize;
-        let new_y = ((tile_pos.y as i32 + dy).rem_euclid(MAP_HEIGHT as i32)) as usize;
+        let (new_x, new_y) = wrap_position(tile_pos.x, tile_pos.y, dx, dy);
 
         // 移動先に船があるかチェック（クエリで検索）
         let boat_at_dest = boat_query

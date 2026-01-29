@@ -1,4 +1,5 @@
-use crate::map::{Terrain, MAP_HEIGHT, MAP_WIDTH};
+use crate::coordinates::{is_diagonal_movement, wrap_position};
+use crate::map::Terrain;
 
 /// 移動試行の結果
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -22,33 +23,24 @@ pub fn try_move(
     grid: &[Vec<Terrain>],
 ) -> MoveResult {
     // 斜め移動は禁止
-    if dx != 0 && dy != 0 {
+    if is_diagonal_movement(dx, dy) {
         return MoveResult::Blocked;
     }
 
-    let new_x = ((current_x as i32 + dx).rem_euclid(MAP_WIDTH as i32)) as usize;
-    let new_y = ((current_y as i32 + dy).rem_euclid(MAP_HEIGHT as i32)) as usize;
+    let (new_x, new_y) = wrap_position(current_x, current_y, dx, dy);
 
-    if grid[new_y][new_x] == Terrain::Sea {
-        MoveResult::Blocked
-    } else {
+    if grid[new_y][new_x].is_walkable() {
         MoveResult::Moved { new_x, new_y }
+    } else {
+        MoveResult::Blocked
     }
-}
-
-/// 地形が通行可能かどうかを判定する
-pub fn is_passable(terrain: Terrain) -> bool {
-    terrain != Terrain::Sea
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    /// テスト用の小さなグリッドを作成するヘルパー
-    fn create_test_grid(width: usize, height: usize, default: Terrain) -> Vec<Vec<Terrain>> {
-        vec![vec![default; width]; height]
-    }
+    use crate::map::{MAP_HEIGHT, MAP_WIDTH};
+    use crate::test_utils::create_test_grid;
 
     // ============================================
     // try_move のテスト
@@ -56,7 +48,7 @@ mod tests {
 
     #[test]
     fn try_move_succeeds_on_plains() {
-        let mut grid = create_test_grid(MAP_WIDTH, MAP_HEIGHT, Terrain::Sea);
+        let mut grid = create_test_grid(Terrain::Sea);
         grid[5][5] = Terrain::Plains;
         grid[5][6] = Terrain::Plains;
 
@@ -67,7 +59,7 @@ mod tests {
 
     #[test]
     fn try_move_succeeds_on_forest() {
-        let mut grid = create_test_grid(MAP_WIDTH, MAP_HEIGHT, Terrain::Sea);
+        let mut grid = create_test_grid(Terrain::Sea);
         grid[5][5] = Terrain::Plains;
         grid[5][6] = Terrain::Forest;
 
@@ -78,7 +70,7 @@ mod tests {
 
     #[test]
     fn try_move_succeeds_on_mountain() {
-        let mut grid = create_test_grid(MAP_WIDTH, MAP_HEIGHT, Terrain::Sea);
+        let mut grid = create_test_grid(Terrain::Sea);
         grid[5][5] = Terrain::Plains;
         grid[5][6] = Terrain::Mountain;
 
@@ -89,7 +81,7 @@ mod tests {
 
     #[test]
     fn try_move_blocked_by_sea() {
-        let mut grid = create_test_grid(MAP_WIDTH, MAP_HEIGHT, Terrain::Sea);
+        let mut grid = create_test_grid(Terrain::Sea);
         grid[5][5] = Terrain::Plains;
         // grid[5][6] はデフォルトでSea
 
@@ -100,7 +92,7 @@ mod tests {
 
     #[test]
     fn try_move_wraps_around_right_edge() {
-        let mut grid = create_test_grid(MAP_WIDTH, MAP_HEIGHT, Terrain::Sea);
+        let mut grid = create_test_grid(Terrain::Sea);
         grid[5][MAP_WIDTH - 1] = Terrain::Plains;
         grid[5][0] = Terrain::Plains; // ラップ先
 
@@ -111,7 +103,7 @@ mod tests {
 
     #[test]
     fn try_move_wraps_around_left_edge() {
-        let mut grid = create_test_grid(MAP_WIDTH, MAP_HEIGHT, Terrain::Sea);
+        let mut grid = create_test_grid(Terrain::Sea);
         grid[5][0] = Terrain::Plains;
         grid[5][MAP_WIDTH - 1] = Terrain::Plains; // ラップ先
 
@@ -122,7 +114,7 @@ mod tests {
 
     #[test]
     fn try_move_wraps_around_top_edge() {
-        let mut grid = create_test_grid(MAP_WIDTH, MAP_HEIGHT, Terrain::Sea);
+        let mut grid = create_test_grid(Terrain::Sea);
         grid[MAP_HEIGHT - 1][5] = Terrain::Plains;
         grid[0][5] = Terrain::Plains; // ラップ先
 
@@ -133,7 +125,7 @@ mod tests {
 
     #[test]
     fn try_move_wraps_around_bottom_edge() {
-        let mut grid = create_test_grid(MAP_WIDTH, MAP_HEIGHT, Terrain::Sea);
+        let mut grid = create_test_grid(Terrain::Sea);
         grid[0][5] = Terrain::Plains;
         grid[MAP_HEIGHT - 1][5] = Terrain::Plains; // ラップ先
 
@@ -144,7 +136,7 @@ mod tests {
 
     #[test]
     fn try_move_diagonal_movement_is_blocked() {
-        let mut grid = create_test_grid(MAP_WIDTH, MAP_HEIGHT, Terrain::Sea);
+        let mut grid = create_test_grid(Terrain::Sea);
         grid[5][5] = Terrain::Plains;
         grid[6][6] = Terrain::Plains;
 
@@ -156,35 +148,11 @@ mod tests {
 
     #[test]
     fn try_move_no_movement() {
-        let mut grid = create_test_grid(MAP_WIDTH, MAP_HEIGHT, Terrain::Sea);
+        let mut grid = create_test_grid(Terrain::Sea);
         grid[5][5] = Terrain::Plains;
 
         let result = try_move(5, 5, 0, 0, &grid);
 
         assert_eq!(result, MoveResult::Moved { new_x: 5, new_y: 5 });
-    }
-
-    // ============================================
-    // is_passable のテスト
-    // ============================================
-
-    #[test]
-    fn is_passable_plains() {
-        assert!(is_passable(Terrain::Plains));
-    }
-
-    #[test]
-    fn is_passable_forest() {
-        assert!(is_passable(Terrain::Forest));
-    }
-
-    #[test]
-    fn is_passable_mountain() {
-        assert!(is_passable(Terrain::Mountain));
-    }
-
-    #[test]
-    fn is_passable_sea_returns_false() {
-        assert!(!is_passable(Terrain::Sea));
     }
 }

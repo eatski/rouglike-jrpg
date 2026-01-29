@@ -1,6 +1,8 @@
 //! 島検出と船スポーン位置の計算
 
-use super::{Terrain, MAP_HEIGHT, MAP_WIDTH};
+use super::Terrain;
+use crate::coordinates::orthogonal_neighbors;
+use crate::map::{MAP_HEIGHT, MAP_WIDTH};
 use rand::Rng;
 use std::collections::VecDeque;
 
@@ -61,10 +63,7 @@ fn flood_fill(
         island.push((x, y));
 
         // 4近傍を探索
-        for (dx, dy) in [(0, -1), (0, 1), (-1, 0), (1, 0)] {
-            let nx = (x as i32 + dx).rem_euclid(MAP_WIDTH as i32) as usize;
-            let ny = (y as i32 + dy).rem_euclid(MAP_HEIGHT as i32) as usize;
-
+        for (nx, ny) in orthogonal_neighbors(x, y) {
             if !visited[ny][nx] && grid[ny][nx] != Terrain::Sea {
                 visited[ny][nx] = true;
                 queue.push_back((nx, ny));
@@ -104,10 +103,8 @@ fn find_boat_spawn_for_island(
 
 /// タイルが海に隣接しているかチェック
 fn has_adjacent_sea(x: usize, y: usize, grid: &[Vec<Terrain>]) -> bool {
-    for (dx, dy) in [(0, -1), (0, 1), (-1, 0), (1, 0)] {
-        let nx = (x as i32 + dx).rem_euclid(MAP_WIDTH as i32) as usize;
-        let ny = (y as i32 + dy).rem_euclid(MAP_HEIGHT as i32) as usize;
-        if grid[ny][nx] == Terrain::Sea {
+    for (nx, ny) in orthogonal_neighbors(x, y) {
+        if grid[ny][nx].is_navigable() {
             return true;
         }
     }
@@ -116,10 +113,8 @@ fn has_adjacent_sea(x: usize, y: usize, grid: &[Vec<Terrain>]) -> bool {
 
 /// 隣接する海タイルを見つける
 fn find_adjacent_sea(x: usize, y: usize, grid: &[Vec<Terrain>]) -> Option<BoatSpawn> {
-    for (dx, dy) in [(0, -1), (0, 1), (-1, 0), (1, 0)] {
-        let nx = (x as i32 + dx).rem_euclid(MAP_WIDTH as i32) as usize;
-        let ny = (y as i32 + dy).rem_euclid(MAP_HEIGHT as i32) as usize;
-        if grid[ny][nx] == Terrain::Sea {
+    for (nx, ny) in orthogonal_neighbors(x, y) {
+        if grid[ny][nx].is_navigable() {
             return Some(BoatSpawn { x: nx, y: ny });
         }
     }
@@ -129,12 +124,9 @@ fn find_adjacent_sea(x: usize, y: usize, grid: &[Vec<Terrain>]) -> Option<BoatSp
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_utils::create_test_grid;
     use rand::SeedableRng;
     use rand_chacha::ChaCha8Rng;
-
-    fn create_test_grid(default: Terrain) -> Vec<Vec<Terrain>> {
-        vec![vec![default; MAP_WIDTH]; MAP_HEIGHT]
-    }
 
     fn create_rng(seed: u64) -> ChaCha8Rng {
         ChaCha8Rng::seed_from_u64(seed)

@@ -1,2 +1,2 @@
-/// 移動方向を表す型
-pub type Direction = (i32, i32);
+// Direction型はcrate::coordinatesに移動
+pub use crate::coordinates::Direction;

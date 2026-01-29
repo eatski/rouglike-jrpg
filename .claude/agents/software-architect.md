@@ -117,8 +117,10 @@ blocked_events.write(MovementBlockedEvent { entity, direction });
 
 | crate | 座標系 | 責務 |
 |-------|-------|-----|
-| game | タイル座標 `(usize, usize)` | 論理的な位置、当たり判定 |
+| game | タイル座標 `(usize, usize)` | 論理的な位置、当たり判定、`coordinates` モジュール |
 | ui | ワールド座標 `(f32, f32)` | 画面表示、アニメーション |
+
+**座標変換**: `ui/src/constants.rs` に `logical_to_world()` を配置
 
 #### 3. 定数の配置
 
@@ -137,11 +139,31 @@ blocked_events.write(MovementBlockedEvent { entity, direction });
 - ui → game: マーカーコンポーネント（例: `MovementLocked`）
 - **禁止**: `game/` が `ui/` に依存すること
 
+## 座標ユーティリティ (`crates/game/src/coordinates.rs`)
+
+トーラスマップにおける座標計算を一元化。
+
+```rust
+use game::{wrap_position, orthogonal_neighbors, ORTHOGONAL_DIRECTIONS};
+
+// 移動先座標の計算
+let (new_x, new_y) = wrap_position(x, y, dx, dy);
+
+// 4近傍の取得（トーラスラップ対応）
+for (nx, ny) in orthogonal_neighbors(x, y) {
+    // 処理
+}
+```
+
+**重要**: `rem_euclid` を直接使わず、`coordinates` モジュールの関数を使用すること。
+
 ## Flood Fillパターン（マップ解析）
 
 島検出など、連結領域の探索に使用。
 
 ```rust
+use game::orthogonal_neighbors;
+
 fn flood_fill(
     start_x: usize, start_y: usize,
     grid: &[Vec<Terrain>],
@@ -154,10 +176,8 @@ fn flood_fill(
 
     while let Some((x, y)) = queue.pop_front() {
         result.push((x, y));
-        for (dx, dy) in [(0, -1), (0, 1), (-1, 0), (1, 0)] {
-            let nx = (x as i32 + dx).rem_euclid(MAP_WIDTH as i32) as usize;
-            let ny = (y as i32 + dy).rem_euclid(MAP_HEIGHT as i32) as usize;
-            if !visited[ny][nx] && grid[ny][nx] != Terrain::Sea {
+        for (nx, ny) in orthogonal_neighbors(x, y) {
+            if !visited[ny][nx] && grid[ny][nx].is_walkable() {
                 visited[ny][nx] = true;
                 queue.push_back((nx, ny));
             }

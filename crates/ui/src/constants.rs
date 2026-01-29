@@ -19,3 +19,15 @@ pub fn tile_to_world(tile_x: usize, tile_y: usize) -> (f32, f32) {
         origin_y + tile_y as f32 * TILE_SIZE,
     )
 }
+
+/// 論理座標（負の値を許容）をワールド座標に変換
+///
+/// タイルプールなど、マップ端を超えた論理座標を扱う場合に使用。
+pub fn logical_to_world(logical_x: i32, logical_y: i32) -> (f32, f32) {
+    let origin_x = -MAP_PIXEL_WIDTH / 2.0 + TILE_SIZE / 2.0;
+    let origin_y = -MAP_PIXEL_HEIGHT / 2.0 + TILE_SIZE / 2.0;
+    (
+        origin_x + logical_x as f32 * TILE_SIZE,
+        origin_y + logical_y as f32 * TILE_SIZE,
+    )
+}

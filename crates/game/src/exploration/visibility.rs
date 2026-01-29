@@ -36,9 +36,8 @@ pub fn calculate_visible_tiles(
     for dy in -radius..=radius {
         for dx in -radius..=radius {
             // トーラスマップのラップアラウンド処理
-            // rem_euclidで負の値を正しく処理
-            let x = (center_x as isize + dx).rem_euclid(map_width as isize) as usize;
-            let y = (center_y as isize + dy).rem_euclid(map_height as isize) as usize;
+            let x = crate::coordinates::wrap_coordinate(center_x, dx as i32, map_width);
+            let y = crate::coordinates::wrap_coordinate(center_y, dy as i32, map_height);
 
             visible_tiles.push((x, y));
         }

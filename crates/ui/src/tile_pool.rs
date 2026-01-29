@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use game::map::{Terrain, MAP_HEIGHT, MAP_WIDTH};
 
 use crate::components::{MapTile, Player, TilePosition};
-use crate::constants::{TILE_SIZE, VISIBLE_CELLS};
+use crate::constants::{logical_to_world, TILE_SIZE, VISIBLE_CELLS};
 use crate::rendering::TileTextures;
 use crate::resources::MapDataResource;
 
@@ -67,16 +67,6 @@ pub fn init_tile_pool(mut commands: Commands, tile_textures: Res<TileTextures>) 
     }
 
     commands.insert_resource(pool);
-}
-
-/// 論理座標をワールド座標に変換
-fn logical_to_world(logical_x: i32, logical_y: i32) -> (f32, f32) {
-    let origin_x = -(MAP_WIDTH as f32 * TILE_SIZE) / 2.0 + TILE_SIZE / 2.0;
-    let origin_y = -(MAP_HEIGHT as f32 * TILE_SIZE) / 2.0 + TILE_SIZE / 2.0;
-    (
-        origin_x + logical_x as f32 * TILE_SIZE,
-        origin_y + logical_y as f32 * TILE_SIZE,
-    )
 }
 
 /// 論理座標をマップ座標に変換（トーラスラップ）

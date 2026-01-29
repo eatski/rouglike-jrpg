@@ -67,6 +67,25 @@ fn player_cannot_walk_on_sea() {
 テストが書きにくい → 設計に問題がある → リファクタリングする → テストが書きやすくなる
 ```
 
+## テストヘルパー (`crates/game/src/test_utils.rs`)
+
+テストコード間の重複を削減するユーティリティ。
+
+```rust
+use game::test_utils::{create_test_grid, create_sized_grid};
+
+#[test]
+fn example_test() {
+    // 標準サイズの全陸地グリッド
+    let grid = create_test_grid(Terrain::Plains);
+
+    // カスタムサイズのグリッド
+    let small_grid = create_sized_grid(10, 10, Terrain::Sea);
+}
+```
+
+**重要**: テスト内で手動で `vec![vec![...]; ...]` を書かず、ヘルパーを使用すること。
+
 ## 許可されるBashコマンド
 
 | コマンド | 用途 |
