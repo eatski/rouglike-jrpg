@@ -1,5 +1,7 @@
 use rand::Rng;
 
+use crate::coordinates::orthogonal_neighbors;
+
 use super::terrain::Terrain;
 
 pub const MAP_WIDTH: usize = 150;
@@ -48,7 +50,7 @@ pub fn generate_map(rng: &mut impl Rng) -> MapData {
         let (y, x) = frontier[idx];
         let mut removed = true;
 
-        for (ny, nx) in neighbors(y, x) {
+        for (ny, nx) in neighbors_yx(y, x) {
             if grid[ny][nx] == Terrain::Sea && rng.r#gen::<f32>() < LAND_SPREAD_CHANCE {
                 grid[ny][nx] = Terrain::Plains;
                 land_tiles += 1;
@@ -121,7 +123,7 @@ fn scatter_clusters(
             grid[y][x] = terrain;
             remaining -= 1;
 
-            for (ny, nx) in neighbors(y, x) {
+            for (ny, nx) in neighbors_yx(y, x) {
                 if grid[ny][nx] == Terrain::Plains && rng.gen_bool(0.7) {
                     stack.push((ny, nx));
                 }
@@ -130,12 +132,17 @@ fn scatter_clusters(
     }
 }
 
-fn neighbors(y: usize, x: usize) -> [(usize, usize); 4] {
+/// `orthogonal_neighbors` を (y, x) 順序で返すラッパー
+///
+/// generation モジュール内部は (y, x) 順序を使用するため、
+/// (x, y) 順序の `orthogonal_neighbors` の結果を変換する。
+fn neighbors_yx(y: usize, x: usize) -> [(usize, usize); 4] {
+    let xy_neighbors = orthogonal_neighbors(x, y);
     [
-        ((y + MAP_HEIGHT - 1) % MAP_HEIGHT, x), // 上 (ラップ)
-        ((y + 1) % MAP_HEIGHT, x),              // 下 (ラップ)
-        (y, (x + MAP_WIDTH - 1) % MAP_WIDTH),   // 左 (ラップ)
-        (y, (x + 1) % MAP_WIDTH),               // 右 (ラップ)
+        (xy_neighbors[0].1, xy_neighbors[0].0),
+        (xy_neighbors[1].1, xy_neighbors[1].0),
+        (xy_neighbors[2].1, xy_neighbors[2].0),
+        (xy_neighbors[3].1, xy_neighbors[3].0),
     ]
 }
 

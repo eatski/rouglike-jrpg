@@ -1,11 +1,11 @@
 use bevy::prelude::*;
 
-use game::movement::{try_boat_move_or_disembark, try_move, BoatMoveResult, MoveResult};
 use game::wrap_position;
 
 use crate::components::{Boat, MovementLocked, OnBoat, PendingMove, Player, TilePosition};
 use crate::events::{MovementBlockedEvent, PlayerMovedEvent};
 use crate::map_mode::MapModeState;
+use crate::movement_helpers::{execute_boat_move, execute_walk_move, ExecuteMoveResult};
 use crate::resources::{MapDataResource, MovementState};
 
 /// プレイヤーの移動入力を処理するシステム
@@ -150,40 +150,12 @@ pub fn player_movement(
 
     if let Some(on_boat) = on_boat {
         // === 船での移動 ===
-        match try_boat_move_or_disembark(tile_pos.x, tile_pos.y, first_dx, first_dy, &map_data.grid)
-        {
-            BoatMoveResult::MovedOnSea { new_x, new_y } => {
-                // 船で海を移動
-                if let Ok((_, mut boat_tile_pos)) = boat_query.get_mut(on_boat.boat_entity) {
-                    boat_tile_pos.x = new_x;
-                    boat_tile_pos.y = new_y;
-                }
-                tile_pos.x = new_x;
-                tile_pos.y = new_y;
-                add_pending_move(&mut commands, entity, pending_direction);
-                moved_events.write(PlayerMovedEvent {
-                    entity,
-                    direction: (first_dx, first_dy),
-                });
-            }
-            BoatMoveResult::Disembarked { new_x, new_y } => {
-                // 陸地に下船
-                commands.entity(entity).remove::<OnBoat>();
-                tile_pos.x = new_x;
-                tile_pos.y = new_y;
-                add_pending_move(&mut commands, entity, pending_direction);
-                moved_events.write(PlayerMovedEvent {
-                    entity,
-                    direction: (first_dx, first_dy),
-                });
-            }
-            BoatMoveResult::Blocked => {
-                // 1回目が失敗したらPendingMoveは設定しない
-                blocked_events.write(MovementBlockedEvent {
-                    entity,
-                    direction: (first_dx, first_dy),
-                });
-            }
+        if let ExecuteMoveResult::Success = execute_boat_move(
+            &mut commands, entity, &mut tile_pos, first_dx, first_dy,
+            &map_data.grid, on_boat, &mut boat_query,
+            &mut moved_events, &mut blocked_events,
+        ) {
+            add_pending_move(&mut commands, entity, pending_direction);
         }
     } else {
         // === 徒歩での移動 ===
@@ -208,23 +180,11 @@ pub fn player_movement(
             commands.entity(entity).insert(OnBoat { boat_entity });
         } else {
             // 通常の徒歩移動
-            match try_move(tile_pos.x, tile_pos.y, first_dx, first_dy, &map_data.grid) {
-                MoveResult::Moved { new_x, new_y } => {
-                    tile_pos.x = new_x;
-                    tile_pos.y = new_y;
-                    add_pending_move(&mut commands, entity, pending_direction);
-                    moved_events.write(PlayerMovedEvent {
-                        entity,
-                        direction: (first_dx, first_dy),
-                    });
-                }
-                MoveResult::Blocked => {
-                    // 1回目が失敗したらPendingMoveは設定しない
-                    blocked_events.write(MovementBlockedEvent {
-                        entity,
-                        direction: (first_dx, first_dy),
-                    });
-                }
+            if let ExecuteMoveResult::Success = execute_walk_move(
+                &mut tile_pos, entity, first_dx, first_dy,
+                &map_data.grid, &mut moved_events, &mut blocked_events,
+            ) {
+                add_pending_move(&mut commands, entity, pending_direction);
             }
         }
     }

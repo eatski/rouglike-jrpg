@@ -1,9 +1,8 @@
 use bevy::prelude::*;
 
-use game::movement::{try_boat_move_or_disembark, try_move, BoatMoveResult, MoveResult};
-
 use crate::components::{Boat, MovementLocked, OnBoat, PendingMove, Player, TilePosition};
 use crate::events::{MovementBlockedEvent, PlayerMovedEvent};
+use crate::movement_helpers::{execute_boat_move, execute_walk_move};
 use crate::resources::MapDataResource;
 
 use super::constants::{MAP_PIXEL_HEIGHT, MAP_PIXEL_WIDTH, TILE_SIZE};
@@ -112,59 +111,23 @@ pub fn update_smooth_move(
 
             let move_success = if let Some(on_boat) = on_boat {
                 // 船での2回目移動
-                match try_boat_move_or_disembark(tile_pos.x, tile_pos.y, dx, dy, &map_data.grid) {
-                    BoatMoveResult::MovedOnSea { new_x, new_y } => {
-                        if let Ok((_, mut boat_tile_pos)) = boat_query.get_mut(on_boat.boat_entity)
-                        {
-                            boat_tile_pos.x = new_x;
-                            boat_tile_pos.y = new_y;
-                        }
-                        tile_pos.x = new_x;
-                        tile_pos.y = new_y;
-                        moved_events.write(PlayerMovedEvent {
-                            entity,
-                            direction: (dx, dy),
-                        });
-                        true
-                    }
-                    BoatMoveResult::Disembarked { new_x, new_y } => {
-                        commands.entity(entity).remove::<OnBoat>();
-                        tile_pos.x = new_x;
-                        tile_pos.y = new_y;
-                        moved_events.write(PlayerMovedEvent {
-                            entity,
-                            direction: (dx, dy),
-                        });
-                        true
-                    }
-                    BoatMoveResult::Blocked => {
-                        blocked_events.write(MovementBlockedEvent {
-                            entity,
-                            direction: (dx, dy),
-                        });
-                        false
-                    }
-                }
+                matches!(
+                    execute_boat_move(
+                        &mut commands, entity, &mut tile_pos, dx, dy,
+                        &map_data.grid, on_boat, &mut boat_query,
+                        &mut moved_events, &mut blocked_events,
+                    ),
+                    crate::movement_helpers::ExecuteMoveResult::Success
+                )
             } else {
                 // 徒歩での2回目移動
-                match try_move(tile_pos.x, tile_pos.y, dx, dy, &map_data.grid) {
-                    MoveResult::Moved { new_x, new_y } => {
-                        tile_pos.x = new_x;
-                        tile_pos.y = new_y;
-                        moved_events.write(PlayerMovedEvent {
-                            entity,
-                            direction: (dx, dy),
-                        });
-                        true
-                    }
-                    MoveResult::Blocked => {
-                        blocked_events.write(MovementBlockedEvent {
-                            entity,
-                            direction: (dx, dy),
-                        });
-                        false
-                    }
-                }
+                matches!(
+                    execute_walk_move(
+                        &mut tile_pos, entity, dx, dy,
+                        &map_data.grid, &mut moved_events, &mut blocked_events,
+                    ),
+                    crate::movement_helpers::ExecuteMoveResult::Success
+                )
             };
 
             // 2回目移動が成功した場合、MovementLockedは維持（新しいSmoothMoveが追加される）

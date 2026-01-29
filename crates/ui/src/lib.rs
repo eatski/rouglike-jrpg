@@ -5,6 +5,7 @@ pub mod constants;
 pub mod events;
 pub mod map_mode;
 mod minimap;
+mod movement_helpers;
 mod player_input;
 mod rendering;
 pub mod resources;
