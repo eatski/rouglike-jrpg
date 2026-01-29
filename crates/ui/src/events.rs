@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use game::movement::Direction;
+use game::Direction;
 
 /// 移動がブロックされたときに発行されるメッセージ
 #[derive(Message)]

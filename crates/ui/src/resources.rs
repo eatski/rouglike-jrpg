@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 
+use crate::constants::{MOVEMENT_INITIAL_DELAY, MOVEMENT_REPEAT_INTERVAL};
 use game::map::{MapData, Terrain};
 
 /// マップデータをBevyリソースとしてラップする
@@ -39,10 +40,8 @@ pub struct MovementState {
 impl Default for MovementState {
     fn default() -> Self {
         Self {
-            // リピート間隔: 60ms (約16.7歩/秒) - キビキビした移動感
-            timer: Timer::from_seconds(0.06, TimerMode::Repeating),
-            // 初回遅延: 150ms - 誤入力防止とレスポンスのバランス
-            initial_delay: Timer::from_seconds(0.15, TimerMode::Once),
+            timer: Timer::from_seconds(MOVEMENT_REPEAT_INTERVAL, TimerMode::Repeating),
+            initial_delay: Timer::from_seconds(MOVEMENT_INITIAL_DELAY, TimerMode::Once),
             is_repeating: false,
             last_direction: (0, 0),
             first_axis: None,
