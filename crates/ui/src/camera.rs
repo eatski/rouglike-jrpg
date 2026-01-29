@@ -2,6 +2,7 @@ use bevy::camera::{OrthographicProjection, Projection, ScalingMode};
 use bevy::prelude::*;
 
 use crate::components::Player;
+use crate::map_mode::MapModeState;
 
 use super::constants::VISIBLE_SIZE;
 
@@ -19,9 +20,15 @@ pub fn setup_camera(mut commands: Commands) {
 }
 
 pub fn camera_follow(
+    map_mode_state: Res<MapModeState>,
     player_query: Query<&Transform, With<Player>>,
     mut camera_query: Query<&mut Transform, (With<Camera2d>, Without<Player>)>,
 ) {
+    // マップモード時はプレイヤー追従しない
+    if map_mode_state.enabled {
+        return;
+    }
+
     let Ok(player_transform) = player_query.single() else {
         return;
     };
