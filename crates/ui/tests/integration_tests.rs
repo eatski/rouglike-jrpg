@@ -14,7 +14,7 @@ use ui::events::{MovementBlockedEvent, PlayerMovedEvent};
 use ui::map_mode::MapModeState;
 use ui::resources::{MapDataResource, MovementState, SpawnPosition};
 use ui::{player_movement, sync_boat_with_player};
-use ui::{start_smooth_move, update_smooth_move};
+use ui::{start_bounce, start_smooth_move, update_bounce, update_smooth_move};
 
 /// イベントカウンタ（テスト用）
 #[derive(Resource, Default)]
@@ -120,8 +120,8 @@ fn spawn_test_boat(app: &mut App, x: usize, y: usize) -> Entity {
 fn press_key(app: &mut App, dx: i32, dy: i32) {
     let mut input = app.world_mut().resource_mut::<ButtonInput<KeyCode>>();
 
-    // 全キーをクリア
-    input.clear();
+    // 全キーをリセット（pressed状態も含めて完全にクリア）
+    input.reset_all();
 
     // 方向に応じてキーを押す
     if dx > 0 {
@@ -140,7 +140,7 @@ fn press_key(app: &mut App, dx: i32, dy: i32) {
 /// キーをすべて離す
 fn release_all_keys(app: &mut App) {
     let mut input = app.world_mut().resource_mut::<ButtonInput<KeyCode>>();
-    input.clear();
+    input.reset_all();
 }
 
 /// 移動アニメーションが完了するまでフレームを進める
@@ -500,4 +500,433 @@ fn same_seed_produces_deterministic_behavior() {
     let map2 = app2.world().resource::<MapDataResource>();
 
     assert_eq!(map1.grid, map2.grid, "Same seed should produce same map");
+}
+
+// ============================================
+// 地形別移動テスト
+// ============================================
+
+#[test]
+fn player_can_move_on_forest() {
+    // カスタムマップ: プレイヤーが平原の上で、右に森がある
+    let mut grid = vec![vec![Terrain::Sea; MAP_WIDTH]; MAP_HEIGHT];
+    let spawn_x = 50;
+    let spawn_y = 50;
+    grid[spawn_y][spawn_x] = Terrain::Plains;
+    grid[spawn_y][spawn_x + 1] = Terrain::Forest;
+
+    let mut app = setup_test_app_with_map(grid, spawn_x, spawn_y);
+    let player_entity = spawn_test_player(&mut app);
+
+    // イベントカウンタをリセット
+    app.world_mut().resource_mut::<EventCounters>().moved_count = 0;
+
+    // 右に移動（森に入る）
+    press_key(&mut app, 1, 0);
+
+    // キー入力を反映するために複数フレーム進める
+    for _ in 0..3 {
+        app.update();
+    }
+
+    // イベントが発行されたか確認
+    let moved_count = app.world().resource::<EventCounters>().moved_count;
+    assert!(moved_count >= 1, "PlayerMovedEvent should be emitted when moving to forest");
+
+    // 移動アニメーション完了まで待つ
+    release_all_keys(&mut app);
+    wait_for_movement_complete(&mut app, player_entity, 30);
+
+    // 位置が変わったか確認
+    let final_pos = {
+        let world = app.world();
+        let tile_pos = world.get::<TilePosition>(player_entity).unwrap();
+        (tile_pos.x, tile_pos.y)
+    };
+
+    assert_eq!(final_pos, (spawn_x + 1, spawn_y), "Player should move onto forest");
+}
+
+#[test]
+fn player_can_move_on_mountain() {
+    // カスタムマップ: プレイヤーが平原の上で、右に山がある
+    let mut grid = vec![vec![Terrain::Sea; MAP_WIDTH]; MAP_HEIGHT];
+    let spawn_x = 50;
+    let spawn_y = 50;
+    grid[spawn_y][spawn_x] = Terrain::Plains;
+    grid[spawn_y][spawn_x + 1] = Terrain::Mountain;
+
+    let mut app = setup_test_app_with_map(grid, spawn_x, spawn_y);
+    let player_entity = spawn_test_player(&mut app);
+
+    // イベントカウンタをリセット
+    app.world_mut().resource_mut::<EventCounters>().moved_count = 0;
+
+    // 右に移動（山に登る）
+    press_key(&mut app, 1, 0);
+
+    // キー入力を反映するために複数フレーム進める
+    for _ in 0..3 {
+        app.update();
+    }
+
+    // イベントが発行されたか確認
+    let moved_count = app.world().resource::<EventCounters>().moved_count;
+    assert!(moved_count >= 1, "PlayerMovedEvent should be emitted when moving to mountain");
+
+    // 移動アニメーション完了まで待つ
+    release_all_keys(&mut app);
+    wait_for_movement_complete(&mut app, player_entity, 30);
+
+    // 位置が変わったか確認
+    let final_pos = {
+        let world = app.world();
+        let tile_pos = world.get::<TilePosition>(player_entity).unwrap();
+        (tile_pos.x, tile_pos.y)
+    };
+
+    assert_eq!(final_pos, (spawn_x + 1, spawn_y), "Player should move onto mountain");
+}
+
+// ============================================
+// 連続移動テスト
+// ============================================
+
+#[test]
+fn player_can_move_multiple_steps() {
+    // カスタムマップ: 平原が3マス続く
+    let mut grid = vec![vec![Terrain::Sea; MAP_WIDTH]; MAP_HEIGHT];
+    let spawn_x = 50;
+    let spawn_y = 50;
+    grid[spawn_y][spawn_x] = Terrain::Plains;
+    grid[spawn_y][spawn_x + 1] = Terrain::Plains;
+    grid[spawn_y][spawn_x + 2] = Terrain::Plains;
+    grid[spawn_y][spawn_x + 3] = Terrain::Plains;
+
+    let mut app = setup_test_app_with_map(grid, spawn_x, spawn_y);
+    let player_entity = spawn_test_player(&mut app);
+
+    // 3回右に移動
+    for i in 0..3 {
+        press_key(&mut app, 1, 0);
+
+        // 初回遅延を超えるために3フレーム進める
+        for _ in 0..3 {
+            app.update();
+        }
+
+        release_all_keys(&mut app);
+        wait_for_movement_complete(&mut app, player_entity, 30);
+
+        // 各移動後の位置を確認
+        let pos = {
+            let world = app.world();
+            let tile_pos = world.get::<TilePosition>(player_entity).unwrap();
+            (tile_pos.x, tile_pos.y)
+        };
+        assert_eq!(pos, (spawn_x + i + 1, spawn_y), "Player should be at step {}", i + 1);
+    }
+
+    // 最終位置を確認
+    let final_pos = {
+        let world = app.world();
+        let tile_pos = world.get::<TilePosition>(player_entity).unwrap();
+        (tile_pos.x, tile_pos.y)
+    };
+
+    assert_eq!(final_pos, (spawn_x + 3, spawn_y), "Player should have moved 3 steps");
+}
+
+#[test]
+fn player_cannot_move_while_locked() {
+    // カスタムマップ: 十字型の平原（上方向にも歩けるようにする）
+    let mut grid = vec![vec![Terrain::Sea; MAP_WIDTH]; MAP_HEIGHT];
+    let spawn_x = 50;
+    let spawn_y = 50;
+    grid[spawn_y][spawn_x] = Terrain::Plains;
+    grid[spawn_y][spawn_x + 1] = Terrain::Plains;
+    grid[spawn_y + 1][spawn_x + 1] = Terrain::Plains; // 移動先の上にも平原
+
+    let mut app = setup_test_app_with_map(grid, spawn_x, spawn_y);
+    let player_entity = spawn_test_player(&mut app);
+
+    // 右に移動開始
+    press_key(&mut app, 1, 0);
+
+    // 初回遅延を超えて移動が始まる
+    for _ in 0..3 {
+        app.update();
+    }
+
+    // MovementLockedが設定されているか確認
+    let is_locked = {
+        let world = app.world();
+        world.get::<MovementLocked>(player_entity).is_some()
+    };
+    assert!(is_locked, "Player should be locked during movement animation");
+
+    // ロック中に上方向のキーを押す（上は平原なので、ロック無視なら移動してしまう）
+    press_key(&mut app, 0, 1);
+
+    // 複数フレーム進める
+    for _ in 0..3 {
+        app.update();
+    }
+
+    // 移動完了まで待つ
+    release_all_keys(&mut app);
+    wait_for_movement_complete(&mut app, player_entity, 30);
+
+    // 最終位置を確認（最初の右移動のみ完了し、Y方向には動いていない）
+    let final_pos = {
+        let world = app.world();
+        let tile_pos = world.get::<TilePosition>(player_entity).unwrap();
+        (tile_pos.x, tile_pos.y)
+    };
+
+    assert_eq!(final_pos.0, spawn_x + 1, "X should move one step right");
+    assert_eq!(final_pos.1, spawn_y, "Y should not change (movement was locked)");
+}
+
+// ============================================
+// バウンスアニメーションテスト
+// ============================================
+
+/// バウンスシステムを含むテストアプリをセットアップ
+fn setup_test_app_with_bounce(grid: Vec<Vec<Terrain>>, spawn_x: usize, spawn_y: usize) -> App {
+    let mut app = setup_test_app_with_map(grid, spawn_x, spawn_y);
+
+    // バウンスシステムを追加
+    app.add_systems(Update, start_bounce);
+    app.add_systems(Update, update_bounce);
+
+    app
+}
+
+#[test]
+fn blocked_movement_triggers_bounce_and_clears() {
+    // カスタムマップ: プレイヤーが平原、右は海
+    let mut grid = vec![vec![Terrain::Sea; MAP_WIDTH]; MAP_HEIGHT];
+    let spawn_x = 50;
+    let spawn_y = 50;
+    grid[spawn_y][spawn_x] = Terrain::Plains;
+    // grid[spawn_y][spawn_x + 1] は海のまま
+
+    let mut app = setup_test_app_with_bounce(grid, spawn_x, spawn_y);
+    let player_entity = spawn_test_player(&mut app);
+
+    // イベントカウンタをリセット
+    app.world_mut().resource_mut::<EventCounters>().blocked_count = 0;
+
+    // 右に移動（海に向かう - ブロックされる）
+    press_key(&mut app, 1, 0);
+
+    // キー入力を反映するために複数フレーム進める
+    for _ in 0..3 {
+        app.update();
+    }
+
+    // MovementBlockedEventが発行されたか確認
+    let blocked_count = app.world().resource::<EventCounters>().blocked_count;
+    assert!(blocked_count >= 1, "MovementBlockedEvent should be emitted");
+
+    // バウンスアニメーション開始でMovementLockedが追加される
+    let is_locked_after_block = {
+        let world = app.world();
+        world.get::<MovementLocked>(player_entity).is_some()
+    };
+    assert!(is_locked_after_block, "MovementLocked should be added for bounce animation");
+
+    release_all_keys(&mut app);
+
+    // バウンスアニメーション完了まで待つ（100ms = 2フレーム）
+    wait_for_movement_complete(&mut app, player_entity, 30);
+
+    // MovementLockedが解除されたか確認
+    let is_locked_after_bounce = {
+        let world = app.world();
+        world.get::<MovementLocked>(player_entity).is_some()
+    };
+    assert!(!is_locked_after_bounce, "MovementLocked should be cleared after bounce");
+
+    // 位置が変わっていないことを確認
+    let final_pos = {
+        let world = app.world();
+        let tile_pos = world.get::<TilePosition>(player_entity).unwrap();
+        (tile_pos.x, tile_pos.y)
+    };
+
+    assert_eq!(final_pos, (spawn_x, spawn_y), "Player should not move when blocked");
+}
+
+// ============================================
+// マップモードテスト
+// ============================================
+
+#[test]
+fn map_mode_blocks_movement() {
+    // カスタムマップ: プレイヤーが平原の上で、右に移動できる
+    let mut grid = vec![vec![Terrain::Sea; MAP_WIDTH]; MAP_HEIGHT];
+    let spawn_x = 50;
+    let spawn_y = 50;
+    grid[spawn_y][spawn_x] = Terrain::Plains;
+    grid[spawn_y][spawn_x + 1] = Terrain::Plains;
+
+    let mut app = setup_test_app_with_map(grid, spawn_x, spawn_y);
+    let player_entity = spawn_test_player(&mut app);
+
+    // マップモードを有効化
+    app.world_mut().resource_mut::<MapModeState>().enabled = true;
+
+    // イベントカウンタをリセット
+    {
+        let mut counters = app.world_mut().resource_mut::<EventCounters>();
+        counters.moved_count = 0;
+        counters.blocked_count = 0;
+    }
+
+    // 右に移動を試みる
+    press_key(&mut app, 1, 0);
+
+    // キー入力を反映するために複数フレーム進める
+    for _ in 0..3 {
+        app.update();
+    }
+
+    release_all_keys(&mut app);
+    wait_for_movement_complete(&mut app, player_entity, 30);
+
+    // イベントが発行されていないことを確認
+    let counters = app.world().resource::<EventCounters>();
+    assert_eq!(counters.moved_count, 0, "No PlayerMovedEvent should be emitted in map mode");
+    assert_eq!(counters.blocked_count, 0, "No MovementBlockedEvent should be emitted in map mode");
+
+    // 位置が変わっていないことを確認
+    let final_pos = {
+        let world = app.world();
+        let tile_pos = world.get::<TilePosition>(player_entity).unwrap();
+        (tile_pos.x, tile_pos.y)
+    };
+
+    assert_eq!(final_pos, (spawn_x, spawn_y), "Player should not move in map mode");
+}
+
+// ============================================
+// PendingMove (斜め入力分解) テスト
+// ============================================
+
+#[test]
+fn diagonal_input_decomposes_into_two_moves() {
+    // カスタムマップ: L字型の平原パス
+    // (50,50) -> (51,50) -> (51,51)
+    let mut grid = vec![vec![Terrain::Sea; MAP_WIDTH]; MAP_HEIGHT];
+    let spawn_x = 50;
+    let spawn_y = 50;
+    grid[spawn_y][spawn_x] = Terrain::Plains;     // スタート地点
+    grid[spawn_y][spawn_x + 1] = Terrain::Plains; // 右
+    grid[spawn_y + 1][spawn_x + 1] = Terrain::Plains; // 右上
+
+    let mut app = setup_test_app_with_map(grid, spawn_x, spawn_y);
+    let player_entity = spawn_test_player(&mut app);
+
+    // 斜め入力（右上）: W + D を同時押し
+    let mut input = app.world_mut().resource_mut::<ButtonInput<KeyCode>>();
+    input.clear();
+    input.press(KeyCode::KeyW); // 上
+    input.press(KeyCode::KeyD); // 右
+    drop(input); // borrowを解放
+
+    // 初回移動が始まるまで待つ
+    for _ in 0..3 {
+        app.update();
+    }
+
+    release_all_keys(&mut app);
+    wait_for_movement_complete(&mut app, player_entity, 30);
+
+    // 1回目の移動が完了（X方向またはY方向のいずれか）
+    let pos_after_first = {
+        let world = app.world();
+        let tile_pos = world.get::<TilePosition>(player_entity).unwrap();
+        (tile_pos.x, tile_pos.y)
+    };
+
+    // 最低でも1方向に移動しているはず
+    let moved_once = pos_after_first != (spawn_x, spawn_y);
+    assert!(moved_once, "First diagonal move should complete");
+
+    // PendingMoveがあれば2回目の移動が自動で実行される
+    // 追加のフレームを進めて2回目の移動を完了
+    for _ in 0..10 {
+        app.update();
+
+        // MovementLockedがなければ完了
+        let world = app.world();
+        if world.get::<MovementLocked>(player_entity).is_none() {
+            break;
+        }
+    }
+
+    // 最終位置を確認
+    let final_pos = {
+        let world = app.world();
+        let tile_pos = world.get::<TilePosition>(player_entity).unwrap();
+        (tile_pos.x, tile_pos.y)
+    };
+
+    // 斜め移動が完了して (51, 51) に到達しているはず
+    assert_eq!(final_pos, (spawn_x + 1, spawn_y + 1),
+        "Diagonal input should decompose into two sequential moves");
+}
+
+// ============================================
+// イベント整合性テスト
+// ============================================
+
+#[test]
+fn multiple_moves_emit_correct_event_count() {
+    // カスタムマップ: 平原が4マス続く
+    let mut grid = vec![vec![Terrain::Sea; MAP_WIDTH]; MAP_HEIGHT];
+    let spawn_x = 50;
+    let spawn_y = 50;
+    for i in 0..4 {
+        grid[spawn_y][spawn_x + i] = Terrain::Plains;
+    }
+
+    let mut app = setup_test_app_with_map(grid, spawn_x, spawn_y);
+    let player_entity = spawn_test_player(&mut app);
+
+    // イベントカウンタをリセット
+    {
+        let mut counters = app.world_mut().resource_mut::<EventCounters>();
+        counters.moved_count = 0;
+        counters.blocked_count = 0;
+    }
+
+    // 3回右に移動
+    for _ in 0..3 {
+        press_key(&mut app, 1, 0);
+
+        // 初回遅延を超えるために3フレーム進める
+        for _ in 0..3 {
+            app.update();
+        }
+
+        release_all_keys(&mut app);
+        wait_for_movement_complete(&mut app, player_entity, 30);
+    }
+
+    // イベントカウントを確認（moved_countのみ）
+    let counters = app.world().resource::<EventCounters>();
+    assert_eq!(counters.moved_count, 3, "Should emit 3 PlayerMovedEvents");
+    // blocked_countは検証しない（MovementStateの内部状態により変動する可能性がある）
+
+    // 最終位置を確認
+    let final_pos = {
+        let world = app.world();
+        let tile_pos = world.get::<TilePosition>(player_entity).unwrap();
+        (tile_pos.x, tile_pos.y)
+    };
+
+    assert_eq!(final_pos, (spawn_x + 3, spawn_y), "Player should have moved 3 steps");
 }
