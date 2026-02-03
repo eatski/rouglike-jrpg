@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use game::map::{calculate_boat_spawns, generate_map};
+use game::map::{calculate_boat_spawns, generate_connected_map};
 
 use crate::components::{Boat, Player, TilePosition};
 use crate::resources::{MapDataResource, SpawnPosition};
@@ -27,7 +27,7 @@ pub fn spawn_field_map(mut commands: Commands, asset_server: Res<AssetServer>) {
     };
 
     let mut rng = rand::thread_rng();
-    let map_data = generate_map(&mut rng);
+    let map_data = generate_connected_map(&mut rng);
 
     // 船のスポーン位置を計算
     let boat_spawns = calculate_boat_spawns(&map_data.grid, &mut rng);

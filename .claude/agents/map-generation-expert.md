@@ -97,11 +97,48 @@ Proactively ask for clarification about:
 1. ランダムなシード位置から複数の島を成長させる（フロンティア拡散法）
 2. 陸地タイルが目標数に達するまで拡散
 3. 森林・山岳をクラスター状に散布
+4. **接続性検証とリトライ（最大10回）**:
+   - 全島が最大海域に隣接するか検証
+   - 孤立島（内陸湖に囲まれた島など）が存在する場合は再生成
+
+### 接続性保証の実装パターン
+
+#### 検証アルゴリズム
+```rust
+// 1. Flood Fillで全島を検出
+let islands = detect_islands(grid);
+
+// 2. Flood Fillで全海域を検出（サイズ降順ソート）
+let sea_regions = detect_sea_regions(grid);
+
+// 3. 最大海域（sea_regions[0]）に全島が隣接するかチェック
+for island in islands {
+    if !island.touches_main_sea() {
+        return false; // 孤立島が存在
+    }
+}
+```
+
+#### リトライ機構
+```rust
+// generate_connected_map() で最大10回リトライ
+for _ in 1..MAX_RETRY {
+    if validate_connectivity(&map) {
+        return map; // 接続性OK
+    }
+    map = generate_map(); // 再生成
+}
+```
+
+#### 船スポーンの改善
+- 各島の外縁から**最大海域に面した海タイル**を船スポーン位置に選定
+- これにより、全大陸間の移動が保証される
 
 ### コード配置
 
 - 地形定義: `crates/game/src/map/terrain.rs`
 - 生成ロジック: `crates/game/src/map/generation.rs`
+- 島・接続性検証: `crates/game/src/map/islands.rs`
 
 ## 許可されるBashコマンド
 

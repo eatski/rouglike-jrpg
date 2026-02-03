@@ -2,6 +2,7 @@ use rand::Rng;
 
 use crate::coordinates::orthogonal_neighbors;
 
+use super::islands::validate_connectivity;
 use super::terrain::Terrain;
 
 pub const MAP_WIDTH: usize = 150;
@@ -92,6 +93,25 @@ pub fn generate_map(rng: &mut impl Rng) -> MapData {
         grid,
         spawn_position,
     }
+}
+
+const MAX_RETRY: usize = 10;
+
+/// 接続性を保証したマップを生成する
+///
+/// `generate_map` で生成後、全島が最大海域に隣接するかを検証し、
+/// 失敗した場合は再生成する（最大10回）。
+pub fn generate_connected_map(rng: &mut impl Rng) -> MapData {
+    let mut map = generate_map(rng);
+
+    for _ in 1..MAX_RETRY {
+        if validate_connectivity(&map.grid) {
+            return map;
+        }
+        map = generate_map(rng);
+    }
+
+    map
 }
 
 fn scatter_clusters(
@@ -272,5 +292,22 @@ mod tests {
 
         assert!(x < MAP_WIDTH, "Spawn x should be within map width");
         assert!(y < MAP_HEIGHT, "Spawn y should be within map height");
+    }
+
+    #[test]
+    fn generate_connected_map_produces_valid_map() {
+        use crate::map::islands::validate_connectivity;
+
+        // 複数シードで接続性を満たすことを確認
+        for seed in [42, 123, 456, 789, 9999] {
+            let mut rng = create_rng(seed);
+            let map = generate_connected_map(&mut rng);
+
+            assert!(
+                validate_connectivity(&map.grid),
+                "seed {} should produce a connected map",
+                seed
+            );
+        }
     }
 }
