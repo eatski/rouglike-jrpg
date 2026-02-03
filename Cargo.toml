@@ -7,15 +7,10 @@ edition = "2024"
 bevy = "0.18"
 game = { path = "crates/game" }
 ui = { path = "crates/ui" }
-image = "0.24"
 rand = "0.8"
-
-[[bin]]
-name = "generate-tiles"
-path = "src/bin/generate_tiles.rs"
 
 [dev-dependencies]
 rand_chacha = "0.3"
 
 [workspace]
-members = ["crates/game", "crates/ui"]
+members = ["crates/game", "crates/ui", "crates/generate_tiles"]

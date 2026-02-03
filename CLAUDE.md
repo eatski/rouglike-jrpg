@@ -24,6 +24,7 @@ Bevy 0.18を使用した2Dローグライク風JRPGのプロトタイプ。Cargo
 
 - **game crate**: 純粋Rust（Bevy非依存）、ゲームロジック
 - **ui crate**: Bevy依存、描画・入力・アニメーション
+- **generate_tiles crate**: アセット生成ツール（独立バイナリ、image/rand依存）
 
 詳細は `software-architect` エージェントを参照。
 

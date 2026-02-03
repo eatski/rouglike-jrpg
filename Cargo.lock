@@ -2502,6 +2502,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "generate-tiles"
+version = "0.1.0"
+dependencies = [
+ "image 0.24.9",
+ "rand 0.8.5",
+]
+
+[[package]]
 name = "gethostname"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4171,7 +4179,6 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "game",
- "image 0.24.9",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "ui",

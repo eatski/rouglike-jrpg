@@ -97,6 +97,7 @@ Always explain your reasoning. When multiple valid approaches exist, present the
 |-------|-----|-----|
 | `game/` | rand のみ | 純粋Rust。ゲームロジック（ルール、状態、タイル座標） |
 | `ui/` | bevy, game | Bevy統合。描画、アニメーション、ワールド座標 |
+| `generate_tiles/` | image, rand | アセット生成ツール（独立バイナリ、タイル・キャラスプライト生成） |
 
 ### 設計原則
 
