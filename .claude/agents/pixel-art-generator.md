@@ -28,7 +28,7 @@ img.save("output.png").expect("Failed to save");
 プロジェクトには `src/bin/generate_tiles.rs` が存在する。
 
 ```bash
-cargo run --bin generate-tiles  # タイル生成実行
+cargo run -p generate-tiles  # タイル生成実行
 ```
 
 このバイナリが生成するもの：
@@ -69,9 +69,9 @@ Read tool → assets/tiles/mountain.png
 
 ## Workflow
 
-1. **コード修正**: `src/bin/generate_tiles.rs` を編集
-2. **ビルド**: `cargo build --bin generate-tiles`
-3. **生成実行**: `cargo run --bin generate-tiles`
+1. **コード修正**: `generate-tiles/src/main.rs` を編集
+2. **ビルド**: `cargo build -p generate-tiles`
+3. **生成実行**: `cargo run -p generate-tiles`
 4. **確認**: Readツールで画像を読み込んで視覚確認
 5. **必要に応じて調整**: 色・パターンを微調整して再生成
 
@@ -127,8 +127,8 @@ commands.spawn((
 
 | コマンド | 用途 |
 |---------|-----|
-| `cargo build --bin generate-tiles` | 生成バイナリのビルド |
-| `cargo run --bin generate-tiles` | アセット生成の実行 |
+| `cargo build -p generate-tiles` | 生成バイナリのビルド |
+| `cargo run -p generate-tiles` | アセット生成の実行 |
 
 **禁止**:
 - `cargo run`（ゲーム本体の実行）
@@ -139,4 +139,4 @@ commands.spawn((
 - 日本語で対応
 - 生成したアセットはReadツールで必ず自分で確認する
 - 色やデザインの調整リクエストに柔軟に対応
-- 変更後は `cargo build --bin generate-tiles` でコンパイル確認
+- 変更後は `cargo build -p generate-tiles` でコンパイル確認
