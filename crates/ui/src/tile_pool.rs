@@ -102,9 +102,12 @@ pub fn update_visible_tiles(
         &mut Visibility,
     )>,
 ) {
-    // スムーズ移動中はタイル更新をスキップ（マップ端での暗転防止）
-    if smooth_move_query.iter().next().is_some() {
-        return;
+    // スムーズ移動のアニメーション中はタイル更新をスキップ
+    // ただし完了フレームは更新する（マップ端ラップ時の暗転防止）
+    for smooth_move in smooth_move_query.iter() {
+        if !smooth_move.timer.just_finished() {
+            return;
+        }
     }
 
     let Ok(player_pos) = player_query.single() else {
