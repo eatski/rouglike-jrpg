@@ -1,6 +1,8 @@
 use bevy::prelude::*;
 
-use game::battle::{BattleState, Enemy};
+use game::battle::{
+    default_party, generate_enemy_group, BattleAction, BattleState, EnemyKind,
+};
 
 use crate::bounce::Bounce;
 use crate::components::{MovementLocked, PendingMove, Player, TilePosition};
@@ -9,12 +11,47 @@ use crate::resources::MovementState;
 use crate::smooth_move::SmoothMove;
 
 use super::display::{
-    CommandCursor, EnemyHpBarFill, EnemyHpText, MessageText, PlayerHpBarFill, PlayerHpText,
+    CommandCursor, EnemyNameLabel, MessageText, PartyMemberHpBarFill, PartyMemberHpText,
+    TargetCursor,
 };
 
 /// 戦闘シーンのルートUIエンティティを識別するマーカー
 #[derive(Component)]
 pub struct BattleSceneRoot;
+
+/// パーティ全員分のコマンド蓄積
+#[derive(Debug, Clone, Default)]
+pub struct PendingCommands {
+    pub commands: Vec<BattleAction>,
+}
+
+impl PendingCommands {
+    pub fn push(&mut self, action: BattleAction) {
+        self.commands.push(action);
+    }
+
+    pub fn pop(&mut self) -> Option<BattleAction> {
+        self.commands.pop()
+    }
+
+    pub fn clear(&mut self) {
+        self.commands.clear();
+    }
+
+}
+
+/// メッセージ表示時に適用する視覚効果
+#[derive(Debug, Clone)]
+pub enum MessageEffect {
+    /// パーティメンバーのHP表示値を更新
+    UpdatePartyHp { member_index: usize, new_hp: i32 },
+    /// 敵を非表示にする
+    HideEnemy { enemy_index: usize },
+    /// 画面シェイク
+    Shake,
+    /// 敵スプライト点滅
+    BlinkEnemy { enemy_index: usize },
+}
 
 /// 戦闘の状態管理リソース
 #[derive(Resource)]
@@ -22,14 +59,32 @@ pub struct BattleResource {
     pub state: BattleState,
     /// 現在選択中のコマンドインデックス (0=たたかう, 1=にげる)
     pub selected_command: usize,
+    /// ターゲット選択中の敵インデックス
+    pub selected_target: usize,
+    /// パーティ全員分のコマンド蓄積
+    pub pending_commands: PendingCommands,
     /// 戦闘フェーズ
     pub phase: BattlePhase,
+    /// 敵ごとの視覚的非表示フラグ（「たおした」メッセージ表示時にtrueになる）
+    pub hidden_enemies: Vec<bool>,
+    /// 表示用パーティHP（メッセージ送りに連動して更新）
+    pub display_party_hp: Vec<i32>,
+    /// メッセージindex → 適用する視覚効果のリスト
+    pub message_effects: Vec<(usize, MessageEffect)>,
+    /// 画面シェイク用タイマー
+    pub shake_timer: Option<Timer>,
+    /// 敵スプライト点滅用タイマー
+    pub blink_timer: Option<Timer>,
+    /// 点滅中の敵インデックス
+    pub blink_enemy: Option<usize>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BattlePhase {
-    /// コマンド選択中
-    CommandSelect,
+    /// コマンド選択中（member_indexで誰のコマンドか）
+    CommandSelect { member_index: usize },
+    /// ターゲット選択中
+    TargetSelect { member_index: usize },
     /// メッセージ表示中（Enterで次へ）
     ShowMessage { messages: Vec<String>, index: usize },
     /// 戦闘終了（Enterでフィールドに戻る）
@@ -38,27 +93,76 @@ pub enum BattlePhase {
 
 /// 敵スプライトのマーカー
 #[derive(Component)]
-pub struct EnemySprite;
+pub struct EnemySprite {
+    pub index: usize,
+}
 
-pub fn setup_battle_scene(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-) {
-    let enemy = Enemy::slime();
-    let enemy_name = enemy.kind.name().to_string();
-    let enemy_max_hp = enemy.stats.max_hp;
-    let battle_state = BattleState::new(enemy);
-    let player_max_hp = battle_state.player.max_hp;
+/// 同種の敵にサフィックスを付与した表示名を生成
+fn enemy_display_names(enemies: &[game::battle::Enemy]) -> Vec<String> {
+    // 同種の敵が複数いる場合のみサフィックス付与
+    let mut kind_counts: std::collections::HashMap<EnemyKind, usize> =
+        std::collections::HashMap::new();
+    for e in enemies {
+        *kind_counts.entry(e.kind).or_insert(0) += 1;
+    }
+
+    let suffixes = ['A', 'B', 'C', 'D'];
+    let mut kind_indices: std::collections::HashMap<EnemyKind, usize> =
+        std::collections::HashMap::new();
+
+    enemies
+        .iter()
+        .map(|e| {
+            let count = kind_counts[&e.kind];
+            if count > 1 {
+                let idx = kind_indices.entry(e.kind).or_insert(0);
+                let suffix = suffixes.get(*idx).unwrap_or(&'?');
+                *idx += 1;
+                format!("{}{}", e.kind.name(), suffix)
+            } else {
+                e.kind.name().to_string()
+            }
+        })
+        .collect()
+}
+
+pub fn setup_battle_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let party = default_party();
+    let enemies = generate_enemy_group(rand::random::<f32>());
+    let display_names = enemy_display_names(&enemies);
+
+    let encounter_msg = if enemies.len() == 1 {
+        format!("{}が あらわれた！", display_names[0])
+    } else {
+        format!(
+            "{}が {}匹 あらわれた！",
+            enemies[0].kind.name(),
+            enemies.len()
+        )
+    };
+
+    let enemy_count = enemies.len();
+    let battle_state = BattleState::new(party, enemies);
 
     let font: Handle<Font> = asset_server.load("fonts/NotoSansJP-Bold.ttf");
+
+    let display_party_hp = battle_state.party.iter().map(|m| m.stats.hp).collect();
 
     commands.insert_resource(BattleResource {
         state: battle_state,
         selected_command: 0,
+        selected_target: 0,
+        pending_commands: PendingCommands::default(),
         phase: BattlePhase::ShowMessage {
-            messages: vec![format!("{}が あらわれた！", enemy_name)],
+            messages: vec![encounter_msg],
             index: 0,
         },
+        hidden_enemies: vec![false; enemy_count],
+        display_party_hp,
+        message_effects: Vec::new(),
+        shake_timer: None,
+        blink_timer: None,
+        blink_enemy: None,
     });
 
     let panel_bg = Color::srgba(0.1, 0.1, 0.15, 0.85);
@@ -83,206 +187,264 @@ pub fn setup_battle_scene(
         ))
         .with_children(|parent| {
             // === 上部 (40%): 敵表示エリア ===
-            parent
-                .spawn(Node {
-                    width: Val::Percent(100.0),
-                    height: Val::Percent(40.0),
+            build_enemy_area(parent, &font, &asset_server);
+
+            // === 中部 (30%): メッセージエリア ===
+            build_message_area(parent, &font, panel_bg, border_color);
+
+            // === 下部 (30%): パーティステータス＋コマンド ===
+            build_bottom_area(
+                parent,
+                &font,
+                panel_bg,
+                border_color,
+                hp_bar_bg,
+                hp_bar_green,
+                selected_color,
+                unselected_color,
+            );
+        });
+}
+
+fn build_enemy_area(
+    parent: &mut ChildSpawnerCommands,
+    font: &Handle<Font>,
+    asset_server: &AssetServer,
+) {
+    parent
+        .spawn(Node {
+            width: Val::Percent(100.0),
+            height: Val::Percent(40.0),
+            flex_direction: FlexDirection::Row,
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            column_gap: Val::Px(16.0),
+            ..default()
+        })
+        .with_children(|area| {
+            // 最大4匹分のスロットを構築（非表示のものも含む）
+            for i in 0..4 {
+                area.spawn(Node {
                     flex_direction: FlexDirection::Column,
-                    justify_content: JustifyContent::Center,
                     align_items: AlignItems::Center,
                     ..default()
                 })
-                .with_children(|area| {
-                    // 敵スプライト (128px)
-                    area.spawn((
-                        EnemySprite,
-                        ImageNode::new(asset_server.load("enemies/slime.png")),
-                        Node {
-                            width: Val::Px(128.0),
-                            height: Val::Px(128.0),
-                            margin: UiRect::bottom(Val::Px(8.0)),
-                            ..default()
-                        },
-                    ));
-
-                    // 敵名前とHP
-                    area.spawn((
-                        EnemyHpText,
-                        Text::new(format!(
-                            "{} HP: {}/{}",
-                            enemy_name, enemy_max_hp, enemy_max_hp
-                        )),
+                .with_children(|slot| {
+                    // ターゲットカーソル(▼)
+                    slot.spawn((
+                        TargetCursor { index: i },
+                        Text::new("▼"),
                         TextFont {
                             font: font.clone(),
                             font_size: 16.0,
                             ..default()
                         },
-                        TextColor(Color::WHITE),
+                        TextColor(Color::srgb(1.0, 0.9, 0.2)),
                         Node {
                             margin: UiRect::bottom(Val::Px(4.0)),
                             ..default()
                         },
+                        Visibility::Hidden,
                     ));
 
-                    // 敵HPバー（背景 + 前景）
-                    area.spawn((
+                    // 敵スプライト
+                    slot.spawn((
+                        EnemySprite { index: i },
+                        ImageNode::new(asset_server.load("enemies/slime.png")),
                         Node {
-                            width: Val::Px(120.0),
-                            height: Val::Px(8.0),
+                            width: Val::Px(96.0),
+                            height: Val::Px(96.0),
+                            margin: UiRect::bottom(Val::Px(4.0)),
                             ..default()
                         },
-                        BackgroundColor(hp_bar_bg),
-                    ))
-                    .with_children(|bar_bg| {
-                        bar_bg.spawn((
-                            EnemyHpBarFill,
-                            Node {
-                                width: Val::Percent(100.0),
-                                height: Val::Percent(100.0),
-                                ..default()
-                            },
-                            BackgroundColor(hp_bar_green),
-                        ));
-                    });
-                });
+                        Visibility::Hidden,
+                    ));
 
-            // === 中部 (30%): メッセージエリア ===
-            parent
-                .spawn((
-                    Node {
-                        width: Val::Percent(100.0),
-                        height: Val::Percent(30.0),
-                        justify_content: JustifyContent::Center,
-                        align_items: AlignItems::Center,
-                        padding: UiRect::horizontal(Val::Px(16.0)),
-                        border: UiRect::all(Val::Px(2.0)),
-                        ..default()
-                    },
-                    BackgroundColor(panel_bg),
-                    BorderColor::all(border_color),
-                ))
-                .with_children(|area| {
-                    area.spawn((
-                        MessageText,
-                        Text::new(format!("{}が あらわれた！", enemy_name)),
+                    // 敵名ラベル
+                    slot.spawn((
+                        EnemyNameLabel { index: i },
+                        Text::new(""),
                         TextFont {
                             font: font.clone(),
-                            font_size: 14.0,
+                            font_size: 13.0,
                             ..default()
                         },
                         TextColor(Color::WHITE),
+                        Node {
+                            margin: UiRect::bottom(Val::Px(2.0)),
+                            ..default()
+                        },
+                        Visibility::Hidden,
                     ));
                 });
+            }
+        });
+}
 
-            // === 下部 (30%): ステータス＋コマンド ===
-            parent
-                .spawn((
-                    Node {
-                        width: Val::Percent(100.0),
-                        height: Val::Percent(30.0),
-                        flex_direction: FlexDirection::Row,
-                        padding: UiRect::all(Val::Px(12.0)),
-                        border: UiRect::all(Val::Px(2.0)),
-                        ..default()
-                    },
-                    BackgroundColor(panel_bg),
-                    BorderColor::all(border_color),
-                ))
-                .with_children(|area| {
-                    // 左: プレイヤーステータス
-                    area.spawn(Node {
-                        width: Val::Percent(50.0),
-                        flex_direction: FlexDirection::Column,
-                        justify_content: JustifyContent::Center,
-                        ..default()
-                    })
-                    .with_children(|hp_area| {
-                        // 「勇者」ラベル
-                        hp_area.spawn((
-                            Text::new("勇者"),
-                            TextFont {
-                                font: font.clone(),
-                                font_size: 16.0,
-                                ..default()
-                            },
-                            TextColor(Color::WHITE),
-                            Node {
-                                margin: UiRect::bottom(Val::Px(4.0)),
-                                ..default()
-                            },
-                        ));
+fn build_message_area(
+    parent: &mut ChildSpawnerCommands,
+    font: &Handle<Font>,
+    panel_bg: Color,
+    border_color: Color,
+) {
+    parent
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                height: Val::Percent(30.0),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                padding: UiRect::horizontal(Val::Px(16.0)),
+                border: UiRect::all(Val::Px(2.0)),
+                ..default()
+            },
+            BackgroundColor(panel_bg),
+            BorderColor::all(border_color),
+        ))
+        .with_children(|area| {
+            area.spawn((
+                MessageText,
+                Text::new(""),
+                TextFont {
+                    font: font.clone(),
+                    font_size: 14.0,
+                    ..default()
+                },
+                TextColor(Color::WHITE),
+            ));
+        });
+}
 
-                        // HP テキスト
-                        hp_area.spawn((
-                            PlayerHpText,
-                            Text::new(format!("HP: {}/{}", player_max_hp, player_max_hp)),
-                            TextFont {
-                                font: font.clone(),
-                                font_size: 16.0,
-                                ..default()
-                            },
-                            TextColor(Color::WHITE),
-                            Node {
-                                margin: UiRect::bottom(Val::Px(4.0)),
-                                ..default()
-                            },
-                        ));
-
-                        // プレイヤーHPバー（背景 + 前景）
-                        hp_area
-                            .spawn((
-                                Node {
-                                    width: Val::Px(100.0),
-                                    height: Val::Px(8.0),
+#[allow(clippy::too_many_arguments)]
+fn build_bottom_area(
+    parent: &mut ChildSpawnerCommands,
+    font: &Handle<Font>,
+    panel_bg: Color,
+    border_color: Color,
+    hp_bar_bg: Color,
+    hp_bar_green: Color,
+    selected_color: Color,
+    unselected_color: Color,
+) {
+    parent
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                height: Val::Percent(30.0),
+                flex_direction: FlexDirection::Row,
+                padding: UiRect::all(Val::Px(12.0)),
+                border: UiRect::all(Val::Px(2.0)),
+                ..default()
+            },
+            BackgroundColor(panel_bg),
+            BorderColor::all(border_color),
+        ))
+        .with_children(|area| {
+            // 左: パーティステータス（横並び）
+            area.spawn(Node {
+                width: Val::Percent(60.0),
+                flex_direction: FlexDirection::Row,
+                justify_content: JustifyContent::SpaceEvenly,
+                align_items: AlignItems::Center,
+                ..default()
+            })
+            .with_children(|party_area| {
+                let member_names = ["勇者", "魔法使い", "僧侶"];
+                for (i, name) in member_names.iter().enumerate() {
+                    party_area
+                        .spawn(Node {
+                            flex_direction: FlexDirection::Column,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        })
+                        .with_children(|member_col| {
+                            // 名前
+                            member_col.spawn((
+                                Text::new(*name),
+                                TextFont {
+                                    font: font.clone(),
+                                    font_size: 14.0,
                                     ..default()
                                 },
-                                BackgroundColor(hp_bar_bg),
-                            ))
-                            .with_children(|bar_bg| {
-                                bar_bg.spawn((
-                                    PlayerHpBarFill,
+                                TextColor(Color::WHITE),
+                                Node {
+                                    margin: UiRect::bottom(Val::Px(2.0)),
+                                    ..default()
+                                },
+                            ));
+
+                            // HPテキスト
+                            member_col.spawn((
+                                PartyMemberHpText { index: i },
+                                Text::new(""),
+                                TextFont {
+                                    font: font.clone(),
+                                    font_size: 13.0,
+                                    ..default()
+                                },
+                                TextColor(Color::WHITE),
+                                Node {
+                                    margin: UiRect::bottom(Val::Px(2.0)),
+                                    ..default()
+                                },
+                            ));
+
+                            // HPバー
+                            member_col
+                                .spawn((
                                     Node {
-                                        width: Val::Percent(100.0),
-                                        height: Val::Percent(100.0),
+                                        width: Val::Px(70.0),
+                                        height: Val::Px(6.0),
                                         ..default()
                                     },
-                                    BackgroundColor(hp_bar_green),
-                                ));
-                            });
-                    });
+                                    BackgroundColor(hp_bar_bg),
+                                ))
+                                .with_children(|bar_bg| {
+                                    bar_bg.spawn((
+                                        PartyMemberHpBarFill { index: i },
+                                        Node {
+                                            width: Val::Percent(100.0),
+                                            height: Val::Percent(100.0),
+                                            ..default()
+                                        },
+                                        BackgroundColor(hp_bar_green),
+                                    ));
+                                });
+                        });
+                }
+            });
 
-                    // 右: コマンド
-                    area.spawn(Node {
-                        width: Val::Percent(50.0),
-                        flex_direction: FlexDirection::Column,
-                        justify_content: JustifyContent::Center,
-                        align_items: AlignItems::FlexStart,
-                        padding: UiRect::left(Val::Px(16.0)),
+            // 右: コマンド
+            area.spawn(Node {
+                width: Val::Percent(40.0),
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::FlexStart,
+                padding: UiRect::left(Val::Px(16.0)),
+                ..default()
+            })
+            .with_children(|cmd_area| {
+                cmd_area.spawn((
+                    CommandCursor { index: 0 },
+                    Text::new("> たたかう"),
+                    TextFont {
+                        font: font.clone(),
+                        font_size: 16.0,
                         ..default()
-                    })
-                    .with_children(|cmd_area| {
-                        cmd_area.spawn((
-                            CommandCursor { index: 0 },
-                            Text::new("> たたかう"),
-                            TextFont {
-                                font: font.clone(),
-                                font_size: 16.0,
-                                ..default()
-                            },
-                            TextColor(selected_color),
-                        ));
-                        cmd_area.spawn((
-                            CommandCursor { index: 1 },
-                            Text::new("  にげる"),
-                            TextFont {
-                                font: font.clone(),
-                                font_size: 16.0,
-                                ..default()
-                            },
-                            TextColor(unselected_color),
-                        ));
-                    });
-                });
+                    },
+                    TextColor(selected_color),
+                ));
+                cmd_area.spawn((
+                    CommandCursor { index: 1 },
+                    Text::new("  にげる"),
+                    TextFont {
+                        font: font.clone(),
+                        font_size: 16.0,
+                        ..default()
+                    },
+                    TextColor(unselected_color),
+                ));
+            });
         });
 }
 

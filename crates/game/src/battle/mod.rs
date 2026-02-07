@@ -1,9 +1,11 @@
 pub mod combat;
 pub mod encounter;
 pub mod enemy;
+pub mod party;
 pub mod stats;
 
-pub use combat::{BattleAction, BattleState, TurnResult};
+pub use combat::{ActorId, BattleAction, BattleState, TargetId, TurnRandomFactors, TurnResult};
 pub use encounter::should_encounter;
-pub use enemy::{Enemy, EnemyKind};
+pub use enemy::{generate_enemy_group, Enemy, EnemyKind};
+pub use party::{default_party, PartyMember, PartyMemberKind};
 pub use stats::CombatStats;

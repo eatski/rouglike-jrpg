@@ -5,13 +5,13 @@ use ui::constants::WINDOW_SIZE;
 use ui::events::{MovementBlockedEvent, PlayerMovedEvent};
 use ui::resources::MovementState;
 use ui::{
-    battle_display_system, battle_input_system, camera_follow, check_encounter_system,
-    cleanup_battle_scene, init_exploration_system, init_minimap_system, init_tile_pool,
-    player_movement, setup_battle_scene, setup_camera, spawn_field_map, spawn_player,
-    start_bounce, start_smooth_move, sync_boat_with_player, toggle_map_mode_system,
-    toggle_minimap_visibility_system, update_bounce, update_exploration_system,
-    update_minimap_texture_system, update_smooth_move, update_visible_tiles, AppState,
-    MapModeState,
+    battle_blink_system, battle_display_system, battle_input_system, battle_shake_system,
+    camera_follow, check_encounter_system, cleanup_battle_scene, init_exploration_system,
+    init_minimap_system, init_tile_pool, player_movement, setup_battle_scene, setup_camera,
+    spawn_field_map, spawn_player, start_bounce, start_smooth_move, sync_boat_with_player,
+    toggle_map_mode_system, toggle_minimap_visibility_system, update_bounce,
+    update_exploration_system, update_minimap_texture_system, update_smooth_move,
+    update_visible_tiles, AppState, MapModeState,
 };
 
 fn main() {
@@ -69,7 +69,12 @@ fn main() {
         .add_systems(OnEnter(AppState::Battle), setup_battle_scene)
         .add_systems(
             Update,
-            (battle_input_system, battle_display_system)
+            (
+                battle_input_system,
+                battle_display_system,
+                battle_blink_system,
+                battle_shake_system,
+            )
                 .chain()
                 .run_if(in_state(AppState::Battle)),
         )

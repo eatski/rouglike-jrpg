@@ -4,15 +4,17 @@ pub struct CombatStats {
     pub max_hp: i32,
     pub attack: i32,
     pub defense: i32,
+    pub speed: i32,
 }
 
 impl CombatStats {
-    pub fn new(max_hp: i32, attack: i32, defense: i32) -> Self {
+    pub fn new(max_hp: i32, attack: i32, defense: i32, speed: i32) -> Self {
         Self {
             hp: max_hp,
             max_hp,
             attack,
             defense,
+            speed,
         }
     }
 
@@ -32,30 +34,26 @@ impl CombatStats {
     }
 }
 
-pub fn player_stats() -> CombatStats {
-    CombatStats::new(30, 8, 3)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn new_stats_have_full_hp() {
-        let stats = CombatStats::new(30, 8, 3);
+        let stats = CombatStats::new(30, 8, 3, 5);
         assert_eq!(stats.hp, 30);
         assert_eq!(stats.max_hp, 30);
     }
 
     #[test]
     fn is_alive_returns_true_when_hp_positive() {
-        let stats = CombatStats::new(10, 5, 2);
+        let stats = CombatStats::new(10, 5, 2, 3);
         assert!(stats.is_alive());
     }
 
     #[test]
     fn is_alive_returns_false_when_hp_zero() {
-        let mut stats = CombatStats::new(10, 5, 2);
+        let mut stats = CombatStats::new(10, 5, 2, 3);
         stats.hp = 0;
         assert!(!stats.is_alive());
     }
@@ -78,14 +76,14 @@ mod tests {
 
     #[test]
     fn take_damage_reduces_hp() {
-        let mut stats = CombatStats::new(30, 8, 3);
+        let mut stats = CombatStats::new(30, 8, 3, 5);
         stats.take_damage(10);
         assert_eq!(stats.hp, 20);
     }
 
     #[test]
     fn take_damage_does_not_go_below_zero() {
-        let mut stats = CombatStats::new(10, 5, 2);
+        let mut stats = CombatStats::new(10, 5, 2, 3);
         stats.take_damage(20);
         assert_eq!(stats.hp, 0);
     }

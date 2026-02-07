@@ -16,8 +16,8 @@ mod tile_pool;
 
 pub use app_state::AppState;
 pub use battle::{
-    battle_display_system, battle_input_system, check_encounter_system, cleanup_battle_scene,
-    setup_battle_scene,
+    battle_blink_system, battle_display_system, battle_input_system, battle_shake_system,
+    check_encounter_system, cleanup_battle_scene, setup_battle_scene,
 };
 pub use bounce::{start_bounce, update_bounce};
 pub use camera::{camera_follow, setup_camera};
