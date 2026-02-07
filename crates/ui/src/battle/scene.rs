@@ -8,7 +8,9 @@ use crate::constants::tile_to_world;
 use crate::resources::MovementState;
 use crate::smooth_move::SmoothMove;
 
-use super::display::{CommandCursor, EnemyHpText, MessageText, PlayerHpText};
+use super::display::{
+    CommandCursor, EnemyHpBarFill, EnemyHpText, MessageText, PlayerHpBarFill, PlayerHpText,
+};
 
 /// 戦闘シーンのルートUIエンティティを識別するマーカー
 #[derive(Component)]
@@ -59,6 +61,13 @@ pub fn setup_battle_scene(
         },
     });
 
+    let panel_bg = Color::srgba(0.1, 0.1, 0.15, 0.85);
+    let border_color = Color::srgb(0.4, 0.4, 0.5);
+    let hp_bar_bg = Color::srgb(0.2, 0.2, 0.2);
+    let hp_bar_green = Color::srgb(0.2, 0.8, 0.2);
+    let selected_color = Color::srgb(1.0, 0.9, 0.2);
+    let unselected_color = Color::srgb(0.6, 0.6, 0.6);
+
     // 全画面を覆う黒背景UI
     commands
         .spawn((
@@ -73,24 +82,24 @@ pub fn setup_battle_scene(
             GlobalZIndex(100),
         ))
         .with_children(|parent| {
-            // === 上部: 敵表示エリア ===
+            // === 上部 (40%): 敵表示エリア ===
             parent
                 .spawn(Node {
                     width: Val::Percent(100.0),
-                    height: Val::Percent(50.0),
+                    height: Val::Percent(40.0),
                     flex_direction: FlexDirection::Column,
                     justify_content: JustifyContent::Center,
                     align_items: AlignItems::Center,
                     ..default()
                 })
                 .with_children(|area| {
-                    // 敵スプライト
+                    // 敵スプライト (128px)
                     area.spawn((
                         EnemySprite,
                         ImageNode::new(asset_server.load("enemies/slime.png")),
                         Node {
-                            width: Val::Px(64.0),
-                            height: Val::Px(64.0),
+                            width: Val::Px(128.0),
+                            height: Val::Px(128.0),
                             margin: UiRect::bottom(Val::Px(8.0)),
                             ..default()
                         },
@@ -109,22 +118,48 @@ pub fn setup_battle_scene(
                             ..default()
                         },
                         TextColor(Color::WHITE),
+                        Node {
+                            margin: UiRect::bottom(Val::Px(4.0)),
+                            ..default()
+                        },
                     ));
+
+                    // 敵HPバー（背景 + 前景）
+                    area.spawn((
+                        Node {
+                            width: Val::Px(120.0),
+                            height: Val::Px(8.0),
+                            ..default()
+                        },
+                        BackgroundColor(hp_bar_bg),
+                    ))
+                    .with_children(|bar_bg| {
+                        bar_bg.spawn((
+                            EnemyHpBarFill,
+                            Node {
+                                width: Val::Percent(100.0),
+                                height: Val::Percent(100.0),
+                                ..default()
+                            },
+                            BackgroundColor(hp_bar_green),
+                        ));
+                    });
                 });
 
-            // === 中部: メッセージエリア ===
+            // === 中部 (30%): メッセージエリア ===
             parent
                 .spawn((
                     Node {
                         width: Val::Percent(100.0),
-                        height: Val::Percent(25.0),
+                        height: Val::Percent(30.0),
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
                         padding: UiRect::horizontal(Val::Px(16.0)),
-                        border: UiRect::vertical(Val::Px(1.0)),
+                        border: UiRect::all(Val::Px(2.0)),
                         ..default()
                     },
-                    BorderColor::all(Color::srgb(0.3, 0.3, 0.3)),
+                    BackgroundColor(panel_bg),
+                    BorderColor::all(border_color),
                 ))
                 .with_children(|area| {
                     area.spawn((
@@ -139,17 +174,22 @@ pub fn setup_battle_scene(
                     ));
                 });
 
-            // === 下部: ステータス＋コマンド ===
+            // === 下部 (30%): ステータス＋コマンド ===
             parent
-                .spawn(Node {
-                    width: Val::Percent(100.0),
-                    height: Val::Percent(25.0),
-                    flex_direction: FlexDirection::Row,
-                    padding: UiRect::all(Val::Px(12.0)),
-                    ..default()
-                })
+                .spawn((
+                    Node {
+                        width: Val::Percent(100.0),
+                        height: Val::Percent(30.0),
+                        flex_direction: FlexDirection::Row,
+                        padding: UiRect::all(Val::Px(12.0)),
+                        border: UiRect::all(Val::Px(2.0)),
+                        ..default()
+                    },
+                    BackgroundColor(panel_bg),
+                    BorderColor::all(border_color),
+                ))
                 .with_children(|area| {
-                    // 左: プレイヤーHP
+                    // 左: プレイヤーステータス
                     area.spawn(Node {
                         width: Val::Percent(50.0),
                         flex_direction: FlexDirection::Column,
@@ -157,6 +197,22 @@ pub fn setup_battle_scene(
                         ..default()
                     })
                     .with_children(|hp_area| {
+                        // 「勇者」ラベル
+                        hp_area.spawn((
+                            Text::new("勇者"),
+                            TextFont {
+                                font: font.clone(),
+                                font_size: 16.0,
+                                ..default()
+                            },
+                            TextColor(Color::WHITE),
+                            Node {
+                                margin: UiRect::bottom(Val::Px(4.0)),
+                                ..default()
+                            },
+                        ));
+
+                        // HP テキスト
                         hp_area.spawn((
                             PlayerHpText,
                             Text::new(format!("HP: {}/{}", player_max_hp, player_max_hp)),
@@ -166,7 +222,33 @@ pub fn setup_battle_scene(
                                 ..default()
                             },
                             TextColor(Color::WHITE),
+                            Node {
+                                margin: UiRect::bottom(Val::Px(4.0)),
+                                ..default()
+                            },
                         ));
+
+                        // プレイヤーHPバー（背景 + 前景）
+                        hp_area
+                            .spawn((
+                                Node {
+                                    width: Val::Px(100.0),
+                                    height: Val::Px(8.0),
+                                    ..default()
+                                },
+                                BackgroundColor(hp_bar_bg),
+                            ))
+                            .with_children(|bar_bg| {
+                                bar_bg.spawn((
+                                    PlayerHpBarFill,
+                                    Node {
+                                        width: Val::Percent(100.0),
+                                        height: Val::Percent(100.0),
+                                        ..default()
+                                    },
+                                    BackgroundColor(hp_bar_green),
+                                ));
+                            });
                     });
 
                     // 右: コマンド
@@ -187,7 +269,7 @@ pub fn setup_battle_scene(
                                 font_size: 16.0,
                                 ..default()
                             },
-                            TextColor(Color::WHITE),
+                            TextColor(selected_color),
                         ));
                         cmd_area.spawn((
                             CommandCursor { index: 1 },
@@ -197,7 +279,7 @@ pub fn setup_battle_scene(
                                 font_size: 16.0,
                                 ..default()
                             },
-                            TextColor(Color::WHITE),
+                            TextColor(unselected_color),
                         ));
                     });
                 });
