@@ -194,6 +194,62 @@ fn camera_follow(
 }
 ```
 
+## Timer と Deferred の落とし穴
+
+### アニメーション完了フレームでのシステム制御
+
+`Timer::just_finished()`は**アニメーション完了フレームで`true`を返す**。一方、`Commands`によるコンポーネント除去は`Deferred`のため**次フレームまで反映されない**。
+
+この非対称性により、「コンポーネントの有無でシステムをスキップする」パターンで問題が発生する：
+
+```rust
+// ❌ 間違い: 完了フレームで処理がスキップされる
+fn update_system(
+    animation_query: Query<&Animation>,
+    // ...
+) {
+    // アニメーション中はスキップ
+    if animation_query.iter().next().is_some() {
+        return;  // 完了フレームでもスキップしてしまう！
+    }
+    // 重要な処理（座標更新など）
+}
+
+fn remove_animation(
+    mut commands: Commands,
+    mut query: Query<(Entity, &mut Animation)>,
+) {
+    for (entity, mut anim) in query.iter_mut() {
+        anim.timer.tick(delta);
+        if anim.timer.just_finished() {
+            commands.entity(entity).remove::<Animation>();
+            // ← Deferredなので次フレームまで残る
+        }
+    }
+}
+```
+
+**問題**: 完了フレームで`Animation`コンポーネントがまだ存在するため、`update_system`がスキップされる。
+
+**解決策**: `just_finished()`を確認し、完了フレームは処理を実行する：
+
+```rust
+// ⭕ 正しい: 完了フレームでは処理を実行
+fn update_system(
+    animation_query: Query<&Animation>,
+    // ...
+) {
+    for animation in animation_query.iter() {
+        if !animation.timer.just_finished() {
+            return;  // アニメーション中のみスキップ
+        }
+    }
+    // 重要な処理（完了フレームでも実行される）
+}
+```
+
+**教訓**: タイマー完了とコンポーネント除去のタイミングのズレを意識すること。
+
 ## 許可されるBashコマンド
 
 | コマンド | 用途 |
