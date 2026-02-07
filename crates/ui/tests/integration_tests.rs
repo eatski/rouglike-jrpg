@@ -972,6 +972,7 @@ fn insert_battle_resource(app: &mut App, phase: BattlePhase) {
     let battle_state = game::battle::BattleState::new(party, enemies);
 
     let display_party_hp = battle_state.party.iter().map(|m| m.stats.hp).collect();
+    let display_party_mp = battle_state.party.iter().map(|m| m.stats.mp).collect();
 
     app.insert_resource(BattleResource {
         state: battle_state,
@@ -981,6 +982,10 @@ fn insert_battle_resource(app: &mut App, phase: BattlePhase) {
         phase,
         hidden_enemies: vec![false; 1],
         display_party_hp,
+        display_party_mp,
+        selected_spell: 0,
+        pending_spell: None,
+        selected_ally_target: 0,
         message_effects: Vec::new(),
         shake_timer: None,
         blink_timer: None,
@@ -1026,6 +1031,12 @@ fn battle_phase_transitions_from_command_to_exploring() {
             BattlePhase::CommandSelect { .. } => {
                 // たたかうを選択（Enter）→ TargetSelectに遷移
                 press_battle_key(&mut app, KeyCode::Enter);
+                app.update();
+                release_battle_keys(&mut app);
+            }
+            BattlePhase::SpellSelect { .. } | BattlePhase::AllyTargetSelect { .. } => {
+                // 呪文選択や味方ターゲットが出たらキャンセルしてコマンドに戻す
+                press_battle_key(&mut app, KeyCode::Escape);
                 app.update();
                 release_battle_keys(&mut app);
             }
@@ -1120,25 +1131,31 @@ fn battle_command_selection_with_keys() {
 
     release_battle_keys(&mut app);
 
-    // 下限確認: 1でさらにS（下）を押しても1のまま
+    // 下限確認: 2でさらにS（下）を押しても2のまま
+    // 0→1
+    press_battle_key(&mut app, KeyCode::KeyS);
+    app.update();
+    release_battle_keys(&mut app);
+    // 1→2
     press_battle_key(&mut app, KeyCode::KeyS);
     app.update();
 
     {
         let battle_res = app.world().resource::<BattleResource>();
-        assert_eq!(battle_res.selected_command, 1);
+        assert_eq!(battle_res.selected_command, 2);
     }
 
     release_battle_keys(&mut app);
 
+    // 2でさらにS → 2のまま
     press_battle_key(&mut app, KeyCode::KeyS);
     app.update();
 
     {
         let battle_res = app.world().resource::<BattleResource>();
         assert_eq!(
-            battle_res.selected_command, 1,
-            "Should stay at 1 (lower bound)"
+            battle_res.selected_command, 2,
+            "Should stay at 2 (lower bound)"
         );
     }
 }
@@ -1148,7 +1165,10 @@ fn battle_flee_command_transitions_correctly() {
     let mut app = setup_battle_test_app();
     insert_battle_resource(&mut app, BattlePhase::CommandSelect { member_index: 0 });
 
-    // にげる（selected_command=1）を選択
+    // にげる（selected_command=2）を選択
+    press_battle_key(&mut app, KeyCode::KeyS);
+    app.update();
+    release_battle_keys(&mut app);
     press_battle_key(&mut app, KeyCode::KeyS);
     app.update();
     release_battle_keys(&mut app);

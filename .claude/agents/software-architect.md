@@ -95,8 +95,8 @@ Always explain your reasoning. When multiple valid approaches exist, present the
 
 | crate | 依存 | 責務 |
 |-------|-----|-----|
-| `game/` | rand のみ | 純粋Rust。ゲームロジック（ルール、状態、タイル座標） |
-| `ui/` | bevy, game | Bevy統合。描画、アニメーション、ワールド座標 |
+| `game/` | rand のみ | 純粋Rust。ゲームロジック（ルール、状態、タイル座標、戦闘計算） |
+| `ui/` | bevy, game | Bevy統合。描画、アニメーション、ワールド座標、戦闘UI |
 | `generate_tiles/` | image, rand | アセット生成ツール（独立バイナリ、タイル・キャラスプライト生成） |
 
 ### 設計原則
@@ -208,6 +208,88 @@ fn flood_fill(
    - `ui/` → `game/` ✓
    - `game/` → `ui/` ✗
    - `game/` → `bevy` ✗
+
+## 戦闘システムの設計パターン
+
+### ゲームロジックと表示の分離（呪文システムの例）
+
+**game側**: 純粋関数で計算ロジックのみ
+
+```rust
+// crates/game/src/battle/spell.rs
+pub enum SpellKind { Fire, Heal }
+
+impl SpellKind {
+    pub fn mp_cost(self) -> i32 { ... }
+    pub fn power(self) -> i32 { ... }
+}
+
+pub fn calculate_spell_damage(power: i32, defense: i32, random_factor: f32) -> i32 {
+    // 純粋な計算ロジック
+}
+
+// crates/game/src/battle/combat.rs
+pub enum BattleAction {
+    Attack { target: TargetId },
+    Spell { spell: SpellKind, target: TargetId },
+}
+
+pub fn execute_turn(
+    state: &mut BattleState,
+    action: BattleAction,
+    random_factors: TurnRandomFactors,
+) -> Vec<TurnResult> {
+    // ルールのみ、Bevy非依存
+}
+```
+
+**ui側**: Bevy Resource/Component/Messageで状態管理・入力・表示
+
+```rust
+// crates/ui/src/battle/scene.rs
+#[derive(Resource)]
+pub struct BattleResource {
+    pub battle_state: BattleState,
+    pub phase: BattlePhase,  // CommandSelect / SpellSelect / AllyTargetSelect 等
+    pub selected_spell: Option<SpellKind>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BattlePhase {
+    CommandSelect,
+    SpellSelect,       // 呪文選択
+    AllyTargetSelect,  // 味方ターゲット選択（ヒール等）
+    EnemyTargetSelect, // 敵ターゲット選択（攻撃・攻撃呪文）
+    ShowMessage,
+    BattleOver,
+}
+
+// crates/ui/src/battle/input.rs
+fn handle_spell_select(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut battle: ResMut<BattleResource>,
+) {
+    // ↑↓で呪文選択、Zで決定
+}
+
+fn handle_ally_target_select(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut battle: ResMut<BattleResource>,
+) {
+    // ↑↓で味方選択、Zで呪文実行
+}
+```
+
+### 設計のポイント
+
+1. **計算ロジック（MP消費、ダメージ、回復量）** → `game/` に純粋関数
+2. **入力・UI状態（フェーズ遷移、選択中の呪文・ターゲット）** → `ui/` に `BattleResource`
+3. **表示（呪文リスト、MP表示、ターゲットハイライト）** → `ui/` のシステム
+
+これにより：
+- `game/` は画面なしでユニットテスト可能
+- `ui/` は `game/` の関数を呼び出すだけ（ロジックを重複実装しない）
+- フェーズ遷移やUI状態は `BattleResource` で一元管理
 
 ## 許可されるBashコマンド
 

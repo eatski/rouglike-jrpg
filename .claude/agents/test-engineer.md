@@ -122,6 +122,77 @@ fn example_test() {
 
 **重要**: テスト内で手動で `vec![vec![...]; ...]` を書かず、ヘルパーを使用すること。
 
+## 戦闘システムのテスト戦略
+
+### game crateのユニットテスト（純粋ロジック）
+
+`game/src/battle/`の各モジュールに`#[cfg(test)] mod tests { ... }`を配置。
+
+**テスト対象例**:
+- `spell::calculate_spell_damage()`: ダメージ計算の正確性
+- `spell::calculate_heal_amount()`: 回復量計算の正確性
+- `stats::use_mp()`: MP減算・不足チェック
+- `combat::execute_turn()`: BattleAction::Spellの実行結果
+
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn spell_damage_respects_defense() {
+        let damage = calculate_spell_damage(12, 8, 1.0);
+        assert_eq!(damage, 10); // 12 - 8/4 = 10
+    }
+
+    #[test]
+    fn spell_damage_has_minimum_1() {
+        let damage = calculate_spell_damage(1, 100, 0.5);
+        assert!(damage >= 1);
+    }
+
+    #[test]
+    fn heal_amount_scales_with_random_factor() {
+        let amount1 = calculate_heal_amount(15, 0.8);
+        let amount2 = calculate_heal_amount(15, 1.0);
+        assert!(amount1 < amount2);
+    }
+
+    #[test]
+    fn use_mp_returns_false_when_insufficient() {
+        let mut stats = CombatStats::new(10, 5, 5, 10);
+        assert!(!stats.use_mp(20)); // MP不足
+        assert_eq!(stats.mp, 10); // MP減らない
+    }
+}
+```
+
+### ui crateの統合テスト（Bevy統合）
+
+`ui/tests/integration_tests.rs`で入力→フェーズ遷移→表示を検証。
+
+**テスト観点**:
+- じゅもんコマンド選択 → SpellSelectフェーズ遷移
+- 呪文選択（ファイヤ/ヒール） → 適切なターゲット選択フェーズ遷移
+- ターゲット選択 → 呪文実行 → メッセージ表示
+- MP不足時の呪文選択無効化（将来的に）
+
+```rust
+#[test]
+fn spell_selection_flow() {
+    let mut app = create_test_app();
+
+    // じゅもんコマンド選択
+    press_key(&mut app, KeyCode::ArrowDown);
+    press_key(&mut app, KeyCode::KeyZ);
+    assert_eq!(get_phase(&mut app), BattlePhase::SpellSelect);
+
+    // ファイヤ選択
+    press_key(&mut app, KeyCode::KeyZ);
+    assert_eq!(get_phase(&mut app), BattlePhase::EnemyTargetSelect);
+}
+```
+
 ## 許可されるBashコマンド
 
 | コマンド | 用途 |

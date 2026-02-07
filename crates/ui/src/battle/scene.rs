@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use game::battle::{
-    default_party, generate_enemy_group, BattleAction, BattleState, EnemyKind,
+    default_party, generate_enemy_group, BattleAction, BattleState, EnemyKind, SpellKind,
 };
 
 use crate::bounce::Bounce;
@@ -12,7 +12,7 @@ use crate::smooth_move::SmoothMove;
 
 use super::display::{
     CommandCursor, EnemyNameLabel, MessageText, PartyMemberHpBarFill, PartyMemberHpText,
-    TargetCursor,
+    PartyMemberMpText, PartyMemberNameText, TargetCursor,
 };
 
 /// 戦闘シーンのルートUIエンティティを識別するマーカー
@@ -45,6 +45,8 @@ impl PendingCommands {
 pub enum MessageEffect {
     /// パーティメンバーのHP表示値を更新
     UpdatePartyHp { member_index: usize, new_hp: i32 },
+    /// パーティメンバーのMP表示値を更新
+    UpdatePartyMp { member_index: usize, new_mp: i32 },
     /// 敵を非表示にする
     HideEnemy { enemy_index: usize },
     /// 画面シェイク
@@ -57,7 +59,7 @@ pub enum MessageEffect {
 #[derive(Resource)]
 pub struct BattleResource {
     pub state: BattleState,
-    /// 現在選択中のコマンドインデックス (0=たたかう, 1=にげる)
+    /// 現在選択中のコマンドインデックス (0=たたかう, 1=じゅもん, 2=にげる)
     pub selected_command: usize,
     /// ターゲット選択中の敵インデックス
     pub selected_target: usize,
@@ -69,6 +71,14 @@ pub struct BattleResource {
     pub hidden_enemies: Vec<bool>,
     /// 表示用パーティHP（メッセージ送りに連動して更新）
     pub display_party_hp: Vec<i32>,
+    /// 表示用パーティMP（メッセージ送りに連動して更新）
+    pub display_party_mp: Vec<i32>,
+    /// 呪文選択中のカーソル位置
+    pub selected_spell: usize,
+    /// 選択済みの呪文（ターゲット選択へ渡す）
+    pub pending_spell: Option<SpellKind>,
+    /// 味方ターゲット選択中のカーソル位置
+    pub selected_ally_target: usize,
     /// メッセージindex → 適用する視覚効果のリスト
     pub message_effects: Vec<(usize, MessageEffect)>,
     /// 画面シェイク用タイマー
@@ -83,8 +93,12 @@ pub struct BattleResource {
 pub enum BattlePhase {
     /// コマンド選択中（member_indexで誰のコマンドか）
     CommandSelect { member_index: usize },
-    /// ターゲット選択中
+    /// 呪文選択中
+    SpellSelect { member_index: usize },
+    /// ターゲット選択中（敵）
     TargetSelect { member_index: usize },
+    /// 味方ターゲット選択中（回復呪文用）
+    AllyTargetSelect { member_index: usize },
     /// メッセージ表示中（Enterで次へ）
     ShowMessage { messages: Vec<String>, index: usize },
     /// 戦闘終了（Enterでフィールドに戻る）
@@ -147,6 +161,7 @@ pub fn setup_battle_scene(mut commands: Commands, asset_server: Res<AssetServer>
     let font: Handle<Font> = asset_server.load("fonts/NotoSansJP-Bold.ttf");
 
     let display_party_hp = battle_state.party.iter().map(|m| m.stats.hp).collect();
+    let display_party_mp = battle_state.party.iter().map(|m| m.stats.mp).collect();
 
     commands.insert_resource(BattleResource {
         state: battle_state,
@@ -159,6 +174,10 @@ pub fn setup_battle_scene(mut commands: Commands, asset_server: Res<AssetServer>
         },
         hidden_enemies: vec![false; enemy_count],
         display_party_hp,
+        display_party_mp,
+        selected_spell: 0,
+        pending_spell: None,
+        selected_ally_target: 0,
         message_effects: Vec::new(),
         shake_timer: None,
         blink_timer: None,
@@ -360,6 +379,7 @@ fn build_bottom_area(
                         .with_children(|member_col| {
                             // 名前
                             member_col.spawn((
+                                PartyMemberNameText { index: i },
                                 Text::new(*name),
                                 TextFont {
                                     font: font.clone(),
@@ -383,6 +403,22 @@ fn build_bottom_area(
                                     ..default()
                                 },
                                 TextColor(Color::WHITE),
+                                Node {
+                                    margin: UiRect::bottom(Val::Px(2.0)),
+                                    ..default()
+                                },
+                            ));
+
+                            // MPテキスト
+                            member_col.spawn((
+                                PartyMemberMpText { index: i },
+                                Text::new(""),
+                                TextFont {
+                                    font: font.clone(),
+                                    font_size: 13.0,
+                                    ..default()
+                                },
+                                TextColor(Color::srgb(0.6, 0.8, 1.0)),
                                 Node {
                                     margin: UiRect::bottom(Val::Px(2.0)),
                                     ..default()
@@ -436,6 +472,16 @@ fn build_bottom_area(
                 ));
                 cmd_area.spawn((
                     CommandCursor { index: 1 },
+                    Text::new("  じゅもん"),
+                    TextFont {
+                        font: font.clone(),
+                        font_size: 16.0,
+                        ..default()
+                    },
+                    TextColor(unselected_color),
+                ));
+                cmd_area.spawn((
+                    CommandCursor { index: 2 },
                     Text::new("  にげる"),
                     TextFont {
                         font: font.clone(),

@@ -23,7 +23,7 @@ impl Enemy {
     pub fn slime() -> Self {
         Self {
             kind: EnemyKind::Slime,
-            stats: CombatStats::new(10, 3, 1, 3),
+            stats: CombatStats::new(10, 3, 1, 3, 0),
         }
     }
 }

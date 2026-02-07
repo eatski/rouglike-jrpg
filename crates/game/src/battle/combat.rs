@@ -1,5 +1,6 @@
 use super::enemy::Enemy;
 use super::party::PartyMember;
+use super::spell::{calculate_heal_amount, calculate_spell_damage, SpellKind};
 use super::stats::CombatStats;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -17,6 +18,7 @@ pub enum TargetId {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BattleAction {
     Attack { target: TargetId },
+    Spell { spell: SpellKind, target: TargetId },
     Flee,
 }
 
@@ -26,6 +28,17 @@ pub enum TurnResult {
         attacker: ActorId,
         target: TargetId,
         damage: i32,
+    },
+    SpellDamage {
+        caster: ActorId,
+        spell: SpellKind,
+        target: TargetId,
+        damage: i32,
+    },
+    Healed {
+        caster: ActorId,
+        target: TargetId,
+        amount: i32,
     },
     Defeated {
         target: TargetId,
@@ -108,11 +121,18 @@ impl BattleState {
                     if !self.party[pi].stats.is_alive() {
                         continue;
                     }
-                    if let Some(BattleAction::Attack { target }) = party_commands.get(pi) {
-                        let actual_target = self.retarget_enemy(*target);
-                        if let Some(actual_target) = actual_target {
-                            results.extend(self.execute_party_attack(pi, actual_target, random));
+                    match party_commands.get(pi) {
+                        Some(BattleAction::Attack { target }) => {
+                            let actual_target = self.retarget_enemy(*target);
+                            if let Some(actual_target) = actual_target {
+                                results
+                                    .extend(self.execute_party_attack(pi, actual_target, random));
+                            }
                         }
+                        Some(BattleAction::Spell { spell, target }) => {
+                            results.extend(self.execute_spell(pi, *spell, *target, random));
+                        }
+                        _ => {}
                     }
                 }
                 ActorId::Enemy(ei) => {
@@ -177,6 +197,72 @@ impl BattleState {
             self.alive_enemy_indices()
                 .first()
                 .map(|&i| TargetId::Enemy(i))
+        } else {
+            Some(target)
+        }
+    }
+
+    /// 呪文実行
+    fn execute_spell(
+        &mut self,
+        caster_idx: usize,
+        spell: SpellKind,
+        target: TargetId,
+        random_factor: f32,
+    ) -> Vec<TurnResult> {
+        let mut results = Vec::new();
+
+        // MP消費
+        if !self.party[caster_idx].stats.use_mp(spell.mp_cost()) {
+            return results; // MP不足（UIで弾くが念のため）
+        }
+
+        if spell.is_offensive() {
+            // 攻撃呪文 → 敵ターゲット
+            let actual_target = self.retarget_enemy(target);
+            if let Some(TargetId::Enemy(ei)) = actual_target {
+                let damage =
+                    calculate_spell_damage(spell.power(), self.enemies[ei].stats.defense, random_factor);
+                self.enemies[ei].stats.take_damage(damage);
+                results.push(TurnResult::SpellDamage {
+                    caster: ActorId::Party(caster_idx),
+                    spell,
+                    target: TargetId::Enemy(ei),
+                    damage,
+                });
+                if !self.enemies[ei].stats.is_alive() {
+                    results.push(TurnResult::Defeated {
+                        target: TargetId::Enemy(ei),
+                    });
+                }
+            }
+        } else {
+            // 回復呪文 → 味方ターゲット
+            let actual_target = self.retarget_ally(target);
+            if let Some(TargetId::Party(pi)) = actual_target {
+                let amount = calculate_heal_amount(spell.power(), random_factor);
+                let member = &mut self.party[pi];
+                member.stats.hp = (member.stats.hp + amount).min(member.stats.max_hp);
+                results.push(TurnResult::Healed {
+                    caster: ActorId::Party(caster_idx),
+                    target: TargetId::Party(pi),
+                    amount,
+                });
+            }
+        }
+
+        results
+    }
+
+    /// ターゲットの味方が既に倒されていたら最初の生存味方にリターゲット
+    fn retarget_ally(&self, target: TargetId) -> Option<TargetId> {
+        if let TargetId::Party(pi) = target {
+            if self.party[pi].stats.is_alive() {
+                return Some(target);
+            }
+            self.alive_party_indices()
+                .first()
+                .map(|&i| TargetId::Party(i))
         } else {
             Some(target)
         }
@@ -459,5 +545,107 @@ mod tests {
         assert!(battle.is_party_wiped());
         assert!(battle.is_over());
         assert!(!battle.is_victory());
+    }
+
+    #[test]
+    fn fire_spell_damages_enemy() {
+        let party = default_party();
+        let enemies = vec![Enemy::slime()];
+        let mut battle = BattleState::new(party, enemies);
+
+        let mage_mp_before = battle.party[1].stats.mp;
+        let commands = vec![
+            BattleAction::Attack {
+                target: TargetId::Enemy(0),
+            },
+            BattleAction::Spell {
+                spell: SpellKind::Fire,
+                target: TargetId::Enemy(0),
+            },
+            BattleAction::Attack {
+                target: TargetId::Enemy(0),
+            },
+        ];
+        let randoms = make_random(vec![1.0; 4], 0.0);
+        let results = battle.execute_turn(&commands, &randoms);
+
+        // SpellDamageが含まれる
+        let spell_results: Vec<_> = results
+            .iter()
+            .filter(|r| matches!(r, TurnResult::SpellDamage { .. }))
+            .collect();
+        assert_eq!(spell_results.len(), 1);
+
+        // MP消費
+        assert_eq!(battle.party[1].stats.mp, mage_mp_before - 3);
+    }
+
+    #[test]
+    fn heal_spell_restores_hp() {
+        let party = default_party();
+        // HP999のスライムで戦闘が終わらないようにする
+        let mut slime = Enemy::slime();
+        slime.stats.hp = 999;
+        slime.stats.max_hp = 999;
+        let enemies = vec![slime];
+        let mut battle = BattleState::new(party, enemies);
+
+        // 勇者のHPを減らす
+        battle.party[0].stats.hp = 10;
+
+        let commands = vec![
+            BattleAction::Attack {
+                target: TargetId::Enemy(0),
+            },
+            BattleAction::Attack {
+                target: TargetId::Enemy(0),
+            },
+            BattleAction::Spell {
+                spell: SpellKind::Heal,
+                target: TargetId::Party(0),
+            },
+        ];
+        let randoms = make_random(vec![1.0; 4], 0.0);
+        let results = battle.execute_turn(&commands, &randoms);
+
+        // Healedが含まれる
+        let heal_results: Vec<_> = results
+            .iter()
+            .filter(|r| matches!(r, TurnResult::Healed { .. }))
+            .collect();
+        assert_eq!(heal_results.len(), 1);
+
+        // HPが回復している（上限を超えない）
+        assert!(battle.party[0].stats.hp > 10);
+        assert!(battle.party[0].stats.hp <= battle.party[0].stats.max_hp);
+    }
+
+    #[test]
+    fn heal_retargets_to_alive_ally() {
+        let party = default_party();
+        let enemies = vec![Enemy::slime()];
+        let mut battle = BattleState::new(party, enemies);
+
+        // 勇者を倒す
+        battle.party[0].stats.hp = 0;
+
+        let commands = vec![
+            BattleAction::Attack {
+                target: TargetId::Enemy(0),
+            },
+            BattleAction::Spell {
+                spell: SpellKind::Heal,
+                target: TargetId::Party(0), // 倒されている → リターゲット
+            },
+        ];
+        let randoms = make_random(vec![1.0; 3], 0.0);
+        let results = battle.execute_turn(&commands, &randoms);
+
+        // リターゲットされて生存味方(Party(1))に回復
+        for result in &results {
+            if let TurnResult::Healed { target, .. } = result {
+                assert_eq!(*target, TargetId::Party(1));
+            }
+        }
     }
 }

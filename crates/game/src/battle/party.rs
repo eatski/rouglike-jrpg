@@ -27,21 +27,21 @@ impl PartyMember {
     pub fn hero() -> Self {
         Self {
             kind: PartyMemberKind::Hero,
-            stats: CombatStats::new(30, 8, 3, 5),
+            stats: CombatStats::new(30, 8, 3, 5, 5),
         }
     }
 
     pub fn mage() -> Self {
         Self {
             kind: PartyMemberKind::Mage,
-            stats: CombatStats::new(20, 10, 2, 7),
+            stats: CombatStats::new(20, 10, 2, 7, 15),
         }
     }
 
     pub fn priest() -> Self {
         Self {
             kind: PartyMemberKind::Priest,
-            stats: CombatStats::new(25, 5, 4, 4),
+            stats: CombatStats::new(25, 5, 4, 4, 12),
         }
     }
 }

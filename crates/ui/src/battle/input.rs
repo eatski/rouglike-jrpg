@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use game::battle::{ActorId, BattleAction, TargetId, TurnRandomFactors, TurnResult};
+use game::battle::{ActorId, BattleAction, SpellKind, TargetId, TurnRandomFactors, TurnResult};
 
 use crate::app_state::AppState;
 
@@ -16,8 +16,14 @@ pub fn battle_input_system(
         BattlePhase::CommandSelect { member_index } => {
             handle_command_select(&keyboard, &mut battle_res, member_index);
         }
+        BattlePhase::SpellSelect { member_index } => {
+            handle_spell_select(&keyboard, &mut battle_res, member_index);
+        }
         BattlePhase::TargetSelect { member_index } => {
             handle_target_select(&keyboard, &mut battle_res, member_index);
+        }
+        BattlePhase::AllyTargetSelect { member_index } => {
+            handle_ally_target_select(&keyboard, &mut battle_res, member_index);
         }
         BattlePhase::ShowMessage { messages, index } => {
             handle_show_message(&keyboard, &mut battle_res, index, messages.len());
@@ -43,14 +49,14 @@ fn handle_command_select(
     battle_res: &mut BattleResource,
     member_index: usize,
 ) {
-    // 上下でカーソル移動
+    // 上下でカーソル移動 (0=たたかう, 1=じゅもん, 2=にげる)
     if (keyboard.just_pressed(KeyCode::KeyW) || keyboard.just_pressed(KeyCode::ArrowUp))
         && battle_res.selected_command > 0
     {
         battle_res.selected_command -= 1;
     }
     if (keyboard.just_pressed(KeyCode::KeyS) || keyboard.just_pressed(KeyCode::ArrowDown))
-        && battle_res.selected_command < 1
+        && battle_res.selected_command < 2
     {
         battle_res.selected_command += 1;
     }
@@ -77,7 +83,13 @@ fn handle_command_select(
                 // たたかう → ターゲット選択へ
                 let first_alive = battle_res.state.alive_enemy_indices();
                 battle_res.selected_target = first_alive.first().copied().unwrap_or(0);
+                battle_res.pending_spell = None;
                 battle_res.phase = BattlePhase::TargetSelect { member_index };
+            }
+            1 => {
+                // じゅもん → 呪文選択へ
+                battle_res.selected_spell = 0;
+                battle_res.phase = BattlePhase::SpellSelect { member_index };
             }
             _ => {
                 // にげる → 全員Flee確定、即実行
@@ -89,6 +101,58 @@ fn handle_command_select(
             }
         }
         battle_res.selected_command = 0;
+    }
+}
+
+fn handle_spell_select(
+    keyboard: &ButtonInput<KeyCode>,
+    battle_res: &mut BattleResource,
+    member_index: usize,
+) {
+    let spells = game::battle::spell::all_spells();
+    let spell_count = spells.len();
+
+    // 上下でカーソル移動
+    if (keyboard.just_pressed(KeyCode::KeyW) || keyboard.just_pressed(KeyCode::ArrowUp))
+        && battle_res.selected_spell > 0
+    {
+        battle_res.selected_spell -= 1;
+    }
+    if (keyboard.just_pressed(KeyCode::KeyS) || keyboard.just_pressed(KeyCode::ArrowDown))
+        && battle_res.selected_spell < spell_count - 1
+    {
+        battle_res.selected_spell += 1;
+    }
+
+    // キャンセル: コマンド選択に戻る
+    if is_cancel(keyboard) {
+        battle_res.phase = BattlePhase::CommandSelect { member_index };
+        return;
+    }
+
+    // 決定
+    if is_confirm(keyboard) {
+        let spell = spells[battle_res.selected_spell];
+        let member_mp = battle_res.state.party[member_index].stats.mp;
+
+        // MP不足チェック
+        if member_mp < spell.mp_cost() {
+            return; // MP不足なら何もしない
+        }
+
+        battle_res.pending_spell = Some(spell);
+
+        if spell.is_offensive() {
+            // 攻撃呪文 → 敵選択へ
+            let first_alive = battle_res.state.alive_enemy_indices();
+            battle_res.selected_target = first_alive.first().copied().unwrap_or(0);
+            battle_res.phase = BattlePhase::TargetSelect { member_index };
+        } else {
+            // 回復呪文 → 味方選択へ
+            let first_alive = battle_res.state.alive_party_indices();
+            battle_res.selected_ally_target = first_alive.first().copied().unwrap_or(0);
+            battle_res.phase = BattlePhase::AllyTargetSelect { member_index };
+        }
     }
 }
 
@@ -122,18 +186,93 @@ fn handle_target_select(
         }
     }
 
-    // キャンセル: コマンド選択に戻る
+    // キャンセル: pending_spellがあれば呪文選択に戻る、なければコマンド選択に戻る
     if is_cancel(keyboard) {
-        battle_res.phase = BattlePhase::CommandSelect { member_index };
+        if battle_res.pending_spell.is_some() {
+            battle_res.pending_spell = None;
+            battle_res.phase = BattlePhase::SpellSelect { member_index };
+        } else {
+            battle_res.phase = BattlePhase::CommandSelect { member_index };
+        }
         return;
     }
 
     // 決定
     if is_confirm(keyboard) {
         let target = TargetId::Enemy(battle_res.selected_target);
-        battle_res
-            .pending_commands
-            .push(BattleAction::Attack { target });
+
+        if let Some(spell) = battle_res.pending_spell.take() {
+            // 呪文ターゲット決定
+            battle_res
+                .pending_commands
+                .push(BattleAction::Spell { spell, target });
+        } else {
+            // 通常攻撃
+            battle_res
+                .pending_commands
+                .push(BattleAction::Attack { target });
+        }
+
+        // 次の生存メンバーを探す
+        let next = find_next_alive_member(battle_res, member_index);
+        if let Some(next_idx) = next {
+            battle_res.selected_command = 0;
+            battle_res.phase = BattlePhase::CommandSelect {
+                member_index: next_idx,
+            };
+        } else {
+            // 全員入力完了 → ターン実行
+            execute_turn(battle_res);
+        }
+    }
+}
+
+fn handle_ally_target_select(
+    keyboard: &ButtonInput<KeyCode>,
+    battle_res: &mut BattleResource,
+    member_index: usize,
+) {
+    let alive_party = battle_res.state.alive_party_indices();
+    if alive_party.is_empty() {
+        return;
+    }
+
+    // 左右で味方ターゲット切り替え
+    if keyboard.just_pressed(KeyCode::KeyA) || keyboard.just_pressed(KeyCode::ArrowLeft) {
+        let current_pos = alive_party
+            .iter()
+            .position(|&i| i == battle_res.selected_ally_target)
+            .unwrap_or(0);
+        if current_pos > 0 {
+            battle_res.selected_ally_target = alive_party[current_pos - 1];
+        }
+    }
+    if keyboard.just_pressed(KeyCode::KeyD) || keyboard.just_pressed(KeyCode::ArrowRight) {
+        let current_pos = alive_party
+            .iter()
+            .position(|&i| i == battle_res.selected_ally_target)
+            .unwrap_or(0);
+        if current_pos < alive_party.len() - 1 {
+            battle_res.selected_ally_target = alive_party[current_pos + 1];
+        }
+    }
+
+    // キャンセル: 呪文選択に戻る
+    if is_cancel(keyboard) {
+        battle_res.pending_spell = None;
+        battle_res.phase = BattlePhase::SpellSelect { member_index };
+        return;
+    }
+
+    // 決定
+    if is_confirm(keyboard) {
+        let target = TargetId::Party(battle_res.selected_ally_target);
+
+        if let Some(spell) = battle_res.pending_spell.take() {
+            battle_res
+                .pending_commands
+                .push(BattleAction::Spell { spell, target });
+        }
 
         // 次の生存メンバーを探す
         let next = find_next_alive_member(battle_res, member_index);
@@ -177,8 +316,9 @@ fn execute_turn(battle_res: &mut BattleResource) {
         flee_random,
     };
 
-    // ターン実行前のパーティHP状態をスナップショット
+    // ターン実行前のパーティHP/MP状態をスナップショット
     let pre_party_hp: Vec<i32> = battle_res.state.party.iter().map(|m| m.stats.hp).collect();
+    let pre_party_mp: Vec<i32> = battle_res.state.party.iter().map(|m| m.stats.mp).collect();
 
     let results = battle_res
         .state
@@ -187,7 +327,7 @@ fn execute_turn(battle_res: &mut BattleResource) {
     battle_res.pending_commands.clear();
 
     let (messages, effects) =
-        results_to_messages(&results, &battle_res.state, &pre_party_hp);
+        results_to_messages(&results, &battle_res.state, &pre_party_hp, &pre_party_mp);
     battle_res.message_effects = effects;
 
     if messages.is_empty() {
@@ -229,19 +369,21 @@ fn execute_turn(battle_res: &mut BattleResource) {
 
 /// TurnResult列をメッセージ文字列列とMessageEffect列に変換
 ///
-/// pre_party_hp: ターン実行前のパーティHPスナップショット。
-/// 各攻撃メッセージにパーティHP変化のエフェクトを紐付ける。
+/// pre_party_hp/mp: ターン実行前のパーティHP/MPスナップショット。
+/// 各攻撃/呪文メッセージにパーティHP/MP変化のエフェクトを紐付ける。
 fn results_to_messages(
     results: &[TurnResult],
     state: &game::battle::BattleState,
     pre_party_hp: &[i32],
+    pre_party_mp: &[i32],
 ) -> (Vec<String>, Vec<(usize, MessageEffect)>) {
     let enemy_names = enemy_display_names(&state.enemies);
     let mut messages = Vec::new();
     let mut effects: Vec<(usize, MessageEffect)> = Vec::new();
 
-    // パーティHPの「現在の表示HP」を追跡（攻撃ごとに減算していく）
+    // パーティHP/MPの「現在の表示値」を追跡
     let mut running_party_hp: Vec<i32> = pre_party_hp.to_vec();
+    let mut running_party_mp: Vec<i32> = pre_party_mp.to_vec();
 
     for result in results {
         match result {
@@ -277,6 +419,81 @@ fn results_to_messages(
                             },
                         ));
                     }
+                }
+            }
+            TurnResult::SpellDamage {
+                caster,
+                spell,
+                target,
+                damage,
+            } => {
+                let caster_name = actor_name(caster, state, &enemy_names);
+                let target_name = target_name_str(target, state, &enemy_names);
+                let msg_index = messages.len();
+                messages.push(format!(
+                    "{}は {}を となえた！ {}に {}ダメージ！",
+                    caster_name,
+                    spell.name(),
+                    target_name,
+                    damage
+                ));
+
+                // キャスターのMP更新エフェクト
+                if let ActorId::Party(ci) = caster {
+                    running_party_mp[*ci] = (running_party_mp[*ci] - spell.mp_cost()).max(0);
+                    effects.push((
+                        msg_index,
+                        MessageEffect::UpdatePartyMp {
+                            member_index: *ci,
+                            new_mp: running_party_mp[*ci],
+                        },
+                    ));
+                }
+
+                if let TargetId::Enemy(i) = target {
+                    effects.push((
+                        msg_index,
+                        MessageEffect::BlinkEnemy { enemy_index: *i },
+                    ));
+                }
+            }
+            TurnResult::Healed {
+                caster,
+                target,
+                amount,
+            } => {
+                let caster_name = actor_name(caster, state, &enemy_names);
+                let target_name = target_name_str(target, state, &enemy_names);
+                let msg_index = messages.len();
+                messages.push(format!(
+                    "{}は ヒールを となえた！ {}の HPが {}かいふく！",
+                    caster_name, target_name, amount
+                ));
+
+                // キャスターのMP更新エフェクト
+                if let ActorId::Party(ci) = caster {
+                    running_party_mp[*ci] =
+                        (running_party_mp[*ci] - SpellKind::Heal.mp_cost()).max(0);
+                    effects.push((
+                        msg_index,
+                        MessageEffect::UpdatePartyMp {
+                            member_index: *ci,
+                            new_mp: running_party_mp[*ci],
+                        },
+                    ));
+                }
+
+                // ターゲットのHP更新エフェクト
+                if let TargetId::Party(pi) = target {
+                    let max_hp = state.party[*pi].stats.max_hp;
+                    running_party_hp[*pi] = (running_party_hp[*pi] + amount).min(max_hp);
+                    effects.push((
+                        msg_index,
+                        MessageEffect::UpdatePartyHp {
+                            member_index: *pi,
+                            new_hp: running_party_hp[*pi],
+                        },
+                    ));
                 }
             }
             TurnResult::Defeated { target } => {
@@ -341,15 +558,26 @@ fn process_message_effects(battle_res: &mut BattleResource, message_index: usize
                     Some(Timer::from_seconds(0.3, TimerMode::Once));
                 battle_res.blink_enemy = Some(enemy_index);
             }
+            MessageEffect::UpdatePartyMp {
+                member_index,
+                new_mp,
+            } => {
+                if let Some(mp) = battle_res.display_party_mp.get_mut(member_index) {
+                    *mp = new_mp;
+                }
+            }
         }
     }
 }
 
-/// 表示HPを実際のゲーム状態HPに同期する
+/// 表示HP/MPを実際のゲーム状態に同期する
 fn sync_display_hp(battle_res: &mut BattleResource) {
     for (i, member) in battle_res.state.party.iter().enumerate() {
         if let Some(hp) = battle_res.display_party_hp.get_mut(i) {
             *hp = member.stats.hp;
+        }
+        if let Some(mp) = battle_res.display_party_mp.get_mut(i) {
+            *mp = member.stats.mp;
         }
     }
 }

@@ -32,6 +32,18 @@ pub struct PartyMemberHpBarFill {
     pub index: usize,
 }
 
+/// パーティメンバーMP表示テキストのマーカー
+#[derive(Component)]
+pub struct PartyMemberMpText {
+    pub index: usize,
+}
+
+/// パーティメンバー名テキストのマーカー（味方選択時のハイライト用）
+#[derive(Component)]
+pub struct PartyMemberNameText {
+    pub index: usize,
+}
+
 /// ターゲットカーソル(▼)のマーカー
 #[derive(Component)]
 pub struct TargetCursor {
@@ -84,13 +96,15 @@ fn enemy_display_names(enemies: &[game::battle::Enemy]) -> Vec<String> {
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
 pub fn battle_display_system(
     battle_res: Res<BattleResource>,
-    mut enemy_name_query: Query<(&EnemyNameLabel, &mut Text, &mut Visibility), (Without<MessageText>, Without<PartyMemberHpText>, Without<CommandCursor>, Without<EnemySprite>, Without<TargetCursor>)>,
-    mut enemy_sprite_query: Query<(&EnemySprite, &mut Visibility), (Without<EnemyNameLabel>, Without<MessageText>, Without<PartyMemberHpText>, Without<CommandCursor>, Without<TargetCursor>)>,
-    mut message_query: Query<&mut Text, (With<MessageText>, Without<EnemyNameLabel>, Without<PartyMemberHpText>, Without<CommandCursor>)>,
-    mut party_hp_query: Query<(&PartyMemberHpText, &mut Text), (Without<EnemyNameLabel>, Without<MessageText>, Without<CommandCursor>)>,
+    mut enemy_name_query: Query<(&EnemyNameLabel, &mut Text, &mut Visibility), (Without<MessageText>, Without<PartyMemberHpText>, Without<CommandCursor>, Without<EnemySprite>, Without<TargetCursor>, Without<PartyMemberMpText>, Without<PartyMemberNameText>)>,
+    mut enemy_sprite_query: Query<(&EnemySprite, &mut Visibility), (Without<EnemyNameLabel>, Without<MessageText>, Without<PartyMemberHpText>, Without<CommandCursor>, Without<TargetCursor>, Without<PartyMemberMpText>, Without<PartyMemberNameText>)>,
+    mut message_query: Query<&mut Text, (With<MessageText>, Without<EnemyNameLabel>, Without<PartyMemberHpText>, Without<CommandCursor>, Without<PartyMemberMpText>, Without<PartyMemberNameText>)>,
+    mut party_hp_query: Query<(&PartyMemberHpText, &mut Text), (Without<EnemyNameLabel>, Without<MessageText>, Without<CommandCursor>, Without<PartyMemberMpText>, Without<PartyMemberNameText>)>,
+    mut party_mp_query: Query<(&PartyMemberMpText, &mut Text), (Without<EnemyNameLabel>, Without<MessageText>, Without<CommandCursor>, Without<PartyMemberHpText>, Without<PartyMemberNameText>)>,
+    mut party_name_query: Query<(&PartyMemberNameText, &mut TextColor), (Without<EnemyNameLabel>, Without<MessageText>, Without<CommandCursor>, Without<PartyMemberHpText>, Without<PartyMemberMpText>)>,
     mut party_bar_query: Query<(&PartyMemberHpBarFill, &mut Node, &mut BackgroundColor)>,
-    mut command_query: Query<(&CommandCursor, &mut Text, &mut TextColor), (Without<EnemyNameLabel>, Without<MessageText>, Without<PartyMemberHpText>)>,
-    mut target_cursor_query: Query<(&TargetCursor, &mut Visibility), (Without<EnemySprite>, Without<EnemyNameLabel>)>,
+    mut command_query: Query<(&CommandCursor, &mut Text, &mut TextColor, &mut Visibility), (Without<EnemyNameLabel>, Without<MessageText>, Without<PartyMemberHpText>, Without<PartyMemberMpText>, Without<PartyMemberNameText>)>,
+    mut target_cursor_query: Query<(&TargetCursor, &mut Visibility), (Without<EnemySprite>, Without<EnemyNameLabel>, Without<CommandCursor>)>,
 ) {
     let display_names = enemy_display_names(&battle_res.state.enemies);
     let enemy_count = battle_res.state.enemies.len();
@@ -122,6 +136,25 @@ pub fn battle_display_system(
             let display_hp = battle_res.display_party_hp.get(hp_text.index).copied().unwrap_or(0);
             let max_hp = battle_res.state.party[hp_text.index].stats.max_hp;
             **text = format!("HP:{}/{}", display_hp, max_hp);
+        }
+    }
+
+    // パーティMP更新（表示用MPを使用）
+    for (mp_text, mut text) in &mut party_mp_query {
+        if mp_text.index < battle_res.state.party.len() {
+            let display_mp = battle_res.display_party_mp.get(mp_text.index).copied().unwrap_or(0);
+            let max_mp = battle_res.state.party[mp_text.index].stats.max_mp;
+            **text = format!("MP:{}/{}", display_mp, max_mp);
+        }
+    }
+
+    // パーティ名前ハイライト（味方ターゲット選択時）
+    let is_ally_target_select = matches!(battle_res.phase, BattlePhase::AllyTargetSelect { .. });
+    for (name_text, mut color) in &mut party_name_query {
+        if is_ally_target_select && name_text.index == battle_res.selected_ally_target {
+            *color = TextColor(COMMAND_COLOR_SELECTED); // 黄色ハイライト
+        } else {
+            *color = TextColor(Color::WHITE);
         }
     }
 
@@ -157,8 +190,19 @@ pub fn battle_display_system(
                 let member_name = battle_res.state.party[*member_index].kind.name();
                 **text = format!("{}の コマンド？", member_name);
             }
+            BattlePhase::SpellSelect { member_index } => {
+                let member_name = battle_res.state.party[*member_index].kind.name();
+                **text = format!("{}は どの じゅもんを つかう？", member_name);
+            }
             BattlePhase::TargetSelect { .. } => {
-                **text = "だれに こうげきする？".to_string();
+                if battle_res.pending_spell.is_some() {
+                    **text = "だれに つかう？".to_string();
+                } else {
+                    **text = "だれに こうげきする？".to_string();
+                }
+            }
+            BattlePhase::AllyTargetSelect { .. } => {
+                **text = "だれに つかう？".to_string();
             }
             BattlePhase::ShowMessage { messages, index } => {
                 if let Some(msg) = messages.get(*index) {
@@ -171,22 +215,56 @@ pub fn battle_display_system(
         }
     }
 
-    // コマンドカーソル更新
+    // コマンド/呪文表示更新
+    let spell_list = game::battle::spell::all_spells();
+    let is_spell_select = matches!(battle_res.phase, BattlePhase::SpellSelect { .. });
     let show_commands = matches!(battle_res.phase, BattlePhase::CommandSelect { .. });
-    let commands = ["たたかう", "にげる"];
-    for (cursor, mut text, mut color) in &mut command_query {
-        if show_commands {
-            let is_selected = cursor.index == battle_res.selected_command;
-            let prefix = if is_selected { "> " } else { "  " };
-            **text = format!("{}{}", prefix, commands[cursor.index]);
-            *color = if is_selected {
-                TextColor(COMMAND_COLOR_SELECTED)
+
+    // 呪文選択フェーズ用: 現在のキャラのMP
+    let current_member_mp = match &battle_res.phase {
+        BattlePhase::SpellSelect { member_index } => {
+            battle_res.state.party[*member_index].stats.mp
+        }
+        _ => 0,
+    };
+
+    let commands = ["たたかう", "じゅもん", "にげる"];
+    for (cursor, mut text, mut color, mut vis) in &mut command_query {
+        if is_spell_select {
+            // 呪文選択モード: CommandCursorを呪文名に差し替え
+            if cursor.index < spell_list.len() {
+                let spell = spell_list[cursor.index];
+                let is_selected = cursor.index == battle_res.selected_spell;
+                let can_use = current_member_mp >= spell.mp_cost();
+                let prefix = if is_selected { "> " } else { "  " };
+                **text = format!("{}{} ({})", prefix, spell.name(), spell.mp_cost());
+                *color = if !can_use {
+                    TextColor(Color::srgb(0.4, 0.4, 0.4)) // 灰色（使用不可）
+                } else if is_selected {
+                    TextColor(COMMAND_COLOR_SELECTED)
+                } else {
+                    TextColor(COMMAND_COLOR_UNSELECTED)
+                };
+                *vis = Visibility::Inherited;
             } else {
-                TextColor(COMMAND_COLOR_UNSELECTED)
-            };
-        } else {
+                *vis = Visibility::Hidden;
+            }
+        } else if show_commands {
+            if cursor.index < commands.len() {
+                let is_selected = cursor.index == battle_res.selected_command;
+                let prefix = if is_selected { "> " } else { "  " };
+                **text = format!("{}{}", prefix, commands[cursor.index]);
+                *color = if is_selected {
+                    TextColor(COMMAND_COLOR_SELECTED)
+                } else {
+                    TextColor(COMMAND_COLOR_UNSELECTED)
+                };
+                *vis = Visibility::Inherited;
+            }
+        } else if cursor.index < commands.len() {
             **text = format!("  {}", commands[cursor.index]);
             *color = TextColor(COMMAND_COLOR_UNSELECTED);
+            *vis = Visibility::Inherited;
         }
     }
 }

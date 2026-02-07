@@ -2,19 +2,33 @@
 pub struct CombatStats {
     pub hp: i32,
     pub max_hp: i32,
+    pub mp: i32,
+    pub max_mp: i32,
     pub attack: i32,
     pub defense: i32,
     pub speed: i32,
 }
 
 impl CombatStats {
-    pub fn new(max_hp: i32, attack: i32, defense: i32, speed: i32) -> Self {
+    pub fn new(max_hp: i32, attack: i32, defense: i32, speed: i32, max_mp: i32) -> Self {
         Self {
             hp: max_hp,
             max_hp,
+            mp: max_mp,
+            max_mp,
             attack,
             defense,
             speed,
+        }
+    }
+
+    /// MP消費。足りなければfalseを返し消費しない
+    pub fn use_mp(&mut self, cost: i32) -> bool {
+        if self.mp >= cost {
+            self.mp -= cost;
+            true
+        } else {
+            false
         }
     }
 
@@ -40,20 +54,22 @@ mod tests {
 
     #[test]
     fn new_stats_have_full_hp() {
-        let stats = CombatStats::new(30, 8, 3, 5);
+        let stats = CombatStats::new(30, 8, 3, 5, 10);
         assert_eq!(stats.hp, 30);
         assert_eq!(stats.max_hp, 30);
+        assert_eq!(stats.mp, 10);
+        assert_eq!(stats.max_mp, 10);
     }
 
     #[test]
     fn is_alive_returns_true_when_hp_positive() {
-        let stats = CombatStats::new(10, 5, 2, 3);
+        let stats = CombatStats::new(10, 5, 2, 3, 0);
         assert!(stats.is_alive());
     }
 
     #[test]
     fn is_alive_returns_false_when_hp_zero() {
-        let mut stats = CombatStats::new(10, 5, 2, 3);
+        let mut stats = CombatStats::new(10, 5, 2, 3, 0);
         stats.hp = 0;
         assert!(!stats.is_alive());
     }
@@ -76,15 +92,29 @@ mod tests {
 
     #[test]
     fn take_damage_reduces_hp() {
-        let mut stats = CombatStats::new(30, 8, 3, 5);
+        let mut stats = CombatStats::new(30, 8, 3, 5, 0);
         stats.take_damage(10);
         assert_eq!(stats.hp, 20);
     }
 
     #[test]
     fn take_damage_does_not_go_below_zero() {
-        let mut stats = CombatStats::new(10, 5, 2, 3);
+        let mut stats = CombatStats::new(10, 5, 2, 3, 0);
         stats.take_damage(20);
         assert_eq!(stats.hp, 0);
+    }
+
+    #[test]
+    fn use_mp_success() {
+        let mut stats = CombatStats::new(10, 5, 2, 3, 10);
+        assert!(stats.use_mp(3));
+        assert_eq!(stats.mp, 7);
+    }
+
+    #[test]
+    fn use_mp_insufficient() {
+        let mut stats = CombatStats::new(10, 5, 2, 3, 2);
+        assert!(!stats.use_mp(3));
+        assert_eq!(stats.mp, 2); // 消費されない
     }
 }
