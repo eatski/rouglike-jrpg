@@ -1,3 +1,4 @@
+pub mod battle;
 pub mod coordinates;
 pub mod exploration;
 pub mod map;

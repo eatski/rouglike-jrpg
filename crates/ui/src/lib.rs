@@ -1,4 +1,6 @@
-mod bounce;
+pub mod app_state;
+pub mod battle;
+pub(crate) mod bounce;
 mod camera;
 pub mod components;
 pub mod constants;
@@ -9,9 +11,14 @@ mod movement_helpers;
 mod player_input;
 mod rendering;
 pub mod resources;
-mod smooth_move;
+pub(crate) mod smooth_move;
 mod tile_pool;
 
+pub use app_state::AppState;
+pub use battle::{
+    battle_display_system, battle_input_system, check_encounter_system, cleanup_battle_scene,
+    setup_battle_scene,
+};
 pub use bounce::{start_bounce, update_bounce};
 pub use camera::{camera_follow, setup_camera};
 pub use map_mode::{

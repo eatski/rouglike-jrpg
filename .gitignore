@@ -25,5 +25,7 @@ target
 
 /target
 
-# Generated assets (regenerate with: cargo run --bin generate-tiles)
+# Generated assets (regenerate with: cargo run -p generate-tiles)
 /assets/
+# Fonts are not generated, so track them
+!/assets/fonts/

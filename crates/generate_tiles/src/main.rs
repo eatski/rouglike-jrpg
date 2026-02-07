@@ -8,8 +8,10 @@ const TILE_SIZE: u32 = 16;
 fn main() {
     let tiles_dir = Path::new("assets/tiles");
     let chars_dir = Path::new("assets/characters");
+    let enemies_dir = Path::new("assets/enemies");
     fs::create_dir_all(tiles_dir).expect("Failed to create tiles directory");
     fs::create_dir_all(chars_dir).expect("Failed to create characters directory");
+    fs::create_dir_all(enemies_dir).expect("Failed to create enemies directory");
 
     // 各地形タイルを生成
     generate_sea(tiles_dir);
@@ -20,6 +22,9 @@ fn main() {
 
     // キャラクターを生成
     generate_player(chars_dir);
+
+    // 敵キャラクターを生成
+    generate_slime(enemies_dir);
 
     println!("Assets generated in assets/");
 }
@@ -496,4 +501,136 @@ fn generate_player(output_dir: &Path) {
 
     img.save(output_dir.join("player.png")).expect("Failed to save player.png");
     println!("Generated: player.png");
+}
+
+fn generate_slime(output_dir: &Path) {
+    let mut img: RgbaImage = ImageBuffer::new(TILE_SIZE, TILE_SIZE);
+
+    // 透明で初期化
+    let transparent = Rgba([0, 0, 0, 0]);
+    for y in 0..TILE_SIZE {
+        for x in 0..TILE_SIZE {
+            img.put_pixel(x, y, transparent);
+        }
+    }
+
+    // スライムのカラーパレット（青/水色系、半透明感）
+    let slime_dark = Rgba([40, 100, 180, 255]);     // 濃い青（影・輪郭）
+    let slime_mid = Rgba([60, 140, 220, 255]);      // 中間の青（本体）
+    let slime_light = Rgba([100, 180, 240, 255]);   // 明るい青（ハイライト）
+    let slime_bright = Rgba([150, 220, 255, 255]);  // 最も明るい（光沢）
+    let eye_white = Rgba([255, 255, 255, 255]);     // 目の白
+    let eye_black = Rgba([0, 0, 0, 255]);           // 目の黒（瞳）
+
+    // スライムの本体（ぷるぷる感を出す楕円形）
+    // 下部を広く、上部をやや狭く（お餅っぽい形）
+
+    // 最上部（y: 4-5）
+    for x in 6..=9 {
+        img.put_pixel(x, 4, slime_dark);  // 輪郭
+    }
+    for x in 7..=8 {
+        img.put_pixel(x, 5, slime_mid);
+    }
+
+    // 上部（y: 6-7、目のある部分）
+    for x in 5..=10 {
+        let color = if x == 5 || x == 10 {
+            slime_dark  // 輪郭
+        } else if x == 6 || x == 9 {
+            slime_mid   // 本体
+        } else {
+            slime_light // 内側
+        };
+        img.put_pixel(x, 6, color);
+    }
+
+    // 目（y: 7）
+    img.put_pixel(5, 7, slime_dark);   // 左輪郭
+    img.put_pixel(6, 7, eye_white);    // 左目白
+    img.put_pixel(7, 7, slime_light);  // 中央ハイライト
+    img.put_pixel(8, 7, slime_light);
+    img.put_pixel(9, 7, eye_white);    // 右目白
+    img.put_pixel(10, 7, slime_dark);  // 右輪郭
+
+    // 瞳（y: 8）
+    img.put_pixel(4, 8, slime_dark);   // 左輪郭
+    img.put_pixel(5, 8, slime_mid);
+    img.put_pixel(6, 8, eye_black);    // 左瞳
+    img.put_pixel(7, 8, slime_light);
+    img.put_pixel(8, 8, slime_light);
+    img.put_pixel(9, 8, eye_black);    // 右瞳
+    img.put_pixel(10, 8, slime_mid);
+    img.put_pixel(11, 8, slime_dark);  // 右輪郭
+
+    // 中央部（y: 9-10、最も膨らんでいる）
+    for x in 4..=11 {
+        let color = if x == 4 || x == 11 {
+            slime_dark  // 輪郭
+        } else if x == 5 || x == 10 {
+            slime_mid
+        } else if x == 7 || x == 8 {
+            slime_bright  // 中央ハイライト（ぷるぷる感）
+        } else {
+            slime_light
+        };
+        img.put_pixel(x, 9, color);
+    }
+    for x in 3..=12 {
+        let color = if x == 3 || x == 12 {
+            slime_dark  // 輪郭
+        } else if x == 4 || x == 11 {
+            slime_mid
+        } else if x == 7 || x == 8 {
+            slime_bright  // 光沢
+        } else {
+            slime_light
+        };
+        img.put_pixel(x, 10, color);
+    }
+
+    // 下部（y: 11-12、やや狭まる）
+    for x in 3..=12 {
+        let color = if x == 3 || x == 12 {
+            slime_dark
+        } else if x == 4 || x == 11 {
+            slime_mid
+        } else {
+            slime_light
+        };
+        img.put_pixel(x, 11, color);
+    }
+    for x in 4..=11 {
+        let color = if x == 4 || x == 11 {
+            slime_dark
+        } else if x == 5 || x == 10 {
+            slime_mid
+        } else {
+            slime_light
+        };
+        img.put_pixel(x, 12, color);
+    }
+
+    // 底部（y: 13-14、地面と接する）
+    for x in 5..=10 {
+        let color = if x == 5 || x == 10 {
+            slime_dark
+        } else {
+            slime_mid
+        };
+        img.put_pixel(x, 13, color);
+    }
+    // 最下部の影
+    for x in 6..=9 {
+        img.put_pixel(x, 14, slime_dark);
+    }
+
+    // 追加のハイライト（光沢感を強調）
+    img.put_pixel(6, 6, slime_bright);  // 頭部の光沢
+    img.put_pixel(7, 6, slime_bright);
+    img.put_pixel(6, 9, slime_bright);  // 本体の光沢
+    img.put_pixel(9, 10, slime_bright); // 本体右側の光沢
+
+    img.save(output_dir.join("slime.png")).expect("Failed to save slime.png");
+    println!("Generated: slime.png");
 }

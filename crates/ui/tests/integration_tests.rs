@@ -5,10 +5,13 @@
 
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
+use game::battle::Enemy;
 use game::map::{generate_map, Terrain, MAP_HEIGHT, MAP_WIDTH};
 use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
 use std::time::Duration;
+use ui::app_state::AppState;
+use ui::battle::{battle_input_system, BattlePhase, BattleResource};
 use ui::components::{Boat, MovementLocked, OnBoat, Player, TilePosition};
 use ui::events::{MovementBlockedEvent, PlayerMovedEvent};
 use ui::map_mode::MapModeState;
@@ -929,4 +932,324 @@ fn multiple_moves_emit_correct_event_count() {
     };
 
     assert_eq!(final_pos, (spawn_x + 3, spawn_y), "Player should have moved 3 steps");
+}
+
+// ============================================
+// 戦闘システムテスト
+// ============================================
+
+/// 戦闘用のBevyアプリをセットアップ（MinimalPlugins + State + BattleResource直接挿入）
+fn setup_battle_test_app() -> App {
+    let mut app = App::new();
+
+    app.add_plugins(MinimalPlugins);
+
+    // StatesPluginを追加（AppStateを使用するために必須）
+    app.add_plugins(bevy::state::app::StatesPlugin);
+
+    // 時間制御を手動に設定
+    app.world_mut()
+        .resource_mut::<Time<Virtual>>()
+        .set_relative_speed(1.0);
+    app.insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_millis(50)));
+
+    // AppStateを登録
+    app.init_state::<AppState>();
+
+    // 必要なリソースをセットアップ
+    app.init_resource::<ButtonInput<KeyCode>>();
+
+    // 戦闘入力システムを追加
+    app.add_systems(Update, battle_input_system);
+
+    app
+}
+
+/// BattleResourceを直接挿入するヘルパー
+fn insert_battle_resource(app: &mut App, phase: BattlePhase) {
+    let enemy = Enemy::slime();
+    let battle_state = game::battle::BattleState::new(enemy);
+
+    app.insert_resource(BattleResource {
+        state: battle_state,
+        selected_command: 0,
+        phase,
+    });
+}
+
+/// キーを押すヘルパー（戦闘用）
+fn press_battle_key(app: &mut App, key: KeyCode) {
+    let mut input = app.world_mut().resource_mut::<ButtonInput<KeyCode>>();
+    input.reset_all();
+    input.press(key);
+}
+
+/// 全キーをリセット（戦闘用）
+fn release_battle_keys(app: &mut App) {
+    let mut input = app.world_mut().resource_mut::<ButtonInput<KeyCode>>();
+    input.reset_all();
+}
+
+#[test]
+fn battle_phase_transitions_from_command_to_exploring() {
+    let mut app = setup_battle_test_app();
+
+    // BattleResourceを挿入（CommandSelectから開始）
+    insert_battle_resource(&mut app, BattlePhase::CommandSelect);
+
+    // 初期状態がCommandSelectであることを確認
+    {
+        let battle_res = app.world().resource::<BattleResource>();
+        assert!(matches!(battle_res.phase, BattlePhase::CommandSelect));
+    }
+
+    // 「たたかう」を選択（selected_command=0のまま）してEnter押下
+    press_battle_key(&mut app, KeyCode::Enter);
+    app.update();
+
+    // ShowMessageに遷移しているはず
+    {
+        let battle_res = app.world().resource::<BattleResource>();
+        assert!(matches!(battle_res.phase, BattlePhase::ShowMessage { .. }));
+    }
+
+    release_battle_keys(&mut app);
+
+    // メッセージが複数ある場合、Enterで次へ進む
+    // 最大10回Enterを押してBattleOverまで進める
+    for _ in 0..10 {
+        let phase = {
+            let battle_res = app.world().resource::<BattleResource>();
+            battle_res.phase.clone()
+        };
+
+        match phase {
+            BattlePhase::ShowMessage { .. } => {
+                press_battle_key(&mut app, KeyCode::Enter);
+                app.update();
+                release_battle_keys(&mut app);
+            }
+            BattlePhase::BattleOver { .. } => {
+                break;
+            }
+            BattlePhase::CommandSelect => {
+                // まだ戦闘が続いている場合、再度たたかうを選択
+                press_battle_key(&mut app, KeyCode::Enter);
+                app.update();
+                release_battle_keys(&mut app);
+            }
+        }
+    }
+
+    // 最終的にBattleOverになっているはず
+    {
+        let battle_res = app.world().resource::<BattleResource>();
+        assert!(
+            matches!(battle_res.phase, BattlePhase::BattleOver { .. }),
+            "Should reach BattleOver phase"
+        );
+    }
+
+    // BattleOverでEnterを押すとAppState::Exploringに遷移
+    press_battle_key(&mut app, KeyCode::Enter);
+    app.update();
+
+    let current_state = app.world().resource::<State<AppState>>();
+    assert_eq!(
+        **current_state,
+        AppState::Exploring,
+        "Should transition to Exploring after BattleOver"
+    );
+}
+
+#[test]
+fn battle_command_selection_with_keys() {
+    let mut app = setup_battle_test_app();
+    insert_battle_resource(&mut app, BattlePhase::CommandSelect);
+
+    // 初期状態: selected_command = 0
+    {
+        let battle_res = app.world().resource::<BattleResource>();
+        assert_eq!(battle_res.selected_command, 0);
+    }
+
+    // S（下）を押して選択を1に
+    press_battle_key(&mut app, KeyCode::KeyS);
+    app.update();
+
+    {
+        let battle_res = app.world().resource::<BattleResource>();
+        assert_eq!(
+            battle_res.selected_command, 1,
+            "Should select command 1 after pressing S"
+        );
+    }
+
+    release_battle_keys(&mut app);
+
+    // W（上）を押して選択を0に戻す
+    press_battle_key(&mut app, KeyCode::KeyW);
+    app.update();
+
+    {
+        let battle_res = app.world().resource::<BattleResource>();
+        assert_eq!(
+            battle_res.selected_command, 0,
+            "Should select command 0 after pressing W"
+        );
+    }
+
+    release_battle_keys(&mut app);
+
+    // 上限確認: 0でさらにW（上）を押しても0のまま
+    press_battle_key(&mut app, KeyCode::KeyW);
+    app.update();
+
+    {
+        let battle_res = app.world().resource::<BattleResource>();
+        assert_eq!(
+            battle_res.selected_command, 0,
+            "Should stay at 0 (upper bound)"
+        );
+    }
+
+    release_battle_keys(&mut app);
+
+    // 下限確認: 1でさらにS（下）を押しても1のまま
+    press_battle_key(&mut app, KeyCode::KeyS);
+    app.update();
+
+    {
+        let battle_res = app.world().resource::<BattleResource>();
+        assert_eq!(battle_res.selected_command, 1);
+    }
+
+    release_battle_keys(&mut app);
+
+    press_battle_key(&mut app, KeyCode::KeyS);
+    app.update();
+
+    {
+        let battle_res = app.world().resource::<BattleResource>();
+        assert_eq!(
+            battle_res.selected_command, 1,
+            "Should stay at 1 (lower bound)"
+        );
+    }
+}
+
+#[test]
+fn battle_flee_command_transitions_to_battle_over() {
+    let mut app = setup_battle_test_app();
+    insert_battle_resource(&mut app, BattlePhase::CommandSelect);
+
+    // にげる（selected_command=1）を選択
+    press_battle_key(&mut app, KeyCode::KeyS);
+    app.update();
+    release_battle_keys(&mut app);
+
+    // Enterで決定
+    press_battle_key(&mut app, KeyCode::Enter);
+    app.update();
+    release_battle_keys(&mut app);
+
+    // ShowMessageまたはBattleOverに遷移しているはず
+    let phase = {
+        let battle_res = app.world().resource::<BattleResource>();
+        battle_res.phase.clone()
+    };
+
+    match phase {
+        BattlePhase::ShowMessage { messages, .. } => {
+            // 「うまく にげきれた！」メッセージがあるはず
+            assert!(
+                messages.iter().any(|m| m.contains("にげきれた")),
+                "Should have flee message"
+            );
+
+            // Enterでメッセージを進める
+            press_battle_key(&mut app, KeyCode::Enter);
+            app.update();
+            release_battle_keys(&mut app);
+
+            // BattleOverに到達
+            let battle_res = app.world().resource::<BattleResource>();
+            assert!(matches!(battle_res.phase, BattlePhase::BattleOver { .. }));
+        }
+        BattlePhase::BattleOver { message } => {
+            // 直接BattleOverに遷移した場合
+            assert!(
+                message.contains("にげきれた"),
+                "BattleOver message should contain flee text"
+            );
+        }
+        _ => panic!("Unexpected phase after flee command"),
+    }
+
+    // BattleOverでEnter押下 → Exploring
+    press_battle_key(&mut app, KeyCode::Enter);
+    app.update();
+
+    let current_state = app.world().resource::<State<AppState>>();
+    assert_eq!(**current_state, AppState::Exploring);
+}
+
+#[test]
+fn battle_cleanup_removes_movement_lock() {
+    // 通常のマップアプリをセットアップ
+    let mut grid = vec![vec![Terrain::Sea; MAP_WIDTH]; MAP_HEIGHT];
+    let spawn_x = 50;
+    let spawn_y = 50;
+    grid[spawn_y][spawn_x] = Terrain::Plains;
+
+    let mut app = setup_test_app_with_map(grid, spawn_x, spawn_y);
+
+    // StatesPluginを追加（AppStateを使用するために必須）
+    app.add_plugins(bevy::state::app::StatesPlugin);
+
+    // AppStateを追加
+    app.init_state::<AppState>();
+
+    // cleanup_battle_sceneシステムを追加（OnExit(AppState::Battle)で実行される想定）
+    app.add_systems(OnExit(AppState::Battle), ui::cleanup_battle_scene);
+
+    let player_entity = spawn_test_player(&mut app);
+
+    // プレイヤーに手動でMovementLockedを付与（戦闘開始前に移動中だった想定）
+    app.world_mut()
+        .entity_mut(player_entity)
+        .insert(MovementLocked);
+
+    // MovementLockedが付いていることを確認
+    {
+        let world = app.world();
+        assert!(
+            world.get::<MovementLocked>(player_entity).is_some(),
+            "MovementLocked should be present before battle cleanup"
+        );
+    }
+
+    // 戦闘に入る
+    app.world_mut()
+        .resource_mut::<NextState<AppState>>()
+        .set(AppState::Battle);
+    app.update();
+
+    // BattleResourceを挿入（戦闘シーンセットアップの代わり）
+    insert_battle_resource(&mut app, BattlePhase::CommandSelect);
+
+    // 戦闘終了（Exploringに戻る）→ cleanup_battle_sceneが実行される
+    app.world_mut()
+        .resource_mut::<NextState<AppState>>()
+        .set(AppState::Exploring);
+    app.update();
+
+    // MovementLockedが除去されていることを確認
+    {
+        let world = app.world();
+        assert!(
+            world.get::<MovementLocked>(player_entity).is_none(),
+            "MovementLocked should be removed after battle cleanup"
+        );
+    }
 }
