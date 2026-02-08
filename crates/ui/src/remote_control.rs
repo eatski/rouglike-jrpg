@@ -68,7 +68,11 @@ pub struct VirtualInput {
 }
 
 /// コマンドファイルを読み取り VirtualInput に変換するシステム
-pub fn read_remote_commands(mut remote: ResMut<RemoteControlMode>, mut vi: ResMut<VirtualInput>) {
+pub fn read_remote_commands(
+    mut remote: ResMut<RemoteControlMode>,
+    mut vi: ResMut<VirtualInput>,
+    mut app_exit: MessageWriter<AppExit>,
+) {
     remote.frame_count += 1;
 
     // 待機中は後続コマンドを処理しない
@@ -132,6 +136,15 @@ pub fn read_remote_commands(mut remote: ResMut<RemoteControlMode>, mut vi: ResMu
                     frames, frame
                 ));
                 // フレーム消費なし → continue
+            }
+            Ok(RemoteCommand::Quit) => {
+                remote.append_response(&format!(
+                    r#"{{"event":"command_processed","cmd":"quit","frame":{}}}"#,
+                    frame
+                ));
+                info!("Remote quit command received");
+                app_exit.write(AppExit::Success);
+                break;
             }
             Err(e) => {
                 warn!("Remote command parse error: {} (line: {})", e, line);

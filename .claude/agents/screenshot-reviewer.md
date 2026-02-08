@@ -37,6 +37,7 @@ cargo run -p generate-tiles && cargo run -- --remote
 - `{"cmd":"wait","frames":30}` -- Nフレーム待機
 - `{"cmd":"screenshot"}` -- スクショ撮影（`screenshots/latest.png`）
 - `{"cmd":"screenshot","filename":"screenshots/battle.png"}` -- ファイル名指定
+- `{"cmd":"quit"}` -- ゲームプロセスを終了
 
 **重要**: コマンドは1フレームに1つずつ処理される。複数コマンドを連続で送る場合、間に `wait` を挟む。
 

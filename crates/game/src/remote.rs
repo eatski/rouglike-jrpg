@@ -13,6 +13,8 @@ pub enum RemoteCommand {
     Wait(u32),
     /// 入力間隔の設定（フレーム数）
     SetInputInterval(u32),
+    /// アプリケーション終了
+    Quit,
 }
 
 /// リモートで送信可能なキー
@@ -83,6 +85,7 @@ pub fn parse_command(line: &str) -> Result<RemoteCommand, String> {
                 .map_err(|_| format!("invalid frames value: {}", frames_str))?;
             Ok(RemoteCommand::SetInputInterval(frames))
         }
+        "quit" => Ok(RemoteCommand::Quit),
         _ => Err(format!("unknown command: {}", cmd)),
     }
 }
@@ -293,6 +296,14 @@ mod tests {
         assert_eq!(
             parse_command(r#"{"cmd":"set_input_interval","frames":0}"#).unwrap(),
             RemoteCommand::SetInputInterval(0)
+        );
+    }
+
+    #[test]
+    fn test_parse_quit() {
+        assert_eq!(
+            parse_command(r#"{"cmd":"quit"}"#).unwrap(),
+            RemoteCommand::Quit
         );
     }
 
