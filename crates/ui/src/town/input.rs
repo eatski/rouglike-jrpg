@@ -3,6 +3,7 @@ use bevy::prelude::*;
 use game::town::{heal_party, townsperson_dialogue};
 
 use crate::app_state::AppState;
+use crate::resources::PartyState;
 
 use super::scene::{TownMenuPhase, TownResource};
 
@@ -17,6 +18,7 @@ pub fn town_input_system(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut town_res: ResMut<TownResource>,
     mut next_state: ResMut<NextState<AppState>>,
+    mut party_state: ResMut<PartyState>,
 ) {
     match &town_res.phase {
         TownMenuPhase::MenuSelect => {
@@ -37,9 +39,8 @@ pub fn town_input_system(
             if is_confirm(&keyboard) {
                 match town_res.selected_item {
                     0 => {
-                        // やどや → 回復メッセージ表示（暫定: HP/MPは永続化されていないため表示のみ）
-                        let mut party = game::battle::default_party();
-                        heal_party(&mut party);
+                        // やどや → HP/MPを全回復
+                        heal_party(&mut party_state.members);
                         town_res.phase = TownMenuPhase::ShowMessage {
                             message: "ゆっくり やすんだ。\nHP と MP が かいふくした！".to_string(),
                         };

@@ -1,13 +1,11 @@
 use bevy::prelude::*;
 
-use game::battle::{
-    default_party, generate_enemy_group, BattleAction, BattleState, EnemyKind, SpellKind,
-};
+use game::battle::{generate_enemy_group, BattleAction, BattleState, EnemyKind, SpellKind};
 
 use crate::bounce::Bounce;
 use crate::components::{MovementLocked, PendingMove, Player, TilePosition};
 use crate::constants::tile_to_world;
-use crate::resources::MovementState;
+use crate::resources::{MovementState, PartyState};
 use crate::smooth_move::SmoothMove;
 
 use super::display::{
@@ -140,8 +138,12 @@ fn enemy_display_names(enemies: &[game::battle::Enemy]) -> Vec<String> {
         .collect()
 }
 
-pub fn setup_battle_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let party = default_party();
+pub fn setup_battle_scene(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    party_state: Res<PartyState>,
+) {
+    let party = party_state.members.clone();
     let enemies = generate_enemy_group(rand::random::<f32>());
     let display_names = enemy_display_names(&enemies);
 
@@ -499,7 +501,21 @@ pub fn cleanup_battle_scene(
     query: Query<Entity, With<BattleSceneRoot>>,
     mut player_query: Query<(Entity, &TilePosition, &mut Transform), With<Player>>,
     mut move_state: ResMut<MovementState>,
+    battle_res: Res<BattleResource>,
+    mut party_state: ResMut<PartyState>,
 ) {
+    // 戦闘結果のHP/MPを永続状態に書き戻す
+    for (i, member) in battle_res.state.party.iter().enumerate() {
+        if let Some(persistent) = party_state.members.get_mut(i) {
+            persistent.stats.hp = if member.stats.hp <= 0 {
+                1 // 戦闘不能メンバーはHP=1で生存（全滅処理は別タスク）
+            } else {
+                member.stats.hp
+            };
+            persistent.stats.mp = member.stats.mp;
+        }
+    }
+
     for entity in &query {
         commands.entity(entity).despawn();
     }

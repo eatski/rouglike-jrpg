@@ -15,7 +15,7 @@ use ui::battle::{battle_input_system, BattlePhase, BattleResource, PendingComman
 use ui::components::{Boat, MovementLocked, OnBoat, Player, TilePosition};
 use ui::events::{MovementBlockedEvent, PlayerMovedEvent};
 use ui::map_mode::MapModeState;
-use ui::resources::{MapDataResource, MovementState, SpawnPosition};
+use ui::resources::{MapDataResource, MovementState, PartyState, SpawnPosition};
 use ui::{player_movement, sync_boat_with_player};
 use ui::{start_bounce, start_smooth_move, update_bounce, update_smooth_move};
 
@@ -1221,6 +1221,7 @@ fn battle_cleanup_removes_movement_lock() {
 
     // AppStateを追加
     app.init_state::<AppState>();
+    app.init_resource::<PartyState>();
 
     // cleanup_battle_sceneシステムを追加（OnExit(AppState::Battle)で実行される想定）
     app.add_systems(OnExit(AppState::Battle), ui::cleanup_battle_scene);

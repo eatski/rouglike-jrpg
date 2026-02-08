@@ -14,7 +14,7 @@ use ui::{
     toggle_map_mode_system, toggle_minimap_visibility_system, town_display_system,
     town_input_system, update_bounce, update_exploration_system, update_minimap_texture_system,
     update_smooth_move, update_visible_tiles, write_game_state_log, AppState, MapModeState,
-    RemoteControlMode, VirtualInput,
+    PartyState, RemoteControlMode, VirtualInput,
 };
 
 fn main() {
@@ -40,6 +40,7 @@ fn main() {
     .add_message::<PlayerArrivedEvent>()
     .init_resource::<MovementState>()
     .init_resource::<MapModeState>()
+    .init_resource::<PartyState>()
     .add_systems(
         Startup,
         (

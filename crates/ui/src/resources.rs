@@ -1,7 +1,22 @@
 use bevy::prelude::*;
 
 use crate::constants::{MOVEMENT_INITIAL_DELAY, MOVEMENT_REPEAT_INTERVAL};
+use game::battle::{default_party, PartyMember};
 use game::map::{MapData, Terrain};
+
+/// パーティの永続的な状態を管理するリソース（戦闘間でHP/MPを引き継ぐ）
+#[derive(Resource)]
+pub struct PartyState {
+    pub members: Vec<PartyMember>,
+}
+
+impl Default for PartyState {
+    fn default() -> Self {
+        Self {
+            members: default_party(),
+        }
+    }
+}
 
 /// マップデータをBevyリソースとしてラップする
 #[derive(Resource)]

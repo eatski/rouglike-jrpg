@@ -32,6 +32,7 @@ pub use map_mode::{
 pub use minimap::{init_minimap_system, toggle_minimap_visibility_system, update_minimap_texture_system};
 pub use player_input::{player_movement, sync_boat_with_player};
 pub use rendering::{spawn_field_map, spawn_player};
+pub use resources::PartyState;
 pub use smooth_move::{start_smooth_move, update_smooth_move};
 pub use remote_control::{
     clear_virtual_input, read_remote_commands, remote_screenshot_system, write_game_state_log,
