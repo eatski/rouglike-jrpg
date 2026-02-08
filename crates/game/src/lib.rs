@@ -3,6 +3,7 @@ pub mod coordinates;
 pub mod exploration;
 pub mod map;
 pub mod movement;
+pub mod remote;
 
 #[cfg(test)]
 pub mod test_utils;

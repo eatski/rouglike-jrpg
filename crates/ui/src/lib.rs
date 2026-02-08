@@ -5,10 +5,12 @@ mod camera;
 pub mod components;
 pub mod constants;
 pub mod events;
+pub(crate) mod input_source;
 pub mod map_mode;
 mod minimap;
 mod movement_helpers;
 mod player_input;
+pub mod remote_control;
 mod rendering;
 pub mod resources;
 pub mod screenshot;
@@ -30,5 +32,9 @@ pub use minimap::{init_minimap_system, toggle_minimap_visibility_system, update_
 pub use player_input::{player_movement, sync_boat_with_player};
 pub use rendering::{spawn_field_map, spawn_player};
 pub use smooth_move::{start_smooth_move, update_smooth_move};
-pub use screenshot::{auto_screenshot_system, manual_screenshot_system, AutoScreenshotMode};
+pub use remote_control::{
+    clear_virtual_input, read_remote_commands, remote_screenshot_system, write_game_state_log,
+    RemoteControlMode, VirtualInput,
+};
+pub use screenshot::manual_screenshot_system;
 pub use tile_pool::{init_tile_pool, update_visible_tiles};

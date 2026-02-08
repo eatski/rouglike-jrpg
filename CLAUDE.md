@@ -11,6 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 cargo build                       # ビルド（rsファイル修正後は必ず実行）
 cargo run                         # 実行
+cargo run -- --remote              # リモート制御モード（remote/commands.jsonl で操作）
 cargo run -p generate-tiles       # アセット生成（タイルスプライト）
 cargo clippy --workspace          # リント（全crate）
 cargo test --workspace            # テスト（全crate）

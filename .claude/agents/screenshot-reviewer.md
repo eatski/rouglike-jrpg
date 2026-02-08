@@ -12,41 +12,91 @@ color: magenta
 
 **ゲーム画面を自分の目で見て、視覚的なフィードバックを回すこと。**
 
-1. ゲームを `--screenshot` モードで実行してスクリーンショットを自動撮影
-2. 撮影した画像を Read ツールで読み込んで視覚的に分析
-3. 問題点や改善点を特定し、コード修正を実施
-4. 再度スクショを撮って改善を確認（フィードバックループ）
+`--remote` モードでゲームを起動し、コマンドファイル経由で操作して任意のタイミングでスクショを撮影する。
 
-## スクリーンショット撮影手順
+## リモートモード（--remote）
 
-### Step 1: アセット生成（毎回必ず実行）
-
-**スクリーンショット撮影前に必ずアセット生成を実行すること。** タイル変更の有無に関わらず、常に最新のアセットでスクショを撮る。
+### Step 1: ゲーム起動
 
 ```bash
-cargo run -p generate-tiles
+cargo run -p generate-tiles && cargo run -- --remote
 ```
 
-### Step 2: ゲーム実行＆自動スクリーンショット
+ゲームがバックグラウンドで起動し、`remote/commands.jsonl` を監視開始する。
+起動確認: `remote/response.jsonl` に `ready` イベントが出力される。
 
-```bash
-cargo run -- --screenshot
+### Step 2: コマンド送信
+
+**Write ツール**で `remote/commands.jsonl` にコマンドを書き込む。追記型なので、既存の内容を Read で読み取ってから末尾に追加する。
+
+利用可能なコマンド：
+- `{"cmd":"key","key":"up"}` / `"down"` / `"left"` / `"right"` -- 方向キー
+- `{"cmd":"key","key":"confirm"}` -- 決定（Enter/Z）
+- `{"cmd":"key","key":"cancel"}` -- キャンセル（Escape/X）
+- `{"cmd":"key","key":"map"}` -- マップトグル（M）
+- `{"cmd":"wait","frames":30}` -- Nフレーム待機
+- `{"cmd":"screenshot"}` -- スクショ撮影（`screenshots/latest.png`）
+- `{"cmd":"screenshot","filename":"screenshots/battle.png"}` -- ファイル名指定
+
+**重要**: コマンドは1フレームに1つずつ処理される。複数コマンドを連続で送る場合、間に `wait` を挟む。
+
+**コマンド書き込みの手順**:
+1. `Read` で `remote/commands.jsonl` の現在の内容を読む
+2. `Write` で既存内容＋新しいコマンド行をまとめて書き込む
+
+例（起動待ち→スクショ撮影）:
+```
+Write tool → remote/commands.jsonl:
+{"cmd":"wait","frames":60}
+{"cmd":"screenshot"}
 ```
 
-このコマンドは：
-- ゲームを通常起動し、約1秒後に自動でスクリーンショットを撮影
-- `screenshots/latest.png` に保存
-- 撮影後、自動でゲームを終了
+例（移動してからスクショ）:
+```
+Write tool → remote/commands.jsonl:
+（既存の内容）
+{"cmd":"key","key":"up"}
+{"cmd":"wait","frames":10}
+{"cmd":"key","key":"up"}
+{"cmd":"wait","frames":10}
+{"cmd":"screenshot"}
+```
 
-### Step 3: スクリーンショット確認
+### Step 3: レスポンス確認
 
-Read ツールで画像を直接確認：
+Read ツールで `remote/response.jsonl` を読み取ってイベントを確認する。
+
+レスポンスイベント例：
+- `{"event":"ready","app_state":"Exploring","player_x":45,"player_y":32,"frame":1}`
+- `{"event":"command_processed","cmd":"key","frame":120}`
+- `{"event":"screenshot_saved","path":"screenshots/latest.png","frame":142}`
+
+### Step 4: スクショ確認
+
+Read ツールで撮影した画像を確認：
 
 ```
 Read tool → screenshots/latest.png
 ```
 
-**重要**: Read ツールは画像ファイルを視覚的に読み込める。必ずこれを使って自分の目で確認すること。
+### 使用例: 戦闘画面のスクショを撮る
+
+1. ゲーム起動（Bash）: `cargo run -p generate-tiles && cargo run -- --remote`
+2. コマンド書き込み（Write）:
+```
+{"cmd":"wait","frames":60}
+{"cmd":"key","key":"up"}
+{"cmd":"wait","frames":10}
+{"cmd":"key","key":"up"}
+{"cmd":"wait","frames":10}
+{"cmd":"key","key":"up"}
+{"cmd":"wait","frames":10}
+{"cmd":"key","key":"up"}
+{"cmd":"wait","frames":10}
+{"cmd":"screenshot"}
+```
+3. レスポンス確認（Read）: `remote/response.jsonl`
+4. スクショ確認（Read）: `screenshots/latest.png`
 
 ## フィードバックループ
 
@@ -57,8 +107,8 @@ Read tool → screenshots/latest.png
 ### ループの実行手順
 
 1. `cargo run -p generate-tiles` でアセット生成（**毎回必ず**）
-2. `cargo run -- --screenshot` でスクショ撮影
-3. `Read` で `screenshots/latest.png` を確認
+2. スクショ撮影（リモートモード）
+3. `Read` で画像を確認
 4. 問題点を分析（レイアウト、色、サイズ、テキスト配置など）
 5. 該当するソースコードを修正
 6. `cargo build` でコンパイル確認
@@ -114,11 +164,11 @@ Read tool → screenshots/latest.png
 | コマンド | 用途 |
 |---------|-----|
 | `cargo build` | コンパイル確認 |
-| `cargo run -- --screenshot` | スクショ自動撮影 |
+| `cargo run -- --remote` | リモートモードで起動 |
 | `cargo run -p generate-tiles` | タイルアセット再生成 |
 | `cargo clippy --workspace` | リントチェック |
 
-**禁止**: `cargo run`（`--screenshot` なしでのゲーム実行）
+**禁止**: `cargo run`（`--remote` なしでのゲーム実行）
 
 ## 報告フォーマット
 
@@ -143,6 +193,7 @@ Read tool → screenshots/latest.png
 
 ## 注意事項
 
+- **スクリーンショット撮影前に必ずアセット生成を実行すること**
 - 修正後は必ず `cargo build` でコンパイルを確認する
 - コードを修正したら必ず再スクショで視覚確認する（推測で終わらない）
 - 大きな変更を一度にせず、小さな修正を繰り返してフィードバックループを回す

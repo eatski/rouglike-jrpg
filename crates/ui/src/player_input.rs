@@ -4,14 +4,18 @@ use game::wrap_position;
 
 use crate::components::{Boat, MovementLocked, OnBoat, PendingMove, Player, TilePosition};
 use crate::events::{MovementBlockedEvent, PlayerMovedEvent};
+use crate::input_source;
 use crate::map_mode::MapModeState;
 use crate::movement_helpers::{execute_boat_move, execute_walk_move, ExecuteMoveResult};
+use crate::remote_control::VirtualInput;
 use crate::resources::{MapDataResource, MovementState};
 
 /// プレイヤーの移動入力を処理するシステム
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn player_movement(
     mut commands: Commands,
     keyboard: Res<ButtonInput<KeyCode>>,
+    virtual_input: Option<Res<VirtualInput>>,
     time: Res<Time>,
     map_data: Res<MapDataResource>,
     map_mode_state: Res<MapModeState>,
@@ -43,27 +47,16 @@ pub fn player_movement(
         return;
     }
 
+    let vi = virtual_input.as_deref();
     let mut dx: i32 = 0;
     let mut dy: i32 = 0;
 
-    let x_pressed = keyboard.pressed(KeyCode::KeyA)
-        || keyboard.pressed(KeyCode::KeyD)
-        || keyboard.pressed(KeyCode::ArrowLeft)
-        || keyboard.pressed(KeyCode::ArrowRight);
-    let y_pressed = keyboard.pressed(KeyCode::KeyW)
-        || keyboard.pressed(KeyCode::KeyS)
-        || keyboard.pressed(KeyCode::ArrowUp)
-        || keyboard.pressed(KeyCode::ArrowDown);
+    let x_pressed = input_source::is_x_pressed(&keyboard, vi);
+    let y_pressed = input_source::is_y_pressed(&keyboard, vi);
 
     // キー押下順序の追跡
-    let x_just_pressed = keyboard.just_pressed(KeyCode::KeyA)
-        || keyboard.just_pressed(KeyCode::KeyD)
-        || keyboard.just_pressed(KeyCode::ArrowLeft)
-        || keyboard.just_pressed(KeyCode::ArrowRight);
-    let y_just_pressed = keyboard.just_pressed(KeyCode::KeyW)
-        || keyboard.just_pressed(KeyCode::KeyS)
-        || keyboard.just_pressed(KeyCode::ArrowUp)
-        || keyboard.just_pressed(KeyCode::ArrowDown);
+    let x_just_pressed = input_source::is_x_just_pressed(&keyboard, vi);
+    let y_just_pressed = input_source::is_y_just_pressed(&keyboard, vi);
 
     // first_axisの更新
     if x_just_pressed && !y_pressed {
@@ -74,16 +67,16 @@ pub fn player_movement(
         move_state.first_axis = None; // 両方離されたらリセット
     }
 
-    if keyboard.pressed(KeyCode::KeyW) || keyboard.pressed(KeyCode::ArrowUp) {
+    if input_source::is_up_pressed(&keyboard, vi) {
         dy = 1;
     }
-    if keyboard.pressed(KeyCode::KeyS) || keyboard.pressed(KeyCode::ArrowDown) {
+    if input_source::is_down_pressed(&keyboard, vi) {
         dy = -1;
     }
-    if keyboard.pressed(KeyCode::KeyA) || keyboard.pressed(KeyCode::ArrowLeft) {
+    if input_source::is_left_pressed(&keyboard, vi) {
         dx = -1;
     }
-    if keyboard.pressed(KeyCode::KeyD) || keyboard.pressed(KeyCode::ArrowRight) {
+    if input_source::is_right_pressed(&keyboard, vi) {
         dx = 1;
     }
 

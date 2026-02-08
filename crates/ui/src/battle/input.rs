@@ -3,66 +3,57 @@ use bevy::prelude::*;
 use game::battle::{ActorId, BattleAction, SpellKind, TargetId, TurnRandomFactors, TurnResult};
 
 use crate::app_state::AppState;
+use crate::input_source;
+use crate::remote_control::VirtualInput;
 
 use super::scene::{BattlePhase, BattleResource, MessageEffect};
 
 /// 戦闘中の入力処理システム
 pub fn battle_input_system(
     keyboard: Res<ButtonInput<KeyCode>>,
+    virtual_input: Option<Res<VirtualInput>>,
     mut battle_res: ResMut<BattleResource>,
     mut next_state: ResMut<NextState<AppState>>,
 ) {
+    let vi = virtual_input.as_deref();
     match battle_res.phase.clone() {
         BattlePhase::CommandSelect { member_index } => {
-            handle_command_select(&keyboard, &mut battle_res, member_index);
+            handle_command_select(&keyboard, vi, &mut battle_res, member_index);
         }
         BattlePhase::SpellSelect { member_index } => {
-            handle_spell_select(&keyboard, &mut battle_res, member_index);
+            handle_spell_select(&keyboard, vi, &mut battle_res, member_index);
         }
         BattlePhase::TargetSelect { member_index } => {
-            handle_target_select(&keyboard, &mut battle_res, member_index);
+            handle_target_select(&keyboard, vi, &mut battle_res, member_index);
         }
         BattlePhase::AllyTargetSelect { member_index } => {
-            handle_ally_target_select(&keyboard, &mut battle_res, member_index);
+            handle_ally_target_select(&keyboard, vi, &mut battle_res, member_index);
         }
         BattlePhase::ShowMessage { messages, index } => {
-            handle_show_message(&keyboard, &mut battle_res, index, messages.len());
+            handle_show_message(&keyboard, vi, &mut battle_res, index, messages.len());
         }
         BattlePhase::BattleOver { .. } => {
-            handle_battle_over(&keyboard, &mut next_state);
+            handle_battle_over(&keyboard, vi, &mut next_state);
         }
     }
-}
-
-fn is_confirm(keyboard: &ButtonInput<KeyCode>) -> bool {
-    keyboard.just_pressed(KeyCode::Enter)
-        || keyboard.just_pressed(KeyCode::Space)
-        || keyboard.just_pressed(KeyCode::KeyZ)
-}
-
-fn is_cancel(keyboard: &ButtonInput<KeyCode>) -> bool {
-    keyboard.just_pressed(KeyCode::Escape) || keyboard.just_pressed(KeyCode::KeyX)
 }
 
 fn handle_command_select(
     keyboard: &ButtonInput<KeyCode>,
+    vi: Option<&VirtualInput>,
     battle_res: &mut BattleResource,
     member_index: usize,
 ) {
     // 上下でカーソル移動 (0=たたかう, 1=じゅもん, 2=にげる)
-    if (keyboard.just_pressed(KeyCode::KeyW) || keyboard.just_pressed(KeyCode::ArrowUp))
-        && battle_res.selected_command > 0
-    {
+    if input_source::is_up_just_pressed(keyboard, vi) && battle_res.selected_command > 0 {
         battle_res.selected_command -= 1;
     }
-    if (keyboard.just_pressed(KeyCode::KeyS) || keyboard.just_pressed(KeyCode::ArrowDown))
-        && battle_res.selected_command < 2
-    {
+    if input_source::is_down_just_pressed(keyboard, vi) && battle_res.selected_command < 2 {
         battle_res.selected_command += 1;
     }
 
     // キャンセル: 前のメンバーに戻る
-    if is_cancel(keyboard) && member_index > 0 {
+    if input_source::is_cancel_just_pressed(keyboard, vi) && member_index > 0 {
         // 前のメンバーのコマンドを取り消し
         battle_res.pending_commands.pop();
         // 前の生存メンバーを探す
@@ -77,7 +68,7 @@ fn handle_command_select(
     }
 
     // 決定
-    if is_confirm(keyboard) {
+    if input_source::is_confirm_just_pressed(keyboard, vi) {
         match battle_res.selected_command {
             0 => {
                 // たたかう → ターゲット選択へ
@@ -106,6 +97,7 @@ fn handle_command_select(
 
 fn handle_spell_select(
     keyboard: &ButtonInput<KeyCode>,
+    vi: Option<&VirtualInput>,
     battle_res: &mut BattleResource,
     member_index: usize,
 ) {
@@ -113,25 +105,23 @@ fn handle_spell_select(
     let spell_count = spells.len();
 
     // 上下でカーソル移動
-    if (keyboard.just_pressed(KeyCode::KeyW) || keyboard.just_pressed(KeyCode::ArrowUp))
-        && battle_res.selected_spell > 0
-    {
+    if input_source::is_up_just_pressed(keyboard, vi) && battle_res.selected_spell > 0 {
         battle_res.selected_spell -= 1;
     }
-    if (keyboard.just_pressed(KeyCode::KeyS) || keyboard.just_pressed(KeyCode::ArrowDown))
+    if input_source::is_down_just_pressed(keyboard, vi)
         && battle_res.selected_spell < spell_count - 1
     {
         battle_res.selected_spell += 1;
     }
 
     // キャンセル: コマンド選択に戻る
-    if is_cancel(keyboard) {
+    if input_source::is_cancel_just_pressed(keyboard, vi) {
         battle_res.phase = BattlePhase::CommandSelect { member_index };
         return;
     }
 
     // 決定
-    if is_confirm(keyboard) {
+    if input_source::is_confirm_just_pressed(keyboard, vi) {
         let spell = spells[battle_res.selected_spell];
         let member_mp = battle_res.state.party[member_index].stats.mp;
 
@@ -158,6 +148,7 @@ fn handle_spell_select(
 
 fn handle_target_select(
     keyboard: &ButtonInput<KeyCode>,
+    vi: Option<&VirtualInput>,
     battle_res: &mut BattleResource,
     member_index: usize,
 ) {
@@ -167,7 +158,7 @@ fn handle_target_select(
     }
 
     // 左右でターゲット切り替え
-    if keyboard.just_pressed(KeyCode::KeyA) || keyboard.just_pressed(KeyCode::ArrowLeft) {
+    if input_source::is_left_just_pressed(keyboard, vi) {
         let current_pos = alive_enemies
             .iter()
             .position(|&i| i == battle_res.selected_target)
@@ -176,7 +167,7 @@ fn handle_target_select(
             battle_res.selected_target = alive_enemies[current_pos - 1];
         }
     }
-    if keyboard.just_pressed(KeyCode::KeyD) || keyboard.just_pressed(KeyCode::ArrowRight) {
+    if input_source::is_right_just_pressed(keyboard, vi) {
         let current_pos = alive_enemies
             .iter()
             .position(|&i| i == battle_res.selected_target)
@@ -187,7 +178,7 @@ fn handle_target_select(
     }
 
     // キャンセル: pending_spellがあれば呪文選択に戻る、なければコマンド選択に戻る
-    if is_cancel(keyboard) {
+    if input_source::is_cancel_just_pressed(keyboard, vi) {
         if battle_res.pending_spell.is_some() {
             battle_res.pending_spell = None;
             battle_res.phase = BattlePhase::SpellSelect { member_index };
@@ -198,7 +189,7 @@ fn handle_target_select(
     }
 
     // 決定
-    if is_confirm(keyboard) {
+    if input_source::is_confirm_just_pressed(keyboard, vi) {
         let target = TargetId::Enemy(battle_res.selected_target);
 
         if let Some(spell) = battle_res.pending_spell.take() {
@@ -229,6 +220,7 @@ fn handle_target_select(
 
 fn handle_ally_target_select(
     keyboard: &ButtonInput<KeyCode>,
+    vi: Option<&VirtualInput>,
     battle_res: &mut BattleResource,
     member_index: usize,
 ) {
@@ -238,7 +230,7 @@ fn handle_ally_target_select(
     }
 
     // 左右で味方ターゲット切り替え
-    if keyboard.just_pressed(KeyCode::KeyA) || keyboard.just_pressed(KeyCode::ArrowLeft) {
+    if input_source::is_left_just_pressed(keyboard, vi) {
         let current_pos = alive_party
             .iter()
             .position(|&i| i == battle_res.selected_ally_target)
@@ -247,7 +239,7 @@ fn handle_ally_target_select(
             battle_res.selected_ally_target = alive_party[current_pos - 1];
         }
     }
-    if keyboard.just_pressed(KeyCode::KeyD) || keyboard.just_pressed(KeyCode::ArrowRight) {
+    if input_source::is_right_just_pressed(keyboard, vi) {
         let current_pos = alive_party
             .iter()
             .position(|&i| i == battle_res.selected_ally_target)
@@ -258,14 +250,14 @@ fn handle_ally_target_select(
     }
 
     // キャンセル: 呪文選択に戻る
-    if is_cancel(keyboard) {
+    if input_source::is_cancel_just_pressed(keyboard, vi) {
         battle_res.pending_spell = None;
         battle_res.phase = BattlePhase::SpellSelect { member_index };
         return;
     }
 
     // 決定
-    if is_confirm(keyboard) {
+    if input_source::is_confirm_just_pressed(keyboard, vi) {
         let target = TargetId::Party(battle_res.selected_ally_target);
 
         if let Some(spell) = battle_res.pending_spell.take() {
@@ -635,11 +627,12 @@ fn enemy_display_names(enemies: &[game::battle::Enemy]) -> Vec<String> {
 
 fn handle_show_message(
     keyboard: &ButtonInput<KeyCode>,
+    vi: Option<&VirtualInput>,
     battle_res: &mut BattleResource,
     index: usize,
     len: usize,
 ) {
-    if is_confirm(keyboard) {
+    if input_source::is_confirm_just_pressed(keyboard, vi) {
         let next_index = index + 1;
         if next_index >= len {
             // 全メッセージ表示完了 — 表示HPを実際のHPに同期
@@ -669,8 +662,12 @@ fn handle_show_message(
     }
 }
 
-fn handle_battle_over(keyboard: &ButtonInput<KeyCode>, next_state: &mut NextState<AppState>) {
-    if is_confirm(keyboard) {
+fn handle_battle_over(
+    keyboard: &ButtonInput<KeyCode>,
+    vi: Option<&VirtualInput>,
+    next_state: &mut NextState<AppState>,
+) {
+    if input_source::is_confirm_just_pressed(keyboard, vi) {
         next_state.set(AppState::Exploring);
     }
 }
