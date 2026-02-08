@@ -19,7 +19,9 @@ color: magenta
 
 ## スクリーンショット撮影手順
 
-### Step 1: アセット生成（初回 or タイル変更時）
+### Step 1: アセット生成（毎回必ず実行）
+
+**スクリーンショット撮影前に必ずアセット生成を実行すること。** タイル変更の有無に関わらず、常に最新のアセットでスクショを撮る。
 
 ```bash
 cargo run -p generate-tiles
@@ -54,13 +56,14 @@ Read tool → screenshots/latest.png
 
 ### ループの実行手順
 
-1. `cargo run -- --screenshot` でスクショ撮影
-2. `Read` で `screenshots/latest.png` を確認
-3. 問題点を分析（レイアウト、色、サイズ、テキスト配置など）
-4. 該当するソースコードを修正
-5. `cargo build` でコンパイル確認
-6. 再度 `cargo run -- --screenshot` で変更を確認
-7. 満足するまで繰り返す
+1. `cargo run -p generate-tiles` でアセット生成（**毎回必ず**）
+2. `cargo run -- --screenshot` でスクショ撮影
+3. `Read` で `screenshots/latest.png` を確認
+4. 問題点を分析（レイアウト、色、サイズ、テキスト配置など）
+5. 該当するソースコードを修正
+6. `cargo build` でコンパイル確認
+7. 再度ステップ1から繰り返し、変更を確認
+8. 満足するまで繰り返す
 
 ## 分析観点
 
