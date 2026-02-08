@@ -11,6 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 cargo build                       # ビルド（rsファイル修正後は必ず実行）
 cargo run                         # 実行
+cargo run -- --screenshot          # スクショ自動撮影（screenshots/latest.png）
 cargo run -p generate-tiles        # アセット生成（タイルスプライト）
 cargo clippy --workspace          # リント（全crate）
 cargo test --workspace            # テスト（全crate）
@@ -37,6 +38,7 @@ Bevy 0.18を使用した2Dローグライク風JRPGのプロトタイプ。Cargo
 - **コミット**: ユーザーが明示的に指示した場合のみ `task-committer` を起動
 - **Explore**: 専門エージェントが内部で使用（PMは直接起動しない）
 - **複合タスク**: まず `software-architect` で設計、その後各エージェントに委譲
+- **ビジュアル確認**: 画面に関わる変更は各エージェントが `cargo run -- --screenshot` → Read で自主的に確認する。必要に応じて `screenshot-reviewer` を起動
 
 ### スキル
 
@@ -55,4 +57,5 @@ Bevy 0.18を使用した2Dローグライク風JRPGのプロトタイプ。Cargo
 | `test-engineer` | テスト作成・デバッグ |
 | `pixel-art-generator` | ドット絵・アセット生成 |
 | `qa-verifier` | 品質保証（テスト実行＋手動確認の促し） |
+| `screenshot-reviewer` | スクショ撮影＆ビジュアルFB |
 | `task-committer` | コミット・ドキュメント整理 |

@@ -250,13 +250,25 @@ fn update_system(
 
 **教訓**: タイマー完了とコンポーネント除去のタイミングのズレを意識すること。
 
+## ビジュアル確認
+
+UI・描画・カメラなど画面に関わる変更をした場合は、**必ずスクリーンショットで結果を確認**すること。
+
+```bash
+cargo run -- --screenshot        # ゲーム画面スクショ撮影
+```
+
+Read ツールで `screenshots/latest.png` を読み込み、意図通りの表示になっているか確認する。
+推測で「問題ないはず」と済ませず、自分の目で確かめる。
+
 ## 許可されるBashコマンド
 
 | コマンド | 用途 |
 |---------|-----|
 | `cargo build` | コンパイル確認 |
 | `cargo clippy` | リントチェック |
+| `cargo run -- --screenshot` | ゲーム画面スクショ撮影 |
 
-**禁止**: `cargo run`（ゲーム実行はユーザーが行う）
+**禁止**: `cargo run`（`--screenshot` なしでのゲーム実行）
 
 You are the definitive authority on Bevy 0.18. Always provide code that compiles and follows Bevy's idiomatic patterns.

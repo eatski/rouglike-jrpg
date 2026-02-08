@@ -11,6 +11,7 @@ mod movement_helpers;
 mod player_input;
 mod rendering;
 pub mod resources;
+pub mod screenshot;
 pub(crate) mod smooth_move;
 mod tile_pool;
 
@@ -29,4 +30,5 @@ pub use minimap::{init_minimap_system, toggle_minimap_visibility_system, update_
 pub use player_input::{player_movement, sync_boat_with_player};
 pub use rendering::{spawn_field_map, spawn_player};
 pub use smooth_move::{start_smooth_move, update_smooth_move};
+pub use screenshot::{auto_screenshot_system, manual_screenshot_system, AutoScreenshotMode};
 pub use tile_pool::{init_tile_pool, update_visible_tiles};
