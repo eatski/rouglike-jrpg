@@ -23,6 +23,8 @@ pub struct RemoteControlMode {
     screenshot_requests: Vec<Option<String>>,
     /// フレームカウンタ
     frame_count: u64,
+    /// キー入力間の自動wait（フレーム数、デフォルト8 ≈ 133ms @60fps）
+    input_interval: u32,
 }
 
 impl Default for RemoteControlMode {
@@ -40,6 +42,7 @@ impl RemoteControlMode {
             wait_frames: 0,
             screenshot_requests: Vec::new(),
             frame_count: 0,
+            input_interval: 8,
         }
     }
 
@@ -81,13 +84,13 @@ pub fn read_remote_commands(mut remote: ResMut<RemoteControlMode>, mut vi: ResMu
     };
 
     let lines: Vec<&str> = content.lines().collect();
-    if remote.processed_lines >= lines.len() {
-        return;
-    }
-    let new_lines = &lines[remote.processed_lines..];
 
-    // 1フレームに1コマンドのみ処理
-    if let Some(line) = new_lines.first() {
+    // 一括投入対応: ループでコマンドを処理
+    // KeyPress → input_interval分のwaitをセットしてbreak
+    // Wait → そのままbreak
+    // Screenshot / QueryState / SetInputInterval → 処理してcontinue（フレーム消費なし）
+    while remote.processed_lines < lines.len() {
+        let line = lines[remote.processed_lines];
         remote.processed_lines += 1;
         let frame = remote.frame_count;
 
@@ -99,10 +102,13 @@ pub fn read_remote_commands(mut remote: ResMut<RemoteControlMode>, mut vi: ResMu
                     r#"{{"event":"command_processed","cmd":"key","frame":{}}}"#,
                     frame
                 ));
+                // キー入力後は自動インターバル
+                remote.wait_frames = remote.input_interval;
+                break;
             }
             Ok(RemoteCommand::Screenshot { filename }) => {
                 remote.screenshot_requests.push(filename);
-                // レスポンスはスクショ撮影時に出力
+                // フレーム消費なし → continue
             }
             Ok(RemoteCommand::Wait(frames)) => {
                 remote.wait_frames = frames;
@@ -110,13 +116,22 @@ pub fn read_remote_commands(mut remote: ResMut<RemoteControlMode>, mut vi: ResMu
                     r#"{{"event":"command_processed","cmd":"wait","frames":{},"frame":{}}}"#,
                     frames, frame
                 ));
+                break;
             }
             Ok(RemoteCommand::QueryState) => {
-                // 状態クエリは別のシステムで処理
                 remote.append_response(&format!(
                     r#"{{"event":"command_processed","cmd":"query_state","frame":{}}}"#,
                     frame
                 ));
+                // フレーム消費なし → continue
+            }
+            Ok(RemoteCommand::SetInputInterval(frames)) => {
+                remote.input_interval = frames;
+                remote.append_response(&format!(
+                    r#"{{"event":"command_processed","cmd":"set_input_interval","frames":{},"frame":{}}}"#,
+                    frames, frame
+                ));
+                // フレーム消費なし → continue
             }
             Err(e) => {
                 warn!("Remote command parse error: {} (line: {})", e, line);

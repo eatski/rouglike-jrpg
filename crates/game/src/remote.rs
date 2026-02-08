@@ -11,6 +11,8 @@ pub enum RemoteCommand {
     QueryState,
     /// Nフレーム待機
     Wait(u32),
+    /// 入力間隔の設定（フレーム数）
+    SetInputInterval(u32),
 }
 
 /// リモートで送信可能なキー
@@ -70,6 +72,16 @@ pub fn parse_command(line: &str) -> Result<RemoteCommand, String> {
                 .parse()
                 .map_err(|_| format!("invalid frames value: {}", frames_str))?;
             Ok(RemoteCommand::Wait(frames))
+        }
+        "set_input_interval" => {
+            let frames_str = obj
+                .get("frames")
+                .ok_or_else(|| "missing 'frames' field".to_string())?
+                .as_str();
+            let frames: u32 = frames_str
+                .parse()
+                .map_err(|_| format!("invalid frames value: {}", frames_str))?;
+            Ok(RemoteCommand::SetInputInterval(frames))
         }
         _ => Err(format!("unknown command: {}", cmd)),
     }
@@ -269,6 +281,18 @@ mod tests {
         assert_eq!(
             parse_command(r#"{"cmd":"query_state"}"#).unwrap(),
             RemoteCommand::QueryState
+        );
+    }
+
+    #[test]
+    fn test_parse_set_input_interval() {
+        assert_eq!(
+            parse_command(r#"{"cmd":"set_input_interval","frames":8}"#).unwrap(),
+            RemoteCommand::SetInputInterval(8)
+        );
+        assert_eq!(
+            parse_command(r#"{"cmd":"set_input_interval","frames":0}"#).unwrap(),
+            RemoteCommand::SetInputInterval(0)
         );
     }
 
