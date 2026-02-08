@@ -13,12 +13,19 @@
       "Bash(grep:*)",
       "Bash(find:*)",
       "Bash(chmod:*)",
+      "Read",
+      "Edit",
+      "Write",
       "WebSearch",
       "WebFetch(domain:kenney.nl)",
       "WebFetch(domain:opengameart.org)",
       "WebFetch(domain:kenney-assets.itch.io)",
       "WebFetch(domain:pipoya.itch.io)",
       "WebFetch(domain:seliel-the-shaper.itch.io)"
+    ],
+    "deny": [
+      "Edit(path:.worktrees/**)",
+      "Write(path:.worktrees/**)"
     ]
   }
 }
