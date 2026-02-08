@@ -2,7 +2,7 @@ use rand::Rng;
 
 use crate::coordinates::orthogonal_neighbors;
 
-use super::islands::validate_connectivity;
+use super::islands::{calculate_town_spawns, validate_connectivity};
 use super::terrain::Terrain;
 
 pub const MAP_WIDTH: usize = 150;
@@ -88,6 +88,12 @@ pub fn generate_map(rng: &mut impl Rng) -> MapData {
         10..=45,
         protected,
     );
+
+    // 各島に町を1つ配置
+    let town_spawns = calculate_town_spawns(&grid, rng, spawn_position);
+    for ts in &town_spawns {
+        grid[ts.y][ts.x] = Terrain::Town;
+    }
 
     MapData {
         grid,

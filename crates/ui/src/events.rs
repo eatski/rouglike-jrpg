@@ -15,3 +15,10 @@ pub struct PlayerMovedEvent {
     pub entity: Entity,
     pub direction: Direction,
 }
+
+/// プレイヤーがタイルに到着したときに発行されるメッセージ
+/// SmoothMoveアニメーション完了時に発火する
+#[derive(Message)]
+pub struct PlayerArrivedEvent {
+    pub entity: Entity,
+}

@@ -250,6 +250,50 @@ fn update_system(
 
 **教訓**: タイマー完了とコンポーネント除去のタイミングのズレを意識すること。
 
+## イベント発火タイミングの設計
+
+### PlayerMovedEvent vs PlayerArrivedEvent
+
+プレイヤー移動に関するイベントは、発火タイミングによって使い分ける：
+
+| イベント | 発火タイミング | 用途 |
+|---------|---------------|-----|
+| `PlayerMovedEvent` | 移動開始時（アニメーション開始） | カメラ追従、マップ更新など即座に反応すべき処理 |
+| `PlayerArrivedEvent` | 移動完了時（SmoothMove終了） | 到着判定が必要な処理（エンカウント、町進入など） |
+
+**重要**: 画面遷移を伴う判定（戦闘エンカウント、町進入など）は必ず `PlayerArrivedEvent` を使うこと。
+
+**理由**:
+- `PlayerMovedEvent`を使うと、視覚的に到着する前に画面遷移してしまう
+- 到着→即遷移→戻る の流れで、同じタイルで即再突入する問題が発生する
+
+**実装例**:
+
+```rust
+// SmoothMove完了時にPlayerArrivedEventを発火
+fn update_smooth_move(
+    mut arrived_events: MessageWriter<PlayerArrivedEvent>,
+    // ...
+) {
+    if smooth_move.timer.just_finished() {
+        if pending_move.is_none() {
+            commands.entity(entity).remove::<MovementLocked>();
+            arrived_events.write(PlayerArrivedEvent { entity });
+        }
+    }
+}
+
+// エンカウント判定はPlayerArrivedEventで
+fn check_encounter_system(
+    mut events: MessageReader<PlayerArrivedEvent>,
+    // ...
+) {
+    for _event in events.read() {
+        // 到着したタイルで判定
+    }
+}
+```
+
 ## ビジュアル確認
 
 UI・描画・カメラなど画面に関わる変更をした場合は、**`screenshot-reviewer` エージェントに委譲**してビジュアル確認を行うこと。

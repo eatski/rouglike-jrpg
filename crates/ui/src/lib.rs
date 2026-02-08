@@ -16,6 +16,7 @@ pub mod resources;
 pub mod screenshot;
 pub(crate) mod smooth_move;
 mod tile_pool;
+pub mod town;
 
 pub use app_state::AppState;
 pub use battle::{
@@ -38,3 +39,7 @@ pub use remote_control::{
 };
 pub use screenshot::manual_screenshot_system;
 pub use tile_pool::{init_tile_pool, update_visible_tiles};
+pub use town::{
+    check_town_enter_system, cleanup_town_scene, setup_town_scene, town_display_system,
+    town_input_system,
+};

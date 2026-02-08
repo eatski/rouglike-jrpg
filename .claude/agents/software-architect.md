@@ -291,6 +291,54 @@ fn handle_ally_target_select(
 - `ui/` は `game/` の関数を呼び出すだけ（ロジックを重複実装しない）
 - フェーズ遷移やUI状態は `BattleResource` で一元管理
 
+## 画面遷移（AppState）のパターン
+
+### 基本構成
+
+```
+Exploration (フィールド)
+  ↓ check_encounter_system
+Battle (戦闘)
+  ↓ town進入
+Town (町)
+```
+
+### イベント発火タイミングの重要性
+
+画面遷移を伴う判定は**必ず `PlayerArrivedEvent`（アニメーション完了時）** を使うこと。
+
+```rust
+// ⭕ 正しい: 到着イベントで判定
+fn check_encounter_system(
+    mut events: MessageReader<PlayerArrivedEvent>,
+    mut next_state: ResMut<NextState<AppState>>,
+) { /* ... */ }
+
+// ❌ 間違い: 移動開始イベントで判定すると視覚的に到着前に遷移してしまう
+fn check_encounter_system(
+    mut events: MessageReader<PlayerMovedEvent>,
+    mut next_state: ResMut<NextState<AppState>>,
+) { /* ... */ }
+```
+
+### シーン管理のベストプラクティス
+
+各画面（Battle、Town等）は以下の3システムで構成：
+
+1. **OnEnter**: `setup_xxx_scene` - UI・リソースの初期化
+2. **Update**: `xxx_input_system`, `xxx_display_system` - 入力処理・表示更新
+3. **OnExit**: `cleanup_xxx_scene` - リソース・エンティティのクリーンアップ
+
+```rust
+.add_systems(OnEnter(AppState::Town), setup_town_scene)
+.add_systems(Update, (town_input_system, town_display_system)
+    .chain()
+    .run_if(in_state(AppState::Town)))
+.add_systems(OnExit(AppState::Town), cleanup_town_scene)
+```
+
+**重要**: OnExitで確実にクリーンアップしないと、画面遷移後にゴミが残る。
+
 ## 許可されるBashコマンド
 
 | コマンド | 用途 |

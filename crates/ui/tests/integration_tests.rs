@@ -85,6 +85,7 @@ fn setup_test_app_with_map(grid: Vec<Vec<Terrain>>, spawn_x: usize, spawn_y: usi
     // イベントを登録
     app.add_message::<PlayerMovedEvent>();
     app.add_message::<MovementBlockedEvent>();
+    app.add_message::<ui::events::PlayerArrivedEvent>();
 
     // システムを手動で追加（通常のPluginは使わない）
     app.add_systems(Update, player_movement);

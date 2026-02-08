@@ -6,6 +6,14 @@ use crate::map::{MAP_HEIGHT, MAP_WIDTH};
 use rand::Rng;
 use std::collections::{HashSet, VecDeque};
 
+/// 町のスポーン情報
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TownSpawn {
+    /// タイル座標
+    pub x: usize,
+    pub y: usize,
+}
+
 /// 船のスポーン情報
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BoatSpawn {
@@ -30,6 +38,36 @@ pub fn calculate_boat_spawns(grid: &[Vec<Terrain>], rng: &mut impl Rng) -> Vec<B
         if let Some(spawn) = find_boat_spawn_on_main_sea(&island, grid, &main_sea, rng) {
             spawns.push(spawn);
         }
+    }
+
+    spawns
+}
+
+/// 各島に1つずつ町スポーン位置を計算
+///
+/// 各島の Plains タイルからランダムに1つ選択する。
+/// `spawn_position` (x, y) はプレイヤー初期位置として除外する。
+pub fn calculate_town_spawns(
+    grid: &[Vec<Terrain>],
+    rng: &mut impl Rng,
+    spawn_position: (usize, usize),
+) -> Vec<TownSpawn> {
+    let islands = detect_islands(grid);
+    let mut spawns = Vec::new();
+
+    for island in islands {
+        let candidates: Vec<(usize, usize)> = island
+            .into_iter()
+            .filter(|&(x, y)| grid[y][x] == Terrain::Plains && (x, y) != spawn_position)
+            .collect();
+
+        if candidates.is_empty() {
+            continue;
+        }
+
+        let idx = rng.gen_range(0..candidates.len());
+        let (x, y) = candidates[idx];
+        spawns.push(TownSpawn { x, y });
     }
 
     spawns

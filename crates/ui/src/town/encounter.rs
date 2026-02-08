@@ -1,16 +1,16 @@
 use bevy::prelude::*;
 
-use game::battle::should_encounter;
+use game::map::Terrain;
 
 use crate::app_state::AppState;
 use crate::components::{OnBoat, Player, TilePosition};
 use crate::events::PlayerArrivedEvent;
 use crate::resources::MapDataResource;
 
-/// プレイヤーがタイルに到着した際にエンカウント判定を行うシステム
+/// プレイヤーがタイルに到着した際に町タイルかどうかを判定し、町画面に遷移するシステム
 /// PlayerArrivedEvent はSmoothMoveアニメーション完了時に発火するため、
-/// 視覚的に到着してから判定される
-pub fn check_encounter_system(
+/// 視覚的に到着してから遷移する
+pub fn check_town_enter_system(
     mut events: MessageReader<PlayerArrivedEvent>,
     player_query: Query<(&TilePosition, Option<&OnBoat>), With<Player>>,
     map_data: Res<MapDataResource>,
@@ -21,16 +21,14 @@ pub fn check_encounter_system(
             continue;
         };
 
-        // 船乗車中はエンカウントなし
+        // 船乗車中は町に入らない
         if on_boat.is_some() {
             continue;
         }
 
         let terrain = map_data.grid[tile_pos.y][tile_pos.x];
-        let random_value: f32 = rand::random();
-
-        if should_encounter(terrain, random_value) {
-            next_state.set(AppState::Battle);
+        if terrain == Terrain::Town {
+            next_state.set(AppState::Town);
             return;
         }
     }
