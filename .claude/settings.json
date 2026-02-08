@@ -5,7 +5,7 @@
       "Bash(cargo test:*)",
       "Bash(cargo clippy:*)",
       "Bash(cargo tree:*)",
-      "Bash(cargo run --bin generate-tiles:*)",
+      "Bash(cargo run:*)",
       "Bash(git status:*)",
       "Bash(git diff:*)",
       "Bash(git log:*)",
