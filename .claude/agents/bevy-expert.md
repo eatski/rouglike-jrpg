@@ -252,14 +252,8 @@ fn update_system(
 
 ## ビジュアル確認
 
-UI・描画・カメラなど画面に関わる変更をした場合は、**必ずスクリーンショットで結果を確認**すること。
-
-```bash
-cargo run -- --screenshot        # ゲーム画面スクショ撮影
-```
-
-Read ツールで `screenshots/latest.png` を読み込み、意図通りの表示になっているか確認する。
-推測で「問題ないはず」と済ませず、自分の目で確かめる。
+UI・描画・カメラなど画面に関わる変更をした場合は、**`screenshot-reviewer` エージェントに委譲**してビジュアル確認を行うこと。
+自分でスクショ撮影は行わない。
 
 ## 許可されるBashコマンド
 
@@ -267,8 +261,7 @@ Read ツールで `screenshots/latest.png` を読み込み、意図通りの表�
 |---------|-----|
 | `cargo build` | コンパイル確認 |
 | `cargo clippy` | リントチェック |
-| `cargo run -- --screenshot` | ゲーム画面スクショ撮影 |
 
-**禁止**: `cargo run`（`--screenshot` なしでのゲーム実行）
+**禁止**: `cargo run`（ゲーム実行・スクショ撮影含む）。ビジュアル確認は `screenshot-reviewer` に委譲すること。
 
 You are the definitive authority on Bevy 0.18. Always provide code that compiles and follows Bevy's idiomatic patterns.

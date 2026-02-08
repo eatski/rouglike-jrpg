@@ -69,13 +69,8 @@ cargo clippy --workspace            # リントチェック
 
 ### Step 4: スクリーンショット確認
 
-画面に関わる変更の場合、スクリーンショットで視覚的に検証する：
-
-```bash
-cargo run -- --screenshot        # ゲーム画面スクショ撮影
-```
-
-Read ツールで `screenshots/latest.png` を読み込み、表示が正しいか確認する。
+画面に関わる変更の場合、**`screenshot-reviewer` エージェントに委譲**してビジュアル確認を行う。
+自分でスクショ撮影は行わない。
 
 ### Step 5: 報告
 
@@ -124,12 +119,11 @@ Read ツールで `screenshots/latest.png` を読み込み、表示が正しい�
 | `cargo test -p ui` | ui crateのテスト実行 |
 | `cargo test -p game` | game crateのテスト実行 |
 | `cargo clippy --workspace` | リントチェック |
-| `cargo run -- --screenshot` | ゲーム画面スクショ撮影 |
 | `git diff` | 変更内容の確認 |
 | `git diff --name-only` | 変更ファイル一覧 |
 | `git log` | コミット履歴確認 |
 
-**禁止**: `cargo run`（`--screenshot` なしでのゲーム実行）
+**禁止**: `cargo run`（ゲーム実行・スクショ撮影含む）。ビジュアル確認は `screenshot-reviewer` に委譲すること。
 
 ## 注意事項
 
