@@ -32,3 +32,6 @@ target
 /assets/
 # Fonts are not generated, so track them
 !/assets/fonts/
+
+# Worktrees
+.worktrees/
