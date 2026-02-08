@@ -38,7 +38,7 @@ Bevy 0.18を使用した2Dローグライク風JRPGのプロトタイプ。Cargo
 - **コミット**: ユーザーが明示的に指示した場合のみ `task-committer` を起動
 - **Explore**: 専門エージェントが内部で使用（PMは直接起動しない）
 - **複合タスク**: まず `software-architect` で設計、その後各エージェントに委譲
-- **ビジュアル確認**: 画面に関わる変更は各エージェントが `cargo run -- --screenshot` → Read で自主的に確認する。必要に応じて `screenshot-reviewer` を起動
+- **ビジュアル確認**: 画面に関わる変更は各エージェントが画面確認を `screenshot-reviewer` に委譲
 
 ### スキル
 
