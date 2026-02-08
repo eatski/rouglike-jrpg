@@ -4,6 +4,7 @@ pub enum Terrain {
     Mountain,
     Forest,
     Sea,
+    Town,
 }
 
 impl Terrain {
@@ -33,6 +34,7 @@ mod tests {
         assert!(Terrain::Plains.is_walkable());
         assert!(Terrain::Mountain.is_walkable());
         assert!(Terrain::Forest.is_walkable());
+        assert!(Terrain::Town.is_walkable());
     }
 
     #[test]
@@ -50,5 +52,6 @@ mod tests {
         assert!(!Terrain::Plains.is_navigable());
         assert!(!Terrain::Mountain.is_navigable());
         assert!(!Terrain::Forest.is_navigable());
+        assert!(!Terrain::Town.is_navigable());
     }
 }

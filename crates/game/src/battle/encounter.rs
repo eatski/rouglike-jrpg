@@ -14,7 +14,7 @@ fn encounter_rate(terrain: Terrain) -> f32 {
     match terrain {
         Terrain::Plains => 0.10,
         Terrain::Forest => 0.15,
-        Terrain::Mountain | Terrain::Sea => 0.0,
+        Terrain::Mountain | Terrain::Sea | Terrain::Town => 0.0,
     }
 }
 
@@ -46,5 +46,11 @@ mod tests {
     fn sea_never_encounters() {
         assert!(!should_encounter(Terrain::Sea, 0.0));
         assert!(!should_encounter(Terrain::Sea, 0.5));
+    }
+
+    #[test]
+    fn town_never_encounters() {
+        assert!(!should_encounter(Terrain::Town, 0.0));
+        assert!(!should_encounter(Terrain::Town, 0.5));
     }
 }

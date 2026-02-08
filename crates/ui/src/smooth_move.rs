@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use crate::components::{Boat, MovementLocked, OnBoat, PendingMove, Player, TilePosition};
-use crate::events::{MovementBlockedEvent, PlayerMovedEvent};
+use crate::events::{MovementBlockedEvent, PlayerArrivedEvent, PlayerMovedEvent};
 use crate::movement_helpers::{execute_boat_move, execute_walk_move};
 use crate::resources::MapDataResource;
 
@@ -87,6 +87,7 @@ pub fn update_smooth_move(
     mut boat_query: Query<(Entity, &mut TilePosition), (With<Boat>, Without<Player>)>,
     mut moved_events: MessageWriter<PlayerMovedEvent>,
     mut blocked_events: MessageWriter<MovementBlockedEvent>,
+    mut arrived_events: MessageWriter<PlayerArrivedEvent>,
 ) {
     let Ok((entity, mut smooth_move, mut transform, mut tile_pos, pending_move, on_boat)) =
         query.single_mut()
@@ -137,8 +138,9 @@ pub fn update_smooth_move(
             }
             // 成功した場合はstart_smooth_moveで新しいSmoothMoveが追加される
         } else {
-            // PendingMoveがなければロック解除
+            // PendingMoveがなければロック解除＋到着イベント発火
             commands.entity(entity).remove::<MovementLocked>();
+            arrived_events.write(PlayerArrivedEvent { entity });
         }
     } else {
         // 線形補間で滑らかに移動
