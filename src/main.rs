@@ -7,14 +7,15 @@ use ui::resources::MovementState;
 use ui::{
     battle_blink_system, battle_display_system, battle_input_system, battle_shake_system,
     camera_follow, check_encounter_system, check_town_enter_system, cleanup_battle_scene,
-    cleanup_town_scene, clear_virtual_input, init_exploration_system, init_minimap_system,
-    init_tile_pool, manual_screenshot_system, player_movement, read_remote_commands,
-    remote_screenshot_system, setup_battle_scene, setup_camera, setup_town_scene,
-    spawn_field_map, spawn_player, start_bounce, start_smooth_move, sync_boat_with_player,
-    toggle_map_mode_system, toggle_minimap_visibility_system, town_display_system,
-    town_input_system, update_bounce, update_exploration_system, update_minimap_texture_system,
-    update_smooth_move, update_visible_tiles, write_game_state_log, AppState, MapModeState,
-    PartyState, RemoteControlMode, VirtualInput,
+    cleanup_hud, cleanup_town_scene, clear_virtual_input, init_exploration_system,
+    init_minimap_system, init_tile_pool, manual_screenshot_system, player_movement,
+    read_remote_commands, remote_screenshot_system, setup_battle_scene, setup_camera,
+    setup_hud, setup_town_scene, spawn_field_map, spawn_player, start_bounce,
+    start_smooth_move, sync_boat_with_player, toggle_hud_visibility, toggle_map_mode_system,
+    toggle_minimap_visibility_system, town_display_system, town_input_system, update_bounce,
+    update_exploration_system, update_hud, update_minimap_texture_system, update_smooth_move,
+    update_visible_tiles, write_game_state_log, AppState, MapModeState, PartyState,
+    RemoteControlMode, VirtualInput,
 };
 
 fn main() {
@@ -53,11 +54,14 @@ fn main() {
         )
             .chain(),
     )
+    .add_systems(OnEnter(AppState::Exploring), setup_hud)
     .add_systems(
         Update,
         (
             toggle_map_mode_system,
             toggle_minimap_visibility_system,
+            toggle_hud_visibility,
+            update_hud,
             player_movement,
             start_bounce,
             start_smooth_move,
@@ -75,6 +79,7 @@ fn main() {
             .chain()
             .run_if(in_state(AppState::Exploring)),
     )
+    .add_systems(OnExit(AppState::Exploring), cleanup_hud)
     .add_systems(OnEnter(AppState::Battle), setup_battle_scene)
     .add_systems(
         Update,
