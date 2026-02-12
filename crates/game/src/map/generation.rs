@@ -95,6 +95,45 @@ pub fn generate_map(rng: &mut impl Rng) -> MapData {
         grid[ts.y][ts.x] = Terrain::Town;
     }
 
+    // テスト用: スポーン位置近くに町を強制配置
+    let (spawn_x, spawn_y) = spawn_position;
+    for dy in 0..15 {
+        for dx in 0..15 {
+            let y = if spawn_y + dy < MAP_HEIGHT {
+                spawn_y + dy
+            } else {
+                continue;
+            };
+            let x = if spawn_x + dx < MAP_WIDTH {
+                spawn_x + dx
+            } else {
+                continue;
+            };
+
+            if grid[y][x] == Terrain::Plains && (x, y) != spawn_position {
+                grid[y][x] = Terrain::Town;
+                // 1つ配置したら終了
+                break;
+            }
+        }
+        // 既に配置済みなら外側のループも抜ける
+        if (0..15).any(|dx| {
+            let y = if spawn_y + dy < MAP_HEIGHT {
+                spawn_y + dy
+            } else {
+                return false;
+            };
+            let x = if spawn_x + dx < MAP_WIDTH {
+                spawn_x + dx
+            } else {
+                return false;
+            };
+            grid[y][x] == Terrain::Town && (x, y) != spawn_position
+        }) {
+            break;
+        }
+    }
+
     // 各島に洞窟を1つ配置（山タイルから選択）
     let cave_spawns = calculate_cave_spawns(&grid, rng);
     for cs in &cave_spawns {

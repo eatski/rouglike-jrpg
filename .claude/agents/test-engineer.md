@@ -122,6 +122,40 @@ fn example_test() {
 
 **重要**: テスト内で手動で `vec![vec![...]; ...]` を書かず、ヘルパーを使用すること。
 
+## トーラスマップのテスト戦略
+
+### トーラス距離計算のテスト
+
+`game/src/town.rs`の`torus_delta()`関数のように、マップ端でラップアラウンドする距離計算をテストする際は、以下の観点を網羅すること：
+
+**テスト観点**:
+- 直線経路（ラップなし）: `torus_delta(10, 20, 150)` → `10`
+- ラップアラウンド経路（近い方）: `torus_delta(0, 145, 150)` → `-5`
+- 逆方向のラップアラウンド: `torus_delta(145, 0, 150)` → `5`
+- 方角判定（4方位＋斜め4方位）の境界ケース
+
+```rust
+#[test]
+fn torus_delta_wraparound_path() {
+    // 0→145: 直接は+145、ラップは-5（近い）
+    assert_eq!(torus_delta(0, 145, 150), -5);
+    // 145→0: 直接は-145、ラップは+5（近い）
+    assert_eq!(torus_delta(145, 0, 150), 5);
+}
+
+#[test]
+fn cave_hint_dialogue_wraparound_finds_closer_cave() {
+    let mut grid = make_grid(MAP_WIDTH, MAP_HEIGHT);
+    // マップ端の反対側に洞窟を配置
+    grid[MAP_HEIGHT - 5][5] = Terrain::Cave;
+
+    let dialogue = cave_hint_dialogue(&grid, 5, 5);
+    assert!(dialogue.contains("すぐ ちかくの"));
+}
+```
+
+**重要**: トーラスラップの正しさを検証するため、必ず「ラップした方が近い」ケースをテストすること。
+
 ## 戦闘システムのテスト戦略
 
 ### game crateのユニットテスト（純粋ロジック）

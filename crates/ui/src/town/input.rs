@@ -1,9 +1,10 @@
 use bevy::prelude::*;
 
-use game::town::{heal_party, townsperson_dialogue};
+use game::town::{cave_hint_dialogue, heal_party};
 
 use crate::app_state::AppState;
-use crate::resources::PartyState;
+use crate::components::{Player, TilePosition};
+use crate::resources::{MapDataResource, PartyState};
 
 use super::scene::{TownMenuPhase, TownResource};
 
@@ -19,6 +20,8 @@ pub fn town_input_system(
     mut town_res: ResMut<TownResource>,
     mut next_state: ResMut<NextState<AppState>>,
     mut party_state: ResMut<PartyState>,
+    map_data: Res<MapDataResource>,
+    player_query: Query<&TilePosition, With<Player>>,
 ) {
     match &town_res.phase {
         TownMenuPhase::MenuSelect => {
@@ -46,10 +49,14 @@ pub fn town_input_system(
                         };
                     }
                     1 => {
-                        // 話を聞く → NPC台詞表示
-                        let dialogue = townsperson_dialogue();
+                        // 話を聞く → 最寄り洞窟の方角を教える
+                        let dialogue = if let Ok(pos) = player_query.single() {
+                            cave_hint_dialogue(&map_data.grid, pos.x, pos.y)
+                        } else {
+                            cave_hint_dialogue(&map_data.grid, 0, 0)
+                        };
                         town_res.phase = TownMenuPhase::ShowMessage {
-                            message: dialogue.to_string(),
+                            message: dialogue,
                         };
                     }
                     _ => {
