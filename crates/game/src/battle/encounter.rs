@@ -18,6 +18,7 @@ fn encounter_rate(terrain: Terrain) -> f32 {
         Terrain::Mountain => 0.08,
         Terrain::Sea => 0.10,
         Terrain::Town => 0.0,
+        Terrain::Cave => 0.0,
     }
 }
 

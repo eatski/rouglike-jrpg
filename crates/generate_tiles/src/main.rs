@@ -20,6 +20,7 @@ fn main() {
     generate_mountain(tiles_dir);
     generate_boat(tiles_dir);
     generate_town(tiles_dir);
+    generate_cave(tiles_dir);
 
     // キャラクターを生成
     generate_player(chars_dir);
@@ -634,6 +635,184 @@ fn generate_slime(output_dir: &Path) {
 
     img.save(output_dir.join("slime.png")).expect("Failed to save slime.png");
     println!("Generated: slime.png");
+}
+
+fn generate_cave(output_dir: &Path) {
+    let mut img: RgbaImage = ImageBuffer::new(TILE_SIZE, TILE_SIZE);
+    let mut rng = rand::thread_rng();
+
+    // 洞窟タイルのカラーパレット
+    let rock_bg = Rgba([100, 95, 85, 255]);         // 背景（岩場）
+    let rock_dark = Rgba([70, 65, 55, 255]);        // 暗い岩（影）
+    let rock_mid = Rgba([120, 110, 95, 255]);       // 中間の岩
+    let rock_light = Rgba([150, 140, 120, 255]);    // 明るい岩（ハイライト）
+    let cave_black = Rgba([20, 20, 25, 255]);       // 洞窟入口（真っ暗）
+    let cave_dark = Rgba([40, 40, 45, 255]);        // 洞窟入口の周辺（暗い）
+    let moss = Rgba([60, 80, 50, 255]);             // 苔（洞窟周辺の湿気）
+
+    // 背景（岩場）で埋める
+    for y in 0..TILE_SIZE {
+        for x in 0..TILE_SIZE {
+            let r: f32 = rng.r#gen();
+            let color = if r < 0.2 {
+                rock_dark
+            } else if r < 0.3 {
+                rock_light
+            } else {
+                rock_bg
+            };
+            img.put_pixel(x, y, color);
+        }
+    }
+
+    // 洞窟の入口（アーチ形、中央下寄り）
+    // 入口の形状を描画（上部が丸いアーチ）
+    let cave_center_x = 8;
+
+    // アーチの形状を定義（y座標ごとの横幅）
+    let arch_shape = [
+        (4, 3),   // y=4: 幅3（上部）
+        (5, 5),   // y=5: 幅5
+        (6, 7),   // y=6: 幅7
+        (7, 8),   // y=7: 幅8
+        (8, 9),   // y=8: 幅9
+        (9, 9),   // y=9: 幅9
+        (10, 9),  // y=10: 幅9
+        (11, 9),  // y=11: 幅9
+        (12, 9),  // y=12: 幅9
+        (13, 9),  // y=13: 幅9
+        (14, 9),  // y=14: 幅9
+        (15, 9),  // y=15: 幅9
+    ];
+
+    // 洞窟入口を描画（内側は暗い）
+    for (y, width) in arch_shape.iter() {
+        if *y >= TILE_SIZE {
+            continue;
+        }
+        let half_width = *width / 2;
+        for dx in 0..=*width {
+            let x = cave_center_x - half_width + dx;
+            if x >= TILE_SIZE {
+                continue;
+            }
+
+            // 入口の内側（暗い）
+            let is_edge = dx == 0 || dx == *width;
+
+            let color = if is_edge {
+                rock_dark  // 入口の縁は暗い岩
+            } else if *y <= 5 {
+                cave_black  // 上部（奥）は真っ暗
+            } else if *y <= 8 {
+                cave_dark   // 中間は少し明るい
+            } else {
+                cave_black  // 下部も真っ暗
+            };
+
+            img.put_pixel(x, *y, color);
+        }
+    }
+
+    // 洞窟の入口周辺に岩の枠を描画（より立体的に）
+    // 上部のアーチ形の岩
+    for y in 3..=7 {
+        let arch_width = match y {
+            3 => 5,
+            4 => 7,
+            5 => 9,
+            6 => 10,
+            7 => 11,
+            _ => 11,
+        };
+        let half_width = arch_width / 2;
+
+        for dx in [0, arch_width] {
+            let x = cave_center_x - half_width + dx;
+            if x < TILE_SIZE && y < TILE_SIZE {
+                // 岩の縁にハイライトと影を追加
+                let color = if dx == 0 {
+                    rock_dark  // 左側は影
+                } else {
+                    rock_light  // 右側はハイライト
+                };
+                img.put_pixel(x, y, color);
+
+                // 岩の厚みを追加（外側にもう1列）
+                if dx == 0 && x > 0 {
+                    img.put_pixel(x - 1, y, rock_mid);
+                } else if dx == arch_width && x + 1 < TILE_SIZE {
+                    img.put_pixel(x + 1, y, rock_light);
+                }
+            }
+        }
+    }
+
+    // 洞窟の左右に縦の岩柱を追加
+    for y in 8..TILE_SIZE {
+        // 左側の岩柱
+        for x in 2..=3 {
+            if x < TILE_SIZE && y < TILE_SIZE {
+                let color = if x == 2 { rock_dark } else { rock_mid };
+                img.put_pixel(x, y, color);
+            }
+        }
+        // 右側の岩柱
+        for x in 12..=13 {
+            if x < TILE_SIZE && y < TILE_SIZE {
+                let color = if x == 13 { rock_light } else { rock_mid };
+                img.put_pixel(x, y, color);
+            }
+        }
+    }
+
+    // 洞窟上部に岩の突起を追加
+    // 左上の突起
+    img.put_pixel(5, 2, rock_mid);
+    img.put_pixel(6, 2, rock_light);
+    img.put_pixel(5, 3, rock_dark);
+
+    // 右上の突起
+    img.put_pixel(9, 2, rock_light);
+    img.put_pixel(10, 2, rock_mid);
+    img.put_pixel(10, 3, rock_light);
+
+    // 中央上部の突起
+    img.put_pixel(7, 1, rock_dark);
+    img.put_pixel(8, 1, rock_mid);
+    img.put_pixel(9, 1, rock_mid);
+    img.put_pixel(7, 2, rock_mid);
+    img.put_pixel(8, 2, rock_dark);
+
+    // 洞窟入口周辺に苔を追加（湿気を表現）
+    let moss_positions = [
+        (4, 8), (4, 9), (4, 10),
+        (12, 9), (12, 10), (12, 11),
+        (6, 13), (7, 14), (9, 14),
+    ];
+
+    for (mx, my) in moss_positions {
+        if mx < TILE_SIZE && my < TILE_SIZE {
+            if rng.gen_bool(0.7) {
+                img.put_pixel(mx, my, moss);
+            }
+        }
+    }
+
+    // 入口の縁にランダムな岩の凹凸を追加
+    for y in 8..13 {
+        for dx in [3, 4, 11, 12] {
+            if dx < TILE_SIZE && y < TILE_SIZE {
+                if rng.gen_bool(0.3) {
+                    let color = if dx < 8 { rock_dark } else { rock_light };
+                    img.put_pixel(dx, y, color);
+                }
+            }
+        }
+    }
+
+    img.save(output_dir.join("cave.png")).expect("Failed to save cave.png");
+    println!("Generated: cave.png");
 }
 
 fn generate_town(output_dir: &Path) {

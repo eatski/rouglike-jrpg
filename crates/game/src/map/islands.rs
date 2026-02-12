@@ -14,6 +14,14 @@ pub struct TownSpawn {
     pub y: usize,
 }
 
+/// 洞窟のスポーン情報
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CaveSpawn {
+    /// タイル座標
+    pub x: usize,
+    pub y: usize,
+}
+
 /// 船のスポーン情報
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BoatSpawn {
@@ -68,6 +76,34 @@ pub fn calculate_town_spawns(
         let idx = rng.gen_range(0..candidates.len());
         let (x, y) = candidates[idx];
         spawns.push(TownSpawn { x, y });
+    }
+
+    spawns
+}
+
+/// 各島に1つずつ洞窟スポーン位置を計算
+///
+/// 各島の Mountain タイルからランダムに1つ選択する。
+pub fn calculate_cave_spawns(
+    grid: &[Vec<Terrain>],
+    rng: &mut impl Rng,
+) -> Vec<CaveSpawn> {
+    let islands = detect_islands(grid);
+    let mut spawns = Vec::new();
+
+    for island in islands {
+        let candidates: Vec<(usize, usize)> = island
+            .into_iter()
+            .filter(|&(x, y)| grid[y][x] == Terrain::Mountain)
+            .collect();
+
+        if candidates.is_empty() {
+            continue;
+        }
+
+        let idx = rng.gen_range(0..candidates.len());
+        let (x, y) = candidates[idx];
+        spawns.push(CaveSpawn { x, y });
     }
 
     spawns

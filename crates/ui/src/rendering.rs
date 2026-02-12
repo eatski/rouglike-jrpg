@@ -15,6 +15,7 @@ pub struct TileTextures {
     pub mountain: Handle<Image>,
     pub boat: Handle<Image>,
     pub town: Handle<Image>,
+    pub cave: Handle<Image>,
 }
 
 pub fn spawn_field_map(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -26,6 +27,7 @@ pub fn spawn_field_map(mut commands: Commands, asset_server: Res<AssetServer>) {
         mountain: asset_server.load("tiles/mountain.png"),
         boat: asset_server.load("tiles/boat.png"),
         town: asset_server.load("tiles/town.png"),
+        cave: asset_server.load("tiles/cave.png"),
     };
 
     let mut rng = rand::thread_rng();

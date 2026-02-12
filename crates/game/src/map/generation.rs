@@ -2,7 +2,7 @@ use rand::Rng;
 
 use crate::coordinates::orthogonal_neighbors;
 
-use super::islands::{calculate_town_spawns, validate_connectivity};
+use super::islands::{calculate_cave_spawns, calculate_town_spawns, validate_connectivity};
 use super::terrain::Terrain;
 
 pub const MAP_WIDTH: usize = 150;
@@ -93,6 +93,12 @@ pub fn generate_map(rng: &mut impl Rng) -> MapData {
     let town_spawns = calculate_town_spawns(&grid, rng, spawn_position);
     for ts in &town_spawns {
         grid[ts.y][ts.x] = Terrain::Town;
+    }
+
+    // 各島に洞窟を1つ配置（山タイルから選択）
+    let cave_spawns = calculate_cave_spawns(&grid, rng);
+    for cs in &cave_spawns {
+        grid[cs.y][cs.x] = Terrain::Cave;
     }
 
     MapData {

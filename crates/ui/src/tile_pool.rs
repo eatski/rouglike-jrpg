@@ -86,6 +86,7 @@ fn get_terrain_texture(terrain: Terrain, textures: &TileTextures) -> Handle<Imag
         Terrain::Forest => textures.forest.clone(),
         Terrain::Mountain => textures.mountain.clone(),
         Terrain::Town => textures.town.clone(),
+        Terrain::Cave => textures.cave.clone(),
     }
 }
 

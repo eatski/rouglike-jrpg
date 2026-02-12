@@ -27,6 +27,7 @@ fn terrain_to_color(terrain: Terrain) -> [u8; 4] {
         Terrain::Forest => [34, 139, 34, 255],   // 濃い緑
         Terrain::Mountain => [139, 137, 137, 255], // グレー
         Terrain::Town => [200, 160, 60, 255],       // 金色
+        Terrain::Cave => [100, 80, 60, 255],        // 暗い茶色
     }
 }
 
