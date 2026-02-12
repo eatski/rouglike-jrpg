@@ -36,6 +36,9 @@ cargo run -p generate-tiles  # タイル生成実行
 - `assets/tiles/plains.png` - 平地タイル
 - `assets/tiles/forest.png` - 森林タイル
 - `assets/tiles/mountain.png` - 山岳タイル
+- `assets/tiles/boat.png` - 船
+- `assets/tiles/town.png` - 町
+- `assets/tiles/cave.png` - 洞窟
 
 ### 3. 画像の確認方法
 
@@ -67,6 +70,14 @@ Read tool → assets/tiles/mountain.png
 - パレット: 岩グレー (#464650)、暗い岩 (#46464F)、明るい岩 (#8C8C96)、雪（白）
 - パターン: 複数の山ピーク、左影/右ハイライトの立体感、山頂の雪
 
+**Town（町）**
+- パレット: 草地 (#5A8C50)、レンガ (#A05A46)、壁ベージュ (#DCC8AA)、屋根茶 (#643C28)
+- パターン: 左に小さい家、右に城風建物、中央に石畳の道
+
+**Cave（洞窟）**
+- パレット: 岩場 (#645F55)、暗い岩 (#46413C)、洞窟内 (#141419)、苔 (#3C5032)
+- パターン: 岩場背景にアーチ形の暗い入口、岩柱、上部の突起、苔の装飾
+
 ## Workflow
 
 1. **コード修正**: `generate-tiles/src/main.rs` を編集
@@ -91,7 +102,10 @@ assets/
     ├── sea.png       # 16x16 海
     ├── plains.png    # 16x16 平地
     ├── forest.png    # 16x16 森林
-    └── mountain.png  # 16x16 山岳
+    ├── mountain.png  # 16x16 山岳
+    ├── boat.png      # 16x16 船
+    ├── town.png      # 16x16 町
+    └── cave.png      # 16x16 洞窟
 ```
 
 ## Best Practices
@@ -113,6 +127,9 @@ pub struct TileTextures {
     pub plains: Handle<Image>,
     pub forest: Handle<Image>,
     pub mountain: Handle<Image>,
+    pub boat: Handle<Image>,
+    pub town: Handle<Image>,
+    pub cave: Handle<Image>,
 }
 
 // AssetServerでロード
@@ -121,6 +138,9 @@ let tile_textures = TileTextures {
     plains: asset_server.load("tiles/plains.png"),
     forest: asset_server.load("tiles/forest.png"),
     mountain: asset_server.load("tiles/mountain.png"),
+    boat: asset_server.load("tiles/boat.png"),
+    town: asset_server.load("tiles/town.png"),
+    cave: asset_server.load("tiles/cave.png"),
 };
 
 // スプライト描画（スケール調整）
