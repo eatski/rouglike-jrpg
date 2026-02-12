@@ -297,33 +297,89 @@ fn handle_ally_target_select(
 
 ```
 Exploration (フィールド)
-  ↓ check_encounter_system
+  ↓ check_encounter_system / check_tile_action_system
 Battle (戦闘)
-  ↓ town進入
+  ↓ Town/Cave 進入
 Town (町)
+  ↓ 洞窟進入
+Cave (洞窟)
 ```
 
 ### イベント発火タイミングの重要性
 
-画面遷移を伴う判定は**必ず `PlayerArrivedEvent`（アニメーション完了時）** を使うこと。
+画面遷移を伴う判定は**必ず `TileEnteredEvent`（フィールドのSmoothMove完了時）** を使うこと。
+
+**重要**: `TileEnteredEvent` は**能動的な移動（フィールドのSmoothMove完了）でのみ発火**し、テレポート（洞窟脱出→フィールド復帰）では発火しない。これにより、脱出直後の町/洞窟再突入を防ぐ。
 
 ```rust
-// ⭕ 正しい: 到着イベントで判定
+// ⭕ 正しい: TileEnteredEvent で判定（フィールド移動のみ）
+fn check_tile_action_system(
+    mut events: MessageReader<TileEnteredEvent>,
+    mut next_state: ResMut<NextState<AppState>>,
+) { /* ... */ }
+
+// ❌ 間違い: PlayerArrivedEvent は洞窟でも発火するため、洞窟専用
 fn check_encounter_system(
     mut events: MessageReader<PlayerArrivedEvent>,
     mut next_state: ResMut<NextState<AppState>>,
 ) { /* ... */ }
 
 // ❌ 間違い: 移動開始イベントで判定すると視覚的に到着前に遷移してしまう
-fn check_encounter_system(
+fn check_tile_action_system(
     mut events: MessageReader<PlayerMovedEvent>,
     mut next_state: ResMut<NextState<AppState>>,
 ) { /* ... */ }
 ```
 
+### TileAction判定パターン（game crateへの移管）
+
+地形に応じた状態遷移判定は `Terrain::tile_action()` メソッドで統一。
+
+```rust
+// game側: 地形ごとのアクションを定義
+pub enum TileAction {
+    EnterTown,
+    EnterCave,
+    None,
+}
+
+impl Terrain {
+    pub fn tile_action(self) -> TileAction {
+        match self {
+            Terrain::Town => TileAction::EnterTown,
+            Terrain::Cave => TileAction::EnterCave,
+            _ => TileAction::None,
+        }
+    }
+}
+
+// ui側: TileEnteredEvent で判定して状態遷移
+fn check_tile_action_system(
+    mut events: MessageReader<TileEnteredEvent>,
+    player_query: Query<(&TilePosition, Option<&OnBoat>), With<Player>>,
+    map_data: Res<MapDataResource>,
+    mut next_state: ResMut<NextState<AppState>>,
+) {
+    for _event in events.read() {
+        if on_boat.is_some() { continue; } // 船乗車中はスキップ
+        let terrain = map_data.grid[tile_pos.y][tile_pos.x];
+        match terrain.tile_action() {
+            TileAction::EnterTown => next_state.set(AppState::Town),
+            TileAction::EnterCave => next_state.set(AppState::Cave),
+            TileAction::None => {}
+        }
+    }
+}
+```
+
+**設計意図**:
+- ロジック（判定条件）を `game/` に集約
+- `ui/` は判定結果に基づいて画面遷移のみ
+- 新しい地形アクション追加時も `Terrain::tile_action()` を編集するだけ
+
 ### シーン管理のベストプラクティス
 
-各画面（Battle、Town等）は以下の3システムで構成：
+各画面（Battle、Town、Cave等）は以下の3システムで構成：
 
 1. **OnEnter**: `setup_xxx_scene` - UI・リソースの初期化
 2. **Update**: `xxx_input_system`, `xxx_display_system` - 入力処理・表示更新
@@ -338,6 +394,48 @@ fn check_encounter_system(
 ```
 
 **重要**: OnExitで確実にクリーンアップしないと、画面遷移後にゴミが残る。
+
+### フィールドエンティティの状態保存・復元パターン（洞窟システムの例）
+
+洞窟進入時にフィールドエンティティをdespawnし、脱出時にrespawnすることでメモリを節約。
+
+```rust
+// OnEnter(AppState::Cave): フィールドエンティティをdespawn
+fn setup_cave_scene(
+    mut commands: Commands,
+    tile_pool_query: Query<Entity, With<PooledTile>>,
+    boat_query: Query<Entity, With<Boat>>,
+) {
+    // タイルプールをdespawn
+    for entity in tile_pool_query.iter() {
+        commands.entity(entity).despawn();
+    }
+    // 船をdespawn（位置は BoatSpawnsResource に保存済み）
+    for entity in boat_query.iter() {
+        commands.entity(entity).despawn();
+    }
+    // TilePool リソースも削除
+    commands.remove_resource::<TilePool>();
+}
+
+// OnExit(AppState::Cave): フィールドエンティティをrespawn
+fn cleanup_cave_scene(
+    mut commands: Commands,
+    tile_textures: Res<TileTextures>,
+    boat_spawns: Res<BoatSpawnsResource>,
+) {
+    // タイルプールを再生成
+    create_tile_pool(&mut commands, &tile_textures);
+    // 船を復元（保存された位置にスポーン）
+    spawn_boat_entities(&mut commands, &boat_spawns, &tile_textures);
+}
+```
+
+**設計ポイント**:
+- **状態の保存**: 船の位置を `BoatSpawnsResource` に保持
+- **リソースの解放**: 使わないエンティティはdespawnしてメモリ節約
+- **復元の確実性**: OnExitで再生成し、フィールド状態を元に戻す
+- **テレポート直後のイベント抑制**: `TileEnteredEvent` はテレポートでは発火しないため、脱出直後の再突入を防ぐ
 
 ## 許可されるBashコマンド
 

@@ -22,6 +22,11 @@ fn main() {
     generate_town(tiles_dir);
     generate_cave(tiles_dir);
 
+    // 洞窟内部タイルを生成
+    generate_cave_wall(tiles_dir);
+    generate_cave_floor(tiles_dir);
+    generate_warp_zone(tiles_dir);
+
     // キャラクターを生成
     generate_player(chars_dir);
 
@@ -949,6 +954,115 @@ fn draw_house(
             img.put_pixel(start_x + 3, y, door);
         }
     }
+}
+
+fn generate_cave_wall(output_dir: &Path) {
+    let mut img: RgbaImage = ImageBuffer::new(TILE_SIZE, TILE_SIZE);
+    let mut rng = rand::thread_rng();
+
+    let dark = Rgba([30, 28, 35, 255]);
+    let mid = Rgba([50, 45, 55, 255]);
+    let light = Rgba([70, 65, 75, 255]);
+    let highlight = Rgba([85, 80, 90, 255]);
+
+    for y in 0..TILE_SIZE {
+        for x in 0..TILE_SIZE {
+            let r: f32 = rng.r#gen();
+            let color = if r < 0.3 {
+                dark
+            } else if r < 0.6 {
+                mid
+            } else if r < 0.9 {
+                light
+            } else {
+                highlight
+            };
+            img.put_pixel(x, y, color);
+        }
+    }
+
+    // ひび割れ
+    for _ in 0..4 {
+        let cx = rng.gen_range(2..TILE_SIZE - 2);
+        let cy = rng.gen_range(2..TILE_SIZE - 2);
+        img.put_pixel(cx, cy, Rgba([20, 18, 25, 255]));
+        if cx + 1 < TILE_SIZE {
+            img.put_pixel(cx + 1, cy, Rgba([25, 22, 30, 255]));
+        }
+    }
+
+    img.save(output_dir.join("cave_wall.png"))
+        .expect("Failed to save cave_wall.png");
+    println!("Generated: cave_wall.png");
+}
+
+fn generate_cave_floor(output_dir: &Path) {
+    let mut img: RgbaImage = ImageBuffer::new(TILE_SIZE, TILE_SIZE);
+    let mut rng = rand::thread_rng();
+
+    let base = Rgba([80, 75, 65, 255]);
+    let dark = Rgba([60, 55, 48, 255]);
+    let light = Rgba([100, 95, 82, 255]);
+    let pebble = Rgba([110, 105, 90, 255]);
+
+    for y in 0..TILE_SIZE {
+        for x in 0..TILE_SIZE {
+            let r: f32 = rng.r#gen();
+            let color = if r < 0.15 {
+                dark
+            } else if r < 0.25 {
+                light
+            } else if r < 0.30 {
+                pebble
+            } else {
+                base
+            };
+            img.put_pixel(x, y, color);
+        }
+    }
+
+    img.save(output_dir.join("cave_floor.png"))
+        .expect("Failed to save cave_floor.png");
+    println!("Generated: cave_floor.png");
+}
+
+fn generate_warp_zone(output_dir: &Path) {
+    let mut img: RgbaImage = ImageBuffer::new(TILE_SIZE, TILE_SIZE);
+
+    let base = Rgba([60, 55, 48, 255]);
+    let glow_outer = Rgba([80, 60, 160, 255]);
+    let glow_mid = Rgba([120, 90, 220, 255]);
+    let glow_inner = Rgba([180, 150, 255, 255]);
+    let glow_center = Rgba([220, 210, 255, 255]);
+
+    let cx = TILE_SIZE as f32 / 2.0;
+    let cy = TILE_SIZE as f32 / 2.0;
+    let max_radius = 7.0f32;
+
+    for y in 0..TILE_SIZE {
+        for x in 0..TILE_SIZE {
+            let dx = x as f32 - cx + 0.5;
+            let dy = y as f32 - cy + 0.5;
+            let dist = (dx * dx + dy * dy).sqrt();
+
+            let color = if dist < 2.0 {
+                glow_center
+            } else if dist < 3.5 {
+                glow_inner
+            } else if dist < 5.0 {
+                glow_mid
+            } else if dist < max_radius {
+                glow_outer
+            } else {
+                base
+            };
+            img.put_pixel(x, y, color);
+        }
+    }
+
+    img.save(output_dir.join("warp_zone.png"))
+        .expect("Failed to save warp_zone.png");
+    println!("Generated: warp_zone.png");
 }
 
 /// 城風の建物を描画（右側のタワー風）

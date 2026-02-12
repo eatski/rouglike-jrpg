@@ -2,6 +2,7 @@ pub mod app_state;
 pub mod battle;
 pub(crate) mod bounce;
 mod camera;
+pub mod cave;
 pub mod components;
 pub mod constants;
 pub mod events;
@@ -16,6 +17,7 @@ mod rendering;
 pub mod resources;
 pub mod screenshot;
 pub(crate) mod smooth_move;
+mod tile_action;
 mod tile_pool;
 pub mod town;
 
@@ -42,7 +44,12 @@ pub use remote_control::{
 pub use screenshot::manual_screenshot_system;
 pub use hud::{cleanup_hud, setup_hud, toggle_hud_visibility, update_hud};
 pub use tile_pool::{init_tile_pool, update_visible_tiles};
+pub use tile_action::check_tile_action_system;
 pub use town::{
-    check_town_enter_system, cleanup_town_scene, setup_town_scene, town_display_system,
+    cleanup_town_scene, setup_town_scene, town_display_system,
     town_input_system,
+};
+pub use cave::{
+    cave_player_movement, check_warp_zone_system, cleanup_cave_scene,
+    setup_cave_scene, start_cave_smooth_move, update_cave_smooth_move, update_cave_tiles,
 };

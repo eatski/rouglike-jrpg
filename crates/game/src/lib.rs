@@ -1,4 +1,5 @@
 pub mod battle;
+pub mod cave;
 pub mod coordinates;
 pub mod exploration;
 pub mod map;

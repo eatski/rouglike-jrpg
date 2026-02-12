@@ -252,47 +252,65 @@ fn update_system(
 
 ## イベント発火タイミングの設計
 
-### PlayerMovedEvent vs PlayerArrivedEvent
+### PlayerMovedEvent / PlayerArrivedEvent / TileEnteredEvent の使い分け
 
-プレイヤー移動に関するイベントは、発火タイミングによって使い分ける：
+プレイヤー移動に関するイベントは、発火タイミングと発火条件によって使い分ける：
 
-| イベント | 発火タイミング | 用途 |
-|---------|---------------|-----|
-| `PlayerMovedEvent` | 移動開始時（アニメーション開始） | カメラ追従、マップ更新など即座に反応すべき処理 |
-| `PlayerArrivedEvent` | 移動完了時（SmoothMove終了） | 到着判定が必要な処理（エンカウント、町進入など） |
+| イベント | 発火タイミング | 発火条件 | 用途 |
+|---------|---------------|---------|-----|
+| `PlayerMovedEvent` | 移動開始時（アニメーション開始） | 能動的な移動・テレポート両方 | カメラ追従、マップ更新など即座に反応すべき処理 |
+| `PlayerArrivedEvent` | 移動完了時（SmoothMove終了） | 洞窟内のSmoothMove完了時のみ | 洞窟内のワープゾーン判定 |
+| `TileEnteredEvent` | 移動完了時（SmoothMove終了） | **フィールドのSmoothMove完了時のみ（テレポートでは発火しない）** | 町/洞窟進入、エンカウント判定 |
 
-**重要**: 画面遷移を伴う判定（戦闘エンカウント、町進入など）は必ず `PlayerArrivedEvent` を使うこと。
+**重要**: 画面遷移を伴う判定（戦闘エンカウント、町/洞窟進入）は必ず `TileEnteredEvent` を使うこと。
+
+**TileEnteredEventの設計意図**:
+- **テレポート（洞窟脱出→フィールド復帰）では発火しない** → 脱出直後の町/洞窟再突入を防ぐ
+- **能動的な移動のみで発火** → 「歩いてタイルに到着した」というセマンティクスを明確化
 
 **理由**:
 - `PlayerMovedEvent`を使うと、視覚的に到着する前に画面遷移してしまう
-- 到着→即遷移→戻る の流れで、同じタイルで即再突入する問題が発生する
+- `PlayerArrivedEvent`をフィールドで使うと、洞窟脱出時にもイベントが発火し、即再突入する問題が発生する
+- `TileEnteredEvent`はテレポートでは発火しないため、脱出直後の再突入を防げる
 
 **実装例**:
 
 ```rust
-// SmoothMove完了時にPlayerArrivedEventを発火
+// フィールドのSmoothMove完了時にTileEnteredEventを発火（洞窟では発火しない）
 fn update_smooth_move(
-    mut arrived_events: MessageWriter<PlayerArrivedEvent>,
+    mut tile_entered_events: MessageWriter<TileEnteredEvent>,
     // ...
 ) {
     if smooth_move.timer.just_finished() {
         if pending_move.is_none() {
             commands.entity(entity).remove::<MovementLocked>();
-            arrived_events.write(PlayerArrivedEvent { entity });
+            tile_entered_events.write(TileEnteredEvent { entity }); // フィールドのみ
         }
     }
 }
 
-// エンカウント判定はPlayerArrivedEventで
-fn check_encounter_system(
+// 町/洞窟進入判定はTileEnteredEventで（テレポートでは発火しない）
+fn check_tile_action_system(
+    mut events: MessageReader<TileEnteredEvent>,
+    // ...
+) {
+    for _event in events.read() {
+        // 能動的に到着したタイルで判定（洞窟脱出時は発火しない）
+    }
+}
+
+// 洞窟内のワープゾーン判定はPlayerArrivedEventで（洞窟専用）
+fn check_warp_zone_system(
     mut events: MessageReader<PlayerArrivedEvent>,
     // ...
 ) {
     for _event in events.read() {
-        // 到着したタイルで判定
+        // 洞窟内のワープゾーン判定
     }
 }
 ```
+
+**教訓**: 「移動」と「到着」と「進入」を明確に区別し、適切なイベントを選択すること。テレポート後の即再突入を防ぐには、テレポートでは発火しないイベントを使う。
 
 ## ビジュアル確認
 

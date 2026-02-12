@@ -6,4 +6,5 @@ pub enum AppState {
     Exploring,
     Battle,
     Town,
+    Cave,
 }

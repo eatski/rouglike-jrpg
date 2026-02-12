@@ -7,4 +7,4 @@ pub use islands::{
     calculate_boat_spawns, calculate_cave_spawns, calculate_town_spawns, detect_islands,
     validate_connectivity, BoatSpawn, CaveSpawn, TownSpawn,
 };
-pub use terrain::Terrain;
+pub use terrain::{Terrain, TileAction};

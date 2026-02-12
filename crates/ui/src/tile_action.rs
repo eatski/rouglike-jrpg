@@ -1,16 +1,15 @@
 use bevy::prelude::*;
 
-use game::battle::should_encounter;
+use game::map::TileAction;
 
 use crate::app_state::AppState;
 use crate::components::{OnBoat, Player, TilePosition};
 use crate::events::TileEnteredEvent;
 use crate::resources::MapDataResource;
 
-/// プレイヤーがタイルに到着した際にエンカウント判定を行うシステム
-/// PlayerArrivedEvent はSmoothMoveアニメーション完了時に発火するため、
-/// 視覚的に到着してから判定される
-pub fn check_encounter_system(
+/// プレイヤーがフィールドのタイルに歩いて到着した際に、
+/// 地形に応じた状態遷移を行うシステム
+pub fn check_tile_action_system(
     mut events: MessageReader<TileEnteredEvent>,
     player_query: Query<(&TilePosition, Option<&OnBoat>), With<Player>>,
     map_data: Res<MapDataResource>,
@@ -21,17 +20,22 @@ pub fn check_encounter_system(
             continue;
         };
 
-        // 船乗車中はエンカウントなし
+        // 船乗車中は地形アクションなし
         if on_boat.is_some() {
             continue;
         }
 
         let terrain = map_data.grid[tile_pos.y][tile_pos.x];
-        let random_value: f32 = rand::random();
-
-        if should_encounter(terrain, random_value) {
-            next_state.set(AppState::Battle);
-            return;
+        match terrain.tile_action() {
+            TileAction::EnterTown => {
+                next_state.set(AppState::Town);
+                return;
+            }
+            TileAction::EnterCave => {
+                next_state.set(AppState::Cave);
+                return;
+            }
+            TileAction::None => {}
         }
     }
 }

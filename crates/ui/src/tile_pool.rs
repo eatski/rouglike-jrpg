@@ -24,7 +24,7 @@ pub struct TilePool {
     /// 現在表示中のタイル: (論理座標) -> Entity
     active_tiles: HashMap<(i32, i32), Entity>,
     /// 前回のプレイヤータイル位置
-    last_player_pos: Option<(i32, i32)>,
+    pub last_player_pos: Option<(i32, i32)>,
 }
 
 impl TilePool {
@@ -44,12 +44,11 @@ pub struct PooledTile {
     pub logical_y: i32,
 }
 
-/// タイルプールを初期化するシステム
-pub fn init_tile_pool(mut commands: Commands, tile_textures: Res<TileTextures>) {
+/// タイルプールを生成してリソースとして登録する
+pub fn create_tile_pool(commands: &mut Commands, tile_textures: &TileTextures) {
     let scale = TILE_SIZE / 16.0;
     let mut pool = TilePool::new();
 
-    // プールサイズ分のタイルエンティティを事前生成
     for _ in 0..TILE_POOL_SIZE {
         let entity = commands
             .spawn((
@@ -68,6 +67,11 @@ pub fn init_tile_pool(mut commands: Commands, tile_textures: Res<TileTextures>) 
     }
 
     commands.insert_resource(pool);
+}
+
+/// タイルプールを初期化するシステム（Startup用）
+pub fn init_tile_pool(mut commands: Commands, tile_textures: Res<TileTextures>) {
+    create_tile_pool(&mut commands, &tile_textures);
 }
 
 /// 論理座標をマップ座標に変換（トーラスラップ）
