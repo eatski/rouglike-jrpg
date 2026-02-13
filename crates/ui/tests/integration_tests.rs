@@ -11,7 +11,7 @@ use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
 use std::time::Duration;
 use ui::app_state::AppState;
-use ui::battle::{battle_input_system, BattlePhase, BattleResource, PendingCommands};
+use ui::battle::{battle_input_system, BattleGameState, BattlePhase, BattleUIState, PendingCommands};
 use ui::components::{Boat, MovementLocked, OnBoat, Player, TilePosition};
 use ui::events::{MovementBlockedEvent, PlayerMovedEvent};
 use ui::map_mode::MapModeState;
@@ -967,7 +967,7 @@ fn setup_battle_test_app() -> App {
     app
 }
 
-/// BattleResourceを直接挿入するヘルパー
+/// BattleGameState + BattleUIState を直接挿入するヘルパー
 fn insert_battle_resource(app: &mut App, phase: BattlePhase) {
     let party = default_party();
     let enemies = vec![Enemy::slime()];
@@ -976,8 +976,10 @@ fn insert_battle_resource(app: &mut App, phase: BattlePhase) {
     let display_party_hp = battle_state.party.iter().map(|m| m.stats.hp).collect();
     let display_party_mp = battle_state.party.iter().map(|m| m.stats.mp).collect();
 
-    app.insert_resource(BattleResource {
+    app.insert_resource(BattleGameState {
         state: battle_state,
+    });
+    app.insert_resource(BattleUIState {
         selected_command: 0,
         selected_target: 0,
         pending_commands: PendingCommands::default(),
@@ -1017,7 +1019,7 @@ fn battle_phase_transitions_from_command_to_exploring() {
 
     // 初期状態がCommandSelectであることを確認
     {
-        let battle_res = app.world().resource::<BattleResource>();
+        let battle_res = app.world().resource::<BattleUIState>();
         assert!(matches!(battle_res.phase, BattlePhase::CommandSelect { .. }));
     }
 
@@ -1025,7 +1027,7 @@ fn battle_phase_transitions_from_command_to_exploring() {
     // 新フロー: CommandSelect → TargetSelect → (次メンバー) → ... → ShowMessage → ...
     for _ in 0..30 {
         let phase = {
-            let battle_res = app.world().resource::<BattleResource>();
+            let battle_res = app.world().resource::<BattleUIState>();
             battle_res.phase.clone()
         };
 
@@ -1061,7 +1063,7 @@ fn battle_phase_transitions_from_command_to_exploring() {
 
     // 最終的にBattleOverになっているはず
     {
-        let battle_res = app.world().resource::<BattleResource>();
+        let battle_res = app.world().resource::<BattleUIState>();
         assert!(
             matches!(battle_res.phase, BattlePhase::BattleOver { .. }),
             "Should reach BattleOver phase"
@@ -1087,7 +1089,7 @@ fn battle_command_selection_with_keys() {
 
     // 初期状態: selected_command = 0
     {
-        let battle_res = app.world().resource::<BattleResource>();
+        let battle_res = app.world().resource::<BattleUIState>();
         assert_eq!(battle_res.selected_command, 0);
     }
 
@@ -1096,7 +1098,7 @@ fn battle_command_selection_with_keys() {
     app.update();
 
     {
-        let battle_res = app.world().resource::<BattleResource>();
+        let battle_res = app.world().resource::<BattleUIState>();
         assert_eq!(
             battle_res.selected_command, 1,
             "Should select command 1 after pressing S"
@@ -1110,7 +1112,7 @@ fn battle_command_selection_with_keys() {
     app.update();
 
     {
-        let battle_res = app.world().resource::<BattleResource>();
+        let battle_res = app.world().resource::<BattleUIState>();
         assert_eq!(
             battle_res.selected_command, 0,
             "Should select command 0 after pressing W"
@@ -1124,7 +1126,7 @@ fn battle_command_selection_with_keys() {
     app.update();
 
     {
-        let battle_res = app.world().resource::<BattleResource>();
+        let battle_res = app.world().resource::<BattleUIState>();
         assert_eq!(
             battle_res.selected_command, 0,
             "Should stay at 0 (upper bound)"
@@ -1143,7 +1145,7 @@ fn battle_command_selection_with_keys() {
     app.update();
 
     {
-        let battle_res = app.world().resource::<BattleResource>();
+        let battle_res = app.world().resource::<BattleUIState>();
         assert_eq!(battle_res.selected_command, 2);
     }
 
@@ -1154,7 +1156,7 @@ fn battle_command_selection_with_keys() {
     app.update();
 
     {
-        let battle_res = app.world().resource::<BattleResource>();
+        let battle_res = app.world().resource::<BattleUIState>();
         assert_eq!(
             battle_res.selected_command, 2,
             "Should stay at 2 (lower bound)"
@@ -1182,7 +1184,7 @@ fn battle_flee_command_transitions_correctly() {
 
     // 逃走は50%確率。ShowMessage（にげきれた or にげられなかった）またはBattleOverに遷移
     let phase = {
-        let battle_res = app.world().resource::<BattleResource>();
+        let battle_res = app.world().resource::<BattleUIState>();
         battle_res.phase.clone()
     };
 

@@ -53,10 +53,15 @@ pub enum MessageEffect {
     BlinkEnemy { enemy_index: usize },
 }
 
-/// 戦闘の状態管理リソース
+/// 戦闘のゲームロジック状態（game crateのBattleStateをラップ）
 #[derive(Resource)]
-pub struct BattleResource {
+pub struct BattleGameState {
     pub state: BattleState,
+}
+
+/// 戦闘のUI状態管理リソース
+#[derive(Resource)]
+pub struct BattleUIState {
     /// 現在選択中のコマンドインデックス (0=たたかう, 1=じゅもん, 2=にげる)
     pub selected_command: usize,
     /// ターゲット選択中の敵インデックス
@@ -165,8 +170,10 @@ pub fn setup_battle_scene(
     let display_party_hp = battle_state.party.iter().map(|m| m.stats.hp).collect();
     let display_party_mp = battle_state.party.iter().map(|m| m.stats.mp).collect();
 
-    commands.insert_resource(BattleResource {
+    commands.insert_resource(BattleGameState {
         state: battle_state,
+    });
+    commands.insert_resource(BattleUIState {
         selected_command: 0,
         selected_target: 0,
         pending_commands: PendingCommands::default(),
@@ -501,11 +508,11 @@ pub fn cleanup_battle_scene(
     query: Query<Entity, With<BattleSceneRoot>>,
     mut player_query: Query<(Entity, &TilePosition, &mut Transform), With<Player>>,
     mut move_state: ResMut<MovementState>,
-    battle_res: Res<BattleResource>,
+    game_state: Res<BattleGameState>,
     mut party_state: ResMut<PartyState>,
 ) {
     // 戦闘結果のHP/MPを永続状態に書き戻す
-    for (i, member) in battle_res.state.party.iter().enumerate() {
+    for (i, member) in game_state.state.party.iter().enumerate() {
         if let Some(persistent) = party_state.members.get_mut(i) {
             persistent.stats.hp = if member.stats.hp <= 0 {
                 1 // 戦闘不能メンバーはHP=1で生存（全滅処理は別タスク）
@@ -519,7 +526,8 @@ pub fn cleanup_battle_scene(
     for entity in &query {
         commands.entity(entity).despawn();
     }
-    commands.remove_resource::<BattleResource>();
+    commands.remove_resource::<BattleGameState>();
+    commands.remove_resource::<BattleUIState>();
 
     // プレイヤーの移動関連コンポーネントをクリーンアップ
     if let Ok((entity, tile_pos, mut transform)) = player_query.single_mut() {

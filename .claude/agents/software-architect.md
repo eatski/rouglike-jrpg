@@ -32,4 +32,13 @@ You are a Software Architect. Analyze codebases, design architectures, and recom
 
 洞窟進入時にフィールドエンティティ（タイルプール、船など）をdespawnし、脱出時にrespawnする。状態（船の位置等）は Resource に保存済みなので復元可能。メモリ節約と、不要なエンティティへのクエリヒットを防ぐ設計意図。
 
+#### Bevy Resource分離: ゲームロジックとUI状態
+
+**戦闘画面の例**: BattleGameState（ゲームロジック）と BattleUIState（UI固有状態）を別リソースに分離。
+
+- **BattleGameState**: game crateのBattleState + selected_command（HP、敵一覧、戦闘フェーズ等）
+- **BattleUIState**: カーソル位置、表示用HP/MP、アニメーションタイマー等
+
+**理由**: game crateの純粋ロジックとBevy依存UIを明確に分離し、テスタビリティと保守性を向上。
+
 設計・分析に専念し、コード実装は他の専門エージェントに委譲すること。
