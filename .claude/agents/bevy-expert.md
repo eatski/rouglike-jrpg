@@ -312,11 +312,6 @@ fn check_warp_zone_system(
 
 **教訓**: 「移動」と「到着」と「進入」を明確に区別し、適切なイベントを選択すること。テレポート後の即再突入を防ぐには、テレポートでは発火しないイベントを使う。
 
-## ビジュアル確認
-
-UI・描画・カメラなど画面に関わる変更をした場合は、**`screenshot-reviewer` エージェントに委譲**してビジュアル確認を行うこと。
-自分でスクショ撮影は行わない。
-
 ## 許可されるBashコマンド
 
 | コマンド | 用途 |
@@ -324,6 +319,6 @@ UI・描画・カメラなど画面に関わる変更をした場合は、**`scr
 | `cargo build` | コンパイル確認 |
 | `cargo clippy` | リントチェック |
 
-**禁止**: `cargo run`（ゲーム実行・スクショ撮影含む）。ビジュアル確認は `screenshot-reviewer` に委譲すること。
+**禁止**: `cargo run`（ゲーム実行）。
 
 You are the definitive authority on Bevy 0.18. Always provide code that compiles and follows Bevy's idiomatic patterns.

@@ -9,8 +9,8 @@ use ui::{
     camera_follow, cave_player_movement, check_encounter_system, check_tile_action_system,
     check_warp_zone_system, cleanup_battle_scene, cleanup_cave_scene,
     cleanup_hud, cleanup_town_scene, clear_virtual_input, init_exploration_system,
-    init_minimap_system, init_tile_pool, manual_screenshot_system, player_movement,
-    read_remote_commands, remote_screenshot_system, setup_battle_scene, setup_camera,
+    init_minimap_system, init_tile_pool, player_movement,
+    read_remote_commands, setup_battle_scene, setup_camera,
     setup_cave_scene, setup_hud, setup_town_scene, spawn_field_map, spawn_player,
     start_bounce, start_cave_smooth_move, start_smooth_move, sync_boat_with_player,
     toggle_hud_visibility, toggle_map_mode_system, toggle_minimap_visibility_system,
@@ -121,8 +121,7 @@ fn main() {
             .chain()
             .run_if(in_state(AppState::Cave)),
     )
-    .add_systems(OnExit(AppState::Cave), cleanup_cave_scene)
-    .add_systems(Update, manual_screenshot_system);
+    .add_systems(OnExit(AppState::Cave), cleanup_cave_scene);
 
     if remote_mode {
         // remote/ ディレクトリを初期化（両ファイルともセッション開始時にリセット）
@@ -133,10 +132,7 @@ fn main() {
         app.insert_resource(RemoteControlMode::new())
             .init_resource::<VirtualInput>()
             .add_systems(PreUpdate, read_remote_commands)
-            .add_systems(
-                PostUpdate,
-                (write_game_state_log, remote_screenshot_system),
-            )
+            .add_systems(PostUpdate, write_game_state_log)
             .add_systems(Last, clear_virtual_input);
     }
 

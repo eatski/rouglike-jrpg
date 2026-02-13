@@ -38,8 +38,6 @@ Bevy 0.18を使用した2Dローグライク風JRPGのプロトタイプ。Cargo
 - **コミット**: ユーザーが明示的に指示した場合のみ `task-committer` を起動
 - **Explore**: 専門エージェントが内部で使用（PMは直接起動しない）
 - **複合タスク**: まず `software-architect` で設計、その後各エージェントに委譲
-- **ビジュアル確認**: 画面に関わる変更は各エージェントが画面確認を `screenshot-reviewer` に委譲
-
 ### スキル
 
 `.claude/skills/` にスキル定義を配置。ユーザーが直接呼び出せる便利コマンド。
@@ -57,5 +55,4 @@ Bevy 0.18を使用した2Dローグライク風JRPGのプロトタイプ。Cargo
 | `test-engineer` | テスト作成・デバッグ |
 | `pixel-art-generator` | ドット絵・アセット生成 |
 | `qa-verifier` | 品質保証（テスト実行＋手動確認の促し） |
-| `screenshot-reviewer` | スクショ撮影＆ビジュアルFB |
 | `task-committer` | コミット・ドキュメント整理 |

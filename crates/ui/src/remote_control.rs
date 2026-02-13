@@ -1,7 +1,6 @@
 use std::path::PathBuf;
 
 use bevy::prelude::*;
-use bevy::render::view::screenshot::{save_to_disk, Screenshot};
 
 use game::remote::{parse_command, RemoteCommand, RemoteKey};
 
@@ -19,8 +18,6 @@ pub struct RemoteControlMode {
     processed_lines: usize,
     /// 待機カウンター
     wait_frames: u32,
-    /// スクショ要求キュー
-    screenshot_requests: Vec<Option<String>>,
     /// フレームカウンタ
     frame_count: u64,
     /// キー入力間の自動wait（フレーム数、デフォルト8 ≈ 133ms @60fps）
@@ -40,7 +37,6 @@ impl RemoteControlMode {
             response_file: PathBuf::from("remote/response.jsonl"),
             processed_lines: 0,
             wait_frames: 0,
-            screenshot_requests: Vec::new(),
             frame_count: 0,
             input_interval: 8,
         }
@@ -92,7 +88,7 @@ pub fn read_remote_commands(
     // 一括投入対応: ループでコマンドを処理
     // KeyPress → input_interval分のwaitをセットしてbreak
     // Wait → そのままbreak
-    // Screenshot / QueryState / SetInputInterval → 処理してcontinue（フレーム消費なし）
+    // QueryState / SetInputInterval → 処理してcontinue（フレーム消費なし）
     while remote.processed_lines < lines.len() {
         let line = lines[remote.processed_lines];
         remote.processed_lines += 1;
@@ -109,10 +105,6 @@ pub fn read_remote_commands(
                 // キー入力後は自動インターバル
                 remote.wait_frames = remote.input_interval;
                 break;
-            }
-            Ok(RemoteCommand::Screenshot { filename }) => {
-                remote.screenshot_requests.push(filename);
-                // フレーム消費なし → continue
             }
             Ok(RemoteCommand::Wait(frames)) => {
                 remote.wait_frames = frames;
@@ -157,24 +149,6 @@ pub fn read_remote_commands(
 pub fn clear_virtual_input(mut vi: ResMut<VirtualInput>) {
     vi.just_pressed.clear();
     vi.pressed.clear();
-}
-
-/// リモートスクリーンショット撮影システム
-pub fn remote_screenshot_system(mut commands: Commands, mut remote: ResMut<RemoteControlMode>) {
-    let requests: Vec<Option<String>> = remote.screenshot_requests.drain(..).collect();
-    for filename in requests {
-        std::fs::create_dir_all("screenshots").ok();
-        let path = filename.unwrap_or_else(|| "screenshots/latest.png".to_string());
-        let frame = remote.frame_count;
-        commands
-            .spawn(Screenshot::primary_window())
-            .observe(save_to_disk(path.clone()));
-        remote.append_response(&format!(
-            r#"{{"event":"screenshot_saved","path":"{}","frame":{}}}"#,
-            path, frame
-        ));
-        info!("Remote screenshot: {}", path);
-    }
 }
 
 /// ゲーム状態をレスポンスファイルに書き出すシステム

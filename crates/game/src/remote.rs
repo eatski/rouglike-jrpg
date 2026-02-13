@@ -5,8 +5,6 @@
 pub enum RemoteCommand {
     /// キー入力のシミュレート
     KeyPress(RemoteKey),
-    /// スクリーンショット撮影
-    Screenshot { filename: Option<String> },
     /// 状態ダンプ要求
     QueryState,
     /// Nフレーム待機
@@ -33,8 +31,6 @@ pub enum RemoteKey {
 ///
 /// フォーマット例:
 /// - `{"cmd":"key","key":"up"}`
-/// - `{"cmd":"screenshot"}`
-/// - `{"cmd":"screenshot","filename":"battle.png"}`
 /// - `{"cmd":"wait","frames":30}`
 /// - `{"cmd":"query_state"}`
 pub fn parse_command(line: &str) -> Result<RemoteCommand, String> {
@@ -59,10 +55,6 @@ pub fn parse_command(line: &str) -> Result<RemoteCommand, String> {
                 .as_str();
             let key = parse_remote_key(key_str)?;
             Ok(RemoteCommand::KeyPress(key))
-        }
-        "screenshot" => {
-            let filename = obj.get("filename").map(|v| v.as_str().to_string());
-            Ok(RemoteCommand::Screenshot { filename })
         }
         "query_state" => Ok(RemoteCommand::QueryState),
         "wait" => {
@@ -254,20 +246,6 @@ mod tests {
         assert_eq!(
             parse_command(r#"{"cmd":"key","key":"map"}"#).unwrap(),
             RemoteCommand::KeyPress(RemoteKey::MapToggle)
-        );
-    }
-
-    #[test]
-    fn test_parse_screenshot() {
-        assert_eq!(
-            parse_command(r#"{"cmd":"screenshot"}"#).unwrap(),
-            RemoteCommand::Screenshot { filename: None }
-        );
-        assert_eq!(
-            parse_command(r#"{"cmd":"screenshot","filename":"battle.png"}"#).unwrap(),
-            RemoteCommand::Screenshot {
-                filename: Some("battle.png".to_string())
-            }
         );
     }
 

@@ -84,15 +84,7 @@ Read tool → assets/tiles/mountain.png
 2. **ビルド**: `cargo build -p generate-tiles`
 3. **生成実行**: `cargo run -p generate-tiles`
 4. **タイル単体確認**: Readツールで画像を読み込んで視覚確認
-5. **ゲーム内確認**: `screenshot-reviewer` エージェントに委譲してゲーム画面を確認
-6. **必要に応じて調整**: 色・パターンを微調整して再生成
-
-### ゲーム内ビジュアル確認（重要）
-
-タイル単体の見た目だけでなく、**ゲーム画面上でどう見えるか**を必ず確認すること。
-タイル同士の組み合わせ、プレイヤーキャラとの視認性、全体的な雰囲気はゲーム画面でしか判断できない。
-
-ゲーム内でのビジュアル確認は **`screenshot-reviewer` エージェントに委譲**すること。自分でスクショ撮影は行わない。
+5. **必要に応じて調整**: 色・パターンを微調整して再生成
 
 ## Output Directory Structure
 
@@ -159,7 +151,7 @@ commands.spawn((
 | `cargo run -p generate-tiles` | アセット生成の実行 |
 | `cargo build` | フルビルド |
 
-**禁止**: `cargo run`（ゲーム実行・スクショ撮影含む）。ビジュアル確認は `screenshot-reviewer` に委譲すること。
+**禁止**: `cargo run`（ゲーム実行）。
 
 ## Communication
 

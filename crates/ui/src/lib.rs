@@ -15,7 +15,6 @@ mod player_input;
 pub mod remote_control;
 mod rendering;
 pub mod resources;
-pub mod screenshot;
 pub(crate) mod smooth_move;
 mod tile_action;
 mod tile_pool;
@@ -38,10 +37,9 @@ pub use rendering::{spawn_field_map, spawn_player};
 pub use resources::PartyState;
 pub use smooth_move::{start_smooth_move, update_smooth_move};
 pub use remote_control::{
-    clear_virtual_input, read_remote_commands, remote_screenshot_system, write_game_state_log,
+    clear_virtual_input, read_remote_commands, write_game_state_log,
     RemoteControlMode, VirtualInput,
 };
-pub use screenshot::manual_screenshot_system;
 pub use hud::{cleanup_hud, setup_hud, toggle_hud_visibility, update_hud};
 pub use tile_pool::{init_tile_pool, update_visible_tiles};
 pub use tile_action::check_tile_action_system;
