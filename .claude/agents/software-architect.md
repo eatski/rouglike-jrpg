@@ -16,6 +16,21 @@ You are a Software Architect. Analyze codebases, design architectures, and recom
 
 **禁止**: `game/` が `ui/` や `bevy` に依存すること。依存方向は常に `ui/ → game/`。
 
+### crate分割の原則: 意味的ドメインに基づく配置
+
+crateは「複数から使われるかどうか」ではなく、「意味的にどのドメインに属するか」で配置先を決める。
+
+- **NG**: 複数crateから参照される型を「共有crate」にまとめる（`components-ui`, `events-ui` のような雑多な袋）
+- **OK**: 型が属する意味的ドメインのcrateに置き、他crateはそこを参照する
+
+**実例（movement-ui統合）**: `Player`, `TilePosition`, `MovementLocked`, `PendingMove`, `Boat`, `OnBoat`, 移動イベント群, `SmoothMove`, `Bounce` は全て「移動メカニクス」という共通ドメインに属する。これらを `components-ui`（コンポーネントの袋）、`events-ui`（イベントの袋）、`animation-ui`（アニメーションの袋）に分散させるのではなく、`movement-ui`（移動メカニクス）に統合した。
+
+**判断手順**:
+1. 型の意味的所属を特定する（「何のドメインか？」）
+2. そのドメインのcrateに配置する
+3. 他crateは依存として参照する
+4. 循環依存が生じないか検証する
+
 ### ハマりポイント
 
 #### TileEnteredEvent: テレポートでは発火しない
