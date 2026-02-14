@@ -12,7 +12,6 @@ pub mod map_mode;
 mod minimap;
 mod movement_helpers;
 mod player_input;
-pub mod remote_control;
 mod rendering;
 pub mod resources;
 pub(crate) mod smooth_move;
@@ -36,10 +35,6 @@ pub use player_input::{player_movement, sync_boat_with_player};
 pub use rendering::{spawn_field_map, spawn_player};
 pub use resources::PartyState;
 pub use smooth_move::{start_smooth_move, update_smooth_move};
-pub use remote_control::{
-    clear_virtual_input, read_remote_commands, write_game_state_log,
-    RemoteControlMode, VirtualInput,
-};
 pub use hud::{cleanup_hud, setup_hud, toggle_hud_visibility, update_hud};
 pub use tile_pool::{init_tile_pool, update_visible_tiles};
 pub use tile_action::check_tile_action_system;

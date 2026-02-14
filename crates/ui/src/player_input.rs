@@ -7,7 +7,6 @@ use crate::events::{MovementBlockedEvent, PlayerMovedEvent};
 use crate::input_source;
 use crate::map_mode::MapModeState;
 use crate::movement_helpers::{execute_boat_move, execute_walk_move, ExecuteMoveResult};
-use crate::remote_control::VirtualInput;
 use crate::resources::{MapDataResource, MovementState};
 
 /// プレイヤーの移動入力を処理するシステム
@@ -15,7 +14,6 @@ use crate::resources::{MapDataResource, MovementState};
 pub fn player_movement(
     mut commands: Commands,
     keyboard: Res<ButtonInput<KeyCode>>,
-    virtual_input: Option<Res<VirtualInput>>,
     time: Res<Time>,
     map_data: Res<MapDataResource>,
     map_mode_state: Res<MapModeState>,
@@ -47,16 +45,15 @@ pub fn player_movement(
         return;
     }
 
-    let vi = virtual_input.as_deref();
     let mut dx: i32 = 0;
     let mut dy: i32 = 0;
 
-    let x_pressed = input_source::is_x_pressed(&keyboard, vi);
-    let y_pressed = input_source::is_y_pressed(&keyboard, vi);
+    let x_pressed = input_source::is_x_pressed(&keyboard);
+    let y_pressed = input_source::is_y_pressed(&keyboard);
 
     // キー押下順序の追跡
-    let x_just_pressed = input_source::is_x_just_pressed(&keyboard, vi);
-    let y_just_pressed = input_source::is_y_just_pressed(&keyboard, vi);
+    let x_just_pressed = input_source::is_x_just_pressed(&keyboard);
+    let y_just_pressed = input_source::is_y_just_pressed(&keyboard);
 
     // first_axisの更新
     if x_just_pressed && !y_pressed {
@@ -67,16 +64,16 @@ pub fn player_movement(
         move_state.first_axis = None; // 両方離されたらリセット
     }
 
-    if input_source::is_up_pressed(&keyboard, vi) {
+    if input_source::is_up_pressed(&keyboard) {
         dy = 1;
     }
-    if input_source::is_down_pressed(&keyboard, vi) {
+    if input_source::is_down_pressed(&keyboard) {
         dy = -1;
     }
-    if input_source::is_left_pressed(&keyboard, vi) {
+    if input_source::is_left_pressed(&keyboard) {
         dx = -1;
     }
-    if input_source::is_right_pressed(&keyboard, vi) {
+    if input_source::is_right_pressed(&keyboard) {
         dx = 1;
     }
 

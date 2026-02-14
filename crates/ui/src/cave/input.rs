@@ -7,7 +7,6 @@ use crate::components::{MovementLocked, PendingMove, Player, TilePosition};
 use crate::constants::TILE_SIZE;
 use crate::events::{MovementBlockedEvent, PlayerArrivedEvent, PlayerMovedEvent};
 use crate::input_source;
-use crate::remote_control::VirtualInput;
 use crate::resources::MovementState;
 use crate::smooth_move::SmoothMove;
 
@@ -20,7 +19,6 @@ const MOVE_DURATION: f32 = 0.15;
 pub fn cave_player_movement(
     mut commands: Commands,
     keyboard: Res<ButtonInput<KeyCode>>,
-    virtual_input: Option<Res<VirtualInput>>,
     time: Res<Time>,
     cave_map: Res<CaveMapResource>,
     mut move_state: ResMut<MovementState>,
@@ -39,14 +37,13 @@ pub fn cave_player_movement(
         return;
     }
 
-    let vi = virtual_input.as_deref();
     let mut dx: i32 = 0;
     let mut dy: i32 = 0;
 
-    let x_pressed = input_source::is_x_pressed(&keyboard, vi);
-    let y_pressed = input_source::is_y_pressed(&keyboard, vi);
-    let x_just_pressed = input_source::is_x_just_pressed(&keyboard, vi);
-    let y_just_pressed = input_source::is_y_just_pressed(&keyboard, vi);
+    let x_pressed = input_source::is_x_pressed(&keyboard);
+    let y_pressed = input_source::is_y_pressed(&keyboard);
+    let x_just_pressed = input_source::is_x_just_pressed(&keyboard);
+    let y_just_pressed = input_source::is_y_just_pressed(&keyboard);
 
     if x_just_pressed && !y_pressed {
         move_state.first_axis = Some(true);
@@ -56,16 +53,16 @@ pub fn cave_player_movement(
         move_state.first_axis = None;
     }
 
-    if input_source::is_up_pressed(&keyboard, vi) {
+    if input_source::is_up_pressed(&keyboard) {
         dy = 1;
     }
-    if input_source::is_down_pressed(&keyboard, vi) {
+    if input_source::is_down_pressed(&keyboard) {
         dy = -1;
     }
-    if input_source::is_left_pressed(&keyboard, vi) {
+    if input_source::is_left_pressed(&keyboard) {
         dx = -1;
     }
-    if input_source::is_right_pressed(&keyboard, vi) {
+    if input_source::is_right_pressed(&keyboard) {
         dx = 1;
     }
 

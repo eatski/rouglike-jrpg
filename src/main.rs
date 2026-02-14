@@ -8,21 +8,19 @@ use ui::{
     battle_blink_system, battle_display_system, battle_input_system, battle_shake_system,
     camera_follow, cave_player_movement, check_encounter_system, check_tile_action_system,
     check_warp_zone_system, cleanup_battle_scene, cleanup_cave_scene,
-    cleanup_hud, cleanup_town_scene, clear_virtual_input, init_exploration_system,
+    cleanup_hud, cleanup_town_scene, init_exploration_system,
     init_minimap_system, init_tile_pool, player_movement,
-    read_remote_commands, setup_battle_scene, setup_camera,
+    setup_battle_scene, setup_camera,
     setup_cave_scene, setup_hud, setup_town_scene, spawn_field_map, spawn_player,
     start_bounce, start_cave_smooth_move, start_smooth_move, sync_boat_with_player,
     toggle_hud_visibility, toggle_map_mode_system, toggle_minimap_visibility_system,
     town_display_system, town_input_system, update_bounce, update_cave_smooth_move,
     update_cave_tiles, update_exploration_system, update_hud, update_minimap_texture_system,
-    update_smooth_move, update_visible_tiles, write_game_state_log, AppState, MapModeState,
-    PartyState, RemoteControlMode, VirtualInput,
+    update_smooth_move, update_visible_tiles, AppState, MapModeState,
+    PartyState,
 };
 
 fn main() {
-    let remote_mode = std::env::args().any(|arg| arg == "--remote");
-
     let mut app = App::new();
     app.add_plugins(
         DefaultPlugins
@@ -122,19 +120,6 @@ fn main() {
             .run_if(in_state(AppState::Cave)),
     )
     .add_systems(OnExit(AppState::Cave), cleanup_cave_scene);
-
-    if remote_mode {
-        // remote/ ディレクトリを初期化（両ファイルともセッション開始時にリセット）
-        std::fs::create_dir_all("remote").ok();
-        std::fs::write("remote/commands.jsonl", "").ok();
-        std::fs::write("remote/response.jsonl", "").ok();
-
-        app.insert_resource(RemoteControlMode::new())
-            .init_resource::<VirtualInput>()
-            .add_systems(PreUpdate, read_remote_commands)
-            .add_systems(PostUpdate, write_game_state_log)
-            .add_systems(Last, clear_virtual_input);
-    }
 
     app.run();
 }

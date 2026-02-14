@@ -4,7 +4,6 @@ pub mod coordinates;
 pub mod exploration;
 pub mod map;
 pub mod movement;
-pub mod remote;
 pub mod town;
 
 #[cfg(test)]

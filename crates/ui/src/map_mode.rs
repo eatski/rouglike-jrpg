@@ -8,7 +8,6 @@ use crate::components::{Player, TilePosition};
 use crate::constants::{MAP_PIXEL_WIDTH, VISIBLE_SIZE};
 use crate::events::PlayerMovedEvent;
 use crate::input_source;
-use crate::remote_control::VirtualInput;
 use crate::resources::SpawnPosition;
 
 /// マップモードのズーム値（マップ全体表示用）
@@ -58,12 +57,10 @@ pub fn update_exploration_system(
 /// Mキー押下でマップモードをトグルするシステム
 pub fn toggle_map_mode_system(
     keyboard: Res<ButtonInput<KeyCode>>,
-    virtual_input: Option<Res<VirtualInput>>,
     mut map_mode_state: ResMut<MapModeState>,
     mut camera_query: Query<(&mut Projection, &mut Transform), With<Camera2d>>,
 ) {
-    let vi = virtual_input.as_deref();
-    if input_source::is_map_toggle_just_pressed(&keyboard, vi) {
+    if input_source::is_map_toggle_just_pressed(&keyboard) {
         map_mode_state.enabled = !map_mode_state.enabled;
 
         // カメラズームと位置を変更

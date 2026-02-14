@@ -13,4 +13,4 @@ rand = "0.8"
 rand_chacha = "0.3"
 
 [workspace]
-members = ["crates/game", "crates/ui", "crates/generate_tiles"]
+members = ["crates/game-core", "crates/game", "crates/ui", "crates/generate_tiles"]

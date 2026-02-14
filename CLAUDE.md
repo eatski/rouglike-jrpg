@@ -11,7 +11,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 cargo build                       # ビルド（rsファイル修正後は必ず実行）
 cargo run                         # 実行
-cargo run -- --remote              # リモート制御モード（remote/commands.jsonl で操作）
 cargo run -p generate-tiles       # アセット生成（タイルスプライト）
 cargo clippy --workspace          # リント（全crate）
 cargo test --workspace            # テスト（全crate）
@@ -23,6 +22,7 @@ cargo test --workspace            # テスト（全crate）
 
 Bevy 0.18を使用した2Dローグライク風JRPGのプロトタイプ。Cargoワークスペース構成。
 
+- **game-core crate**: 完全依存ゼロ、基本型・座標・地形・ステータス（game crateから再エクスポート）
 - **game crate**: 純粋Rust（Bevy非依存）、ゲームロジック
 - **ui crate**: Bevy依存、描画・入力・アニメーション
 - **generate_tiles crate**: アセット生成ツール（独立バイナリ、image/rand依存）

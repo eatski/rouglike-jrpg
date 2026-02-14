@@ -1,12 +1,12 @@
 use rand::Rng;
 
+use game_core::terrain::{MAP_HEIGHT, MAP_WIDTH};
+
 use crate::coordinates::orthogonal_neighbors;
 
 use super::islands::{calculate_cave_spawns, calculate_town_spawns, validate_connectivity};
 use super::terrain::Terrain;
 
-pub const MAP_WIDTH: usize = 150;
-pub const MAP_HEIGHT: usize = 150;
 const TARGET_LAND_TILES: usize = 6000;
 const LAND_SPREAD_CHANCE: f32 = 0.65;
 const ISLAND_COUNT: usize = 20;
