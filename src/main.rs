@@ -1,23 +1,26 @@
 use bevy::prelude::*;
 use bevy::window::{Window, WindowResolution};
 
-use ui::constants::WINDOW_SIZE;
-use ui::events::{MovementBlockedEvent, PlayerArrivedEvent, PlayerMovedEvent, TileEnteredEvent};
-use ui::resources::MovementState;
-use ui::{
+use animation_ui::{start_bounce, update_bounce};
+use app_state::AppState;
+use battle_ui::{
     battle_blink_system, battle_display_system, battle_input_system, battle_shake_system,
-    camera_follow, cave_player_movement, check_encounter_system, check_tile_action_system,
-    check_warp_zone_system, cleanup_battle_scene, cleanup_cave_scene,
-    cleanup_hud, cleanup_town_scene, init_exploration_system,
-    init_minimap_system, init_tile_pool, player_movement,
-    setup_battle_scene, setup_camera,
-    setup_cave_scene, setup_hud, setup_town_scene, spawn_field_map, spawn_player,
-    start_bounce, start_cave_smooth_move, start_smooth_move, sync_boat_with_player,
+    check_encounter_system, cleanup_battle_scene, setup_battle_scene,
+};
+use cave_ui::{
+    cave_player_movement, check_warp_zone_system, cleanup_cave_scene, setup_cave_scene,
+    start_cave_smooth_move, update_cave_smooth_move, update_cave_tiles,
+};
+use events_ui::{MovementBlockedEvent, PlayerArrivedEvent, PlayerMovedEvent, TileEnteredEvent};
+use shared_ui::{MovementState, PartyState, WINDOW_SIZE};
+use town_ui::{cleanup_town_scene, setup_town_scene, town_display_system, town_input_system};
+use world_ui::{
+    camera_follow, check_tile_action_system, cleanup_hud, init_exploration_system,
+    init_minimap_system, init_tile_pool, player_movement, setup_camera, setup_hud,
+    spawn_field_map, spawn_player, start_smooth_move, sync_boat_with_player,
     toggle_hud_visibility, toggle_map_mode_system, toggle_minimap_visibility_system,
-    town_display_system, town_input_system, update_bounce, update_cave_smooth_move,
-    update_cave_tiles, update_exploration_system, update_hud, update_minimap_texture_system,
-    update_smooth_move, update_visible_tiles, AppState, MapModeState,
-    PartyState,
+    update_exploration_system, update_hud, update_minimap_texture_system, update_smooth_move,
+    update_visible_tiles, MapModeState,
 };
 
 fn main() {

@@ -5,12 +5,40 @@ edition = "2024"
 
 [dependencies]
 bevy = "0.18"
-game = { path = "crates/game" }
-ui = { path = "crates/ui" }
 rand = "0.8"
+animation-ui = { path = "crates/animation-ui" }
+app-state = { path = "crates/app-state" }
+battle = { path = "crates/battle" }
+battle-ui = { path = "crates/battle-ui" }
+cave-ui = { path = "crates/cave-ui" }
+components-ui = { path = "crates/components-ui" }
+events-ui = { path = "crates/events-ui" }
+shared-ui = { path = "crates/shared-ui" }
+terrain = { path = "crates/terrain" }
+town-ui = { path = "crates/town-ui" }
+world = { path = "crates/world" }
+world-ui = { path = "crates/world-ui" }
 
 [dev-dependencies]
 rand_chacha = "0.3"
 
 [workspace]
-members = ["crates/game-core", "crates/game", "crates/ui", "crates/generate_tiles"]
+members = [
+    "crates/terrain",
+    "crates/party",
+    "crates/world",
+    "crates/town",
+    "crates/cave",
+    "crates/battle",
+    "crates/app-state",
+    "crates/components-ui",
+    "crates/events-ui",
+    "crates/input-ui",
+    "crates/shared-ui",
+    "crates/animation-ui",
+    "crates/battle-ui",
+    "crates/town-ui",
+    "crates/world-ui",
+    "crates/cave-ui",
+    "crates/generate_tiles",
+]

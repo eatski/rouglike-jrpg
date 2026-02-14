@@ -1,0 +1,9 @@
+[package]
+name = "animation-ui"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bevy = "0.18"
+components-ui = { path = "../components-ui" }
+events-ui = { path = "../events-ui" }
