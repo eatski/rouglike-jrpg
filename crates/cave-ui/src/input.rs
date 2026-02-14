@@ -3,12 +3,12 @@ use bevy::prelude::*;
 use cave::{try_cave_move, CaveMoveResult, CaveTerrain};
 
 use app_state::AppState;
-use components_ui::{MovementLocked, PendingMove, Player, TilePosition};
-use shared_ui::TILE_SIZE;
-use events_ui::{MovementBlockedEvent, PlayerArrivedEvent, PlayerMovedEvent};
+use movement_ui::{
+    MovementBlockedEvent, MovementLocked, PendingMove, Player, PlayerArrivedEvent,
+    PlayerMovedEvent, SmoothMove, TilePosition,
+};
+use shared_ui::{MovementState, TILE_SIZE};
 use input_ui;
-use shared_ui::MovementState;
-use animation_ui::SmoothMove;
 
 use super::scene::CaveMapResource;
 

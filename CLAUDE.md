@@ -20,7 +20,7 @@ cargo test --workspace            # テスト（全crate）
 
 ## Architecture
 
-Bevy 0.18を使用した2Dローグライク風JRPGのプロトタイプ。Cargoワークスペース構成（17 crate）。
+Bevy 0.18を使用した2Dローグライク風JRPGのプロトタイプ。Cargoワークスペース構成（15 crate）。
 
 **ドメイン層（依存なし）**:
 - **terrain**: 地形・座標・方向（Terrain, Position, Direction）
@@ -32,11 +32,9 @@ Bevy 0.18を使用した2Dローグライク風JRPGのプロトタイプ。Cargo
 
 **UI共通層（Bevy依存）**:
 - **app-state**: AppState（Exploring/Battle/Cave/Town）
-- **components-ui**: UI共通コンポーネント（MapMode, TilePool等）
-- **events-ui**: UI共通イベント（TileEnteredEvent等）
 - **input-ui**: 入力ソース抽象化（InputSource）
 - **shared-ui**: UI共通定数・リソース
-- **animation-ui**: アニメーション（SmoothMove, Bounce等）
+- **movement-ui**: 移動メカニクス（コンポーネント、イベント、アニメーション）
 
 **UI機能層（Bevy依存）**:
 - **world-ui**: ワールドマップシーン・入力・描画

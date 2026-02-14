@@ -7,8 +7,7 @@ use bevy::prelude::*;
 use world::movement::{try_boat_move_or_disembark, try_move, BoatMoveResult, MoveResult};
 use terrain::Terrain;
 
-use components_ui::{Boat, OnBoat, Player, TilePosition};
-use events_ui::{MovementBlockedEvent, PlayerMovedEvent};
+use movement_ui::{Boat, MovementBlockedEvent, OnBoat, Player, PlayerMovedEvent, TilePosition};
 
 /// 移動実行の結果
 pub enum ExecuteMoveResult {

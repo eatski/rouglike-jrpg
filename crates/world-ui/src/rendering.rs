@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use world::map::{calculate_boat_spawns, generate_connected_map};
 
-use components_ui::{Boat, Player, TilePosition};
+use movement_ui::{Boat, Player, TilePosition};
 use shared_ui::{tile_to_world, MapDataResource, TILE_SIZE};
 
 use crate::resources::SpawnPosition;

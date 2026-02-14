@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
-use components_ui::{MovementLocked, PendingMove, Player};
-use events_ui::MovementBlockedEvent;
+use crate::components::{MovementLocked, PendingMove, Player};
+use crate::events::MovementBlockedEvent;
 
 const BOUNCE_DISTANCE: f32 = 4.0 * 0.3; // TILE_SIZE * 0.3
 const BOUNCE_DURATION: f32 = 0.1;

@@ -1,7 +1,6 @@
 use bevy::prelude::*;
 use bevy::window::{Window, WindowResolution};
 
-use animation_ui::{start_bounce, update_bounce};
 use app_state::AppState;
 use battle_ui::{
     battle_blink_system, battle_display_system, battle_input_system, battle_shake_system,
@@ -11,7 +10,10 @@ use cave_ui::{
     cave_player_movement, check_warp_zone_system, cleanup_cave_scene, setup_cave_scene,
     start_cave_smooth_move, update_cave_smooth_move, update_cave_tiles,
 };
-use events_ui::{MovementBlockedEvent, PlayerArrivedEvent, PlayerMovedEvent, TileEnteredEvent};
+use movement_ui::{
+    start_bounce, update_bounce, MovementBlockedEvent, PlayerArrivedEvent, PlayerMovedEvent,
+    TileEnteredEvent,
+};
 use shared_ui::{MovementState, PartyState, WINDOW_SIZE};
 use town_ui::{cleanup_town_scene, setup_town_scene, town_display_system, town_input_system};
 use world_ui::{

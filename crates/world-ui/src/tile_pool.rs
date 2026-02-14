@@ -3,8 +3,7 @@ use std::collections::HashMap;
 
 use terrain::{Terrain, MAP_HEIGHT, MAP_WIDTH};
 
-use animation_ui::SmoothMove;
-use components_ui::{MapTile, Player, TilePosition};
+use movement_ui::{MapTile, Player, SmoothMove, TilePosition};
 use shared_ui::{logical_to_world, MapDataResource, TILE_SIZE, VISIBLE_CELLS};
 
 use crate::rendering::TileTextures;

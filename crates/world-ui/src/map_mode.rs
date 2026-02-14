@@ -4,8 +4,7 @@ use bevy::prelude::*;
 use world::exploration::{ExplorationMap, VIEW_RADIUS};
 use terrain::{MAP_HEIGHT, MAP_WIDTH};
 
-use components_ui::{Player, TilePosition};
-use events_ui::PlayerMovedEvent;
+use movement_ui::{Player, PlayerMovedEvent, TilePosition};
 use shared_ui::{MAP_PIXEL_WIDTH, VISIBLE_SIZE};
 
 use crate::resources::SpawnPosition;

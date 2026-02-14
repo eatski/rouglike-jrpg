@@ -6,13 +6,11 @@ edition = "2024"
 [dependencies]
 bevy = "0.18"
 rand = "0.8"
-animation-ui = { path = "crates/animation-ui" }
 app-state = { path = "crates/app-state" }
 battle = { path = "crates/battle" }
 battle-ui = { path = "crates/battle-ui" }
 cave-ui = { path = "crates/cave-ui" }
-components-ui = { path = "crates/components-ui" }
-events-ui = { path = "crates/events-ui" }
+movement-ui = { path = "crates/movement-ui" }
 shared-ui = { path = "crates/shared-ui" }
 terrain = { path = "crates/terrain" }
 town-ui = { path = "crates/town-ui" }
@@ -31,11 +29,9 @@ members = [
     "crates/cave",
     "crates/battle",
     "crates/app-state",
-    "crates/components-ui",
-    "crates/events-ui",
     "crates/input-ui",
     "crates/shared-ui",
-    "crates/animation-ui",
+    "crates/movement-ui",
     "crates/battle-ui",
     "crates/town-ui",
     "crates/world-ui",

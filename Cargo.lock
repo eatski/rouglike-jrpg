@@ -168,15 +168,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "animation-ui"
-version = "0.1.0"
-dependencies = [
- "bevy",
- "components-ui",
- "events-ui",
-]
-
-[[package]]
 name = "app-state"
 version = "0.1.0"
 dependencies = [
@@ -342,13 +333,11 @@ dependencies = [
 name = "battle-ui"
 version = "0.1.0"
 dependencies = [
- "animation-ui",
  "app-state",
  "battle",
  "bevy",
- "components-ui",
- "events-ui",
  "input-ui",
+ "movement-ui",
  "rand 0.8.5",
  "shared-ui",
 ]
@@ -1792,13 +1781,11 @@ dependencies = [
 name = "cave-ui"
 version = "0.1.0"
 dependencies = [
- "animation-ui",
  "app-state",
  "bevy",
  "cave",
- "components-ui",
- "events-ui",
  "input-ui",
+ "movement-ui",
  "rand 0.8.5",
  "shared-ui",
  "terrain",
@@ -1880,13 +1867,6 @@ checksum = "ba5a308b75df32fe02788e748662718f03fde005016435c444eea572398219fd"
 dependencies = [
  "bytes",
  "memchr",
-]
-
-[[package]]
-name = "components-ui"
-version = "0.1.0"
-dependencies = [
- "bevy",
 ]
 
 [[package]]
@@ -2368,14 +2348,6 @@ checksum = "8be9f3dfaaffdae2972880079a491a1a8bb7cbed0b8dd7a347f668b4150a3b93"
 dependencies = [
  "event-listener",
  "pin-project-lite",
-]
-
-[[package]]
-name = "events-ui"
-version = "0.1.0"
-dependencies = [
- "bevy",
- "terrain",
 ]
 
 [[package]]
@@ -3262,6 +3234,14 @@ checksum = "1fa76a2c86f704bdb222d66965fb3d63269ce38518b83cb0575fca855ebb6316"
 dependencies = [
  "adler2",
  "simd-adler32",
+]
+
+[[package]]
+name = "movement-ui"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "terrain",
 ]
 
 [[package]]
@@ -4259,14 +4239,12 @@ dependencies = [
 name = "rouglike-jrpg"
 version = "0.1.0"
 dependencies = [
- "animation-ui",
  "app-state",
  "battle",
  "battle-ui",
  "bevy",
  "cave-ui",
- "components-ui",
- "events-ui",
+ "movement-ui",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "shared-ui",
@@ -4808,10 +4786,9 @@ dependencies = [
 name = "town-ui"
 version = "0.1.0"
 dependencies = [
- "animation-ui",
  "app-state",
  "bevy",
- "components-ui",
+ "movement-ui",
  "shared-ui",
  "town",
 ]
@@ -5856,12 +5833,10 @@ dependencies = [
 name = "world-ui"
 version = "0.1.0"
 dependencies = [
- "animation-ui",
  "app-state",
  "bevy",
- "components-ui",
- "events-ui",
  "input-ui",
+ "movement-ui",
  "rand 0.8.5",
  "shared-ui",
  "terrain",

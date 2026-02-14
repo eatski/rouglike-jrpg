@@ -2,8 +2,7 @@ use bevy::prelude::*;
 
 use battle::{generate_enemy_group, BattleAction, BattleState, EnemyKind, SpellKind};
 
-use animation_ui::Bounce;
-use components_ui::{MovementLocked, PendingMove, Player, TilePosition};
+use movement_ui::{Bounce, MovementLocked, PendingMove, Player, TilePosition};
 use shared_ui::{tile_to_world, MovementState, PartyState};
 
 use super::display::{
@@ -532,7 +531,7 @@ pub fn cleanup_battle_scene(
         commands
             .entity(entity)
             .remove::<MovementLocked>()
-            .remove::<animation_ui::SmoothMove>()
+            .remove::<movement_ui::SmoothMove>()
             .remove::<PendingMove>()
             .remove::<Bounce>();
 

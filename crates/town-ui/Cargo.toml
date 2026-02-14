@@ -8,5 +8,4 @@ bevy = "0.18"
 town = { path = "../town" }
 app-state = { path = "../app-state" }
 shared-ui = { path = "../shared-ui" }
-components-ui = { path = "../components-ui" }
-animation-ui = { path = "../animation-ui" }
+movement-ui = { path = "../movement-ui" }

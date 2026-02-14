@@ -3,8 +3,7 @@ use bevy::prelude::*;
 use terrain::TileAction;
 
 use app_state::AppState;
-use components_ui::{OnBoat, Player, TilePosition};
-use events_ui::TileEnteredEvent;
+use movement_ui::{OnBoat, Player, TileEnteredEvent, TilePosition};
 use shared_ui::MapDataResource;
 
 /// プレイヤーがフィールドのタイルに歩いて到着した際に、

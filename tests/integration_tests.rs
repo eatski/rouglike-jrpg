@@ -13,14 +13,15 @@ use rand_chacha::ChaCha8Rng;
 use std::time::Duration;
 use app_state::AppState;
 use battle_ui::{battle_input_system, BattleGameState, BattlePhase, BattleUIState, PendingCommands};
-use components_ui::{Boat, MovementLocked, OnBoat, Player, TilePosition};
-use events_ui::{MovementBlockedEvent, PlayerMovedEvent};
-use world_ui::MapModeState;
+use movement_ui::{
+    start_bounce, update_bounce, Boat, MovementBlockedEvent, MovementLocked, OnBoat, Player,
+    PlayerMovedEvent, TilePosition,
+};
 use shared_ui::{MapDataResource, MovementState, PartyState};
-use world_ui::SpawnPosition;
-use world_ui::{player_movement, sync_boat_with_player};
-use animation_ui::{start_bounce, update_bounce};
-use world_ui::{start_smooth_move, update_smooth_move};
+use world_ui::{
+    player_movement, start_smooth_move, sync_boat_with_player, update_smooth_move, MapModeState,
+    SpawnPosition,
+};
 
 /// イベントカウンタ（テスト用）
 #[derive(Resource, Default)]
@@ -88,8 +89,8 @@ fn setup_test_app_with_map(grid: Vec<Vec<Terrain>>, spawn_x: usize, spawn_y: usi
     // イベントを登録
     app.add_message::<PlayerMovedEvent>();
     app.add_message::<MovementBlockedEvent>();
-    app.add_message::<events_ui::PlayerArrivedEvent>();
-    app.add_message::<events_ui::TileEnteredEvent>();
+    app.add_message::<movement_ui::PlayerArrivedEvent>();
+    app.add_message::<movement_ui::TileEnteredEvent>();
 
     // システムを手動で追加（通常のPluginは使わない）
     app.add_systems(Update, player_movement);

@@ -3,7 +3,7 @@ use bevy::prelude::*;
 use town::{cave_hint_dialogue, heal_party};
 
 use app_state::AppState;
-use components_ui::{Player, TilePosition};
+use movement_ui::{Player, TilePosition};
 use shared_ui::{MapDataResource, PartyState};
 
 use crate::scene::{TownMenuPhase, TownResource};

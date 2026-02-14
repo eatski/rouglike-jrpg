@@ -3,11 +3,10 @@ use std::collections::HashMap;
 
 use cave::{generate_cave_map, CaveMapData, CaveTerrain, CAVE_HEIGHT, CAVE_WIDTH};
 
-use components_ui::{Boat, MapTile, MovementLocked, PendingMove, Player, TilePosition};
-use shared_ui::TILE_SIZE;
-use shared_ui::MovementState;
-use animation_ui::SmoothMove;
-use animation_ui::Bounce;
+use movement_ui::{
+    Boat, Bounce, MapTile, MovementLocked, PendingMove, Player, SmoothMove, TilePosition,
+};
+use shared_ui::{MovementState, TILE_SIZE};
 
 use world_ui::{spawn_boat_entities, BoatSpawnsResource, TileTextures};
 use world_ui::{create_tile_pool, PooledTile, TilePool};

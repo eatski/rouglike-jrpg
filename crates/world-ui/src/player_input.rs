@@ -2,8 +2,10 @@ use bevy::prelude::*;
 
 use world::wrap_position;
 
-use components_ui::{Boat, MovementLocked, OnBoat, PendingMove, Player, TilePosition};
-use events_ui::{MovementBlockedEvent, PlayerMovedEvent};
+use movement_ui::{
+    Boat, MovementBlockedEvent, MovementLocked, OnBoat, PendingMove, Player, PlayerMovedEvent,
+    TilePosition,
+};
 use shared_ui::{MapDataResource, MovementState};
 
 use crate::map_mode::MapModeState;

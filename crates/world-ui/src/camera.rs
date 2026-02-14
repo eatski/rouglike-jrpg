@@ -1,7 +1,7 @@
 use bevy::camera::{OrthographicProjection, Projection, ScalingMode};
 use bevy::prelude::*;
 
-use components_ui::Player;
+use movement_ui::Player;
 use shared_ui::VISIBLE_SIZE;
 
 use crate::map_mode::MapModeState;

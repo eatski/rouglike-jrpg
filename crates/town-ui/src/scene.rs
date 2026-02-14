@@ -1,10 +1,7 @@
 use bevy::prelude::*;
 
-use animation_ui::Bounce;
-use components_ui::{MovementLocked, PendingMove, Player, TilePosition};
-use shared_ui::tile_to_world;
-use shared_ui::MovementState;
-use animation_ui::SmoothMove;
+use movement_ui::{Bounce, MovementLocked, PendingMove, Player, SmoothMove, TilePosition};
+use shared_ui::{tile_to_world, MovementState};
 
 /// 町シーンのルートUIエンティティを識別するマーカー
 #[derive(Component)]
