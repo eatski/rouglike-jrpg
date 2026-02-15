@@ -42,18 +42,61 @@ impl Default for MovementState {
     }
 }
 
-/// マップデータをBevyリソースとしてラップする
+/// 現在のアクティブマップ（フィールド or 洞窟）
 #[derive(Resource)]
-pub struct MapDataResource {
+pub struct ActiveMap {
     pub grid: Vec<Vec<Terrain>>,
-    pub spawn_position: (usize, usize),
+    pub width: usize,
+    pub height: usize,
+    pub origin_x: f32,
+    pub origin_y: f32,
 }
 
-impl From<MapData> for MapDataResource {
+impl ActiveMap {
+    /// タイル座標の地形を取得
+    pub fn terrain_at(&self, x: usize, y: usize) -> Terrain {
+        self.grid[y][x]
+    }
+
+    /// タイル座標をワールド座標に変換
+    pub fn to_world(&self, x: usize, y: usize) -> (f32, f32) {
+        (
+            self.origin_x + x as f32 * crate::TILE_SIZE,
+            self.origin_y + y as f32 * crate::TILE_SIZE,
+        )
+    }
+
+    /// 論理座標（負の値を許容）をワールド座標に変換
+    pub fn to_world_logical(&self, x: i32, y: i32) -> (f32, f32) {
+        (
+            self.origin_x + x as f32 * crate::TILE_SIZE,
+            self.origin_y + y as f32 * crate::TILE_SIZE,
+        )
+    }
+}
+
+impl From<MapData> for ActiveMap {
     fn from(map_data: MapData) -> Self {
+        let width = map_data.grid[0].len();
+        let height = map_data.grid.len();
+        let origin_x = -(width as f32 * crate::TILE_SIZE) / 2.0 + crate::TILE_SIZE / 2.0;
+        let origin_y = -(height as f32 * crate::TILE_SIZE) / 2.0 + crate::TILE_SIZE / 2.0;
         Self {
             grid: map_data.grid,
-            spawn_position: map_data.spawn_position,
+            width,
+            height,
+            origin_x,
+            origin_y,
         }
     }
+}
+
+/// ワールドマップデータの永続保存用リソース（洞窟進入時に退避）
+#[derive(Resource)]
+pub struct WorldMapData {
+    pub grid: Vec<Vec<Terrain>>,
+    pub width: usize,
+    pub height: usize,
+    pub origin_x: f32,
+    pub origin_y: f32,
 }

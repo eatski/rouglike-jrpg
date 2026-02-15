@@ -1,13 +1,13 @@
 use bevy::prelude::*;
 use std::collections::HashMap;
 
-use cave::{generate_cave_map, CaveMapData, CAVE_HEIGHT, CAVE_WIDTH};
+use cave::{generate_cave_map, CAVE_HEIGHT, CAVE_WIDTH};
 use terrain::Terrain;
 
 use movement_ui::{
     Boat, Bounce, MapTile, MovementLocked, PendingMove, Player, SmoothMove, TilePosition,
 };
-use shared_ui::{MovementState, TILE_SIZE};
+use shared_ui::{ActiveMap, MovementState, WorldMapData, TILE_SIZE};
 
 use world_ui::{spawn_boat_entities, BoatSpawnsResource, TileTextures};
 use world_ui::{create_tile_pool, PooledTile, TilePool};
@@ -17,26 +17,6 @@ use world_ui::{create_tile_pool, PooledTile, TilePool};
 pub struct FieldReturnState {
     pub player_tile_x: usize,
     pub player_tile_y: usize,
-}
-
-/// 洞窟マップデータのリソース
-#[derive(Resource)]
-pub struct CaveMapResource {
-    pub grid: Vec<Vec<Terrain>>,
-    pub width: usize,
-    pub height: usize,
-    pub warp_position: (usize, usize),
-}
-
-impl From<CaveMapData> for CaveMapResource {
-    fn from(data: CaveMapData) -> Self {
-        Self {
-            grid: data.grid,
-            width: data.width,
-            height: data.height,
-            warp_position: data.warp_position,
-        }
-    }
 }
 
 /// 洞窟用タイルエンティティのマーカー
@@ -50,26 +30,13 @@ pub struct CaveTilePool {
     pub last_player_pos: Option<(i32, i32)>,
 }
 
-/// 洞窟のタイル座標をワールド座標に変換
-fn cave_tile_to_world(tile_x: i32, tile_y: i32) -> (f32, f32) {
-    let origin_x = -(CAVE_WIDTH as f32 * TILE_SIZE) / 2.0 + TILE_SIZE / 2.0;
-    let origin_y = -(CAVE_HEIGHT as f32 * TILE_SIZE) / 2.0 + TILE_SIZE / 2.0;
-    (
-        origin_x + tile_x as f32 * TILE_SIZE,
-        origin_y + tile_y as f32 * TILE_SIZE,
-    )
-}
-
-pub fn cave_tile_to_world_usize(tile_x: usize, tile_y: usize) -> (f32, f32) {
-    cave_tile_to_world(tile_x as i32, tile_y as i32)
-}
-
 pub fn setup_cave_scene(
     mut commands: Commands,
     mut player_query: Query<(&mut TilePosition, &mut Transform), With<Player>>,
     tile_pool_query: Query<Entity, With<PooledTile>>,
     boat_query: Query<Entity, With<Boat>>,
     mut move_state: ResMut<MovementState>,
+    active_map: Res<ActiveMap>,
 ) {
     // フィールド座標を保存
     let Ok((mut tile_pos, mut transform)) = player_query.single_mut() else {
@@ -79,6 +46,15 @@ pub fn setup_cave_scene(
     commands.insert_resource(FieldReturnState {
         player_tile_x: tile_pos.x,
         player_tile_y: tile_pos.y,
+    });
+
+    // ワールドマップを退避
+    commands.insert_resource(WorldMapData {
+        grid: active_map.grid.clone(),
+        width: active_map.width,
+        height: active_map.height,
+        origin_x: active_map.origin_x,
+        origin_y: active_map.origin_y,
     });
 
     // フィールドエンティティをdespawn
@@ -96,13 +72,22 @@ pub fn setup_cave_scene(
     let cave_data = generate_cave_map(&mut rng);
     let (spawn_x, spawn_y) = cave_data.spawn_position;
 
-    let cave_resource = CaveMapResource::from(cave_data);
-    commands.insert_resource(cave_resource);
+    // 洞窟用ActiveMapを作成
+    let cave_origin_x = -(CAVE_WIDTH as f32 * TILE_SIZE) / 2.0 + TILE_SIZE / 2.0;
+    let cave_origin_y = -(CAVE_HEIGHT as f32 * TILE_SIZE) / 2.0 + TILE_SIZE / 2.0;
+    commands.insert_resource(ActiveMap {
+        grid: cave_data.grid,
+        width: cave_data.width,
+        height: cave_data.height,
+        origin_x: cave_origin_x,
+        origin_y: cave_origin_y,
+    });
 
     // プレイヤーを洞窟のスポーン位置に移動
     tile_pos.x = spawn_x;
     tile_pos.y = spawn_y;
-    let (world_x, world_y) = cave_tile_to_world_usize(spawn_x, spawn_y);
+    let world_x = cave_origin_x + spawn_x as f32 * TILE_SIZE;
+    let world_y = cave_origin_y + spawn_y as f32 * TILE_SIZE;
     transform.translation.x = world_x;
     transform.translation.y = world_y;
 
@@ -119,7 +104,7 @@ pub fn setup_cave_scene(
 /// 洞窟タイルの表示を更新するシステム
 pub fn update_cave_tiles(
     mut commands: Commands,
-    cave_map: Res<CaveMapResource>,
+    active_map: Res<ActiveMap>,
     tile_textures: Res<TileTextures>,
     player_query: Query<&TilePosition, With<Player>>,
     mut cave_pool: ResMut<CaveTilePool>,
@@ -182,11 +167,11 @@ pub fn update_cave_tiles(
 
         // 範囲外は壁として描画
         let terrain = if lx >= 0
-            && lx < cave_map.width as i32
+            && lx < active_map.width as i32
             && ly >= 0
-            && ly < cave_map.height as i32
+            && ly < active_map.height as i32
         {
-            cave_map.grid[ly as usize][lx as usize]
+            active_map.grid[ly as usize][lx as usize]
         } else {
             Terrain::CaveWall
         };
@@ -198,7 +183,7 @@ pub fn update_cave_tiles(
             _ => tile_textures.cave_wall.clone(),
         };
 
-        let (world_x, world_y) = cave_tile_to_world(lx, ly);
+        let (world_x, world_y) = active_map.to_world_logical(lx, ly);
 
         let entity = commands
             .spawn((
@@ -221,6 +206,7 @@ pub fn cleanup_cave_scene(
     tile_textures: Res<TileTextures>,
     boat_spawns: Res<BoatSpawnsResource>,
     mut move_state: ResMut<MovementState>,
+    world_map: Res<WorldMapData>,
 ) {
     // 洞窟タイルを全て削除
     for entity in &cave_tile_query {
@@ -228,19 +214,25 @@ pub fn cleanup_cave_scene(
     }
 
     // 洞窟リソースを削除
-    commands.remove_resource::<CaveMapResource>();
     commands.remove_resource::<CaveTilePool>();
+
+    // WorldMapDataからActiveMapを復元
+    let restored_map = ActiveMap {
+        grid: world_map.grid.clone(),
+        width: world_map.width,
+        height: world_map.height,
+        origin_x: world_map.origin_x,
+        origin_y: world_map.origin_y,
+    };
 
     // プレイヤーをフィールド座標に復元
     if let Ok((entity, mut tile_pos, mut transform)) = player_query.single_mut() {
         tile_pos.x = field_return.player_tile_x;
         tile_pos.y = field_return.player_tile_y;
 
-        // フィールドのワールド座標に戻す
-        let origin_x = -(terrain::MAP_WIDTH as f32 * TILE_SIZE) / 2.0 + TILE_SIZE / 2.0;
-        let origin_y = -(terrain::MAP_HEIGHT as f32 * TILE_SIZE) / 2.0 + TILE_SIZE / 2.0;
-        transform.translation.x = origin_x + tile_pos.x as f32 * TILE_SIZE;
-        transform.translation.y = origin_y + tile_pos.y as f32 * TILE_SIZE;
+        let (world_x, world_y) = restored_map.to_world(tile_pos.x, tile_pos.y);
+        transform.translation.x = world_x;
+        transform.translation.y = world_y;
 
         // 移動関連コンポーネントをクリーンアップ
         commands
@@ -252,10 +244,12 @@ pub fn cleanup_cave_scene(
     }
 
     commands.remove_resource::<FieldReturnState>();
+    commands.remove_resource::<WorldMapData>();
 
     // フィールドエンティティをrespawn
     create_tile_pool(&mut commands, &tile_textures);
-    spawn_boat_entities(&mut commands, &boat_spawns, &tile_textures);
+    spawn_boat_entities(&mut commands, &boat_spawns, &tile_textures, &restored_map);
 
+    commands.insert_resource(restored_map);
     *move_state = MovementState::default();
 }

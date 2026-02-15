@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use battle::{ActorId, BattleAction, SpellKind, TargetId, TurnRandomFactors, TurnResult};
 
-use app_state::AppState;
+use app_state::BattleState;
 
 use super::scene::{BattleGameState, BattlePhase, BattleUIState, MessageEffect};
 
@@ -11,7 +11,7 @@ pub fn battle_input_system(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut game_state: ResMut<BattleGameState>,
     mut ui_state: ResMut<BattleUIState>,
-    mut next_state: ResMut<NextState<AppState>>,
+    mut next_state: ResMut<NextState<BattleState>>,
 ) {
     match ui_state.phase.clone() {
         BattlePhase::CommandSelect { member_index } => {
@@ -661,9 +661,9 @@ fn handle_show_message(
 
 fn handle_battle_over(
     keyboard: &ButtonInput<KeyCode>,
-    next_state: &mut NextState<AppState>,
+    next_state: &mut NextState<BattleState>,
 ) {
     if input_ui::is_confirm_just_pressed(keyboard) {
-        next_state.set(AppState::Exploring);
+        next_state.set(BattleState::None);
     }
 }

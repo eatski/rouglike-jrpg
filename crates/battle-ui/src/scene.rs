@@ -3,7 +3,7 @@ use bevy::prelude::*;
 use battle::{generate_enemy_group, BattleAction, BattleState, EnemyKind, SpellKind};
 
 use movement_ui::{Bounce, MovementLocked, PendingMove, Player, TilePosition};
-use shared_ui::{tile_to_world, MovementState, PartyState};
+use shared_ui::{ActiveMap, MovementState, PartyState};
 
 use super::display::{
     CommandCursor, EnemyNameLabel, MessageText, PartyMemberHpBarFill, PartyMemberHpText,
@@ -519,6 +519,7 @@ pub fn cleanup_battle_scene(
     mut move_state: ResMut<MovementState>,
     game_state: Res<BattleGameState>,
     mut party_state: ResMut<PartyState>,
+    active_map: Res<ActiveMap>,
 ) {
     // 戦闘結果のHP/MPを永続状態に書き戻す
     for (i, member) in game_state.state.party.iter().enumerate() {
@@ -548,7 +549,7 @@ pub fn cleanup_battle_scene(
             .remove::<Bounce>();
 
         // タイル座標に基づいて正確な位置にスナップ
-        let (world_x, world_y) = tile_to_world(tile_pos.x, tile_pos.y);
+        let (world_x, world_y) = active_map.to_world(tile_pos.x, tile_pos.y);
         transform.translation.x = world_x;
         transform.translation.y = world_y;
     }

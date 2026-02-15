@@ -48,7 +48,9 @@ tuple structではなく `BorderColor::all(color)` を使う。
 | イベント | 発火条件 | 用途 |
 |---------|---------|-----|
 | `PlayerMovedEvent` | 移動開始時（アニメーション開始） | カメラ追従、マップ更新 |
-| `PlayerArrivedEvent` | 洞窟内のSmoothMove完了時 | 洞窟内のワープゾーン判定 |
-| `TileEnteredEvent` | **フィールドのSmoothMove完了時のみ（テレポートでは発火しない）** | 町/洞窟進入、エンカウント判定 |
+| `PlayerArrivedEvent` | 洞窟内のワープゾーン到着時 | 洞窟内のワープゾーン判定専用 |
+| `TileEnteredEvent` | **SmoothMove完了時（テレポートでは発火しない）** | 町/洞窟進入、エンカウント判定（フィールド/洞窟両方） |
 
-**重要**: 画面遷移を伴う判定は必ず `TileEnteredEvent` を使う。テレポートでは発火しないため、脱出直後の再突入を防げる。
+**重要**:
+- 画面遷移を伴う判定は必ず `TileEnteredEvent` を使う。テレポートでは発火しないため、脱出直後の再突入を防げる。
+- **洞窟のワープゾーンは例外**: `PlayerArrivedEvent` を使用。これによりExploring側へのイベント漏れを防ぎ、即再入洞バグを回避。

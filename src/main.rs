@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy::window::{Window, WindowResolution};
 
-use app_state::AppState;
+use app_state::{BattleState, InField, SceneState};
 use battle_ui::{
     battle_blink_system, battle_display_system, battle_input_system, battle_shake_system,
     cleanup_battle_scene, setup_battle_scene,
@@ -44,7 +44,9 @@ fn main() {
                 ..default()
             }),
     )
-    .init_state::<AppState>()
+    .init_state::<SceneState>()
+    .init_state::<BattleState>()
+    .add_computed_state::<InField>()
     .add_message::<MovementBlockedEvent>()
     .add_message::<PlayerMovedEvent>()
     .add_message::<PlayerArrivedEvent>()
@@ -65,14 +67,21 @@ fn main() {
         )
             .chain(),
     )
-    .add_systems(OnEnter(AppState::Exploring), (setup_hud, setup_time_display))
+    // HUD + Time: InFieldで自動管理
+    .add_systems(OnEnter(InField), (setup_hud, setup_time_display))
+    .add_systems(
+        Update,
+        (toggle_hud_visibility, update_hud)
+            .chain()
+            .run_if(in_state(InField)),
+    )
+    .add_systems(OnExit(InField), (cleanup_hud, cleanup_time_display))
+    // Exploring
     .add_systems(
         Update,
         (
             toggle_map_mode_system,
             toggle_minimap_visibility_system,
-            toggle_hud_visibility,
-            update_hud,
             player_movement,
             start_bounce,
             start_smooth_move,
@@ -91,10 +100,10 @@ fn main() {
             toggle_time_display_visibility,
         )
             .chain()
-            .run_if(in_state(AppState::Exploring)),
+            .run_if(in_state(SceneState::Exploring).and(in_state(BattleState::None))),
     )
-    .add_systems(OnExit(AppState::Exploring), (cleanup_hud, cleanup_time_display))
-    .add_systems(OnEnter(AppState::Battle), setup_battle_scene)
+    // Battle
+    .add_systems(OnEnter(BattleState::Active), setup_battle_scene)
     .add_systems(
         Update,
         (
@@ -104,18 +113,20 @@ fn main() {
             battle_shake_system,
         )
             .chain()
-            .run_if(in_state(AppState::Battle)),
+            .run_if(in_state(BattleState::Active)),
     )
-    .add_systems(OnExit(AppState::Battle), cleanup_battle_scene)
-    .add_systems(OnEnter(AppState::Town), setup_town_scene)
+    .add_systems(OnExit(BattleState::Active), cleanup_battle_scene)
+    // Town
+    .add_systems(OnEnter(SceneState::Town), setup_town_scene)
     .add_systems(
         Update,
         (town_input_system, town_display_system)
             .chain()
-            .run_if(in_state(AppState::Town)),
+            .run_if(in_state(SceneState::Town)),
     )
-    .add_systems(OnExit(AppState::Town), cleanup_town_scene)
-    .add_systems(OnEnter(AppState::Cave), setup_cave_scene)
+    .add_systems(OnExit(SceneState::Town), cleanup_town_scene)
+    // Cave
+    .add_systems(OnEnter(SceneState::Cave), setup_cave_scene)
     .add_systems(
         Update,
         (
@@ -128,11 +139,12 @@ fn main() {
             update_cave_tiles,
             camera_follow,
             check_warp_zone_system,
+            check_encounter_system,
         )
             .chain()
-            .run_if(in_state(AppState::Cave)),
+            .run_if(in_state(SceneState::Cave).and(in_state(BattleState::None))),
     )
-    .add_systems(OnExit(AppState::Cave), cleanup_cave_scene);
+    .add_systems(OnExit(SceneState::Cave), cleanup_cave_scene);
 
     app.run();
 }

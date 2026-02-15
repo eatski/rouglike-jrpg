@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use movement_ui::{Bounce, MovementLocked, PendingMove, Player, SmoothMove, TilePosition};
-use shared_ui::{tile_to_world, MovementState};
+use shared_ui::{ActiveMap, MovementState};
 
 /// 町シーンのルートUIエンティティを識別するマーカー
 #[derive(Component)]
@@ -152,6 +152,7 @@ pub fn cleanup_town_scene(
     query: Query<Entity, With<TownSceneRoot>>,
     mut player_query: Query<(Entity, &TilePosition, &mut Transform), With<Player>>,
     mut move_state: ResMut<MovementState>,
+    active_map: Res<ActiveMap>,
 ) {
     for entity in &query {
         commands.entity(entity).despawn();
@@ -167,7 +168,7 @@ pub fn cleanup_town_scene(
             .remove::<PendingMove>()
             .remove::<Bounce>();
 
-        let (world_x, world_y) = tile_to_world(tile_pos.x, tile_pos.y);
+        let (world_x, world_y) = active_map.to_world(tile_pos.x, tile_pos.y);
         transform.translation.x = world_x;
         transform.translation.y = world_y;
     }

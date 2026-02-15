@@ -11,13 +11,13 @@ use world::map::generate_map;
 use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
 use std::time::Duration;
-use app_state::AppState;
+use app_state::{BattleState, SceneState};
 use battle_ui::{battle_input_system, BattleGameState, BattlePhase, BattleUIState, PendingCommands};
 use movement_ui::{
     start_bounce, update_bounce, Boat, MovementBlockedEvent, MovementLocked, OnBoat, Player,
     PlayerMovedEvent, TilePosition,
 };
-use shared_ui::{MapDataResource, MovementState, PartyState};
+use shared_ui::{ActiveMap, MovementState, PartyState, TILE_SIZE};
 use world_ui::{
     player_movement, start_smooth_move, sync_boat_with_player, update_smooth_move, MapModeState,
     SpawnPosition,
@@ -73,9 +73,16 @@ fn setup_test_app_with_map(grid: Vec<Vec<Terrain>>, spawn_x: usize, spawn_y: usi
     app.insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_millis(50)));
 
     // 必要なリソースをセットアップ
-    app.insert_resource(MapDataResource {
+    let width = grid[0].len();
+    let height = grid.len();
+    let origin_x = -(width as f32 * TILE_SIZE) / 2.0 + TILE_SIZE / 2.0;
+    let origin_y = -(height as f32 * TILE_SIZE) / 2.0 + TILE_SIZE / 2.0;
+    app.insert_resource(ActiveMap {
         grid,
-        spawn_position: (spawn_x, spawn_y),
+        width,
+        height,
+        origin_x,
+        origin_y,
     });
     app.insert_resource(SpawnPosition {
         x: spawn_x,
@@ -418,16 +425,16 @@ fn player_wraps_around_map_edge() {
 
     // 端の位置が歩行可能か確認し、必要に応じて調整
     let (player_x, player_y) = {
-        let map_data = app.world().resource::<MapDataResource>();
+        let active_map = app.world().resource::<ActiveMap>();
         let mut x = edge_x;
         let y = edge_y;
 
         // 歩行可能な位置を探す
-        while !map_data.grid[y][x].is_walkable() && x > 0 {
+        while !active_map.grid[y][x].is_walkable() && x > 0 {
             x -= 1;
         }
 
-        if !map_data.grid[y][x].is_walkable() {
+        if !active_map.grid[y][x].is_walkable() {
             panic!("Could not find walkable position near edge");
         }
 
@@ -448,9 +455,9 @@ fn player_wraps_around_map_edge() {
 
     // 右端が歩行可能でラップ先も歩行可能なケースをセットアップ
     let can_wrap = {
-        let map_data = app.world().resource::<MapDataResource>();
+        let active_map = app.world().resource::<ActiveMap>();
         player_x == MAP_WIDTH - 1
-            && map_data.grid[player_y][0].is_walkable()
+            && active_map.grid[player_y][0].is_walkable()
     };
 
     if !can_wrap {
@@ -505,8 +512,8 @@ fn same_seed_produces_deterministic_behavior() {
     assert_eq!(pos1_initial, pos2_initial, "Same seed should produce same spawn position");
 
     // マップも同じか確認
-    let map1 = app1.world().resource::<MapDataResource>();
-    let map2 = app2.world().resource::<MapDataResource>();
+    let map1 = app1.world().resource::<ActiveMap>();
+    let map2 = app2.world().resource::<ActiveMap>();
 
     assert_eq!(map1.grid, map2.grid, "Same seed should produce same map");
 }
@@ -950,7 +957,7 @@ fn setup_battle_test_app() -> App {
 
     app.add_plugins(MinimalPlugins);
 
-    // StatesPluginを追加（AppStateを使用するために必須）
+    // StatesPluginを追加
     app.add_plugins(bevy::state::app::StatesPlugin);
 
     // 時間制御を手動に設定
@@ -959,8 +966,9 @@ fn setup_battle_test_app() -> App {
         .set_relative_speed(1.0);
     app.insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_millis(50)));
 
-    // AppStateを登録
-    app.init_state::<AppState>();
+    // ステートを登録
+    app.init_state::<SceneState>();
+    app.init_state::<BattleState>();
 
     // 必要なリソースをセットアップ
     app.init_resource::<ButtonInput<KeyCode>>();
@@ -1074,15 +1082,15 @@ fn battle_phase_transitions_from_command_to_exploring() {
         );
     }
 
-    // BattleOverでEnterを押すとAppState::Exploringに遷移
+    // BattleOverでEnterを押すとBattleState::Noneに遷移
     press_battle_key(&mut app, KeyCode::Enter);
     app.update();
 
-    let current_state = app.world().resource::<State<AppState>>();
+    let current_state = app.world().resource::<State<BattleState>>();
     assert_eq!(
         **current_state,
-        AppState::Exploring,
-        "Should transition to Exploring after BattleOver"
+        BattleState::None,
+        "Should transition back from battle after BattleOver"
     );
 }
 
@@ -1223,15 +1231,16 @@ fn battle_cleanup_removes_movement_lock() {
 
     let mut app = setup_test_app_with_map(grid, spawn_x, spawn_y);
 
-    // StatesPluginを追加（AppStateを使用するために必須）
+    // StatesPluginを追加
     app.add_plugins(bevy::state::app::StatesPlugin);
 
-    // AppStateを追加
-    app.init_state::<AppState>();
+    // ステートを追加
+    app.init_state::<SceneState>();
+    app.init_state::<BattleState>();
     app.init_resource::<PartyState>();
 
-    // cleanup_battle_sceneシステムを追加（OnExit(AppState::Battle)で実行される想定）
-    app.add_systems(OnExit(AppState::Battle), battle_ui::cleanup_battle_scene);
+    // cleanup_battle_sceneシステムを追加（OnExit(BattleState::Active)で実行される想定）
+    app.add_systems(OnExit(BattleState::Active), battle_ui::cleanup_battle_scene);
 
     let player_entity = spawn_test_player(&mut app);
 
@@ -1251,17 +1260,17 @@ fn battle_cleanup_removes_movement_lock() {
 
     // 戦闘に入る
     app.world_mut()
-        .resource_mut::<NextState<AppState>>()
-        .set(AppState::Battle);
+        .resource_mut::<NextState<BattleState>>()
+        .set(BattleState::Active);
     app.update();
 
     // BattleResourceを挿入（戦闘シーンセットアップの代わり）
     insert_battle_resource(&mut app, BattlePhase::CommandSelect { member_index: 0 });
 
-    // 戦闘終了（Exploringに戻る）→ cleanup_battle_sceneが実行される
+    // 戦闘終了（BattleState::Noneに戻る）→ cleanup_battle_sceneが実行される
     app.world_mut()
-        .resource_mut::<NextState<AppState>>()
-        .set(AppState::Exploring);
+        .resource_mut::<NextState<BattleState>>()
+        .set(BattleState::None);
     app.update();
 
     // MovementLockedが除去されていることを確認
