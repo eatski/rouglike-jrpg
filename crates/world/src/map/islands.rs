@@ -3,6 +3,7 @@
 use super::Terrain;
 use crate::coordinates::orthogonal_neighbors;
 use crate::map::{MAP_HEIGHT, MAP_WIDTH};
+use rand::prelude::SliceRandom;
 use rand::Rng;
 use std::collections::{HashSet, VecDeque};
 
@@ -107,6 +108,83 @@ pub fn calculate_cave_spawns(
     }
 
     spawns
+}
+
+/// 仲間候補の街割り当て情報
+#[derive(Debug, Clone)]
+pub struct CandidatePlacement {
+    /// 仲間候補のインデックス（candidates配列のインデックス）
+    pub candidate_index: usize,
+    /// 初回の街の位置
+    pub first_town: (usize, usize),
+    /// 知り合い後に移動する先の街の位置
+    pub second_town: (usize, usize),
+}
+
+/// スポーン大陸に追加の街を配置する
+///
+/// `spawn_position` が属する島にPlainsタイルからランダムに追加の街を配置する。
+/// 既存のTownタイルとspawn_positionを避ける。
+pub fn place_extra_towns(
+    grid: &mut [Vec<Terrain>],
+    rng: &mut impl Rng,
+    spawn_position: (usize, usize),
+    extra_count: usize,
+) -> Vec<TownSpawn> {
+    let islands = detect_islands(grid);
+    let spawn_island = islands
+        .into_iter()
+        .find(|island| island.contains(&spawn_position));
+    let Some(spawn_island) = spawn_island else {
+        return vec![];
+    };
+
+    let mut candidates: Vec<(usize, usize)> = spawn_island
+        .into_iter()
+        .filter(|&(x, y)| grid[y][x] == Terrain::Plains && (x, y) != spawn_position)
+        .collect();
+
+    let mut extra_spawns = Vec::new();
+    for _ in 0..extra_count {
+        if candidates.is_empty() {
+            break;
+        }
+        let idx = rng.gen_range(0..candidates.len());
+        let (x, y) = candidates.swap_remove(idx);
+        grid[y][x] = Terrain::Town;
+        extra_spawns.push(TownSpawn { x, y });
+    }
+    extra_spawns
+}
+
+/// 仲間候補をスポーン大陸の街に割り当てる
+///
+/// 各候補に first_town（初対面）と second_town（加入）を割り当てる。
+/// 候補数 + 1 以上の街が必要。
+pub fn assign_candidates_to_towns(
+    spawn_island_towns: &[(usize, usize)],
+    candidate_count: usize,
+    rng: &mut impl Rng,
+) -> Vec<CandidatePlacement> {
+    if spawn_island_towns.len() < 2 || candidate_count == 0 {
+        return vec![];
+    }
+
+    let mut towns = spawn_island_towns.to_vec();
+    towns.shuffle(rng);
+
+    let mut placements = Vec::new();
+    for i in 0..candidate_count {
+        if i + 1 >= towns.len() {
+            break;
+        }
+        placements.push(CandidatePlacement {
+            candidate_index: i,
+            first_town: towns[i],
+            second_town: towns[i + 1],
+        });
+    }
+    placements
 }
 
 /// Flood Fillで連結した陸地を島として検出
@@ -391,5 +469,49 @@ mod tests {
                 spawn.y
             );
         }
+    }
+
+    #[test]
+    fn place_extra_towns_adds_towns_on_spawn_island() {
+        let mut grid = create_test_grid(Terrain::Sea);
+        // スポーン大陸（Plainsが多い島）
+        for y in 5..10 {
+            for x in 5..15 {
+                grid[y][x] = Terrain::Plains;
+            }
+        }
+        let spawn_pos = (7, 7);
+
+        let mut rng = create_rng(42);
+        let extra = place_extra_towns(&mut grid, &mut rng, spawn_pos, 2);
+
+        assert_eq!(extra.len(), 2);
+        for town in &extra {
+            assert_eq!(grid[town.y][town.x], Terrain::Town);
+            assert_ne!((town.x, town.y), spawn_pos);
+        }
+    }
+
+    #[test]
+    fn assign_candidates_to_towns_creates_placements() {
+        let towns = vec![(5, 5), (10, 5), (15, 5)];
+        let mut rng = create_rng(42);
+
+        let placements = assign_candidates_to_towns(&towns, 2, &mut rng);
+
+        assert_eq!(placements.len(), 2);
+        // 各候補のfirst_townとsecond_townが異なることを確認
+        for p in &placements {
+            assert_ne!(p.first_town, p.second_town);
+        }
+    }
+
+    #[test]
+    fn assign_candidates_insufficient_towns() {
+        let towns = vec![(5, 5)]; // 街が1つだけ
+        let mut rng = create_rng(42);
+
+        let placements = assign_candidates_to_towns(&towns, 2, &mut rng);
+        assert!(placements.is_empty());
     }
 }

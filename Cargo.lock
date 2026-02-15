@@ -5861,6 +5861,7 @@ dependencies = [
  "bevy",
  "input-ui",
  "movement-ui",
+ "party",
  "rand 0.8.5",
  "shared-ui",
  "terrain",

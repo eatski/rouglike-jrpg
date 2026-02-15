@@ -1,9 +1,16 @@
 use bevy::prelude::*;
 
-use world::map::{calculate_boat_spawns, generate_connected_map};
+use std::collections::HashMap;
+
+use world::map::{
+    assign_candidates_to_towns, calculate_boat_spawns, detect_islands, generate_connected_map,
+    place_extra_towns,
+};
 
 use movement_ui::{Boat, Player, TilePosition};
-use shared_ui::{ActiveMap, TILE_SIZE};
+use party::default_candidates;
+use shared_ui::{ActiveMap, RecruitmentMap, TILE_SIZE};
+use terrain::Terrain;
 
 use crate::resources::SpawnPosition;
 
@@ -64,7 +71,39 @@ pub fn spawn_field_map(mut commands: Commands, asset_server: Res<AssetServer>) {
     };
 
     let mut rng = rand::thread_rng();
-    let map_data = generate_connected_map(&mut rng);
+    let mut map_data = generate_connected_map(&mut rng);
+
+    // スポーン大陸に仲間候補用の追加街を配置
+    let candidate_count = default_candidates().len();
+    place_extra_towns(
+        &mut map_data.grid,
+        &mut rng,
+        map_data.spawn_position,
+        candidate_count,
+    );
+
+    // スポーン大陸のTown座標を収集
+    let islands = detect_islands(&map_data.grid);
+    let spawn_island_towns: Vec<(usize, usize)> = islands
+        .into_iter()
+        .find(|island| island.contains(&map_data.spawn_position))
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|&(x, y)| map_data.grid[y][x] == Terrain::Town)
+        .collect();
+
+    // 仲間候補を街に割り当て
+    let placements = assign_candidates_to_towns(&spawn_island_towns, candidate_count, &mut rng);
+    let mut town_to_candidate = HashMap::new();
+    let mut candidate_second_town = HashMap::new();
+    for p in &placements {
+        town_to_candidate.insert(p.first_town, p.candidate_index);
+        candidate_second_town.insert(p.candidate_index, p.second_town);
+    }
+    commands.insert_resource(RecruitmentMap {
+        town_to_candidate,
+        candidate_second_town,
+    });
 
     // 船のスポーン位置を計算
     let boat_spawns = calculate_boat_spawns(&map_data.grid, &mut rng);

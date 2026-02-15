@@ -49,6 +49,14 @@ impl PartyMember {
             inventory: Inventory::new(),
         }
     }
+
+    pub fn from_kind(kind: PartyMemberKind) -> Self {
+        match kind {
+            PartyMemberKind::Hero => Self::hero(),
+            PartyMemberKind::Mage => Self::mage(),
+            PartyMemberKind::Priest => Self::priest(),
+        }
+    }
 }
 
 pub fn default_party() -> Vec<PartyMember> {
@@ -57,6 +65,69 @@ pub fn default_party() -> Vec<PartyMember> {
         PartyMember::mage(),
         PartyMember::priest(),
     ]
+}
+
+/// ゲーム開始時の初期パーティ（勇者のみ）
+pub fn initial_party() -> Vec<PartyMember> {
+    vec![PartyMember::hero()]
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RecruitmentStatus {
+    /// まだ出会っていない
+    Undiscovered,
+    /// 知り合いになった（最初の街で会話済み）
+    Acquaintance,
+    /// 正式にパーティ加入済み
+    Recruited,
+}
+
+#[derive(Debug, Clone)]
+pub struct RecruitCandidate {
+    pub kind: PartyMemberKind,
+    pub status: RecruitmentStatus,
+}
+
+impl RecruitCandidate {
+    pub fn new(kind: PartyMemberKind) -> Self {
+        Self {
+            kind,
+            status: RecruitmentStatus::Undiscovered,
+        }
+    }
+}
+
+/// 全仲間候補リストを返す（勇者以外）
+pub fn default_candidates() -> Vec<RecruitCandidate> {
+    vec![
+        RecruitCandidate::new(PartyMemberKind::Mage),
+        RecruitCandidate::new(PartyMemberKind::Priest),
+    ]
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum TalkResult {
+    /// 初対面 → 知り合いになった
+    BecameAcquaintance,
+    /// 2回目 → 仲間に加入
+    Recruited,
+    /// 既に仲間
+    AlreadyRecruited,
+}
+
+/// 仲間候補に話しかける
+pub fn talk_to_candidate(candidate: &mut RecruitCandidate) -> TalkResult {
+    match candidate.status {
+        RecruitmentStatus::Undiscovered => {
+            candidate.status = RecruitmentStatus::Acquaintance;
+            TalkResult::BecameAcquaintance
+        }
+        RecruitmentStatus::Acquaintance => {
+            candidate.status = RecruitmentStatus::Recruited;
+            TalkResult::Recruited
+        }
+        RecruitmentStatus::Recruited => TalkResult::AlreadyRecruited,
+    }
 }
 
 #[cfg(test)]
@@ -97,5 +168,49 @@ mod tests {
         assert_eq!(priest.stats.attack, 5);
         assert_eq!(priest.stats.defense, 4);
         assert_eq!(priest.stats.speed, 4);
+    }
+
+    #[test]
+    fn initial_party_has_one_member() {
+        let party = initial_party();
+        assert_eq!(party.len(), 1);
+        assert_eq!(party[0].kind, PartyMemberKind::Hero);
+    }
+
+    #[test]
+    fn default_candidates_are_mage_and_priest() {
+        let candidates = default_candidates();
+        assert_eq!(candidates.len(), 2);
+        assert_eq!(candidates[0].kind, PartyMemberKind::Mage);
+        assert_eq!(candidates[1].kind, PartyMemberKind::Priest);
+        assert_eq!(candidates[0].status, RecruitmentStatus::Undiscovered);
+        assert_eq!(candidates[1].status, RecruitmentStatus::Undiscovered);
+    }
+
+    #[test]
+    fn talk_to_candidate_transitions() {
+        let mut candidate = RecruitCandidate::new(PartyMemberKind::Mage);
+
+        let result = talk_to_candidate(&mut candidate);
+        assert_eq!(result, TalkResult::BecameAcquaintance);
+        assert_eq!(candidate.status, RecruitmentStatus::Acquaintance);
+
+        let result = talk_to_candidate(&mut candidate);
+        assert_eq!(result, TalkResult::Recruited);
+        assert_eq!(candidate.status, RecruitmentStatus::Recruited);
+
+        let result = talk_to_candidate(&mut candidate);
+        assert_eq!(result, TalkResult::AlreadyRecruited);
+    }
+
+    #[test]
+    fn from_kind_creates_correct_member() {
+        let hero = PartyMember::from_kind(PartyMemberKind::Hero);
+        assert_eq!(hero.kind, PartyMemberKind::Hero);
+        assert_eq!(hero.stats.max_hp, 30);
+
+        let mage = PartyMember::from_kind(PartyMemberKind::Mage);
+        assert_eq!(mage.kind, PartyMemberKind::Mage);
+        assert_eq!(mage.stats.max_hp, 20);
     }
 }
