@@ -153,53 +153,91 @@ fn mermaid_id(name: &str) -> String {
     name.replace('-', "_")
 }
 
-#[derive(PartialEq)]
-enum Layer {
-    Domain,
-    UiCommon,
-    UiFeature,
-    App,
+/// 各crateのトポロジカル深度を算出（依存がないcrate=0、依存先の最大深度+1）
+fn compute_depths(
+    known_crates: &BTreeSet<String>,
+    deps: &BTreeMap<String, Vec<String>>,
+) -> BTreeMap<String, usize> {
+    let mut memo: BTreeMap<String, usize> = BTreeMap::new();
+    for name in known_crates {
+        depth_of(name, deps, &mut memo);
+    }
+    memo
 }
 
-fn classify(name: &str) -> Layer {
-    match name {
-        "terrain" | "party" | "battle" | "cave" | "town" | "world" | "time" => Layer::Domain,
-        "app-state" | "movement-ui" | "input-ui" | "shared-ui" => Layer::UiCommon,
-        "world-ui" | "cave-ui" | "town-ui" | "battle-ui" | "time-ui" => Layer::UiFeature,
-        _ => Layer::App,
+fn depth_of(
+    name: &str,
+    deps: &BTreeMap<String, Vec<String>>,
+    memo: &mut BTreeMap<String, usize>,
+) -> usize {
+    if let Some(&d) = memo.get(name) {
+        return d;
     }
+    let d = match deps.get(name) {
+        Some(dep_list) if !dep_list.is_empty() => {
+            dep_list
+                .iter()
+                .map(|d| depth_of(d, deps, memo))
+                .max()
+                .unwrap()
+                + 1
+        }
+        _ => 0,
+    };
+    memo.insert(name.to_string(), d);
+    d
 }
+
+/// 深度→レイヤーに対応する色スタイル定義
+const LAYER_STYLES: &[(&str, &str)] = &[
+    ("layer0", "fill:#a8d5ba,stroke:#2d6a4f,color:#1b4332"), // 緑: 依存なし
+    ("layer1", "fill:#a2d2ff,stroke:#0077b6,color:#023e8a"), // 青
+    ("layer2", "fill:#ffb3c6,stroke:#c9184a,color:#590d22"), // ピンク
+    ("layer3", "fill:#e0aaff,stroke:#7b2cbf,color:#3c096c"), // 紫
+    ("layer4", "fill:#ffd6a5,stroke:#e85d04,color:#6a040f"), // オレンジ
+    ("layer5", "fill:#fdffb6,stroke:#b5a100,color:#414833"), // 黄
+];
 
 fn print_mermaid(
-    root_name: &str,
+    _root_name: &str,
     known_crates: &BTreeSet<String>,
     deps: &BTreeMap<String, Vec<String>>,
 ) {
+    let depths = compute_depths(known_crates, deps);
+    let max_depth = depths.values().copied().max().unwrap_or(0);
+
+    // 深度ごとにcrateをグループ化
+    let mut layers: BTreeMap<usize, Vec<&String>> = BTreeMap::new();
+    for name in known_crates {
+        let d = depths.get(name.as_str()).copied().unwrap_or(0);
+        layers.entry(d).or_default().push(name);
+    }
+
     println!("```mermaid");
     println!("graph TD");
     println!();
 
-    println!("    classDef domain fill:#a8d5ba,stroke:#2d6a4f,color:#1b4332");
-    println!("    classDef uiCommon fill:#a2d2ff,stroke:#0077b6,color:#023e8a");
-    println!("    classDef uiFeature fill:#ffb3c6,stroke:#c9184a,color:#590d22");
-    println!("    classDef app fill:#e0aaff,stroke:#7b2cbf,color:#3c096c");
+    // classDef定義
+    for depth in 0..=max_depth {
+        let idx = depth.min(LAYER_STYLES.len() - 1);
+        let (class_name, style) = LAYER_STYLES[idx];
+        println!("    classDef {} {}", class_name, style);
+    }
     println!();
 
-    print_subgraph("domain", "Domain Layer", known_crates, |n| {
-        classify(n) == Layer::Domain
-    });
+    // subgraph出力（深度の浅い順）
+    for (&depth, members) in &layers {
+        let label = format!("Layer {} (depth={})", depth, depth);
+        let id = format!("layer_{}", depth);
+        println!("    subgraph {}[\"{}\"]", id, label);
+        for name in members {
+            println!("        {}[\"{}\"]", mermaid_id(name), name);
+        }
+        println!("    end");
+        println!();
+    }
 
-    print_subgraph("ui_common", "UI Common Layer", known_crates, |n| {
-        classify(n) == Layer::UiCommon
-    });
-
-    print_subgraph("ui_feature", "UI Feature Layer", known_crates, |n| {
-        classify(n) == Layer::UiFeature
-    });
-
-    println!("    {}[\"{}\"]", mermaid_id(root_name), root_name);
-    println!();
-
+    // エッジ
     for (from, to_list) in deps {
         for to in to_list {
             println!("    {} --> {}", mermaid_id(from), mermaid_id(to));
@@ -207,33 +245,13 @@ fn print_mermaid(
     }
     println!();
 
+    // class適用
     for name in known_crates {
-        let class = match classify(name) {
-            Layer::Domain => "domain",
-            Layer::UiCommon => "uiCommon",
-            Layer::UiFeature => "uiFeature",
-            Layer::App => "app",
-        };
-        println!("    class {} {}", mermaid_id(name), class);
+        let depth = depths.get(name.as_str()).copied().unwrap_or(0);
+        let idx = depth.min(LAYER_STYLES.len() - 1);
+        let (class_name, _) = LAYER_STYLES[idx];
+        println!("    class {} {}", mermaid_id(name), class_name);
     }
 
     println!("```");
-}
-
-fn print_subgraph(
-    id: &str,
-    label: &str,
-    known_crates: &BTreeSet<String>,
-    filter: impl Fn(&str) -> bool,
-) {
-    let members: Vec<&String> = known_crates.iter().filter(|n| filter(n)).collect();
-    if members.is_empty() {
-        return;
-    }
-    println!("    subgraph {}[\"{}\"]", id, label);
-    for name in members {
-        println!("        {}[\"{}\"]", mermaid_id(name), name);
-    }
-    println!("    end");
-    println!();
 }
