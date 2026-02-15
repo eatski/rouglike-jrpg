@@ -4,13 +4,13 @@ use world::should_encounter;
 
 use app_state::AppState;
 use movement_ui::{OnBoat, Player, TileEnteredEvent, TilePosition};
-use shared_ui::MapDataResource;
+use shared_ui::ActiveMap;
 
 /// プレイヤーがタイルに到着した際にエンカウント判定を行うシステム
 pub fn check_encounter_system(
     mut events: MessageReader<TileEnteredEvent>,
     player_query: Query<(&TilePosition, Option<&OnBoat>), With<Player>>,
-    map_data: Res<MapDataResource>,
+    active_map: Res<ActiveMap>,
     mut next_state: ResMut<NextState<AppState>>,
 ) {
     for _event in events.read() {
@@ -18,7 +18,7 @@ pub fn check_encounter_system(
             continue;
         };
 
-        let terrain = map_data.grid[tile_pos.y][tile_pos.x];
+        let terrain = active_map.terrain_at(tile_pos.x, tile_pos.y);
         let on_boat = on_boat.is_some();
         let random_value: f32 = rand::random();
 

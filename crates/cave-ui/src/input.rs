@@ -8,10 +8,8 @@ use movement_ui::{
     MovementBlockedEvent, MovementLocked, PendingMove, Player, PlayerArrivedEvent,
     PlayerMovedEvent, SmoothMove, TilePosition,
 };
-use shared_ui::{MovementState, TILE_SIZE};
+use shared_ui::{ActiveMap, MovementState, TILE_SIZE};
 use input_ui;
-
-use super::scene::CaveMapResource;
 
 const MOVE_DURATION: f32 = 0.15;
 
@@ -21,7 +19,7 @@ pub fn cave_player_movement(
     mut commands: Commands,
     keyboard: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
-    cave_map: Res<CaveMapResource>,
+    active_map: Res<ActiveMap>,
     mut move_state: ResMut<MovementState>,
     mut query: Query<
         (Entity, &mut TilePosition, Option<&MovementLocked>),
@@ -117,9 +115,9 @@ pub fn cave_player_movement(
         tile_pos.y,
         first_dx,
         first_dy,
-        &cave_map.grid,
-        cave_map.width,
-        cave_map.height,
+        &active_map.grid,
+        active_map.width,
+        active_map.height,
     ) {
         CaveMoveResult::Moved { new_x, new_y } => {
             tile_pos.x = new_x;
@@ -174,7 +172,7 @@ pub fn start_cave_smooth_move(
 pub fn update_cave_smooth_move(
     mut commands: Commands,
     time: Res<Time>,
-    cave_map: Res<CaveMapResource>,
+    active_map: Res<ActiveMap>,
     mut query: Query<
         (
             Entity,
@@ -212,9 +210,9 @@ pub fn update_cave_smooth_move(
                 tile_pos.y,
                 dx,
                 dy,
-                &cave_map.grid,
-                cave_map.width,
-                cave_map.height,
+                &active_map.grid,
+                active_map.width,
+                active_map.height,
             ) {
                 CaveMoveResult::Moved { new_x, new_y } => {
                     tile_pos.x = new_x;
@@ -251,7 +249,7 @@ pub fn update_cave_smooth_move(
 pub fn check_warp_zone_system(
     mut events: MessageReader<PlayerArrivedEvent>,
     player_query: Query<&TilePosition, With<Player>>,
-    cave_map: Res<CaveMapResource>,
+    active_map: Res<ActiveMap>,
     mut next_state: ResMut<NextState<AppState>>,
 ) {
     for _event in events.read() {
@@ -259,8 +257,8 @@ pub fn check_warp_zone_system(
             continue;
         };
 
-        if tile_pos.x < cave_map.width && tile_pos.y < cave_map.height {
-            let terrain = cave_map.grid[tile_pos.y][tile_pos.x];
+        if tile_pos.x < active_map.width && tile_pos.y < active_map.height {
+            let terrain = active_map.terrain_at(tile_pos.x, tile_pos.y);
             if terrain == Terrain::WarpZone {
                 next_state.set(AppState::Exploring);
                 return;

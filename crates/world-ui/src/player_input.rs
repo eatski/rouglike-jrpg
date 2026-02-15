@@ -6,7 +6,7 @@ use movement_ui::{
     Boat, MovementBlockedEvent, MovementLocked, OnBoat, PendingMove, Player, PlayerMovedEvent,
     TilePosition,
 };
-use shared_ui::{MapDataResource, MovementState};
+use shared_ui::{ActiveMap, MovementState};
 
 use crate::map_mode::MapModeState;
 use crate::movement_helpers::{execute_boat_move, execute_walk_move, ExecuteMoveResult};
@@ -17,7 +17,7 @@ pub fn player_movement(
     mut commands: Commands,
     keyboard: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
-    map_data: Res<MapDataResource>,
+    active_map: Res<ActiveMap>,
     map_mode_state: Res<MapModeState>,
     mut move_state: ResMut<MovementState>,
     mut query: Query<
@@ -144,7 +144,7 @@ pub fn player_movement(
         // === 船での移動 ===
         if let ExecuteMoveResult::Success = execute_boat_move(
             &mut commands, entity, &mut tile_pos, first_dx, first_dy,
-            &map_data.grid, on_boat, &mut boat_query,
+            &active_map.grid, on_boat, &mut boat_query,
             &mut moved_events, &mut blocked_events,
         ) {
             add_pending_move(&mut commands, entity, pending_direction);
@@ -174,7 +174,7 @@ pub fn player_movement(
             // 通常の徒歩移動
             if let ExecuteMoveResult::Success = execute_walk_move(
                 &mut tile_pos, entity, first_dx, first_dy,
-                &map_data.grid, &mut moved_events, &mut blocked_events,
+                &active_map.grid, &mut moved_events, &mut blocked_events,
             ) {
                 add_pending_move(&mut commands, entity, pending_direction);
             }

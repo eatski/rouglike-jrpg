@@ -3,7 +3,7 @@ use bevy::prelude::*;
 use world::map::{calculate_boat_spawns, generate_connected_map};
 
 use movement_ui::{Boat, Player, TilePosition};
-use shared_ui::{tile_to_world, MapDataResource, TILE_SIZE};
+use shared_ui::{ActiveMap, TILE_SIZE};
 
 use crate::resources::SpawnPosition;
 
@@ -18,10 +18,11 @@ pub fn spawn_boat_entities(
     commands: &mut Commands,
     boat_spawns: &BoatSpawnsResource,
     tile_textures: &TileTextures,
+    active_map: &ActiveMap,
 ) {
     let scale = TILE_SIZE / 16.0;
     for &(x, y) in &boat_spawns.positions {
-        let (world_x, world_y) = tile_to_world(x, y);
+        let (world_x, world_y) = active_map.to_world(x, y);
         commands.spawn((
             Boat,
             TilePosition { x, y },
@@ -71,24 +72,27 @@ pub fn spawn_field_map(mut commands: Commands, asset_server: Res<AssetServer>) {
         y: map_data.spawn_position.1,
     });
 
+    let active_map = ActiveMap::from(map_data);
+
     // 船のスポーン位置を保存してスポーン
     let boat_spawns_resource = BoatSpawnsResource {
         positions: boat_spawns.iter().map(|s| (s.x, s.y)).collect(),
     };
-    spawn_boat_entities(&mut commands, &boat_spawns_resource, &tile_textures);
+    spawn_boat_entities(&mut commands, &boat_spawns_resource, &tile_textures, &active_map);
     commands.insert_resource(boat_spawns_resource);
 
     // タイルテクスチャをリソースとして登録（タイルプールで使用）
     commands.insert_resource(tile_textures);
-    commands.insert_resource(MapDataResource::from(map_data));
+    commands.insert_resource(active_map);
 }
 
 pub fn spawn_player(
     mut commands: Commands,
     spawn_pos: Res<SpawnPosition>,
     asset_server: Res<AssetServer>,
+    active_map: Res<ActiveMap>,
 ) {
-    let (world_x, world_y) = tile_to_world(spawn_pos.x, spawn_pos.y);
+    let (world_x, world_y) = active_map.to_world(spawn_pos.x, spawn_pos.y);
 
     let player_texture: Handle<Image> = asset_server.load("characters/player.png");
     let scale = TILE_SIZE / 16.0;

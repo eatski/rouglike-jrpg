@@ -5,7 +5,7 @@ use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 use world::exploration::TileVisibility;
 use terrain::{Terrain, MAP_HEIGHT, MAP_WIDTH};
 
-use shared_ui::{MapDataResource, MAP_PIXEL_WIDTH};
+use shared_ui::{ActiveMap, MAP_PIXEL_WIDTH};
 
 use crate::map_mode::{ExplorationData, MapModeState};
 
@@ -55,7 +55,7 @@ fn apply_visibility(base_color: [u8; 4], visibility: TileVisibility) -> [u8; 4] 
 pub fn init_minimap_system(
     mut commands: Commands,
     mut images: ResMut<Assets<Image>>,
-    map_data: Res<MapDataResource>,
+    active_map: Res<ActiveMap>,
     exploration_data: Res<ExplorationData>,
 ) {
     // テクスチャデータを生成（RGBA8形式）
@@ -63,7 +63,7 @@ pub fn init_minimap_system(
 
     for y in 0..MAP_HEIGHT {
         for x in 0..MAP_WIDTH {
-            let terrain = map_data.grid[y][x];
+            let terrain = active_map.grid[y][x];
             let visibility = exploration_data
                 .map
                 .get(x, y)
@@ -113,7 +113,7 @@ pub fn init_minimap_system(
 /// 探索状態変更時にミニマップテクスチャを更新するシステム
 pub fn update_minimap_texture_system(
     exploration_data: Res<ExplorationData>,
-    map_data: Res<MapDataResource>,
+    active_map: Res<ActiveMap>,
     minimap_texture: Res<MinimapTexture>,
     mut images: ResMut<Assets<Image>>,
 ) {
@@ -133,7 +133,7 @@ pub fn update_minimap_texture_system(
     // テクスチャデータを更新
     for y in 0..MAP_HEIGHT {
         for x in 0..MAP_WIDTH {
-            let terrain = map_data.grid[y][x];
+            let terrain = active_map.grid[y][x];
             let visibility = exploration_data
                 .map
                 .get(x, y)

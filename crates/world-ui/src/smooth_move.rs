@@ -4,7 +4,7 @@ use movement_ui::{
     ease_out_quad, Boat, MovementBlockedEvent, MovementLocked, OnBoat, PendingMove, Player,
     PlayerMovedEvent, SmoothMove, TileEnteredEvent, TilePosition,
 };
-use shared_ui::{MapDataResource, MAP_PIXEL_HEIGHT, MAP_PIXEL_WIDTH, TILE_SIZE};
+use shared_ui::{ActiveMap, MAP_PIXEL_HEIGHT, MAP_PIXEL_WIDTH, TILE_SIZE};
 
 use crate::movement_helpers::{execute_boat_move, execute_walk_move, ExecuteMoveResult};
 
@@ -61,7 +61,7 @@ pub fn start_smooth_move(
 pub fn update_smooth_move(
     mut commands: Commands,
     time: Res<Time>,
-    map_data: Res<MapDataResource>,
+    active_map: Res<ActiveMap>,
     mut query: Query<
         (
             Entity,
@@ -104,7 +104,7 @@ pub fn update_smooth_move(
                 matches!(
                     execute_boat_move(
                         &mut commands, entity, &mut tile_pos, dx, dy,
-                        &map_data.grid, on_boat, &mut boat_query,
+                        &active_map.grid, on_boat, &mut boat_query,
                         &mut moved_events, &mut blocked_events,
                     ),
                     ExecuteMoveResult::Success
@@ -114,7 +114,7 @@ pub fn update_smooth_move(
                 matches!(
                     execute_walk_move(
                         &mut tile_pos, entity, dx, dy,
-                        &map_data.grid, &mut moved_events, &mut blocked_events,
+                        &active_map.grid, &mut moved_events, &mut blocked_events,
                     ),
                     ExecuteMoveResult::Success
                 )

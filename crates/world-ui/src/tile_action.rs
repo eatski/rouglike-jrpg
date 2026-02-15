@@ -4,14 +4,14 @@ use terrain::TileAction;
 
 use app_state::AppState;
 use movement_ui::{OnBoat, Player, TileEnteredEvent, TilePosition};
-use shared_ui::MapDataResource;
+use shared_ui::ActiveMap;
 
 /// プレイヤーがフィールドのタイルに歩いて到着した際に、
 /// 地形に応じた状態遷移を行うシステム
 pub fn check_tile_action_system(
     mut events: MessageReader<TileEnteredEvent>,
     player_query: Query<(&TilePosition, Option<&OnBoat>), With<Player>>,
-    map_data: Res<MapDataResource>,
+    active_map: Res<ActiveMap>,
     mut next_state: ResMut<NextState<AppState>>,
 ) {
     for _event in events.read() {
@@ -24,7 +24,7 @@ pub fn check_tile_action_system(
             continue;
         }
 
-        let terrain = map_data.grid[tile_pos.y][tile_pos.x];
+        let terrain = active_map.terrain_at(tile_pos.x, tile_pos.y);
         match terrain.tile_action() {
             TileAction::EnterTown => {
                 next_state.set(AppState::Town);

@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use terrain::{Terrain, MAP_HEIGHT, MAP_WIDTH};
 
 use movement_ui::{MapTile, Player, SmoothMove, TilePosition};
-use shared_ui::{logical_to_world, MapDataResource, TILE_SIZE, VISIBLE_CELLS};
+use shared_ui::{ActiveMap, TILE_SIZE, VISIBLE_CELLS};
 
 use crate::rendering::TileTextures;
 
@@ -101,7 +101,7 @@ pub fn update_visible_tiles(
     mut tile_pool: ResMut<TilePool>,
     player_query: Query<&TilePosition, With<Player>>,
     smooth_move_query: Query<&SmoothMove, With<Player>>,
-    map_data: Res<MapDataResource>,
+    active_map: Res<ActiveMap>,
     tile_textures: Res<TileTextures>,
     mut tile_query: Query<(
         &mut Transform,
@@ -172,11 +172,11 @@ pub fn update_visible_tiles(
 
         // マップ座標を計算（トーラスラップ）
         let (map_x, map_y) = logical_to_map(logical_x, logical_y);
-        let terrain = map_data.grid[map_y][map_x];
+        let terrain = active_map.grid[map_y][map_x];
         let texture = get_terrain_texture(terrain, &tile_textures);
 
         // ワールド座標を計算
-        let (world_x, world_y) = logical_to_world(logical_x, logical_y);
+        let (world_x, world_y) = active_map.to_world_logical(logical_x, logical_y);
 
         if let Ok((mut transform, mut sprite, mut pooled, mut visibility)) =
             tile_query.get_mut(entity)
