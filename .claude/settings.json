@@ -21,7 +21,13 @@
       "WebFetch(domain:opengameart.org)",
       "WebFetch(domain:kenney-assets.itch.io)",
       "WebFetch(domain:pipoya.itch.io)",
-      "WebFetch(domain:seliel-the-shaper.itch.io)"
+      "WebFetch(domain:seliel-the-shaper.itch.io)",
+      "WebFetch(domain:bevyengine.org)",
+      "WebFetch(domain:docs.rs)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:doc.rust-lang.org)",
+      "WebFetch(domain:crates.io)"
     ],
     "deny": [
       "Edit(path:.worktrees/**)",
