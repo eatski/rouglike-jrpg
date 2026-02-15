@@ -37,14 +37,14 @@ fn direction_label(dx: i32, dy: i32) -> &'static str {
     let mostly_y = ay > ax * 2;
 
     match (dx.signum(), dy.signum(), mostly_x, mostly_y) {
-        (_, -1, _, true) => "きた",
-        (_, 1, _, true) => "みなみ",
+        (_, 1, _, true) => "きた",
+        (_, -1, _, true) => "みなみ",
         (1, _, true, _) => "ひがし",
         (-1, _, true, _) => "にし",
-        (1, -1, _, _) => "ほくとう",
-        (-1, -1, _, _) => "ほくせい",
-        (1, 1, _, _) => "なんとう",
-        (-1, 1, _, _) => "なんせい",
+        (1, 1, _, _) => "ほくとう",
+        (-1, 1, _, _) => "ほくせい",
+        (1, -1, _, _) => "なんとう",
+        (-1, -1, _, _) => "なんせい",
         _ => "ちかく",
     }
 }
@@ -125,8 +125,8 @@ mod tests {
     #[test]
     fn cave_hint_dialogue_cave_to_the_north() {
         let mut grid = make_grid(MAP_WIDTH, MAP_HEIGHT);
-        // 街(75, 75)の北(y=65)に洞窟を配置
-        grid[65][75] = Terrain::Cave;
+        // 街(75, 75)の北(y=85)に洞窟を配置（tile_yが大きい=北）
+        grid[85][75] = Terrain::Cave;
         let dialogue = cave_hint_dialogue(&grid, 75, 75);
         assert!(
             dialogue.contains("きた"),
@@ -138,8 +138,8 @@ mod tests {
     #[test]
     fn cave_hint_dialogue_cave_to_the_south() {
         let mut grid = make_grid(MAP_WIDTH, MAP_HEIGHT);
-        // 街(75, 75)の南(y=85)に洞窟を配置
-        grid[85][75] = Terrain::Cave;
+        // 街(75, 75)の南(y=65)に洞窟を配置（tile_yが小さい=南）
+        grid[65][75] = Terrain::Cave;
         let dialogue = cave_hint_dialogue(&grid, 75, 75);
         assert!(
             dialogue.contains("みなみ"),
@@ -200,17 +200,17 @@ mod tests {
 
     #[test]
     fn direction_label_cardinal() {
-        assert_eq!(direction_label(0, -10), "きた");
-        assert_eq!(direction_label(0, 10), "みなみ");
+        assert_eq!(direction_label(0, 10), "きた");
+        assert_eq!(direction_label(0, -10), "みなみ");
         assert_eq!(direction_label(10, 0), "ひがし");
         assert_eq!(direction_label(-10, 0), "にし");
     }
 
     #[test]
     fn direction_label_diagonal() {
-        assert_eq!(direction_label(5, -5), "ほくとう");
-        assert_eq!(direction_label(-5, -5), "ほくせい");
-        assert_eq!(direction_label(5, 5), "なんとう");
-        assert_eq!(direction_label(-5, 5), "なんせい");
+        assert_eq!(direction_label(5, 5), "ほくとう");
+        assert_eq!(direction_label(-5, 5), "ほくせい");
+        assert_eq!(direction_label(5, -5), "なんとう");
+        assert_eq!(direction_label(-5, -5), "なんせい");
     }
 }
