@@ -318,7 +318,7 @@ impl BattleState {
         let mut results = Vec::new();
         if let TargetId::Enemy(ei) = target {
             let damage = CombatStats::calculate_damage(
-                self.party[party_idx].stats.attack,
+                self.party[party_idx].effective_attack(),
                 self.enemies[ei].stats.defense,
                 random_factor,
             );
