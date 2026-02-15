@@ -25,7 +25,7 @@ Bevy 0.18を使用した2Dローグライク風JRPGのプロトタイプ。Cargo
 **ドメイン層（依存なし）**:
 - **terrain**: 地形・座標・方向（Terrain, Position, Direction）
 - **party**: パーティ・キャラクター・ステータス（PartyMember, CombatStats）
-- **battle**: 戦闘ロジック（敵、魔法、戦闘処理）
+- **battle**: 戦闘ロジック（敵、魔法（クラス別呪文制限含む）、戦闘処理）
 - **cave**: 洞窟生成ロジック
 - **town**: 街ロジック
 - **world**: ワールドマップ生成・島配置
@@ -41,7 +41,7 @@ Bevy 0.18を使用した2Dローグライク風JRPGのプロトタイプ。Cargo
 - **world-ui**: ワールドマップシーン・入力・描画・エンカウントシステム
 - **cave-ui**: 洞窟シーン・入力
 - **town-ui**: 街シーン・入力
-- **battle-ui**: 戦闘シーン・入力・表示
+- **battle-ui**: 戦闘シーン・入力（クラス別呪文選択制限）・表示（呪文リスト、無効コマンド灰色表示）
 - **time-ui**: 時間カウンター表示（右上UI、TileEnteredEventで+1、MapMode時非表示）
 
 **ツール**:

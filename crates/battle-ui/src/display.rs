@@ -217,16 +217,24 @@ pub fn battle_display_system(
     }
 
     // コマンド/呪文表示更新
-    let spell_list = battle::spell::all_spells();
     let is_spell_select = matches!(ui_state.phase, BattlePhase::SpellSelect { .. });
     let show_commands = matches!(ui_state.phase, BattlePhase::CommandSelect { .. });
 
-    // 呪文選択フェーズ用: 現在のキャラのMP
-    let current_member_mp = match &ui_state.phase {
+    // 呪文選択フェーズ用: クラス別呪文リストと現在のキャラのMP
+    let (spell_list, current_member_mp) = match &ui_state.phase {
         BattlePhase::SpellSelect { member_index } => {
-            game_state.state.party[*member_index].stats.mp
+            let member = &game_state.state.party[*member_index];
+            (battle::spell::available_spells(member.kind), member.stats.mp)
         }
-        _ => 0,
+        _ => (vec![], 0),
+    };
+
+    // コマンド選択フェーズ用: 呪文なしクラスかどうか
+    let has_no_spells = match &ui_state.phase {
+        BattlePhase::CommandSelect { member_index } => {
+            battle::spell::available_spells(game_state.state.party[*member_index].kind).is_empty()
+        }
+        _ => false,
     };
 
     let commands = ["たたかう", "じゅもん", "にげる"];
@@ -255,7 +263,11 @@ pub fn battle_display_system(
                 let is_selected = cursor.index == ui_state.selected_command;
                 let prefix = if is_selected { "> " } else { "  " };
                 **text = format!("{}{}", prefix, commands[cursor.index]);
-                *color = if is_selected {
+                // 呪文なしクラスは「じゅもん」を灰色表示
+                let is_disabled = cursor.index == 1 && has_no_spells;
+                *color = if is_disabled {
+                    TextColor(Color::srgb(0.4, 0.4, 0.4))
+                } else if is_selected {
                     TextColor(COMMAND_COLOR_SELECTED)
                 } else {
                     TextColor(COMMAND_COLOR_UNSELECTED)

@@ -73,7 +73,12 @@ fn handle_command_select(
                 ui_state.phase = BattlePhase::TargetSelect { member_index };
             }
             1 => {
-                // じゅもん → 呪文選択へ
+                // じゅもん → 呪文がないクラスは遷移しない
+                let member_kind = game_state.state.party[member_index].kind;
+                let spells = battle::spell::available_spells(member_kind);
+                if spells.is_empty() {
+                    return;
+                }
                 ui_state.selected_spell = 0;
                 ui_state.phase = BattlePhase::SpellSelect { member_index };
             }
@@ -96,7 +101,8 @@ fn handle_spell_select(
     ui_state: &mut BattleUIState,
     member_index: usize,
 ) {
-    let spells = battle::spell::all_spells();
+    let member_kind = game_state.state.party[member_index].kind;
+    let spells = battle::spell::available_spells(member_kind);
     let spell_count = spells.len();
 
     // 上下でカーソル移動

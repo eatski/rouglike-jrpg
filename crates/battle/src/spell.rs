@@ -52,6 +52,16 @@ pub fn all_spells() -> Vec<SpellKind> {
     vec![SpellKind::Fire, SpellKind::Heal]
 }
 
+/// クラス別に使用可能な呪文リストを返す
+pub fn available_spells(kind: party::PartyMemberKind) -> Vec<SpellKind> {
+    use party::PartyMemberKind;
+    match kind {
+        PartyMemberKind::Hero => vec![],
+        PartyMemberKind::Mage => vec![SpellKind::Fire],
+        PartyMemberKind::Priest => vec![SpellKind::Heal],
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -113,5 +123,23 @@ mod tests {
         assert_eq!(spells.len(), 2);
         assert_eq!(spells[0], SpellKind::Fire);
         assert_eq!(spells[1], SpellKind::Heal);
+    }
+
+    #[test]
+    fn hero_has_no_spells() {
+        let spells = available_spells(party::PartyMemberKind::Hero);
+        assert!(spells.is_empty());
+    }
+
+    #[test]
+    fn mage_has_fire() {
+        let spells = available_spells(party::PartyMemberKind::Mage);
+        assert_eq!(spells, vec![SpellKind::Fire]);
+    }
+
+    #[test]
+    fn priest_has_heal() {
+        let spells = available_spells(party::PartyMemberKind::Priest);
+        assert_eq!(spells, vec![SpellKind::Heal]);
     }
 }
