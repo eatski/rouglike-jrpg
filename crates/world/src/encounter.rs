@@ -2,28 +2,12 @@ use terrain::Terrain;
 
 /// エンカウント判定
 ///
-/// 船乗車中はエンカウントなし。地形ごとの確率:
-/// - 草原: 2%
-/// - 森: 3%
-/// - 山: 8%
-/// - 海: 10%
+/// 船乗車中はエンカウントなし。地形ごとの確率はTerrain::encounter_rate()で定義。
 pub fn should_encounter(terrain: Terrain, on_boat: bool, random_value: f32) -> bool {
     if on_boat {
         return false;
     }
-    let rate = encounter_rate(terrain);
-    random_value < rate
-}
-
-fn encounter_rate(terrain: Terrain) -> f32 {
-    match terrain {
-        Terrain::Plains => 0.02,
-        Terrain::Forest => 0.03,
-        Terrain::Mountain => 0.08,
-        Terrain::Sea => 0.10,
-        Terrain::Town => 0.0,
-        Terrain::Cave => 0.0,
-    }
+    random_value < terrain.encounter_rate()
 }
 
 #[cfg(test)]

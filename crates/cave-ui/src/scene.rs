@@ -1,7 +1,8 @@
 use bevy::prelude::*;
 use std::collections::HashMap;
 
-use cave::{generate_cave_map, CaveMapData, CaveTerrain, CAVE_HEIGHT, CAVE_WIDTH};
+use cave::{generate_cave_map, CaveMapData, CAVE_HEIGHT, CAVE_WIDTH};
+use terrain::Terrain;
 
 use movement_ui::{
     Boat, Bounce, MapTile, MovementLocked, PendingMove, Player, SmoothMove, TilePosition,
@@ -21,7 +22,7 @@ pub struct FieldReturnState {
 /// 洞窟マップデータのリソース
 #[derive(Resource)]
 pub struct CaveMapResource {
-    pub grid: Vec<Vec<CaveTerrain>>,
+    pub grid: Vec<Vec<Terrain>>,
     pub width: usize,
     pub height: usize,
     pub warp_position: (usize, usize),
@@ -187,13 +188,14 @@ pub fn update_cave_tiles(
         {
             cave_map.grid[ly as usize][lx as usize]
         } else {
-            CaveTerrain::Wall
+            Terrain::CaveWall
         };
 
         let texture = match terrain {
-            CaveTerrain::Wall => tile_textures.cave_wall.clone(),
-            CaveTerrain::Floor => tile_textures.cave_floor.clone(),
-            CaveTerrain::WarpZone => tile_textures.warp_zone.clone(),
+            Terrain::CaveWall => tile_textures.cave_wall.clone(),
+            Terrain::CaveFloor => tile_textures.cave_floor.clone(),
+            Terrain::WarpZone => tile_textures.warp_zone.clone(),
+            _ => tile_textures.cave_wall.clone(),
         };
 
         let (world_x, world_y) = cave_tile_to_world(lx, ly);

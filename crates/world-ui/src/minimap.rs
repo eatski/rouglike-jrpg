@@ -22,12 +22,15 @@ pub struct MinimapTexture {
 /// 地形タイプから色を取得
 fn terrain_to_color(terrain: Terrain) -> [u8; 4] {
     match terrain {
-        Terrain::Sea => [64, 64, 200, 255],      // 青
-        Terrain::Plains => [100, 200, 100, 255], // 緑
-        Terrain::Forest => [34, 139, 34, 255],   // 濃い緑
+        Terrain::Sea => [64, 64, 200, 255],        // 青
+        Terrain::Plains => [100, 200, 100, 255],   // 緑
+        Terrain::Forest => [34, 139, 34, 255],     // 濃い緑
         Terrain::Mountain => [139, 137, 137, 255], // グレー
-        Terrain::Town => [200, 160, 60, 255],       // 金色
-        Terrain::Cave => [100, 80, 60, 255],        // 暗い茶色
+        Terrain::Town => [200, 160, 60, 255],      // 金色
+        Terrain::Cave => [100, 80, 60, 255],       // 暗い茶色
+        Terrain::CaveWall => [60, 50, 40, 255],    // 暗い茶色
+        Terrain::CaveFloor => [140, 120, 90, 255], // 薄い茶色
+        Terrain::WarpZone => [180, 100, 200, 255], // 紫
     }
 }
 
