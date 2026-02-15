@@ -4,7 +4,8 @@ use bevy::window::{Window, WindowResolution};
 use app_state::{BattleState, InField, SceneState};
 use battle_ui::{
     battle_blink_system, battle_display_system, battle_input_system, battle_shake_system,
-    cleanup_battle_scene, setup_battle_scene,
+    cleanup_battle_scene, field_spell_display_system, field_spell_input_system,
+    setup_battle_scene,
 };
 use cave_ui::{
     cave_player_movement, check_warp_zone_system, cleanup_cave_scene, setup_cave_scene,
@@ -14,7 +15,7 @@ use movement_ui::{
     start_bounce, update_bounce, MovementBlockedEvent, PlayerArrivedEvent, PlayerMovedEvent,
     TileEnteredEvent,
 };
-use shared_ui::{MovementState, PartyState, WINDOW_SIZE};
+use shared_ui::{FieldSpellMenuOpen, MovementState, PartyState, WINDOW_SIZE};
 use time_ui::{
     cleanup_time_display, setup_time_display, toggle_time_display_visibility, update_time_counter,
     update_time_display, TimeCounter,
@@ -59,6 +60,7 @@ fn main() {
     .init_resource::<MovementState>()
     .init_resource::<MapModeState>()
     .init_resource::<PartyState>()
+    .init_resource::<FieldSpellMenuOpen>()
     .init_resource::<TimeCounter>()
     .add_systems(
         Startup,
@@ -77,6 +79,12 @@ fn main() {
     .add_systems(
         Update,
         (toggle_hud_visibility, update_hud)
+            .chain()
+            .run_if(in_state(InField)),
+    )
+    .add_systems(
+        Update,
+        (field_spell_input_system, field_spell_display_system)
             .chain()
             .run_if(in_state(InField)),
     )

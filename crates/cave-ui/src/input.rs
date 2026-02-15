@@ -8,8 +8,7 @@ use movement_ui::{
     MovementBlockedEvent, MovementLocked, PendingMove, Player, PlayerArrivedEvent,
     PlayerMovedEvent, SmoothMove, TileEnteredEvent, TilePosition,
 };
-use shared_ui::{ActiveMap, MovementState, TILE_SIZE};
-use input_ui;
+use shared_ui::{ActiveMap, FieldSpellMenuOpen, MovementState, TILE_SIZE};
 
 const MOVE_DURATION: f32 = 0.15;
 
@@ -20,6 +19,7 @@ pub fn cave_player_movement(
     keyboard: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
     active_map: Res<ActiveMap>,
+    field_menu_open: Res<FieldSpellMenuOpen>,
     mut move_state: ResMut<MovementState>,
     mut query: Query<
         (Entity, &mut TilePosition, Option<&MovementLocked>),
@@ -33,6 +33,11 @@ pub fn cave_player_movement(
     };
 
     if locked.is_some() {
+        return;
+    }
+
+    // フィールド呪文メニュー中は移動を無効化
+    if field_menu_open.0 {
         return;
     }
 

@@ -6,7 +6,7 @@ use movement_ui::{
     Boat, MovementBlockedEvent, MovementLocked, OnBoat, PendingMove, Player, PlayerMovedEvent,
     TilePosition,
 };
-use shared_ui::{ActiveMap, MovementState};
+use shared_ui::{ActiveMap, FieldSpellMenuOpen, MovementState};
 
 use crate::map_mode::MapModeState;
 use crate::movement_helpers::{execute_boat_move, execute_walk_move, ExecuteMoveResult};
@@ -19,6 +19,7 @@ pub fn player_movement(
     time: Res<Time>,
     active_map: Res<ActiveMap>,
     map_mode_state: Res<MapModeState>,
+    field_menu_open: Res<FieldSpellMenuOpen>,
     mut move_state: ResMut<MovementState>,
     mut query: Query<
         (
@@ -44,6 +45,11 @@ pub fn player_movement(
 
     // マップモード中は移動を無効化
     if map_mode_state.enabled {
+        return;
+    }
+
+    // フィールド呪文メニュー中は移動を無効化
+    if field_menu_open.0 {
         return;
     }
 

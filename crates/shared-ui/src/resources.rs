@@ -91,6 +91,10 @@ impl From<MapData> for ActiveMap {
     }
 }
 
+/// フィールド呪文メニューの開閉状態
+#[derive(Resource, Default)]
+pub struct FieldSpellMenuOpen(pub bool);
+
 /// ワールドマップデータの永続保存用リソース（洞窟進入時に退避）
 #[derive(Resource)]
 pub struct WorldMapData {

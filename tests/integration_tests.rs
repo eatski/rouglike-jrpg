@@ -17,7 +17,7 @@ use movement_ui::{
     start_bounce, update_bounce, Boat, MovementBlockedEvent, MovementLocked, OnBoat, Player,
     PlayerMovedEvent, TilePosition,
 };
-use shared_ui::{ActiveMap, MovementState, PartyState, TILE_SIZE};
+use shared_ui::{ActiveMap, FieldSpellMenuOpen, MovementState, PartyState, TILE_SIZE};
 use world_ui::{
     player_movement, start_smooth_move, sync_boat_with_player, update_smooth_move, MapModeState,
     SpawnPosition,
@@ -91,6 +91,7 @@ fn setup_test_app_with_map(grid: Vec<Vec<Terrain>>, spawn_x: usize, spawn_y: usi
     app.insert_resource(MovementState::default());
     app.insert_resource(EventCounters::default());
     app.insert_resource(MapModeState::default());
+    app.init_resource::<FieldSpellMenuOpen>();
     app.init_resource::<ButtonInput<KeyCode>>();
 
     // イベントを登録
