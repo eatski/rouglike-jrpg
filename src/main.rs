@@ -139,6 +139,7 @@ fn main() {
             update_cave_tiles,
             camera_follow,
             check_warp_zone_system,
+            check_encounter_system,
         )
             .chain()
             .run_if(in_state(SceneState::Cave).and(in_state(BattleState::None))),

@@ -60,18 +60,17 @@ crateは「複数から使われるかどうか」ではなく、「意味的に
 
 #### エンカウントシステムの配置
 
-**pure logic**: `world::should_encounter(terrain, on_boat, random)` - ドメイン層（world crate）に配置
+**pure logic**: `terrain.encounter_rate()` - ドメイン層（terrain crate）に配置
 
-- 地形ごとのエンカウント率判定
-- 船乗車中のエンカウント無効化ルール
-- Bevy非依存の純粋関数
+- 地形ごとのエンカウント率はTerrainの責務として内包
 
-**Bevy system**: `world_ui::check_encounter_system` - UI機能層（world-ui crate）に配置
+**Bevy system**: `world_ui::check_encounter_system` / `cave-ui::check_encounter_system` - UI機能層に配置
 
-- TileEnteredEventをリッスン
+- TileEnteredEventをリッスン（フィールド/洞窟の両方で動作）
 - プレイヤー状態（座標、船乗車フラグ）をクエリ
-- should_encounter()を呼び出してAppState::Battleへ遷移
+- `terrain.encounter_rate()` を呼び出してBattleState::Activeへ遷移
+- 船乗車中はスキップ（フィールドのみ）
 
-**理由**: エンカウント判定は「ワールドマップ探索」の一部であり、battle crateの責務ではない。battle crateはterrain依存を削除し、戦闘ロジックに専念。
+**理由**: エンカウント判定は各シーン（フィールド/洞窟）の共通処理。地形がエンカウント率を知っているので、シンプルに統合できる。
 
 設計・分析に専念し、コード実装は他の専門エージェントに委譲すること。

@@ -6,7 +6,7 @@ use terrain::Terrain;
 use app_state::SceneState;
 use movement_ui::{
     MovementBlockedEvent, MovementLocked, PendingMove, Player, PlayerArrivedEvent,
-    PlayerMovedEvent, SmoothMove, TilePosition,
+    PlayerMovedEvent, SmoothMove, TileEnteredEvent, TilePosition,
 };
 use shared_ui::{ActiveMap, MovementState, TILE_SIZE};
 use input_ui;
@@ -186,6 +186,7 @@ pub fn update_cave_smooth_move(
     mut moved_events: MessageWriter<PlayerMovedEvent>,
     mut blocked_events: MessageWriter<MovementBlockedEvent>,
     mut arrived_events: MessageWriter<PlayerArrivedEvent>,
+    mut tile_entered_events: MessageWriter<TileEnteredEvent>,
 ) {
     let Ok((entity, mut smooth_move, mut transform, mut tile_pos, pending_move)) =
         query.single_mut()
@@ -234,7 +235,13 @@ pub fn update_cave_smooth_move(
             }
         } else {
             commands.entity(entity).remove::<MovementLocked>();
-            arrived_events.write(PlayerArrivedEvent { entity });
+            // ワープゾーンは「タイルに入った」ではなく遷移なのでArrivedを使う
+            let terrain = active_map.terrain_at(tile_pos.x, tile_pos.y);
+            if terrain == Terrain::WarpZone {
+                arrived_events.write(PlayerArrivedEvent { entity });
+            } else {
+                tile_entered_events.write(TileEnteredEvent { entity });
+            }
         }
     } else {
         let progress = smooth_move.timer.fraction();

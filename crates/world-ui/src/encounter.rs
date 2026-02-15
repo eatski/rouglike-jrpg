@@ -1,7 +1,5 @@
 use bevy::prelude::*;
 
-use world::should_encounter;
-
 use app_state::BattleState;
 use movement_ui::{OnBoat, Player, TileEnteredEvent, TilePosition};
 use shared_ui::ActiveMap;
@@ -18,11 +16,12 @@ pub fn check_encounter_system(
             continue;
         };
 
-        let terrain = active_map.terrain_at(tile_pos.x, tile_pos.y);
-        let on_boat = on_boat.is_some();
-        let random_value: f32 = rand::random();
+        if on_boat.is_some() {
+            continue;
+        }
 
-        if should_encounter(terrain, on_boat, random_value) {
+        let terrain = active_map.terrain_at(tile_pos.x, tile_pos.y);
+        if rand::random::<f32>() < terrain.encounter_rate() {
             next_state.set(BattleState::Active);
             return;
         }
