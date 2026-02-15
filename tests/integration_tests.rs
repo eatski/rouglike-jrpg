@@ -985,6 +985,7 @@ fn insert_battle_resource(app: &mut App, phase: BattlePhase) {
     let enemies = vec![Enemy::slime()];
     let battle_state = battle::BattleState::new(party, enemies);
 
+    let party_size = battle_state.party.len();
     let display_party_hp = battle_state.party.iter().map(|m| m.stats.hp).collect();
     let display_party_mp = battle_state.party.iter().map(|m| m.stats.mp).collect();
 
@@ -994,7 +995,7 @@ fn insert_battle_resource(app: &mut App, phase: BattlePhase) {
     app.insert_resource(BattleUIState {
         selected_command: 0,
         selected_target: 0,
-        pending_commands: PendingCommands::default(),
+        pending_commands: PendingCommands::new(party_size),
         phase,
         hidden_enemies: vec![false; 1],
         display_party_hp,

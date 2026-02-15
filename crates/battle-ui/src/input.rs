@@ -50,12 +50,10 @@ fn handle_command_select(
     }
 
     // キャンセル: 前のメンバーに戻る
-    if input_ui::is_cancel_just_pressed(keyboard) && member_index > 0 {
-        // 前のメンバーのコマンドを取り消し
-        ui_state.pending_commands.pop();
-        // 前の生存メンバーを探す
+    if input_ui::is_cancel_just_pressed(keyboard) {
         let prev = find_prev_alive_member(game_state, member_index);
         if let Some(prev_idx) = prev {
+            ui_state.pending_commands.remove(prev_idx);
             ui_state.selected_command = 0;
             ui_state.phase = BattlePhase::CommandSelect {
                 member_index: prev_idx,
@@ -82,8 +80,8 @@ fn handle_command_select(
             _ => {
                 // にげる → 全員Flee確定、即実行
                 ui_state.pending_commands.clear();
-                for _ in 0..game_state.state.party.len() {
-                    ui_state.pending_commands.push(BattleAction::Flee);
+                for i in 0..game_state.state.party.len() {
+                    ui_state.pending_commands.set(i, BattleAction::Flee);
                 }
                 execute_turn(game_state, ui_state);
             }
@@ -193,12 +191,12 @@ fn handle_target_select(
             // 呪文ターゲット決定
             ui_state
                 .pending_commands
-                .push(BattleAction::Spell { spell, target });
+                .set(member_index, BattleAction::Spell { spell, target });
         } else {
             // 通常攻撃
             ui_state
                 .pending_commands
-                .push(BattleAction::Attack { target });
+                .set(member_index, BattleAction::Attack { target });
         }
 
         // 次の生存メンバーを探す
@@ -260,7 +258,7 @@ fn handle_ally_target_select(
         if let Some(spell) = ui_state.pending_spell.take() {
             ui_state
                 .pending_commands
-                .push(BattleAction::Spell { spell, target });
+                .set(member_index, BattleAction::Spell { spell, target });
         }
 
         // 次の生存メンバーを探す
@@ -311,7 +309,7 @@ fn execute_turn(game_state: &mut BattleGameState, ui_state: &mut BattleUIState) 
 
     let results = game_state
         .state
-        .execute_turn(&ui_state.pending_commands.commands, &random_factors);
+        .execute_turn(&ui_state.pending_commands.to_commands(), &random_factors);
 
     ui_state.pending_commands.clear();
 

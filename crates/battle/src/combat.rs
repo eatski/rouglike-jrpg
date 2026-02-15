@@ -647,4 +647,78 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn dead_hero_priest_still_attacks() {
+        // リグレッション防止: 勇者(index 0)が死亡した状態で、
+        // 魔法使い(index 1)と僧侶(index 2)のコマンドが正しく実行されることを検証
+        let party = default_party();
+        // 敵のHPを高くして戦闘が1ターンで終わらないようにする
+        let mut slime = Enemy::slime();
+        slime.stats.hp = 999;
+        slime.stats.max_hp = 999;
+        let enemies = vec![slime];
+        let mut battle = BattleState::new(party, enemies);
+
+        // 勇者を倒す
+        battle.party[0].stats.hp = 0;
+
+        let commands = vec![
+            BattleAction::Attack {
+                target: TargetId::Enemy(0), // 勇者のコマンド(実行されない)
+            },
+            BattleAction::Attack {
+                target: TargetId::Enemy(0), // 魔法使いのコマンド
+            },
+            BattleAction::Attack {
+                target: TargetId::Enemy(0), // 僧侶のコマンド
+            },
+        ];
+        let randoms = make_random(vec![1.0; 3], 0.0);
+        let results = battle.execute_turn(&commands, &randoms);
+
+        // 魔法使い(Party(1))と僧侶(Party(2))が攻撃していることを確認
+        let mage_attacks = results
+            .iter()
+            .filter(|r| {
+                matches!(
+                    r,
+                    TurnResult::Attack {
+                        attacker: ActorId::Party(1),
+                        ..
+                    }
+                )
+            })
+            .count();
+        let priest_attacks = results
+            .iter()
+            .filter(|r| {
+                matches!(
+                    r,
+                    TurnResult::Attack {
+                        attacker: ActorId::Party(2),
+                        ..
+                    }
+                )
+            })
+            .count();
+
+        assert_eq!(mage_attacks, 1, "魔法使いは1回攻撃するはず");
+        assert_eq!(priest_attacks, 1, "僧侶は1回攻撃するはず");
+
+        // 勇者は攻撃していないことを確認
+        let hero_attacks = results
+            .iter()
+            .filter(|r| {
+                matches!(
+                    r,
+                    TurnResult::Attack {
+                        attacker: ActorId::Party(0),
+                        ..
+                    }
+                )
+            })
+            .count();
+        assert_eq!(hero_attacks, 0, "死亡した勇者は攻撃しないはず");
+    }
 }
