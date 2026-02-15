@@ -15,6 +15,10 @@ use movement_ui::{
     TileEnteredEvent,
 };
 use shared_ui::{MovementState, PartyState, WINDOW_SIZE};
+use time_ui::{
+    cleanup_time_display, setup_time_display, toggle_time_display_visibility, update_time_counter,
+    update_time_display, TimeCounter,
+};
 use town_ui::{cleanup_town_scene, setup_town_scene, town_display_system, town_input_system};
 use world_ui::{
     camera_follow, check_encounter_system, check_tile_action_system, cleanup_hud, init_exploration_system,
@@ -48,6 +52,7 @@ fn main() {
     .init_resource::<MovementState>()
     .init_resource::<MapModeState>()
     .init_resource::<PartyState>()
+    .init_resource::<TimeCounter>()
     .add_systems(
         Startup,
         (
@@ -60,7 +65,7 @@ fn main() {
         )
             .chain(),
     )
-    .add_systems(OnEnter(AppState::Exploring), setup_hud)
+    .add_systems(OnEnter(AppState::Exploring), (setup_hud, setup_time_display))
     .add_systems(
         Update,
         (
@@ -81,11 +86,14 @@ fn main() {
             camera_follow,
             check_tile_action_system,
             check_encounter_system,
+            update_time_counter,
+            update_time_display,
+            toggle_time_display_visibility,
         )
             .chain()
             .run_if(in_state(AppState::Exploring)),
     )
-    .add_systems(OnExit(AppState::Exploring), cleanup_hud)
+    .add_systems(OnExit(AppState::Exploring), (cleanup_hud, cleanup_time_display))
     .add_systems(OnEnter(AppState::Battle), setup_battle_scene)
     .add_systems(
         Update,

@@ -15,6 +15,8 @@ shared-ui = { path = "crates/shared-ui" }
 terrain = { path = "crates/terrain" }
 town-ui = { path = "crates/town-ui" }
 world = { path = "crates/world" }
+time = { path = "crates/time" }
+time-ui = { path = "crates/time-ui" }
 world-ui = { path = "crates/world-ui" }
 
 [dev-dependencies]
@@ -36,5 +38,7 @@ members = [
     "crates/town-ui",
     "crates/world-ui",
     "crates/cave-ui",
+    "crates/time",
+    "crates/time-ui",
     "crates/generate_tiles",
 ]
