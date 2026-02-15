@@ -146,7 +146,7 @@ pub fn setup_battle_scene(
     party_state: Res<PartyState>,
 ) {
     let party = party_state.members.clone();
-    let enemies = generate_enemy_group(rand::random::<f32>());
+    let enemies = generate_enemy_group(rand::random::<f32>(), rand::random::<f32>());
     let display_names = enemy_display_names(&enemies);
 
     let encounter_msg = if enemies.len() == 1 {
@@ -160,6 +160,11 @@ pub fn setup_battle_scene(
     };
 
     let enemy_count = enemies.len();
+    // スプライトハンドルを事前にロード（enemiesはBattleState::newでmoveされるため）
+    let enemy_sprite_handles: Vec<Handle<Image>> = enemies
+        .iter()
+        .map(|e| asset_server.load(e.kind.sprite_path()))
+        .collect();
     let battle_state = BattleState::new(party, enemies);
 
     let font: Handle<Font> = asset_server.load("fonts/NotoSansJP-Bold.ttf");
@@ -212,7 +217,7 @@ pub fn setup_battle_scene(
         ))
         .with_children(|parent| {
             // === 上部 (40%): 敵表示エリア ===
-            build_enemy_area(parent, &font, &asset_server);
+            build_enemy_area(parent, &font, &asset_server, &enemy_sprite_handles);
 
             // === 中部 (30%): メッセージエリア ===
             build_message_area(parent, &font, panel_bg, border_color);
@@ -235,7 +240,9 @@ fn build_enemy_area(
     parent: &mut ChildSpawnerCommands,
     font: &Handle<Font>,
     asset_server: &AssetServer,
+    enemy_sprite_handles: &[Handle<Image>],
 ) {
+    let default_handle = asset_server.load("enemies/slime.png");
     parent
         .spawn(Node {
             width: Val::Percent(100.0),
@@ -249,6 +256,11 @@ fn build_enemy_area(
         .with_children(|area| {
             // 最大4匹分のスロットを構築（非表示のものも含む）
             for i in 0..4 {
+                let sprite_handle = enemy_sprite_handles
+                    .get(i)
+                    .cloned()
+                    .unwrap_or_else(|| default_handle.clone());
+
                 area.spawn(Node {
                     flex_direction: FlexDirection::Column,
                     align_items: AlignItems::Center,
@@ -275,7 +287,7 @@ fn build_enemy_area(
                     // 敵スプライト
                     slot.spawn((
                         EnemySprite { index: i },
-                        ImageNode::new(asset_server.load("enemies/slime.png")),
+                        ImageNode::new(sprite_handle.clone()),
                         Node {
                             width: Val::Px(96.0),
                             height: Val::Px(96.0),

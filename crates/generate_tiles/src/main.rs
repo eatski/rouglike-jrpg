@@ -32,6 +32,10 @@ fn main() {
 
     // 敵キャラクターを生成
     generate_slime(enemies_dir);
+    generate_bat(enemies_dir);
+    generate_goblin(enemies_dir);
+    generate_wolf(enemies_dir);
+    generate_ghost(enemies_dir);
 
     println!("Assets generated in assets/");
 }
@@ -1131,4 +1135,555 @@ fn draw_castle(
             img.put_pixel(wx, wy, window);
         }
     }
+}
+
+fn generate_bat(output_dir: &Path) {
+    let mut img: RgbaImage = ImageBuffer::new(TILE_SIZE, TILE_SIZE);
+
+    // 透明で初期化
+    let transparent = Rgba([0, 0, 0, 0]);
+    for y in 0..TILE_SIZE {
+        for x in 0..TILE_SIZE {
+            img.put_pixel(x, y, transparent);
+        }
+    }
+
+    // コウモリのカラーパレット（紫/暗い色）
+    let body_dark = Rgba([40, 20, 60, 255]);       // 体の暗い部分
+    let body_mid = Rgba([60, 30, 90, 255]);        // 体の中間
+    let wing_dark = Rgba([50, 30, 70, 255]);       // 翼の暗い部分
+    let wing_mid = Rgba([70, 40, 100, 255]);       // 翼の中間
+    let wing_light = Rgba([90, 50, 120, 255]);     // 翼のハイライト
+    let eye_red = Rgba([200, 50, 50, 255]);        // 赤い目
+
+    // コウモリの体（中央、小さい楕円形）- y: 7-10, x: 7-8
+    for y in 7..=10 {
+        for x in 7..=8 {
+            img.put_pixel(x, y, body_mid);
+        }
+    }
+    // 体の影（下部）
+    img.put_pixel(7, 10, body_dark);
+    img.put_pixel(8, 10, body_dark);
+
+    // 頭部（上部） - y: 5-6
+    img.put_pixel(7, 6, body_mid);
+    img.put_pixel(8, 6, body_mid);
+    img.put_pixel(7, 5, body_dark);
+    img.put_pixel(8, 5, body_dark);
+
+    // 目（赤く光る） - y: 6
+    img.put_pixel(6, 6, eye_red);
+    img.put_pixel(9, 6, eye_red);
+
+    // 耳（尖った） - y: 4
+    img.put_pixel(6, 4, body_dark);
+    img.put_pixel(9, 4, body_dark);
+    img.put_pixel(7, 5, body_mid);
+    img.put_pixel(8, 5, body_mid);
+
+    // 左翼（広げた状態） - x: 1-6
+    // 左翼の骨組み（上部）
+    for x in 2..=5 {
+        img.put_pixel(x, 8, wing_dark);
+    }
+    // 左翼の膜（三角形状）
+    img.put_pixel(1, 9, wing_light);
+    img.put_pixel(2, 9, wing_mid);
+    img.put_pixel(3, 9, wing_mid);
+    img.put_pixel(4, 9, wing_dark);
+
+    img.put_pixel(1, 10, wing_mid);
+    img.put_pixel(2, 10, wing_mid);
+    img.put_pixel(3, 10, wing_dark);
+
+    img.put_pixel(2, 11, wing_mid);
+    img.put_pixel(3, 11, wing_dark);
+
+    img.put_pixel(3, 12, wing_dark);
+    img.put_pixel(4, 12, wing_dark);
+
+    // 左翼の上部のギザギザ
+    img.put_pixel(2, 7, wing_dark);
+    img.put_pixel(3, 7, wing_mid);
+    img.put_pixel(4, 7, wing_light);
+    img.put_pixel(5, 7, wing_mid);
+
+    // 右翼（広げた状態） - x: 9-14
+    // 右翼の骨組み（上部）
+    for x in 10..=13 {
+        img.put_pixel(x, 8, wing_dark);
+    }
+    // 右翼の膜（三角形状）
+    img.put_pixel(11, 9, wing_dark);
+    img.put_pixel(12, 9, wing_mid);
+    img.put_pixel(13, 9, wing_mid);
+    img.put_pixel(14, 9, wing_light);
+
+    img.put_pixel(12, 10, wing_dark);
+    img.put_pixel(13, 10, wing_mid);
+    img.put_pixel(14, 10, wing_mid);
+
+    img.put_pixel(12, 11, wing_dark);
+    img.put_pixel(13, 11, wing_mid);
+
+    img.put_pixel(11, 12, wing_dark);
+    img.put_pixel(12, 12, wing_dark);
+
+    // 右翼の上部のギザギザ
+    img.put_pixel(10, 7, wing_mid);
+    img.put_pixel(11, 7, wing_light);
+    img.put_pixel(12, 7, wing_mid);
+    img.put_pixel(13, 7, wing_dark);
+
+    // 足（小さく） - y: 11
+    img.put_pixel(7, 11, body_dark);
+    img.put_pixel(8, 11, body_dark);
+
+    img.save(output_dir.join("bat.png")).expect("Failed to save bat.png");
+    println!("Generated: bat.png");
+}
+
+fn generate_goblin(output_dir: &Path) {
+    let mut img: RgbaImage = ImageBuffer::new(TILE_SIZE, TILE_SIZE);
+
+    // 透明で初期化
+    let transparent = Rgba([0, 0, 0, 0]);
+    for y in 0..TILE_SIZE {
+        for x in 0..TILE_SIZE {
+            img.put_pixel(x, y, transparent);
+        }
+    }
+
+    // ゴブリンのカラーパレット（緑色の肌、粗末な服）
+    let skin_green = Rgba([80, 120, 60, 255]);      // 緑色の肌
+    let skin_dark = Rgba([60, 90, 45, 255]);        // 肌の影
+    let skin_light = Rgba([100, 140, 80, 255]);     // 肌のハイライト
+    let eye_red = Rgba([200, 50, 50, 255]);         // 赤い目
+    let eye_yellow = Rgba([220, 200, 80, 255]);     // 黄色い目白
+    let cloth_brown = Rgba([100, 70, 40, 255]);     // 粗末な服（茶色）
+    let cloth_dark = Rgba([70, 50, 30, 255]);       // 服の影
+    let teeth = Rgba([230, 230, 220, 255]);         // 牙（白）
+    let hair_dark = Rgba([40, 35, 30, 255]);        // 黒い髪
+
+    // 頭部（大きめ） - y: 2-7
+    // てっぺん（髪）
+    for x in 6..=9 {
+        img.put_pixel(x, 2, hair_dark);
+    }
+    for x in 5..=10 {
+        img.put_pixel(x, 3, if x == 5 || x == 10 { hair_dark } else { skin_green });
+    }
+
+    // 顔の上部
+    for x in 4..=11 {
+        let color = if x == 4 || x == 11 {
+            skin_dark
+        } else {
+            skin_green
+        };
+        img.put_pixel(x, 4, color);
+    }
+
+    // 目のある行 - y: 5
+    img.put_pixel(4, 5, skin_dark);
+    img.put_pixel(5, 5, skin_green);
+    img.put_pixel(6, 5, eye_yellow);
+    img.put_pixel(7, 5, eye_red);  // 左目
+    img.put_pixel(8, 5, eye_red);  // 右目
+    img.put_pixel(9, 5, eye_yellow);
+    img.put_pixel(10, 5, skin_green);
+    img.put_pixel(11, 5, skin_dark);
+
+    // 鼻・頬 - y: 6
+    for x in 4..=11 {
+        let color = if x == 4 || x == 11 {
+            skin_dark
+        } else if x == 7 || x == 8 {
+            skin_light  // 鼻
+        } else {
+            skin_green
+        };
+        img.put_pixel(x, 6, color);
+    }
+
+    // 口（にやけた表情、大きい） - y: 7
+    img.put_pixel(4, 7, skin_dark);
+    img.put_pixel(5, 7, skin_dark);
+    img.put_pixel(6, 7, teeth);     // 左の牙
+    img.put_pixel(7, 7, skin_dark);
+    img.put_pixel(8, 7, skin_dark);
+    img.put_pixel(9, 7, teeth);     // 右の牙
+    img.put_pixel(10, 7, skin_dark);
+    img.put_pixel(11, 7, skin_dark);
+
+    // 大きな耳（横に出っ張る）
+    // 左耳
+    img.put_pixel(3, 4, skin_light);
+    img.put_pixel(2, 5, skin_green);
+    img.put_pixel(3, 5, skin_light);
+    img.put_pixel(3, 6, skin_dark);
+
+    // 右耳
+    img.put_pixel(12, 4, skin_light);
+    img.put_pixel(12, 5, skin_light);
+    img.put_pixel(13, 5, skin_green);
+    img.put_pixel(12, 6, skin_dark);
+
+    // 首 - y: 8
+    for x in 6..=9 {
+        img.put_pixel(x, 8, skin_green);
+    }
+
+    // 体（粗末な服） - y: 9-12
+    // 肩・上半身
+    for x in 4..=11 {
+        let color = if x == 4 || x == 11 {
+            cloth_dark
+        } else if x == 5 || x == 10 {
+            cloth_brown
+        } else {
+            cloth_brown
+        };
+        img.put_pixel(x, 9, color);
+    }
+
+    for x in 5..=10 {
+        img.put_pixel(x, 10, cloth_brown);
+    }
+    img.put_pixel(4, 10, cloth_dark);
+    img.put_pixel(11, 10, cloth_dark);
+
+    // 腕（緑の肌）
+    img.put_pixel(3, 10, skin_green);
+    img.put_pixel(4, 11, skin_green);
+    img.put_pixel(12, 10, skin_green);
+    img.put_pixel(11, 11, skin_green);
+
+    // 手（握りこぶし）
+    img.put_pixel(3, 11, skin_dark);
+    img.put_pixel(12, 11, skin_dark);
+
+    // 下半身
+    for x in 5..=10 {
+        img.put_pixel(x, 11, cloth_dark);
+    }
+
+    // 脚（短め） - y: 12-13
+    img.put_pixel(5, 12, cloth_dark);
+    img.put_pixel(6, 12, skin_green);
+    img.put_pixel(9, 12, skin_green);
+    img.put_pixel(10, 12, cloth_dark);
+
+    // 足
+    img.put_pixel(5, 13, skin_dark);
+    img.put_pixel(6, 13, skin_dark);
+    img.put_pixel(9, 13, skin_dark);
+    img.put_pixel(10, 13, skin_dark);
+
+    img.save(output_dir.join("goblin.png")).expect("Failed to save goblin.png");
+    println!("Generated: goblin.png");
+}
+
+fn generate_wolf(output_dir: &Path) {
+    let mut img: RgbaImage = ImageBuffer::new(TILE_SIZE, TILE_SIZE);
+
+    // 透明で初期化
+    let transparent = Rgba([0, 0, 0, 0]);
+    for y in 0..TILE_SIZE {
+        for x in 0..TILE_SIZE {
+            img.put_pixel(x, y, transparent);
+        }
+    }
+
+    // 狼のカラーパレット（灰色/銀色）
+    let fur_dark = Rgba([60, 60, 70, 255]);        // 濃い灰色（影）
+    let fur_mid = Rgba([100, 100, 110, 255]);      // 中間の灰色
+    let fur_light = Rgba([140, 140, 150, 255]);    // 明るい灰色（ハイライト）
+    let fur_white = Rgba([180, 180, 190, 255]);    // 銀色（最も明るい）
+    let nose_black = Rgba([30, 30, 35, 255]);      // 鼻（黒）
+    let eye_yellow = Rgba([220, 200, 80, 255]);    // 黄色い目
+    let eye_black = Rgba([0, 0, 0, 255]);          // 瞳（黒）
+    let teeth = Rgba([230, 230, 220, 255]);        // 牙（白）
+
+    // 横向きの狼（左向き）
+    // 頭部 - y: 4-8, x: 2-7
+
+    // 耳（尖った三角形） - y: 2-4
+    // 左耳（後ろ側）
+    img.put_pixel(4, 2, fur_dark);
+    img.put_pixel(4, 3, fur_mid);
+    img.put_pixel(5, 3, fur_dark);
+
+    // 右耳（前側）
+    img.put_pixel(6, 2, fur_light);
+    img.put_pixel(6, 3, fur_mid);
+    img.put_pixel(7, 3, fur_light);
+
+    // 頭の上部 - y: 4
+    for x in 4..=7 {
+        let color = if x == 4 {
+            fur_dark
+        } else if x == 7 {
+            fur_light
+        } else {
+            fur_mid
+        };
+        img.put_pixel(x, 4, color);
+    }
+
+    // 目のある行 - y: 5
+    img.put_pixel(3, 5, fur_mid);
+    img.put_pixel(4, 5, fur_dark);
+    img.put_pixel(5, 5, eye_yellow);
+    img.put_pixel(6, 5, fur_light);
+    img.put_pixel(7, 5, fur_light);
+
+    // 瞳 - y: 6
+    img.put_pixel(3, 6, fur_dark);
+    img.put_pixel(4, 6, fur_mid);
+    img.put_pixel(5, 6, eye_black);
+    img.put_pixel(6, 6, fur_mid);
+    img.put_pixel(7, 6, fur_white);
+
+    // 鼻・口（前に突き出た形） - y: 7
+    img.put_pixel(2, 7, fur_light);
+    img.put_pixel(3, 7, fur_mid);
+    img.put_pixel(4, 7, fur_mid);
+    img.put_pixel(5, 7, fur_dark);
+    img.put_pixel(6, 7, fur_white);
+    img.put_pixel(7, 7, nose_black);  // 鼻先
+
+    // 口・牙 - y: 8
+    img.put_pixel(2, 8, fur_dark);
+    img.put_pixel(3, 8, teeth);       // 牙
+    img.put_pixel(4, 8, fur_dark);
+    img.put_pixel(5, 8, fur_mid);
+    img.put_pixel(6, 8, fur_light);
+
+    // 首 - y: 9
+    for x in 3..=8 {
+        let color = if x == 3 || x == 4 {
+            fur_dark
+        } else if x == 7 || x == 8 {
+            fur_light
+        } else {
+            fur_mid
+        };
+        img.put_pixel(x, 9, color);
+    }
+
+    // 体（背中から腹まで） - y: 10-11
+    for x in 4..=12 {
+        let color = if x <= 5 {
+            fur_dark
+        } else if x >= 11 {
+            fur_light
+        } else {
+            fur_mid
+        };
+        img.put_pixel(x, 10, color);
+    }
+
+    for x in 5..=13 {
+        let color = if x <= 6 {
+            fur_dark
+        } else if x >= 12 {
+            fur_light
+        } else {
+            fur_mid
+        };
+        img.put_pixel(x, 11, color);
+    }
+
+    // 前脚（左向きなので右側に見える） - y: 12-14
+    img.put_pixel(10, 12, fur_mid);
+    img.put_pixel(11, 12, fur_light);
+    img.put_pixel(12, 12, fur_mid);
+
+    img.put_pixel(10, 13, fur_dark);
+    img.put_pixel(11, 13, fur_mid);
+    img.put_pixel(12, 13, fur_dark);
+
+    img.put_pixel(10, 14, fur_dark);
+    img.put_pixel(12, 14, fur_dark);
+
+    // 後脚（左向きなので左側に見える） - y: 12-14
+    img.put_pixel(5, 12, fur_dark);
+    img.put_pixel(6, 12, fur_mid);
+    img.put_pixel(7, 12, fur_dark);
+
+    img.put_pixel(5, 13, fur_mid);
+    img.put_pixel(6, 13, fur_dark);
+    img.put_pixel(7, 13, fur_mid);
+
+    img.put_pixel(5, 14, fur_dark);
+    img.put_pixel(6, 14, fur_dark);
+
+    // 尻尾（後ろに伸びる） - y: 10-12
+    img.put_pixel(13, 10, fur_mid);
+    img.put_pixel(14, 10, fur_light);
+
+    img.put_pixel(13, 11, fur_dark);
+    img.put_pixel(14, 11, fur_mid);
+
+    img.put_pixel(13, 12, fur_dark);
+
+    img.save(output_dir.join("wolf.png")).expect("Failed to save wolf.png");
+    println!("Generated: wolf.png");
+}
+
+fn generate_ghost(output_dir: &Path) {
+    let mut img: RgbaImage = ImageBuffer::new(TILE_SIZE, TILE_SIZE);
+
+    // 透明で初期化
+    let transparent = Rgba([0, 0, 0, 0]);
+    for y in 0..TILE_SIZE {
+        for x in 0..TILE_SIZE {
+            img.put_pixel(x, y, transparent);
+        }
+    }
+
+    // ゴーストのカラーパレット（白/半透明感）
+    let ghost_white = Rgba([240, 240, 250, 255]);   // 白（本体）
+    let ghost_light = Rgba([220, 220, 240, 255]);   // 明るい白
+    let ghost_mid = Rgba([200, 200, 230, 255]);     // 中間の白
+    let ghost_dark = Rgba([180, 180, 220, 255]);    // 影（暗い白）
+    let ghost_outline = Rgba([160, 160, 210, 255]); // 輪郭（より暗い）
+    let eye_red = Rgba([200, 50, 50, 255]);         // 赤く光る目
+    let eye_glow = Rgba([255, 100, 100, 255]);      // 目の光
+
+    // ゴーストの頭部（上部、丸い） - y: 2-6
+    // 最上部
+    for x in 7..=8 {
+        img.put_pixel(x, 2, ghost_outline);
+    }
+
+    // 頭部の膨らみ
+    for x in 6..=9 {
+        let color = if x == 6 || x == 9 {
+            ghost_outline
+        } else {
+            ghost_white
+        };
+        img.put_pixel(x, 3, color);
+    }
+
+    for x in 5..=10 {
+        let color = if x == 5 || x == 10 {
+            ghost_outline
+        } else if x == 6 || x == 9 {
+            ghost_mid
+        } else {
+            ghost_white
+        };
+        img.put_pixel(x, 4, color);
+    }
+
+    // 目のある行 - y: 5
+    img.put_pixel(4, 5, ghost_outline);
+    img.put_pixel(5, 5, ghost_dark);
+    img.put_pixel(6, 5, eye_glow);    // 左目の光
+    img.put_pixel(7, 5, ghost_light);
+    img.put_pixel(8, 5, ghost_light);
+    img.put_pixel(9, 5, eye_glow);    // 右目の光
+    img.put_pixel(10, 5, ghost_dark);
+    img.put_pixel(11, 5, ghost_outline);
+
+    // 瞳（赤く光る） - y: 6
+    img.put_pixel(4, 6, ghost_dark);
+    img.put_pixel(5, 6, ghost_mid);
+    img.put_pixel(6, 6, eye_red);     // 左目
+    img.put_pixel(7, 6, ghost_white);
+    img.put_pixel(8, 6, ghost_white);
+    img.put_pixel(9, 6, eye_red);     // 右目
+    img.put_pixel(10, 6, ghost_mid);
+    img.put_pixel(11, 6, ghost_dark);
+
+    // 口のある行（にやけた感じ） - y: 7
+    for x in 4..=11 {
+        let color = if x == 4 || x == 11 {
+            ghost_dark
+        } else if x >= 6 && x <= 9 {
+            ghost_outline  // 口（暗い）
+        } else {
+            ghost_mid
+        };
+        img.put_pixel(x, 7, color);
+    }
+
+    // 体（上半身、やや広がる） - y: 8-10
+    for x in 3..=12 {
+        let color = if x == 3 || x == 12 {
+            ghost_outline
+        } else if x == 4 || x == 11 {
+            ghost_dark
+        } else if x == 5 || x == 10 {
+            ghost_mid
+        } else {
+            ghost_white
+        };
+        img.put_pixel(x, 8, color);
+    }
+
+    for x in 3..=12 {
+        let color = if x == 3 || x == 12 {
+            ghost_dark
+        } else if x == 4 || x == 11 {
+            ghost_mid
+        } else if x == 7 || x == 8 {
+            ghost_light  // 中央のハイライト（浮遊感）
+        } else {
+            ghost_white
+        };
+        img.put_pixel(x, 9, color);
+    }
+
+    for x in 2..=13 {
+        let color = if x == 2 || x == 13 {
+            ghost_outline
+        } else if x == 3 || x == 12 {
+            ghost_dark
+        } else if x == 7 || x == 8 {
+            ghost_light
+        } else {
+            ghost_mid
+        };
+        img.put_pixel(x, 10, color);
+    }
+
+    // 下半身（波打つ裾、幽霊らしく） - y: 11-14
+    // 裾の波模様（ギザギザ）
+    for x in 2..=13 {
+        let color = if x == 2 || x == 13 {
+            ghost_dark
+        } else {
+            ghost_mid
+        };
+        img.put_pixel(x, 11, color);
+    }
+
+    // 波の山 - y: 12
+    for x in [3, 4, 7, 8, 11, 12] {
+        img.put_pixel(x, 12, ghost_dark);
+    }
+
+    // 波の谷 - y: 13
+    for x in [4, 8, 12] {
+        img.put_pixel(x, 13, ghost_outline);
+    }
+
+    // 最下部の影（ほとんど消えかけ） - y: 14
+    for x in [5, 9] {
+        img.put_pixel(x, 14, ghost_outline);
+    }
+
+    // 浮遊感を出すために体の側面にハイライト
+    img.put_pixel(4, 8, ghost_light);
+    img.put_pixel(11, 8, ghost_light);
+    img.put_pixel(5, 9, ghost_white);
+    img.put_pixel(10, 9, ghost_white);
+
+    img.save(output_dir.join("ghost.png")).expect("Failed to save ghost.png");
+    println!("Generated: ghost.png");
 }
