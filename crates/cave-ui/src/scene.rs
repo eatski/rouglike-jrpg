@@ -1,6 +1,9 @@
 use bevy::prelude::*;
 use std::collections::HashMap;
 
+use rand::SeedableRng;
+use rand_chacha::ChaCha8Rng;
+
 use cave::{generate_cave_map, CAVE_HEIGHT, CAVE_WIDTH};
 use terrain::Terrain;
 
@@ -67,8 +70,9 @@ pub fn setup_cave_scene(
         commands.entity(entity).despawn();
     }
 
-    // 洞窟マップ生成
-    let mut rng = rand::thread_rng();
+    // 洞窟マップ生成（ワールドマップ座標からシードを決定し、同じ洞窟は常に同じ形にする）
+    let seed = tile_pos.x as u64 * 10007 + tile_pos.y as u64;
+    let mut rng = ChaCha8Rng::seed_from_u64(seed);
     let cave_data = generate_cave_map(&mut rng);
     let (spawn_x, spawn_y) = cave_data.spawn_position;
 
@@ -180,6 +184,7 @@ pub fn update_cave_tiles(
             Terrain::CaveWall => tile_textures.cave_wall.clone(),
             Terrain::CaveFloor => tile_textures.cave_floor.clone(),
             Terrain::WarpZone => tile_textures.warp_zone.clone(),
+            Terrain::Ladder => tile_textures.ladder.clone(),
             _ => tile_textures.cave_wall.clone(),
         };
 

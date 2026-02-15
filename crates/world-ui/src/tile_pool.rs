@@ -93,6 +93,7 @@ fn get_terrain_texture(terrain: Terrain, textures: &TileTextures) -> Handle<Imag
         Terrain::CaveWall => textures.cave_wall.clone(),
         Terrain::CaveFloor => textures.cave_floor.clone(),
         Terrain::WarpZone => textures.warp_zone.clone(),
+        Terrain::Ladder => textures.ladder.clone(),
     }
 }
 

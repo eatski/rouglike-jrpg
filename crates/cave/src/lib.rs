@@ -1,5 +1,4 @@
 use rand::Rng;
-use std::collections::VecDeque;
 
 use terrain::Terrain;
 
@@ -7,14 +6,12 @@ pub const CAVE_WIDTH: usize = 30;
 pub const CAVE_HEIGHT: usize = 30;
 
 const RANDOM_WALK_STEPS: usize = 400;
-const MIN_WARP_DISTANCE: usize = 10;
 
 pub struct CaveMapData {
     pub grid: Vec<Vec<Terrain>>,
     pub width: usize,
     pub height: usize,
     pub spawn_position: (usize, usize),
-    pub warp_position: (usize, usize),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -79,91 +76,17 @@ pub fn generate_cave_map(rng: &mut impl Rng) -> CaveMapData {
 
     let spawn_position = (CAVE_WIDTH / 2, CAVE_HEIGHT / 2);
 
-    // ワープゾーンをスポーンから離れたFloorに配置
-    let warp_position = find_warp_position(&grid, spawn_position, rng);
-    grid[warp_position.1][warp_position.0] = Terrain::WarpZone;
+    // スポーン地点に梯子を配置
+    grid[spawn_position.1][spawn_position.0] = Terrain::Ladder;
 
     CaveMapData {
         grid,
         width: CAVE_WIDTH,
         height: CAVE_HEIGHT,
         spawn_position,
-        warp_position,
     }
 }
 
-fn find_warp_position(
-    grid: &[Vec<Terrain>],
-    spawn: (usize, usize),
-    rng: &mut impl Rng,
-) -> (usize, usize) {
-    // スポーンから到達可能なFloorを収集し、距離が遠い候補からランダムに選ぶ
-    let reachable = flood_fill(grid, spawn);
-
-    let mut candidates: Vec<(usize, usize)> = reachable
-        .into_iter()
-        .filter(|&(x, y)| {
-            let dist = ((x as i32 - spawn.0 as i32).unsigned_abs()
-                + (y as i32 - spawn.1 as i32).unsigned_abs()) as usize;
-            dist >= MIN_WARP_DISTANCE && (x, y) != spawn
-        })
-        .collect();
-
-    if candidates.is_empty() {
-        // 距離条件を緩和
-        candidates = flood_fill(grid, spawn)
-            .into_iter()
-            .filter(|&pos| pos != spawn)
-            .collect();
-    }
-
-    if candidates.is_empty() {
-        // フォールバック: スポーンの隣
-        return (spawn.0.min(CAVE_WIDTH - 2) + 1, spawn.1);
-    }
-
-    // 最も遠い候補の上位から選ぶ
-    candidates.sort_by_key(|&(x, y)| {
-        std::cmp::Reverse(
-            (x as i32 - spawn.0 as i32).unsigned_abs()
-                + (y as i32 - spawn.1 as i32).unsigned_abs(),
-        )
-    });
-    let top = candidates.len().min(5);
-    candidates[rng.gen_range(0..top)]
-}
-
-fn flood_fill(grid: &[Vec<Terrain>], start: (usize, usize)) -> Vec<(usize, usize)> {
-    let height = grid.len();
-    let width = grid[0].len();
-    let mut visited = vec![vec![false; width]; height];
-    let mut result = Vec::new();
-    let mut queue = VecDeque::new();
-
-    visited[start.1][start.0] = true;
-    queue.push_back(start);
-
-    while let Some((x, y)) = queue.pop_front() {
-        if grid[y][x].is_walkable() {
-            result.push((x, y));
-        }
-
-        for (dx, dy) in [(0i32, -1i32), (0, 1), (-1, 0), (1, 0)] {
-            let nx = x as i32 + dx;
-            let ny = y as i32 + dy;
-            if nx >= 0 && nx < width as i32 && ny >= 0 && ny < height as i32 {
-                let nx = nx as usize;
-                let ny = ny as usize;
-                if !visited[ny][nx] && grid[ny][nx].is_walkable() {
-                    visited[ny][nx] = true;
-                    queue.push_back((nx, ny));
-                }
-            }
-        }
-    }
-
-    result
-}
 
 #[cfg(test)]
 mod tests {
@@ -188,30 +111,11 @@ mod tests {
     }
 
     #[test]
-    fn generate_cave_map_spawn_is_floor() {
+    fn generate_cave_map_spawn_is_ladder() {
         let mut rng = create_rng(42);
         let map = generate_cave_map(&mut rng);
         let (sx, sy) = map.spawn_position;
-        assert_eq!(map.grid[sy][sx], Terrain::CaveFloor);
-    }
-
-    #[test]
-    fn generate_cave_map_warp_exists() {
-        let mut rng = create_rng(42);
-        let map = generate_cave_map(&mut rng);
-        let (wx, wy) = map.warp_position;
-        assert_eq!(map.grid[wy][wx], Terrain::WarpZone);
-    }
-
-    #[test]
-    fn generate_cave_map_warp_reachable_from_spawn() {
-        let mut rng = create_rng(42);
-        let map = generate_cave_map(&mut rng);
-        let reachable = flood_fill(&map.grid, map.spawn_position);
-        assert!(
-            reachable.contains(&map.warp_position),
-            "Warp zone should be reachable from spawn"
-        );
+        assert_eq!(map.grid[sy][sx], Terrain::Ladder);
     }
 
     #[test]
@@ -265,7 +169,6 @@ mod tests {
         let map1 = generate_cave_map(&mut rng1);
         let map2 = generate_cave_map(&mut rng2);
         assert_eq!(map1.spawn_position, map2.spawn_position);
-        assert_eq!(map1.warp_position, map2.warp_position);
         assert_eq!(map1.grid, map2.grid);
     }
 
@@ -305,10 +208,10 @@ mod tests {
     }
 
     #[test]
-    fn try_cave_move_to_warp_zone() {
+    fn try_cave_move_to_ladder() {
         let mut grid = vec![vec![Terrain::CaveWall; 5]; 5];
         grid[2][2] = Terrain::CaveFloor;
-        grid[2][3] = Terrain::WarpZone;
+        grid[2][3] = Terrain::Ladder;
 
         let result = try_cave_move(2, 2, 1, 0, &grid, 5, 5);
         assert_eq!(result, CaveMoveResult::Moved { new_x: 3, new_y: 2 });
@@ -318,6 +221,6 @@ mod tests {
     fn cave_terrain_walkability() {
         assert!(!Terrain::CaveWall.is_walkable());
         assert!(Terrain::CaveFloor.is_walkable());
-        assert!(Terrain::WarpZone.is_walkable());
+        assert!(Terrain::Ladder.is_walkable());
     }
 }

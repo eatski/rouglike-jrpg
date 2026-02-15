@@ -19,6 +19,7 @@ pub enum Terrain {
     CaveWall,
     CaveFloor,
     WarpZone,
+    Ladder,
 }
 
 impl Terrain {
@@ -41,7 +42,7 @@ impl Terrain {
             Terrain::Mountain => 0.08,
             Terrain::Sea => 0.10,
             Terrain::CaveFloor => 0.05,
-            Terrain::Town | Terrain::Cave | Terrain::CaveWall | Terrain::WarpZone => 0.0,
+            Terrain::Town | Terrain::Cave | Terrain::CaveWall | Terrain::WarpZone | Terrain::Ladder => 0.0,
         }
     }
 
@@ -73,6 +74,7 @@ mod tests {
         assert!(Terrain::Cave.is_walkable());
         assert!(Terrain::CaveFloor.is_walkable());
         assert!(Terrain::WarpZone.is_walkable());
+        assert!(Terrain::Ladder.is_walkable());
     }
 
     #[test]
@@ -123,5 +125,6 @@ mod tests {
         assert_eq!(Terrain::Town.encounter_rate(), 0.0);
         assert_eq!(Terrain::CaveWall.encounter_rate(), 0.0);
         assert_eq!(Terrain::WarpZone.encounter_rate(), 0.0);
+        assert_eq!(Terrain::Ladder.encounter_rate(), 0.0);
     }
 }

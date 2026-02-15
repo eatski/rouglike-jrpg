@@ -44,6 +44,7 @@ pub struct TileTextures {
     pub cave_wall: Handle<Image>,
     pub cave_floor: Handle<Image>,
     pub warp_zone: Handle<Image>,
+    pub ladder: Handle<Image>,
 }
 
 pub fn spawn_field_map(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -59,6 +60,7 @@ pub fn spawn_field_map(mut commands: Commands, asset_server: Res<AssetServer>) {
         cave_wall: asset_server.load("tiles/cave_wall.png"),
         cave_floor: asset_server.load("tiles/cave_floor.png"),
         warp_zone: asset_server.load("tiles/warp_zone.png"),
+        ladder: asset_server.load("tiles/ladder.png"),
     };
 
     let mut rng = rand::thread_rng();
