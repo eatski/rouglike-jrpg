@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
-use cave::{try_cave_move, CaveMoveResult, CaveTerrain};
+use cave::{try_cave_move, CaveMoveResult};
+use terrain::Terrain;
 
 use app_state::AppState;
 use movement_ui::{
@@ -260,7 +261,7 @@ pub fn check_warp_zone_system(
 
         if tile_pos.x < cave_map.width && tile_pos.y < cave_map.height {
             let terrain = cave_map.grid[tile_pos.y][tile_pos.x];
-            if terrain == CaveTerrain::WarpZone {
+            if terrain == Terrain::WarpZone {
                 next_state.set(AppState::Exploring);
                 return;
             }

@@ -1,28 +1,16 @@
 use rand::Rng;
 use std::collections::VecDeque;
 
+use terrain::Terrain;
+
 pub const CAVE_WIDTH: usize = 30;
 pub const CAVE_HEIGHT: usize = 30;
 
 const RANDOM_WALK_STEPS: usize = 400;
 const MIN_WARP_DISTANCE: usize = 10;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CaveTerrain {
-    Wall,
-    Floor,
-    WarpZone,
-}
-
-impl CaveTerrain {
-    #[inline]
-    pub fn is_walkable(self) -> bool {
-        matches!(self, CaveTerrain::Floor | CaveTerrain::WarpZone)
-    }
-}
-
 pub struct CaveMapData {
-    pub grid: Vec<Vec<CaveTerrain>>,
+    pub grid: Vec<Vec<Terrain>>,
     pub width: usize,
     pub height: usize,
     pub spawn_position: (usize, usize),
@@ -40,7 +28,7 @@ pub fn try_cave_move(
     current_y: usize,
     dx: i32,
     dy: i32,
-    grid: &[Vec<CaveTerrain>],
+    grid: &[Vec<Terrain>],
     width: usize,
     height: usize,
 ) -> CaveMoveResult {
@@ -67,12 +55,12 @@ pub fn try_cave_move(
 }
 
 pub fn generate_cave_map(rng: &mut impl Rng) -> CaveMapData {
-    let mut grid = vec![vec![CaveTerrain::Wall; CAVE_WIDTH]; CAVE_HEIGHT];
+    let mut grid = vec![vec![Terrain::CaveWall; CAVE_WIDTH]; CAVE_HEIGHT];
 
     // ランダムウォークで通路を掘る
     let mut x = CAVE_WIDTH / 2;
     let mut y = CAVE_HEIGHT / 2;
-    grid[y][x] = CaveTerrain::Floor;
+    grid[y][x] = Terrain::CaveFloor;
 
     let directions: [(i32, i32); 4] = [(0, -1), (0, 1), (-1, 0), (1, 0)];
 
@@ -85,7 +73,7 @@ pub fn generate_cave_map(rng: &mut impl Rng) -> CaveMapData {
         if nx >= 1 && nx < (CAVE_WIDTH as i32 - 1) && ny >= 1 && ny < (CAVE_HEIGHT as i32 - 1) {
             x = nx as usize;
             y = ny as usize;
-            grid[y][x] = CaveTerrain::Floor;
+            grid[y][x] = Terrain::CaveFloor;
         }
     }
 
@@ -93,7 +81,7 @@ pub fn generate_cave_map(rng: &mut impl Rng) -> CaveMapData {
 
     // ワープゾーンをスポーンから離れたFloorに配置
     let warp_position = find_warp_position(&grid, spawn_position, rng);
-    grid[warp_position.1][warp_position.0] = CaveTerrain::WarpZone;
+    grid[warp_position.1][warp_position.0] = Terrain::WarpZone;
 
     CaveMapData {
         grid,
@@ -105,7 +93,7 @@ pub fn generate_cave_map(rng: &mut impl Rng) -> CaveMapData {
 }
 
 fn find_warp_position(
-    grid: &[Vec<CaveTerrain>],
+    grid: &[Vec<Terrain>],
     spawn: (usize, usize),
     rng: &mut impl Rng,
 ) -> (usize, usize) {
@@ -145,7 +133,7 @@ fn find_warp_position(
     candidates[rng.gen_range(0..top)]
 }
 
-fn flood_fill(grid: &[Vec<CaveTerrain>], start: (usize, usize)) -> Vec<(usize, usize)> {
+fn flood_fill(grid: &[Vec<Terrain>], start: (usize, usize)) -> Vec<(usize, usize)> {
     let height = grid.len();
     let width = grid[0].len();
     let mut visited = vec![vec![false; width]; height];
@@ -204,7 +192,7 @@ mod tests {
         let mut rng = create_rng(42);
         let map = generate_cave_map(&mut rng);
         let (sx, sy) = map.spawn_position;
-        assert_eq!(map.grid[sy][sx], CaveTerrain::Floor);
+        assert_eq!(map.grid[sy][sx], Terrain::CaveFloor);
     }
 
     #[test]
@@ -212,7 +200,7 @@ mod tests {
         let mut rng = create_rng(42);
         let map = generate_cave_map(&mut rng);
         let (wx, wy) = map.warp_position;
-        assert_eq!(map.grid[wy][wx], CaveTerrain::WarpZone);
+        assert_eq!(map.grid[wy][wx], Terrain::WarpZone);
     }
 
     #[test]
@@ -234,7 +222,7 @@ mod tests {
             .grid
             .iter()
             .flatten()
-            .filter(|t| **t == CaveTerrain::Floor)
+            .filter(|t| **t == Terrain::CaveFloor)
             .count();
         assert!(floor_count > 50, "Cave should have enough floor tiles");
     }
@@ -247,24 +235,24 @@ mod tests {
         for x in 0..CAVE_WIDTH {
             assert_ne!(
                 map.grid[0][x],
-                CaveTerrain::Floor,
+                Terrain::CaveFloor,
                 "Top edge should not be floor"
             );
             assert_ne!(
                 map.grid[CAVE_HEIGHT - 1][x],
-                CaveTerrain::Floor,
+                Terrain::CaveFloor,
                 "Bottom edge should not be floor"
             );
         }
         for y in 0..CAVE_HEIGHT {
             assert_ne!(
                 map.grid[y][0],
-                CaveTerrain::Floor,
+                Terrain::CaveFloor,
                 "Left edge should not be floor"
             );
             assert_ne!(
                 map.grid[y][CAVE_WIDTH - 1],
-                CaveTerrain::Floor,
+                Terrain::CaveFloor,
                 "Right edge should not be floor"
             );
         }
@@ -283,9 +271,9 @@ mod tests {
 
     #[test]
     fn try_cave_move_normal() {
-        let mut grid = vec![vec![CaveTerrain::Wall; 5]; 5];
-        grid[2][2] = CaveTerrain::Floor;
-        grid[2][3] = CaveTerrain::Floor;
+        let mut grid = vec![vec![Terrain::CaveWall; 5]; 5];
+        grid[2][2] = Terrain::CaveFloor;
+        grid[2][3] = Terrain::CaveFloor;
 
         let result = try_cave_move(2, 2, 1, 0, &grid, 5, 5);
         assert_eq!(result, CaveMoveResult::Moved { new_x: 3, new_y: 2 });
@@ -293,8 +281,8 @@ mod tests {
 
     #[test]
     fn try_cave_move_blocked_by_wall() {
-        let mut grid = vec![vec![CaveTerrain::Wall; 5]; 5];
-        grid[2][2] = CaveTerrain::Floor;
+        let mut grid = vec![vec![Terrain::CaveWall; 5]; 5];
+        grid[2][2] = Terrain::CaveFloor;
 
         let result = try_cave_move(2, 2, 1, 0, &grid, 5, 5);
         assert_eq!(result, CaveMoveResult::Blocked);
@@ -302,7 +290,7 @@ mod tests {
 
     #[test]
     fn try_cave_move_blocked_by_boundary() {
-        let grid = vec![vec![CaveTerrain::Floor; 5]; 5];
+        let grid = vec![vec![Terrain::CaveFloor; 5]; 5];
 
         let result = try_cave_move(0, 0, -1, 0, &grid, 5, 5);
         assert_eq!(result, CaveMoveResult::Blocked);
@@ -310,7 +298,7 @@ mod tests {
 
     #[test]
     fn try_cave_move_diagonal_blocked() {
-        let grid = vec![vec![CaveTerrain::Floor; 5]; 5];
+        let grid = vec![vec![Terrain::CaveFloor; 5]; 5];
 
         let result = try_cave_move(2, 2, 1, 1, &grid, 5, 5);
         assert_eq!(result, CaveMoveResult::Blocked);
@@ -318,9 +306,9 @@ mod tests {
 
     #[test]
     fn try_cave_move_to_warp_zone() {
-        let mut grid = vec![vec![CaveTerrain::Wall; 5]; 5];
-        grid[2][2] = CaveTerrain::Floor;
-        grid[2][3] = CaveTerrain::WarpZone;
+        let mut grid = vec![vec![Terrain::CaveWall; 5]; 5];
+        grid[2][2] = Terrain::CaveFloor;
+        grid[2][3] = Terrain::WarpZone;
 
         let result = try_cave_move(2, 2, 1, 0, &grid, 5, 5);
         assert_eq!(result, CaveMoveResult::Moved { new_x: 3, new_y: 2 });
@@ -328,8 +316,8 @@ mod tests {
 
     #[test]
     fn cave_terrain_walkability() {
-        assert!(!CaveTerrain::Wall.is_walkable());
-        assert!(CaveTerrain::Floor.is_walkable());
-        assert!(CaveTerrain::WarpZone.is_walkable());
+        assert!(!Terrain::CaveWall.is_walkable());
+        assert!(Terrain::CaveFloor.is_walkable());
+        assert!(Terrain::WarpZone.is_walkable());
     }
 }
