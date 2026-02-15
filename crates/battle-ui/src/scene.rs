@@ -199,6 +199,7 @@ pub fn setup_battle_scene(
     let font: Handle<Font> = asset_server.load("fonts/NotoSansJP-Bold.ttf");
 
     let party_size = battle_state.party.len();
+    let party_member_names: Vec<&str> = battle_state.party.iter().map(|m| m.kind.name()).collect();
     let display_party_hp = battle_state.party.iter().map(|m| m.stats.hp).collect();
     let display_party_mp = battle_state.party.iter().map(|m| m.stats.mp).collect();
 
@@ -264,6 +265,7 @@ pub fn setup_battle_scene(
                 hp_bar_green,
                 selected_color,
                 unselected_color,
+                &party_member_names,
             );
         });
 }
@@ -394,6 +396,7 @@ fn build_bottom_area(
     hp_bar_green: Color,
     selected_color: Color,
     unselected_color: Color,
+    party_member_names: &[&str],
 ) {
     parent
         .spawn((
@@ -418,8 +421,7 @@ fn build_bottom_area(
                 ..default()
             })
             .with_children(|party_area| {
-                let member_names = ["勇者", "魔法使い", "僧侶"];
-                for (i, name) in member_names.iter().enumerate() {
+                for (i, name) in party_member_names.iter().enumerate() {
                     party_area
                         .spawn(Node {
                             flex_direction: FlexDirection::Column,

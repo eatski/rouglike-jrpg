@@ -1,12 +1,12 @@
 use bevy::prelude::*;
 
 use input_ui::{is_cancel_just_pressed, is_confirm_just_pressed, is_down_just_pressed, is_up_just_pressed};
-use party::{shop_items, ItemKind};
-use town::{buy_item, cave_hint_dialogue, heal_party, BuyResult};
+use party::{shop_items, talk_to_candidate, ItemKind, PartyMember, TalkResult};
+use town::{buy_item, candidate_first_dialogue, candidate_join_dialogue, cave_hint_dialogue, heal_party, BuyResult};
 
 use app_state::SceneState;
 use movement_ui::{Player, TilePosition};
-use shared_ui::{ActiveMap, PartyState};
+use shared_ui::{ActiveMap, PartyState, RecruitmentMap};
 
 use crate::scene::{TownMenuPhase, TownResource};
 
@@ -16,6 +16,7 @@ pub fn town_input_system(
     mut town_res: ResMut<TownResource>,
     mut next_state: ResMut<NextState<SceneState>>,
     mut party_state: ResMut<PartyState>,
+    mut recruitment_map: ResMut<RecruitmentMap>,
     active_map: Res<ActiveMap>,
     player_query: Query<&TilePosition, With<Player>>,
 ) {
@@ -43,15 +44,50 @@ pub fn town_input_system(
                         town_res.phase = TownMenuPhase::ShopSelect { selected: 0 };
                     }
                     2 => {
-                        // 話を聞く → 最寄り洞窟の方角を教える
-                        let dialogue = if let Ok(pos) = player_query.single() {
-                            cave_hint_dialogue(&active_map.grid, pos.x, pos.y)
+                        // 話を聞く → 仲間候補がいればイベント、いなければ洞窟ヒント
+                        if let Ok(pos) = player_query.single() {
+                            let town_pos = (pos.x, pos.y);
+                            if let Some(&candidate_idx) =
+                                recruitment_map.town_to_candidate.get(&town_pos)
+                            {
+                                let result =
+                                    talk_to_candidate(&mut party_state.candidates[candidate_idx]);
+                                let kind = party_state.candidates[candidate_idx].kind;
+                                match result {
+                                    TalkResult::BecameAcquaintance => {
+                                        let msg = candidate_first_dialogue(kind);
+                                        // 候補を次の街に移動
+                                        recruitment_map.town_to_candidate.remove(&town_pos);
+                                        if let Some(&second_town) =
+                                            recruitment_map.candidate_second_town.get(&candidate_idx)
+                                        {
+                                            recruitment_map
+                                                .town_to_candidate
+                                                .insert(second_town, candidate_idx);
+                                        }
+                                        town_res.phase =
+                                            TownMenuPhase::RecruitMessage { message: msg };
+                                    }
+                                    TalkResult::Recruited => {
+                                        party_state.members.push(PartyMember::from_kind(kind));
+                                        recruitment_map.town_to_candidate.remove(&town_pos);
+                                        recruitment_map.candidate_second_town.remove(&candidate_idx);
+                                        let msg = candidate_join_dialogue(kind);
+                                        town_res.phase =
+                                            TownMenuPhase::RecruitMessage { message: msg };
+                                    }
+                                    TalkResult::AlreadyRecruited => {}
+                                }
+                            } else {
+                                let dialogue =
+                                    cave_hint_dialogue(&active_map.grid, pos.x, pos.y);
+                                town_res.phase =
+                                    TownMenuPhase::ShowMessage { message: dialogue };
+                            }
                         } else {
-                            cave_hint_dialogue(&active_map.grid, 0, 0)
-                        };
-                        town_res.phase = TownMenuPhase::ShowMessage {
-                            message: dialogue,
-                        };
+                            let dialogue = cave_hint_dialogue(&active_map.grid, 0, 0);
+                            town_res.phase = TownMenuPhase::ShowMessage { message: dialogue };
+                        }
                     }
                     _ => {
                         // 街を出る → フィールドに戻る
@@ -115,6 +151,12 @@ pub fn town_input_system(
             // メッセージ確認後、ショップ選択に戻る
             if is_confirm_just_pressed(&keyboard) {
                 town_res.phase = TownMenuPhase::ShopSelect { selected: 0 };
+            }
+        }
+        TownMenuPhase::RecruitMessage { .. } => {
+            // 仲間メッセージ確認後、メインメニューに戻る
+            if is_confirm_just_pressed(&keyboard) {
+                town_res.phase = TownMenuPhase::MenuSelect;
             }
         }
     }

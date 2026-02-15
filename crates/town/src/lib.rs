@@ -1,4 +1,4 @@
-use party::{Inventory, ItemKind, PartyMember};
+use party::{Inventory, ItemKind, PartyMember, PartyMemberKind};
 use terrain::{Terrain, MAP_HEIGHT, MAP_WIDTH};
 
 #[derive(Debug, PartialEq, Eq)]
@@ -80,6 +80,18 @@ fn distance_modifier(distance: i32) -> &'static str {
     } else {
         "はるか とおくの"
     }
+}
+
+/// 仲間候補との初対面セリフ
+pub fn candidate_first_dialogue(kind: PartyMemberKind) -> String {
+    let name = kind.name();
+    format!("わたしは {name}。\nいっしょに たびを しませんか？\nつぎの まちで まっています。")
+}
+
+/// 仲間候補の加入セリフ
+pub fn candidate_join_dialogue(kind: PartyMemberKind) -> String {
+    let name = kind.name();
+    format!("{name}が なかまに くわわった！")
 }
 
 /// 街の位置から最寄りの洞窟の方角を教える台詞を生成する

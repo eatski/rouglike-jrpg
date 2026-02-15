@@ -21,6 +21,8 @@ pub enum TownMenuPhase {
     ShopCharacterSelect { item: ItemKind, selected: usize },
     /// 道具屋 — 購入結果メッセージ表示中
     ShopMessage { message: String },
+    /// 仲間候補との会話メッセージ表示中
+    RecruitMessage { message: String },
 }
 
 /// 町の状態管理リソース
@@ -232,13 +234,11 @@ pub fn setup_town_scene(
                     Visibility::Hidden,
                 ))
                 .with_children(|char_panel| {
-                    let member_names = ["勇者", "魔法使い", "僧侶"];
-                    for (i, name) in member_names.iter().enumerate() {
-                        let member = &party_state.members[i];
+                    for (i, member) in party_state.members.iter().enumerate() {
                         let label = format!(
                             "{}{}  {}/{}",
                             if i == 0 { "> " } else { "  " },
-                            name,
+                            member.kind.name(),
                             member.inventory.total_count(),
                             INVENTORY_CAPACITY,
                         );
@@ -379,16 +379,14 @@ pub fn town_display_system(
 
     // キャラクター選択メニュー項目の更新
     if let TownMenuPhase::ShopCharacterSelect { selected, .. } = &town_res.phase {
-        let member_names = ["勇者", "魔法使い", "僧侶"];
         for (char_item, mut text, mut color) in &mut char_item_query {
-            if char_item.index < member_names.len() {
+            if let Some(member) = party_state.members.get(char_item.index) {
                 let is_selected = char_item.index == *selected;
                 let prefix = if is_selected { "> " } else { "  " };
-                let member = &party_state.members[char_item.index];
                 **text = format!(
                     "{}{}  {}/{}",
                     prefix,
-                    member_names[char_item.index],
+                    member.kind.name(),
                     member.inventory.total_count(),
                     INVENTORY_CAPACITY,
                 );
@@ -441,7 +439,9 @@ pub fn town_display_system(
     // メッセージエリアの表示/非表示
     let show_message = matches!(
         &town_res.phase,
-        TownMenuPhase::ShowMessage { .. } | TownMenuPhase::ShopMessage { .. }
+        TownMenuPhase::ShowMessage { .. }
+            | TownMenuPhase::ShopMessage { .. }
+            | TownMenuPhase::RecruitMessage { .. }
     );
 
     for mut vis in &mut message_area_query {
@@ -454,7 +454,9 @@ pub fn town_display_system(
 
     for mut text in &mut message_query {
         match &town_res.phase {
-            TownMenuPhase::ShowMessage { message } | TownMenuPhase::ShopMessage { message } => {
+            TownMenuPhase::ShowMessage { message }
+            | TownMenuPhase::ShopMessage { message }
+            | TownMenuPhase::RecruitMessage { message } => {
                 **text = message.clone();
             }
             _ => {}
