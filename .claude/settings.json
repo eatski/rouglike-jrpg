@@ -16,6 +16,7 @@
       "Read",
       "Edit(path:./**)",
       "Write(path:./**)",
+      "Update(path:./**)",
       "WebSearch",
       "WebFetch(domain:kenney.nl)",
       "WebFetch(domain:opengameart.org)",
@@ -31,7 +32,8 @@
     ],
     "deny": [
       "Edit(path:.worktrees/**)",
-      "Write(path:.worktrees/**)"
+      "Write(path:.worktrees/**)",
+      "Update(path:.worktrees/**)"
     ]
   }
 }
