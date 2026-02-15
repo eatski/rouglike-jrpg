@@ -42,4 +42,5 @@ members = [
     "crates/time-ui",
     "tools/generate_tiles",
     "tools/deps_mermaid",
+    "tools/merge_work",
 ]
