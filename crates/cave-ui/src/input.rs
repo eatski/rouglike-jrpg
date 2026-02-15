@@ -242,7 +242,7 @@ pub fn update_cave_smooth_move(
             commands.entity(entity).remove::<MovementLocked>();
             // ワープゾーンは「タイルに入った」ではなく遷移なのでArrivedを使う
             let terrain = active_map.terrain_at(tile_pos.x, tile_pos.y);
-            if terrain == Terrain::WarpZone {
+            if terrain == Terrain::Ladder {
                 arrived_events.write(PlayerArrivedEvent { entity });
             } else {
                 tile_entered_events.write(TileEnteredEvent { entity });
@@ -257,8 +257,8 @@ pub fn update_cave_smooth_move(
     }
 }
 
-/// ワープゾーンに到着したらフィールドに戻る
-pub fn check_warp_zone_system(
+/// 梯子に到着したらフィールドに戻る
+pub fn check_ladder_system(
     mut events: MessageReader<PlayerArrivedEvent>,
     player_query: Query<&TilePosition, With<Player>>,
     active_map: Res<ActiveMap>,
@@ -271,7 +271,7 @@ pub fn check_warp_zone_system(
 
         if tile_pos.x < active_map.width && tile_pos.y < active_map.height {
             let terrain = active_map.terrain_at(tile_pos.x, tile_pos.y);
-            if terrain == Terrain::WarpZone {
+            if terrain == Terrain::Ladder {
                 next_state.set(SceneState::Exploring);
                 return;
             }

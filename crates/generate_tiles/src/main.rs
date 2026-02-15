@@ -26,6 +26,7 @@ fn main() {
     generate_cave_wall(tiles_dir);
     generate_cave_floor(tiles_dir);
     generate_warp_zone(tiles_dir);
+    generate_ladder(tiles_dir);
 
     // キャラクターを生成
     generate_player(chars_dir);
@@ -1686,4 +1687,56 @@ fn generate_ghost(output_dir: &Path) {
 
     img.save(output_dir.join("ghost.png")).expect("Failed to save ghost.png");
     println!("Generated: ghost.png");
+}
+
+fn generate_ladder(output_dir: &Path) {
+    let mut img: RgbaImage = ImageBuffer::new(TILE_SIZE, TILE_SIZE);
+
+    // 洞窟の床をベースにした梯子タイル
+    let floor_base = Rgba([80, 75, 65, 255]);
+    let wood_light = Rgba([180, 140, 80, 255]);
+    let wood_mid = Rgba([140, 100, 55, 255]);
+    let wood_dark = Rgba([100, 70, 35, 255]);
+    let hole_dark = Rgba([30, 25, 20, 255]);
+    let hole_mid = Rgba([50, 42, 35, 255]);
+
+    // 背景を洞窟の床色で埋める
+    for y in 0..TILE_SIZE {
+        for x in 0..TILE_SIZE {
+            img.put_pixel(x, y, floor_base);
+        }
+    }
+
+    // 穴（梯子が降りている先）を描画
+    for y in 2..14 {
+        for x in 4..12 {
+            img.put_pixel(x, y, if x == 4 || x == 11 || y == 2 || y == 13 { hole_mid } else { hole_dark });
+        }
+    }
+
+    // 梯子の縦棒（左右2本）
+    let rail_left: u32 = 5;
+    let rail_right: u32 = 10;
+    for y in 1..15 {
+        img.put_pixel(rail_left, y, wood_mid);
+        img.put_pixel(rail_right, y, wood_mid);
+    }
+
+    // 梯子の横棒（踏み板）
+    let rungs = [3, 6, 9, 12];
+    for &ry in &rungs {
+        for x in (rail_left + 1)..rail_right {
+            img.put_pixel(x, ry, wood_light);
+        }
+        // 横棒の影
+        if ry + 1 < TILE_SIZE {
+            for x in (rail_left + 1)..rail_right {
+                img.put_pixel(x, ry + 1, wood_dark);
+            }
+        }
+    }
+
+    img.save(output_dir.join("ladder.png"))
+        .expect("Failed to save ladder.png");
+    println!("Generated: ladder.png");
 }

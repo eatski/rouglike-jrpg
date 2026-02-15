@@ -8,7 +8,7 @@ use battle_ui::{
     setup_battle_scene,
 };
 use cave_ui::{
-    cave_player_movement, check_warp_zone_system, cleanup_cave_scene, setup_cave_scene,
+    cave_player_movement, check_ladder_system, cleanup_cave_scene, setup_cave_scene,
     start_cave_smooth_move, update_cave_smooth_move, update_cave_tiles,
 };
 use movement_ui::{
@@ -151,7 +151,7 @@ fn main() {
             update_bounce,
             update_cave_tiles,
             camera_follow,
-            check_warp_zone_system,
+            check_ladder_system,
             check_encounter_system,
         )
             .chain()

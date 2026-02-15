@@ -180,6 +180,7 @@ pub fn update_cave_tiles(
             Terrain::CaveWall => tile_textures.cave_wall.clone(),
             Terrain::CaveFloor => tile_textures.cave_floor.clone(),
             Terrain::WarpZone => tile_textures.warp_zone.clone(),
+            Terrain::Ladder => tile_textures.ladder.clone(),
             _ => tile_textures.cave_wall.clone(),
         };
 
