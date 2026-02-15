@@ -30,13 +30,18 @@ use world_ui::{
 };
 
 fn main() {
+    let title = std::env::args()
+        .nth(1)
+        .map(|name| format!("Roguelike JRPG [{}]", name))
+        .unwrap_or_else(|| "Roguelike JRPG".to_string());
+
     let mut app = App::new();
     app.add_plugins(
         DefaultPlugins
             .set(ImagePlugin::default_nearest())
             .set(WindowPlugin {
                 primary_window: Some(Window {
-                    title: "Roguelike JRPG".to_string(),
+                    title,
                     resolution: WindowResolution::new(WINDOW_SIZE as u32, WINDOW_SIZE as u32),
                     resizable: false,
                     ..default()

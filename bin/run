@@ -1,5 +1,7 @@
 #!/bin/bash
 set -e
 
+BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
+
 cargo run -p generate-tiles
-cargo run --bin rouglike-jrpg
+cargo run --bin rouglike-jrpg -- "$BRANCH"
