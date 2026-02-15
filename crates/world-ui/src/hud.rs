@@ -26,6 +26,10 @@ pub struct HudHpBarFill {
     pub index: usize,
 }
 
+/// HUD上の所持金テキスト
+#[derive(Component)]
+pub struct HudGoldText;
+
 /// HP割合に応じた色を返す（>50%=緑, >25%=黄, ≤25%=赤）
 fn hp_bar_color(ratio: f32) -> Color {
     if ratio > 0.5 {
@@ -139,6 +143,18 @@ pub fn setup_hud(mut commands: Commands, asset_server: Res<AssetServer>, party_s
                         });
                     });
             }
+
+            // 所持金
+            panel.spawn((
+                HudGoldText,
+                Text::new(format!("{}G", party_state.gold)),
+                TextFont {
+                    font: font.clone(),
+                    font_size: 16.0,
+                    ..default()
+                },
+                TextColor(Color::srgb(1.0, 0.85, 0.3)),
+            ));
         });
 }
 
@@ -148,6 +164,7 @@ pub fn update_hud(
     mut hp_query: Query<(&HudHpText, &mut Text)>,
     mut mp_query: Query<(&HudMpText, &mut Text), Without<HudHpText>>,
     mut bar_query: Query<(&HudHpBarFill, &mut Node, &mut BackgroundColor)>,
+    mut gold_query: Query<&mut Text, (With<HudGoldText>, Without<HudHpText>, Without<HudMpText>)>,
 ) {
     if !party_state.is_changed() {
         return;
@@ -171,6 +188,10 @@ pub fn update_hud(
             node.width = Val::Percent(ratio * 100.0);
             *bg = BackgroundColor(hp_bar_color(ratio));
         }
+    }
+
+    for mut text in &mut gold_query {
+        **text = format!("{}G", party_state.gold);
     }
 }
 
