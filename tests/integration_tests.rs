@@ -11,7 +11,7 @@ use world::map::generate_map;
 use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
 use std::time::Duration;
-use app_state::AppState;
+use app_state::{BattleState, SceneState};
 use battle_ui::{battle_input_system, BattleGameState, BattlePhase, BattleUIState, PendingCommands};
 use movement_ui::{
     start_bounce, update_bounce, Boat, MovementBlockedEvent, MovementLocked, OnBoat, Player,
@@ -957,7 +957,7 @@ fn setup_battle_test_app() -> App {
 
     app.add_plugins(MinimalPlugins);
 
-    // StatesPluginを追加（AppStateを使用するために必須）
+    // StatesPluginを追加
     app.add_plugins(bevy::state::app::StatesPlugin);
 
     // 時間制御を手動に設定
@@ -966,8 +966,9 @@ fn setup_battle_test_app() -> App {
         .set_relative_speed(1.0);
     app.insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_millis(50)));
 
-    // AppStateを登録
-    app.init_state::<AppState>();
+    // ステートを登録
+    app.init_state::<SceneState>();
+    app.init_state::<BattleState>();
 
     // 必要なリソースをセットアップ
     app.init_resource::<ButtonInput<KeyCode>>();
@@ -1081,15 +1082,15 @@ fn battle_phase_transitions_from_command_to_exploring() {
         );
     }
 
-    // BattleOverでEnterを押すとAppState::Exploringに遷移
+    // BattleOverでEnterを押すとBattleState::Noneに遷移
     press_battle_key(&mut app, KeyCode::Enter);
     app.update();
 
-    let current_state = app.world().resource::<State<AppState>>();
+    let current_state = app.world().resource::<State<BattleState>>();
     assert_eq!(
         **current_state,
-        AppState::Exploring,
-        "Should transition to Exploring after BattleOver"
+        BattleState::None,
+        "Should transition back from battle after BattleOver"
     );
 }
 
@@ -1230,15 +1231,16 @@ fn battle_cleanup_removes_movement_lock() {
 
     let mut app = setup_test_app_with_map(grid, spawn_x, spawn_y);
 
-    // StatesPluginを追加（AppStateを使用するために必須）
+    // StatesPluginを追加
     app.add_plugins(bevy::state::app::StatesPlugin);
 
-    // AppStateを追加
-    app.init_state::<AppState>();
+    // ステートを追加
+    app.init_state::<SceneState>();
+    app.init_state::<BattleState>();
     app.init_resource::<PartyState>();
 
-    // cleanup_battle_sceneシステムを追加（OnExit(AppState::Battle)で実行される想定）
-    app.add_systems(OnExit(AppState::Battle), battle_ui::cleanup_battle_scene);
+    // cleanup_battle_sceneシステムを追加（OnExit(BattleState::Active)で実行される想定）
+    app.add_systems(OnExit(BattleState::Active), battle_ui::cleanup_battle_scene);
 
     let player_entity = spawn_test_player(&mut app);
 
@@ -1258,17 +1260,17 @@ fn battle_cleanup_removes_movement_lock() {
 
     // 戦闘に入る
     app.world_mut()
-        .resource_mut::<NextState<AppState>>()
-        .set(AppState::Battle);
+        .resource_mut::<NextState<BattleState>>()
+        .set(BattleState::Active);
     app.update();
 
     // BattleResourceを挿入（戦闘シーンセットアップの代わり）
     insert_battle_resource(&mut app, BattlePhase::CommandSelect { member_index: 0 });
 
-    // 戦闘終了（Exploringに戻る）→ cleanup_battle_sceneが実行される
+    // 戦闘終了（BattleState::Noneに戻る）→ cleanup_battle_sceneが実行される
     app.world_mut()
-        .resource_mut::<NextState<AppState>>()
-        .set(AppState::Exploring);
+        .resource_mut::<NextState<BattleState>>()
+        .set(BattleState::None);
     app.update();
 
     // MovementLockedが除去されていることを確認

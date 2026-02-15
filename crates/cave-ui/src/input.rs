@@ -3,7 +3,7 @@ use bevy::prelude::*;
 use cave::{try_cave_move, CaveMoveResult};
 use terrain::Terrain;
 
-use app_state::AppState;
+use app_state::SceneState;
 use movement_ui::{
     MovementBlockedEvent, MovementLocked, PendingMove, Player, PlayerArrivedEvent,
     PlayerMovedEvent, SmoothMove, TilePosition,
@@ -250,7 +250,7 @@ pub fn check_warp_zone_system(
     mut events: MessageReader<PlayerArrivedEvent>,
     player_query: Query<&TilePosition, With<Player>>,
     active_map: Res<ActiveMap>,
-    mut next_state: ResMut<NextState<AppState>>,
+    mut next_state: ResMut<NextState<SceneState>>,
 ) {
     for _event in events.read() {
         let Ok(tile_pos) = player_query.single() else {
@@ -260,7 +260,7 @@ pub fn check_warp_zone_system(
         if tile_pos.x < active_map.width && tile_pos.y < active_map.height {
             let terrain = active_map.terrain_at(tile_pos.x, tile_pos.y);
             if terrain == Terrain::WarpZone {
-                next_state.set(AppState::Exploring);
+                next_state.set(SceneState::Exploring);
                 return;
             }
         }

@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use town::{cave_hint_dialogue, heal_party};
 
-use app_state::AppState;
+use app_state::SceneState;
 use movement_ui::{Player, TilePosition};
 use shared_ui::{ActiveMap, PartyState};
 
@@ -18,7 +18,7 @@ fn is_confirm(keyboard: &ButtonInput<KeyCode>) -> bool {
 pub fn town_input_system(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut town_res: ResMut<TownResource>,
-    mut next_state: ResMut<NextState<AppState>>,
+    mut next_state: ResMut<NextState<SceneState>>,
     mut party_state: ResMut<PartyState>,
     active_map: Res<ActiveMap>,
     player_query: Query<&TilePosition, With<Player>>,
@@ -61,7 +61,7 @@ pub fn town_input_system(
                     }
                     _ => {
                         // 街を出る → フィールドに戻る
-                        next_state.set(AppState::Exploring);
+                        next_state.set(SceneState::Exploring);
                     }
                 }
             }
