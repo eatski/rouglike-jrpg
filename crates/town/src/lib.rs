@@ -5,6 +5,7 @@ use terrain::{Terrain, MAP_HEIGHT, MAP_WIDTH};
 pub enum BuyResult {
     Success { remaining_gold: u32 },
     InsufficientGold,
+    InventoryFull,
 }
 
 /// アイテムを購入する
@@ -12,6 +13,9 @@ pub fn buy_item(item: ItemKind, gold: u32, inventory: &mut Inventory) -> BuyResu
     let price = item.price();
     if gold < price {
         return BuyResult::InsufficientGold;
+    }
+    if !inventory.can_add(1) {
+        return BuyResult::InventoryFull;
     }
     inventory.add(item, 1);
     BuyResult::Success {
@@ -224,6 +228,15 @@ mod tests {
         let result = buy_item(ItemKind::Herb, 8, &mut inv);
         assert_eq!(result, BuyResult::Success { remaining_gold: 0 });
         assert_eq!(inv.count(ItemKind::Herb), 1);
+    }
+
+    #[test]
+    fn buy_item_inventory_full() {
+        let mut inv = Inventory::new();
+        inv.add(ItemKind::Herb, 6); // 容量いっぱい
+        let result = buy_item(ItemKind::Herb, 100, &mut inv);
+        assert_eq!(result, BuyResult::InventoryFull);
+        assert_eq!(inv.count(ItemKind::Herb), 6);
     }
 
     #[test]

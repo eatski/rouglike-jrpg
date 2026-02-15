@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use movement_ui::{Bounce, MovementLocked, PendingMove, Player, SmoothMove, TilePosition};
-use party::shop_items;
+use party::{shop_items, ItemKind, INVENTORY_CAPACITY};
 use shared_ui::{ActiveMap, MovementState, PartyState};
 
 /// 町シーンのルートUIエンティティを識別するマーカー
@@ -17,6 +17,8 @@ pub enum TownMenuPhase {
     ShowMessage { message: String },
     /// 道具屋 — アイテム選択中
     ShopSelect { selected: usize },
+    /// 道具屋 — キャラクター選択中（誰に持たせるか）
+    ShopCharacterSelect { item: ItemKind, selected: usize },
     /// 道具屋 — 購入結果メッセージ表示中
     ShopMessage { message: String },
 }
@@ -61,6 +63,16 @@ pub struct ShopMenuItem {
 /// ショップゴールド表示のマーカー
 #[derive(Component)]
 pub struct ShopGoldText;
+
+/// キャラクター選択パネルのルートマーカー
+#[derive(Component)]
+pub struct ShopCharacterPanel;
+
+/// キャラクター選択メニュー項目のマーカー
+#[derive(Component)]
+pub struct ShopCharacterMenuItem {
+    pub index: usize,
+}
 
 const SELECTED_COLOR: Color = Color::srgb(1.0, 0.9, 0.2);
 const UNSELECTED_COLOR: Color = Color::srgb(0.6, 0.6, 0.6);
@@ -203,6 +215,51 @@ pub fn setup_town_scene(
                     }
                 });
 
+            // キャラクター選択パネル（初期は非表示）
+            parent
+                .spawn((
+                    ShopCharacterPanel,
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        padding: UiRect::all(Val::Px(24.0)),
+                        border: UiRect::all(Val::Px(2.0)),
+                        row_gap: Val::Px(8.0),
+                        min_width: Val::Px(250.0),
+                        ..default()
+                    },
+                    BackgroundColor(panel_bg),
+                    BorderColor::all(border_color),
+                    Visibility::Hidden,
+                ))
+                .with_children(|char_panel| {
+                    let member_names = ["勇者", "魔法使い", "僧侶"];
+                    for (i, name) in member_names.iter().enumerate() {
+                        let member = &party_state.members[i];
+                        let label = format!(
+                            "{}{}  {}/{}",
+                            if i == 0 { "> " } else { "  " },
+                            name,
+                            member.inventory.total_count(),
+                            INVENTORY_CAPACITY,
+                        );
+                        let color = if i == 0 {
+                            SELECTED_COLOR
+                        } else {
+                            UNSELECTED_COLOR
+                        };
+                        char_panel.spawn((
+                            ShopCharacterMenuItem { index: i },
+                            Text::new(label),
+                            TextFont {
+                                font: font.clone(),
+                                font_size: 18.0,
+                                ..default()
+                            },
+                            TextColor(color),
+                        ));
+                    }
+                });
+
             // メッセージエリア（初期は非表示）
             parent
                 .spawn((
@@ -268,28 +325,34 @@ pub fn cleanup_town_scene(
 pub fn town_display_system(
     town_res: Res<TownResource>,
     party_state: Res<PartyState>,
-    mut main_menu_query: Query<&mut Visibility, (With<TownMainMenu>, Without<ShopMenuRoot>, Without<TownMessageArea>)>,
-    mut shop_root_query: Query<&mut Visibility, (With<ShopMenuRoot>, Without<TownMainMenu>, Without<TownMessageArea>)>,
+    mut main_menu_query: Query<&mut Visibility, (With<TownMainMenu>, Without<ShopMenuRoot>, Without<TownMessageArea>, Without<ShopCharacterPanel>)>,
+    mut shop_root_query: Query<&mut Visibility, (With<ShopMenuRoot>, Without<TownMainMenu>, Without<TownMessageArea>, Without<ShopCharacterPanel>)>,
     mut menu_query: Query<
         (&TownMenuItem, &mut Text, &mut TextColor),
-        (Without<TownMessageText>, Without<TownMessageArea>, Without<ShopMenuItem>),
+        (Without<TownMessageText>, Without<TownMessageArea>, Without<ShopMenuItem>, Without<ShopCharacterMenuItem>),
     >,
     mut shop_item_query: Query<
         (&ShopMenuItem, &mut Text, &mut TextColor),
-        (Without<TownMenuItem>, Without<TownMessageText>, Without<TownMessageArea>),
+        (Without<TownMenuItem>, Without<TownMessageText>, Without<TownMessageArea>, Without<ShopCharacterMenuItem>),
     >,
-    mut gold_query: Query<&mut Text, (With<ShopGoldText>, Without<TownMenuItem>, Without<ShopMenuItem>, Without<TownMessageText>, Without<TownMessageArea>)>,
-    mut message_query: Query<&mut Text, (With<TownMessageText>, Without<TownMessageArea>, Without<TownMenuItem>, Without<ShopMenuItem>, Without<ShopGoldText>)>,
-    mut message_area_query: Query<&mut Visibility, (With<TownMessageArea>, Without<TownMainMenu>, Without<ShopMenuRoot>)>,
+    mut gold_query: Query<&mut Text, (With<ShopGoldText>, Without<TownMenuItem>, Without<ShopMenuItem>, Without<TownMessageText>, Without<TownMessageArea>, Without<ShopCharacterMenuItem>)>,
+    mut message_query: Query<&mut Text, (With<TownMessageText>, Without<TownMessageArea>, Without<TownMenuItem>, Without<ShopMenuItem>, Without<ShopGoldText>, Without<ShopCharacterMenuItem>)>,
+    mut message_area_query: Query<&mut Visibility, (With<TownMessageArea>, Without<TownMainMenu>, Without<ShopMenuRoot>, Without<ShopCharacterPanel>)>,
+    mut char_panel_query: Query<&mut Visibility, (With<ShopCharacterPanel>, Without<TownMainMenu>, Without<ShopMenuRoot>, Without<TownMessageArea>)>,
+    mut char_item_query: Query<
+        (&ShopCharacterMenuItem, &mut Text, &mut TextColor),
+        (Without<TownMenuItem>, Without<ShopMenuItem>, Without<TownMessageText>, Without<ShopGoldText>),
+    >,
 ) {
     let in_shop = matches!(
         &town_res.phase,
         TownMenuPhase::ShopSelect { .. } | TownMenuPhase::ShopMessage { .. }
     );
+    let in_char_select = matches!(&town_res.phase, TownMenuPhase::ShopCharacterSelect { .. });
 
     // メインメニュー表示/非表示
     for mut vis in &mut main_menu_query {
-        *vis = if in_shop {
+        *vis = if in_shop || in_char_select {
             Visibility::Hidden
         } else {
             Visibility::Visible
@@ -303,6 +366,39 @@ pub fn town_display_system(
         } else {
             Visibility::Hidden
         };
+    }
+
+    // キャラクター選択パネル表示/非表示
+    for mut vis in &mut char_panel_query {
+        *vis = if in_char_select {
+            Visibility::Visible
+        } else {
+            Visibility::Hidden
+        };
+    }
+
+    // キャラクター選択メニュー項目の更新
+    if let TownMenuPhase::ShopCharacterSelect { selected, .. } = &town_res.phase {
+        let member_names = ["勇者", "魔法使い", "僧侶"];
+        for (char_item, mut text, mut color) in &mut char_item_query {
+            if char_item.index < member_names.len() {
+                let is_selected = char_item.index == *selected;
+                let prefix = if is_selected { "> " } else { "  " };
+                let member = &party_state.members[char_item.index];
+                **text = format!(
+                    "{}{}  {}/{}",
+                    prefix,
+                    member_names[char_item.index],
+                    member.inventory.total_count(),
+                    INVENTORY_CAPACITY,
+                );
+                *color = if is_selected {
+                    TextColor(SELECTED_COLOR)
+                } else {
+                    TextColor(UNSELECTED_COLOR)
+                };
+            }
+        }
     }
 
     // メインメニュー項目の更新

@@ -234,16 +234,22 @@ pub fn battle_display_system(
         _ => (vec![], 0),
     };
 
-    // コマンド選択フェーズ用: 呪文なしクラスかどうか
-    let has_no_spells = match &ui_state.phase {
-        BattlePhase::CommandSelect { member_index } => {
-            battle::spell::available_spells(game_state.state.party[*member_index].kind).is_empty()
-        }
-        _ => false,
+    // コマンド選択フェーズ用: 呪文なしクラスかどうか、アイテムなしかどうか
+    let (has_no_spells, has_no_items) = match &ui_state.phase {
+        BattlePhase::CommandSelect { member_index } => (
+            battle::spell::available_spells(game_state.state.party[*member_index].kind).is_empty(),
+            game_state.state.party[*member_index].inventory.is_empty(),
+        ),
+        _ => (false, false),
     };
 
     // アイテム選択フェーズ用: 所持アイテム一覧
-    let owned_items = game_state.state.inventory.owned_items();
+    let owned_items = match &ui_state.phase {
+        BattlePhase::ItemSelect { member_index } => {
+            game_state.state.party[*member_index].inventory.owned_items()
+        }
+        _ => vec![],
+    };
 
     let commands = ["たたかう", "じゅもん", "どうぐ", "にげる"];
     for (cursor, mut text, mut color, mut vis) in &mut command_query {
@@ -270,7 +276,12 @@ pub fn battle_display_system(
             // アイテム選択モード: CommandCursorをアイテム名+個数に差し替え
             if cursor.index < owned_items.len() {
                 let item = owned_items[cursor.index];
-                let count = game_state.state.inventory.count(item);
+                let count = match &ui_state.phase {
+                    BattlePhase::ItemSelect { member_index } => {
+                        game_state.state.party[*member_index].inventory.count(item)
+                    }
+                    _ => 0,
+                };
                 let is_selected = cursor.index == ui_state.selected_item;
                 let prefix = if is_selected { "> " } else { "  " };
                 **text = format!("{}{} x{}", prefix, item.name(), count);
@@ -288,8 +299,9 @@ pub fn battle_display_system(
                 let is_selected = cursor.index == ui_state.selected_command;
                 let prefix = if is_selected { "> " } else { "  " };
                 **text = format!("{}{}", prefix, commands[cursor.index]);
-                // 呪文なしクラスは「じゅもん」を灰色表示
-                let is_disabled = cursor.index == 1 && has_no_spells;
+                // 呪文なしクラスは「じゅもん」を灰色表示、アイテムなしは「どうぐ」を灰色表示
+                let is_disabled = (cursor.index == 1 && has_no_spells)
+                    || (cursor.index == 2 && has_no_items);
                 *color = if is_disabled {
                     TextColor(Color::srgb(0.4, 0.4, 0.4))
                 } else if is_selected {

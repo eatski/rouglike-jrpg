@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+pub const INVENTORY_CAPACITY: u32 = 6;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ItemKind {
     Herb,
@@ -49,6 +51,25 @@ impl Inventory {
 
     pub fn add(&mut self, item: ItemKind, count: u32) {
         *self.items.entry(item).or_insert(0) += count;
+    }
+
+    /// 全アイテム合計個数
+    pub fn total_count(&self) -> u32 {
+        self.items.values().sum()
+    }
+
+    /// 指定個数を追加できるか（容量チェック）
+    pub fn can_add(&self, count: u32) -> bool {
+        self.total_count() + count <= INVENTORY_CAPACITY
+    }
+
+    /// 容量チェック付き追加。成功したらtrue
+    pub fn try_add(&mut self, item: ItemKind, count: u32) -> bool {
+        if !self.can_add(count) {
+            return false;
+        }
+        self.add(item, count);
+        true
     }
 
     /// アイテムを1つ使用。成功したらtrue、在庫なしならfalse
@@ -148,5 +169,32 @@ mod tests {
         let items = shop_items();
         assert_eq!(items.len(), 1);
         assert_eq!(items[0], ItemKind::Herb);
+    }
+
+    #[test]
+    fn inventory_total_count() {
+        let mut inv = Inventory::new();
+        assert_eq!(inv.total_count(), 0);
+        inv.add(ItemKind::Herb, 3);
+        assert_eq!(inv.total_count(), 3);
+    }
+
+    #[test]
+    fn inventory_can_add() {
+        let mut inv = Inventory::new();
+        assert!(inv.can_add(6));
+        assert!(!inv.can_add(7));
+        inv.add(ItemKind::Herb, 5);
+        assert!(inv.can_add(1));
+        assert!(!inv.can_add(2));
+    }
+
+    #[test]
+    fn inventory_try_add() {
+        let mut inv = Inventory::new();
+        assert!(inv.try_add(ItemKind::Herb, 6));
+        assert_eq!(inv.total_count(), 6);
+        assert!(!inv.try_add(ItemKind::Herb, 1));
+        assert_eq!(inv.total_count(), 6);
     }
 }
