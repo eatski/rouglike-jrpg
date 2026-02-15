@@ -1,5 +1,23 @@
-use party::PartyMember;
+use party::{Inventory, ItemKind, PartyMember};
 use terrain::{Terrain, MAP_HEIGHT, MAP_WIDTH};
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum BuyResult {
+    Success { remaining_gold: u32 },
+    InsufficientGold,
+}
+
+/// アイテムを購入する
+pub fn buy_item(item: ItemKind, gold: u32, inventory: &mut Inventory) -> BuyResult {
+    let price = item.price();
+    if gold < price {
+        return BuyResult::InsufficientGold;
+    }
+    inventory.add(item, 1);
+    BuyResult::Success {
+        remaining_gold: gold - price,
+    }
+}
 
 /// パーティ全員のHP/MPを全回復する
 pub fn heal_party(party: &mut [PartyMember]) {
@@ -182,6 +200,30 @@ mod tests {
             dialogue.contains("はるか とおくの"),
             "遠い洞窟: {dialogue}"
         );
+    }
+
+    #[test]
+    fn buy_item_success() {
+        let mut inv = Inventory::new();
+        let result = buy_item(ItemKind::Herb, 100, &mut inv);
+        assert_eq!(result, BuyResult::Success { remaining_gold: 92 });
+        assert_eq!(inv.count(ItemKind::Herb), 1);
+    }
+
+    #[test]
+    fn buy_item_insufficient_gold() {
+        let mut inv = Inventory::new();
+        let result = buy_item(ItemKind::Herb, 5, &mut inv);
+        assert_eq!(result, BuyResult::InsufficientGold);
+        assert_eq!(inv.count(ItemKind::Herb), 0);
+    }
+
+    #[test]
+    fn buy_item_exact_gold() {
+        let mut inv = Inventory::new();
+        let result = buy_item(ItemKind::Herb, 8, &mut inv);
+        assert_eq!(result, BuyResult::Success { remaining_gold: 0 });
+        assert_eq!(inv.count(ItemKind::Herb), 1);
     }
 
     #[test]

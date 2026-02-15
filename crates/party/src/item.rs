@@ -17,6 +17,17 @@ impl ItemKind {
             ItemKind::Herb => 25,
         }
     }
+
+    pub fn price(self) -> u32 {
+        match self {
+            ItemKind::Herb => 8,
+        }
+    }
+}
+
+/// 道具屋で購入可能なアイテム一覧
+pub fn shop_items() -> Vec<ItemKind> {
+    vec![ItemKind::Herb]
 }
 
 /// 全アイテムリストを返す
@@ -123,6 +134,18 @@ mod tests {
     #[test]
     fn all_items_returns_herb() {
         let items = all_items();
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0], ItemKind::Herb);
+    }
+
+    #[test]
+    fn herb_price() {
+        assert_eq!(ItemKind::Herb.price(), 8);
+    }
+
+    #[test]
+    fn shop_items_returns_herb() {
+        let items = shop_items();
         assert_eq!(items.len(), 1);
         assert_eq!(items[0], ItemKind::Herb);
     }

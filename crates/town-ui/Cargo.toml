@@ -6,6 +6,8 @@ edition = "2024"
 [dependencies]
 bevy = "0.18"
 town = { path = "../town" }
+party = { path = "../party" }
 app-state = { path = "../app-state" }
 shared-ui = { path = "../shared-ui" }
+input-ui = { path = "../input-ui" }
 movement-ui = { path = "../movement-ui" }

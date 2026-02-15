@@ -10,6 +10,7 @@ use world::map::MapData;
 pub struct PartyState {
     pub members: Vec<PartyMember>,
     pub inventory: Inventory,
+    pub gold: u32,
 }
 
 impl Default for PartyState {
@@ -19,6 +20,7 @@ impl Default for PartyState {
         Self {
             members: default_party(),
             inventory,
+            gold: 100,
         }
     }
 }

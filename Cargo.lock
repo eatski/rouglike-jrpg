@@ -4805,7 +4805,9 @@ version = "0.1.0"
 dependencies = [
  "app-state",
  "bevy",
+ "input-ui",
  "movement-ui",
+ "party",
  "shared-ui",
  "town",
 ]
