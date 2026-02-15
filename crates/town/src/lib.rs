@@ -1,4 +1,4 @@
-use party::{Inventory, ItemKind, PartyMember};
+use party::{Inventory, ItemKind, PartyMember, WeaponKind};
 use terrain::{Terrain, MAP_HEIGHT, MAP_WIDTH};
 
 #[derive(Debug, PartialEq, Eq)]
@@ -19,6 +19,24 @@ pub fn buy_item(item: ItemKind, gold: u32, inventory: &mut Inventory) -> BuyResu
     }
     inventory.add(item, 1);
     BuyResult::Success {
+        remaining_gold: gold - price,
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum BuyWeaponResult {
+    Success { remaining_gold: u32 },
+    InsufficientGold,
+}
+
+/// 武器を購入して即装備する
+pub fn buy_weapon(weapon: WeaponKind, gold: u32, member: &mut PartyMember) -> BuyWeaponResult {
+    let price = weapon.price();
+    if gold < price {
+        return BuyWeaponResult::InsufficientGold;
+    }
+    member.equipment.equip_weapon(weapon);
+    BuyWeaponResult::Success {
         remaining_gold: gold - price,
     }
 }
@@ -267,5 +285,43 @@ mod tests {
         assert_eq!(direction_label(-5, 5), "ほくせい");
         assert_eq!(direction_label(5, -5), "なんとう");
         assert_eq!(direction_label(-5, -5), "なんせい");
+    }
+
+    #[test]
+    fn buy_weapon_success() {
+        use party::WeaponKind;
+        let mut member = PartyMember::hero();
+        let result = buy_weapon(WeaponKind::WoodenSword, 100, &mut member);
+        assert_eq!(
+            result,
+            BuyWeaponResult::Success {
+                remaining_gold: 90
+            }
+        );
+        assert_eq!(member.equipment.weapon, Some(WeaponKind::WoodenSword));
+    }
+
+    #[test]
+    fn buy_weapon_insufficient_gold() {
+        use party::WeaponKind;
+        let mut member = PartyMember::hero();
+        let result = buy_weapon(WeaponKind::IronSword, 10, &mut member);
+        assert_eq!(result, BuyWeaponResult::InsufficientGold);
+        assert_eq!(member.equipment.weapon, None);
+    }
+
+    #[test]
+    fn buy_weapon_replaces_existing() {
+        use party::WeaponKind;
+        let mut member = PartyMember::hero();
+        member.equipment.equip_weapon(WeaponKind::WoodenSword);
+        let result = buy_weapon(WeaponKind::IronSword, 100, &mut member);
+        assert_eq!(
+            result,
+            BuyWeaponResult::Success {
+                remaining_gold: 50
+            }
+        );
+        assert_eq!(member.equipment.weapon, Some(WeaponKind::IronSword));
     }
 }

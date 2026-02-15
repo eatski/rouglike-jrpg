@@ -1,3 +1,4 @@
+use crate::equipment::Equipment;
 use crate::item::Inventory;
 use crate::stats::CombatStats;
 
@@ -23,14 +24,21 @@ pub struct PartyMember {
     pub kind: PartyMemberKind,
     pub stats: CombatStats,
     pub inventory: Inventory,
+    pub equipment: Equipment,
 }
 
 impl PartyMember {
+    /// 装備込みの実効攻撃力
+    pub fn effective_attack(&self) -> i32 {
+        self.stats.attack + self.equipment.attack_bonus()
+    }
+
     pub fn hero() -> Self {
         Self {
             kind: PartyMemberKind::Hero,
             stats: CombatStats::new(30, 8, 3, 5, 5),
             inventory: Inventory::new(),
+            equipment: Equipment::new(),
         }
     }
 
@@ -39,6 +47,7 @@ impl PartyMember {
             kind: PartyMemberKind::Mage,
             stats: CombatStats::new(20, 10, 2, 7, 15),
             inventory: Inventory::new(),
+            equipment: Equipment::new(),
         }
     }
 
@@ -47,6 +56,7 @@ impl PartyMember {
             kind: PartyMemberKind::Priest,
             stats: CombatStats::new(25, 5, 4, 4, 12),
             inventory: Inventory::new(),
+            equipment: Equipment::new(),
         }
     }
 }
@@ -97,5 +107,19 @@ mod tests {
         assert_eq!(priest.stats.attack, 5);
         assert_eq!(priest.stats.defense, 4);
         assert_eq!(priest.stats.speed, 4);
+    }
+
+    #[test]
+    fn effective_attack_without_weapon() {
+        let hero = PartyMember::hero();
+        assert_eq!(hero.effective_attack(), hero.stats.attack);
+    }
+
+    #[test]
+    fn effective_attack_with_weapon() {
+        use crate::equipment::WeaponKind;
+        let mut hero = PartyMember::hero();
+        hero.equipment.equip_weapon(WeaponKind::IronSword);
+        assert_eq!(hero.effective_attack(), hero.stats.attack + 5);
     }
 }

@@ -1,14 +1,13 @@
 use bevy::prelude::*;
 
 use input_ui::{is_cancel_just_pressed, is_confirm_just_pressed, is_down_just_pressed, is_up_just_pressed};
-use party::{shop_items, ItemKind};
-use town::{buy_item, cave_hint_dialogue, heal_party, BuyResult};
+use town::{buy_item, buy_weapon, cave_hint_dialogue, heal_party, BuyResult, BuyWeaponResult};
 
 use app_state::SceneState;
 use movement_ui::{Player, TilePosition};
 use shared_ui::{ActiveMap, PartyState};
 
-use crate::scene::{TownMenuPhase, TownResource};
+use crate::scene::{shop_goods, ShopGoods, TownMenuPhase, TownResource};
 
 /// 町画面の入力処理システム
 pub fn town_input_system(
@@ -39,7 +38,7 @@ pub fn town_input_system(
                         };
                     }
                     1 => {
-                        // 道具屋 → ショップ画面へ
+                        // よろず屋 → ショップ画面へ
                         town_res.phase = TownMenuPhase::ShopSelect { selected: 0 };
                     }
                     2 => {
@@ -67,8 +66,8 @@ pub fn town_input_system(
             }
         }
         TownMenuPhase::ShopSelect { selected } => {
-            let items = shop_items();
-            let max_index = items.len().saturating_sub(1);
+            let goods_list = shop_goods();
+            let max_index = goods_list.len().saturating_sub(1);
 
             // 上下でカーソル移動
             if is_up_just_pressed(&keyboard) && selected > 0 {
@@ -89,25 +88,25 @@ pub fn town_input_system(
 
             // 決定 → ゴールドチェック後キャラ選択へ
             if is_confirm_just_pressed(&keyboard) {
-                let item = items[selected];
-                if party_state.gold < item.price() {
+                let goods = goods_list[selected];
+                if party_state.gold < goods.price() {
                     town_res.phase = TownMenuPhase::ShopMessage {
                         message: "おかねが たりない！".to_string(),
                     };
                 } else {
                     town_res.phase = TownMenuPhase::ShopCharacterSelect {
-                        item,
+                        goods,
                         selected: 0,
                     };
                 }
             }
         }
-        TownMenuPhase::ShopCharacterSelect { item, selected } => {
+        TownMenuPhase::ShopCharacterSelect { goods, selected } => {
             handle_shop_character_select(
                 &keyboard,
                 &mut town_res,
                 &mut party_state,
-                item,
+                goods,
                 selected,
             );
         }
@@ -124,7 +123,7 @@ fn handle_shop_character_select(
     keyboard: &ButtonInput<KeyCode>,
     town_res: &mut TownResource,
     party_state: &mut PartyState,
-    item: ItemKind,
+    goods: ShopGoods,
     selected: usize,
 ) {
     let max_index = party_state.members.len().saturating_sub(1);
@@ -132,13 +131,13 @@ fn handle_shop_character_select(
     // 上下でカーソル移動
     if is_up_just_pressed(keyboard) && selected > 0 {
         town_res.phase = TownMenuPhase::ShopCharacterSelect {
-            item,
+            goods,
             selected: selected - 1,
         };
     }
     if is_down_just_pressed(keyboard) && selected < max_index {
         town_res.phase = TownMenuPhase::ShopCharacterSelect {
-            item,
+            goods,
             selected: selected + 1,
         };
     }
@@ -152,22 +151,41 @@ fn handle_shop_character_select(
     // 決定 → 購入処理
     if is_confirm_just_pressed(keyboard) {
         let member_name = party_state.members[selected].kind.name();
-        match buy_item(item, party_state.gold, &mut party_state.members[selected].inventory) {
-            BuyResult::Success { remaining_gold } => {
-                party_state.gold = remaining_gold;
-                town_res.phase = TownMenuPhase::ShopMessage {
-                    message: format!("{}が {} を てにいれた！", member_name, item.name()),
-                };
+        match goods {
+            ShopGoods::Item(item) => {
+                match buy_item(item, party_state.gold, &mut party_state.members[selected].inventory) {
+                    BuyResult::Success { remaining_gold } => {
+                        party_state.gold = remaining_gold;
+                        town_res.phase = TownMenuPhase::ShopMessage {
+                            message: format!("{}が {} を てにいれた！", member_name, item.name()),
+                        };
+                    }
+                    BuyResult::InsufficientGold => {
+                        town_res.phase = TownMenuPhase::ShopMessage {
+                            message: "おかねが たりない！".to_string(),
+                        };
+                    }
+                    BuyResult::InventoryFull => {
+                        town_res.phase = TownMenuPhase::ShopMessage {
+                            message: format!("{}の もちものが いっぱいだ！", member_name),
+                        };
+                    }
+                }
             }
-            BuyResult::InsufficientGold => {
-                town_res.phase = TownMenuPhase::ShopMessage {
-                    message: "おかねが たりない！".to_string(),
-                };
-            }
-            BuyResult::InventoryFull => {
-                town_res.phase = TownMenuPhase::ShopMessage {
-                    message: format!("{}の もちものが いっぱいだ！", member_name),
-                };
+            ShopGoods::Weapon(weapon) => {
+                match buy_weapon(weapon, party_state.gold, &mut party_state.members[selected]) {
+                    BuyWeaponResult::Success { remaining_gold } => {
+                        party_state.gold = remaining_gold;
+                        town_res.phase = TownMenuPhase::ShopMessage {
+                            message: format!("{}が {} を そうびした！", member_name, weapon.name()),
+                        };
+                    }
+                    BuyWeaponResult::InsufficientGold => {
+                        town_res.phase = TownMenuPhase::ShopMessage {
+                            message: "おかねが たりない！".to_string(),
+                        };
+                    }
+                }
             }
         }
     }
