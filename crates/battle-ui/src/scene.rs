@@ -14,25 +14,48 @@ use super::display::{
 #[derive(Component)]
 pub struct BattleSceneRoot;
 
-/// パーティ全員分のコマンド蓄積
-#[derive(Debug, Clone, Default)]
+/// パーティ全員分のコマンド蓄積（メンバーインデックスで管理）
+#[derive(Debug, Clone)]
 pub struct PendingCommands {
-    pub commands: Vec<BattleAction>,
+    slots: Vec<Option<BattleAction>>,
 }
 
 impl PendingCommands {
-    pub fn push(&mut self, action: BattleAction) {
-        self.commands.push(action);
+    pub fn new(party_size: usize) -> Self {
+        Self {
+            slots: vec![None; party_size],
+        }
     }
 
-    pub fn pop(&mut self) -> Option<BattleAction> {
-        self.commands.pop()
+    pub fn set(&mut self, member_index: usize, action: BattleAction) {
+        if member_index < self.slots.len() {
+            self.slots[member_index] = Some(action);
+        }
+    }
+
+    pub fn remove(&mut self, member_index: usize) {
+        if member_index < self.slots.len() {
+            self.slots[member_index] = None;
+        }
     }
 
     pub fn clear(&mut self) {
-        self.commands.clear();
+        for slot in &mut self.slots {
+            *slot = None;
+        }
     }
 
+    /// パーティメンバーインデックスで正しく並んだコマンドVecを返す
+    pub fn to_commands(&self) -> Vec<BattleAction> {
+        self.slots
+            .iter()
+            .map(|opt| {
+                opt.unwrap_or(BattleAction::Attack {
+                    target: battle::TargetId::Enemy(0),
+                })
+            })
+            .collect()
+    }
 }
 
 /// メッセージ表示時に適用する視覚効果
@@ -169,6 +192,7 @@ pub fn setup_battle_scene(
 
     let font: Handle<Font> = asset_server.load("fonts/NotoSansJP-Bold.ttf");
 
+    let party_size = battle_state.party.len();
     let display_party_hp = battle_state.party.iter().map(|m| m.stats.hp).collect();
     let display_party_mp = battle_state.party.iter().map(|m| m.stats.mp).collect();
 
@@ -178,7 +202,7 @@ pub fn setup_battle_scene(
     commands.insert_resource(BattleUIState {
         selected_command: 0,
         selected_target: 0,
-        pending_commands: PendingCommands::default(),
+        pending_commands: PendingCommands::new(party_size),
         phase: BattlePhase::ShowMessage {
             messages: vec![encounter_msg],
             index: 0,
