@@ -24,8 +24,8 @@ Bevy 0.18を使用した2Dローグライク風JRPGのプロトタイプ。Cargo
 
 **ドメイン層（依存なし）**:
 - **terrain**: 地形・座標・方向（Terrain, Position, Direction）
-- **party**: パーティ・キャラクター・ステータス（PartyMember, CombatStats）
-- **battle**: 戦闘ロジック（敵、魔法（クラス別呪文制限含む）、戦闘処理）
+- **party**: パーティ・キャラクター・ステータス・アイテム（PartyMember, CombatStats, ItemKind, Inventory）
+- **battle**: 戦闘ロジック（敵、魔法（クラス別呪文制限含む）、アイテム、戦闘処理）
 - **cave**: 洞窟生成ロジック
 - **town**: 街ロジック
 - **world**: ワールドマップ生成・島配置

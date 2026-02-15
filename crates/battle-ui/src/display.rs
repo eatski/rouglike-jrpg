@@ -195,6 +195,10 @@ pub fn battle_display_system(
                 let member_name = game_state.state.party[*member_index].kind.name();
                 **text = format!("{}は どの じゅもんを つかう？", member_name);
             }
+            BattlePhase::ItemSelect { member_index } => {
+                let member_name = game_state.state.party[*member_index].kind.name();
+                **text = format!("{}は どの どうぐを つかう？", member_name);
+            }
             BattlePhase::TargetSelect { .. } => {
                 if ui_state.pending_spell.is_some() {
                     **text = "だれに つかう？".to_string();
@@ -216,8 +220,9 @@ pub fn battle_display_system(
         }
     }
 
-    // コマンド/呪文表示更新
+    // コマンド/呪文/アイテム表示更新
     let is_spell_select = matches!(ui_state.phase, BattlePhase::SpellSelect { .. });
+    let is_item_select = matches!(ui_state.phase, BattlePhase::ItemSelect { .. });
     let show_commands = matches!(ui_state.phase, BattlePhase::CommandSelect { .. });
 
     // 呪文選択フェーズ用: クラス別呪文リストと現在のキャラのMP
@@ -237,7 +242,10 @@ pub fn battle_display_system(
         _ => false,
     };
 
-    let commands = ["たたかう", "じゅもん", "にげる"];
+    // アイテム選択フェーズ用: 所持アイテム一覧
+    let owned_items = game_state.state.inventory.owned_items();
+
+    let commands = ["たたかう", "じゅもん", "どうぐ", "にげる"];
     for (cursor, mut text, mut color, mut vis) in &mut command_query {
         if is_spell_select {
             // 呪文選択モード: CommandCursorを呪文名に差し替え
@@ -250,6 +258,23 @@ pub fn battle_display_system(
                 *color = if !can_use {
                     TextColor(Color::srgb(0.4, 0.4, 0.4)) // 灰色（使用不可）
                 } else if is_selected {
+                    TextColor(COMMAND_COLOR_SELECTED)
+                } else {
+                    TextColor(COMMAND_COLOR_UNSELECTED)
+                };
+                *vis = Visibility::Inherited;
+            } else {
+                *vis = Visibility::Hidden;
+            }
+        } else if is_item_select {
+            // アイテム選択モード: CommandCursorをアイテム名+個数に差し替え
+            if cursor.index < owned_items.len() {
+                let item = owned_items[cursor.index];
+                let count = game_state.state.inventory.count(item);
+                let is_selected = cursor.index == ui_state.selected_item;
+                let prefix = if is_selected { "> " } else { "  " };
+                **text = format!("{}{} x{}", prefix, item.name(), count);
+                *color = if is_selected {
                     TextColor(COMMAND_COLOR_SELECTED)
                 } else {
                     TextColor(COMMAND_COLOR_UNSELECTED)

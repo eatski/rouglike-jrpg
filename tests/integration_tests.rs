@@ -984,7 +984,7 @@ fn setup_battle_test_app() -> App {
 fn insert_battle_resource(app: &mut App, phase: BattlePhase) {
     let party = default_party();
     let enemies = vec![Enemy::slime()];
-    let battle_state = battle::BattleState::new(party, enemies);
+    let battle_state = battle::BattleState::new(party, enemies, battle::Inventory::new());
 
     let party_size = battle_state.party.len();
     let display_party_hp = battle_state.party.iter().map(|m| m.stats.hp).collect();
@@ -1003,6 +1003,8 @@ fn insert_battle_resource(app: &mut App, phase: BattlePhase) {
         display_party_mp,
         selected_spell: 0,
         pending_spell: None,
+        selected_item: 0,
+        pending_item: None,
         selected_ally_target: 0,
         message_effects: Vec::new(),
         shake_timer: None,
@@ -1052,7 +1054,7 @@ fn battle_phase_transitions_from_command_to_exploring() {
                 app.update();
                 release_battle_keys(&mut app);
             }
-            BattlePhase::SpellSelect { .. } | BattlePhase::AllyTargetSelect { .. } => {
+            BattlePhase::SpellSelect { .. } | BattlePhase::AllyTargetSelect { .. } | BattlePhase::ItemSelect { .. } => {
                 // 呪文選択や味方ターゲットが出たらキャンセルしてコマンドに戻す
                 press_battle_key(&mut app, KeyCode::Escape);
                 app.update();
@@ -1149,7 +1151,7 @@ fn battle_command_selection_with_keys() {
 
     release_battle_keys(&mut app);
 
-    // 下限確認: 2でさらにS（下）を押しても2のまま
+    // 下限確認: 3でさらにS（下）を押しても3のまま
     // 0→1
     press_battle_key(&mut app, KeyCode::KeyS);
     app.update();
@@ -1157,23 +1159,27 @@ fn battle_command_selection_with_keys() {
     // 1→2
     press_battle_key(&mut app, KeyCode::KeyS);
     app.update();
+    release_battle_keys(&mut app);
+    // 2→3
+    press_battle_key(&mut app, KeyCode::KeyS);
+    app.update();
 
     {
         let battle_res = app.world().resource::<BattleUIState>();
-        assert_eq!(battle_res.selected_command, 2);
+        assert_eq!(battle_res.selected_command, 3);
     }
 
     release_battle_keys(&mut app);
 
-    // 2でさらにS → 2のまま
+    // 3でさらにS → 3のまま
     press_battle_key(&mut app, KeyCode::KeyS);
     app.update();
 
     {
         let battle_res = app.world().resource::<BattleUIState>();
         assert_eq!(
-            battle_res.selected_command, 2,
-            "Should stay at 2 (lower bound)"
+            battle_res.selected_command, 3,
+            "Should stay at 3 (lower bound)"
         );
     }
 }
@@ -1183,7 +1189,10 @@ fn battle_flee_command_transitions_correctly() {
     let mut app = setup_battle_test_app();
     insert_battle_resource(&mut app, BattlePhase::CommandSelect { member_index: 0 });
 
-    // にげる（selected_command=2）を選択
+    // にげる（selected_command=3）を選択
+    press_battle_key(&mut app, KeyCode::KeyS);
+    app.update();
+    release_battle_keys(&mut app);
     press_battle_key(&mut app, KeyCode::KeyS);
     app.update();
     release_battle_keys(&mut app);

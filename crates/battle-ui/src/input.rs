@@ -20,6 +20,9 @@ pub fn battle_input_system(
         BattlePhase::SpellSelect { member_index } => {
             handle_spell_select(&keyboard, &game_state, &mut ui_state, member_index);
         }
+        BattlePhase::ItemSelect { member_index } => {
+            handle_item_select(&keyboard, &game_state, &mut ui_state, member_index);
+        }
         BattlePhase::TargetSelect { member_index } => {
             handle_target_select(&keyboard, &mut game_state, &mut ui_state, member_index);
         }
@@ -41,11 +44,11 @@ fn handle_command_select(
     ui_state: &mut BattleUIState,
     member_index: usize,
 ) {
-    // 上下でカーソル移動 (0=たたかう, 1=じゅもん, 2=にげる)
+    // 上下でカーソル移動 (0=たたかう, 1=じゅもん, 2=どうぐ, 3=にげる)
     if input_ui::is_up_just_pressed(keyboard) && ui_state.selected_command > 0 {
         ui_state.selected_command -= 1;
     }
-    if input_ui::is_down_just_pressed(keyboard) && ui_state.selected_command < 2 {
+    if input_ui::is_down_just_pressed(keyboard) && ui_state.selected_command < 3 {
         ui_state.selected_command += 1;
     }
 
@@ -81,6 +84,14 @@ fn handle_command_select(
                 }
                 ui_state.selected_spell = 0;
                 ui_state.phase = BattlePhase::SpellSelect { member_index };
+            }
+            2 => {
+                // どうぐ → アイテム選択へ（空なら即戻る）
+                if game_state.state.inventory.is_empty() {
+                    return;
+                }
+                ui_state.selected_item = 0;
+                ui_state.phase = BattlePhase::ItemSelect { member_index };
             }
             _ => {
                 // にげる → 全員Flee確定、即実行
@@ -144,6 +155,45 @@ fn handle_spell_select(
             ui_state.selected_ally_target = first_alive.first().copied().unwrap_or(0);
             ui_state.phase = BattlePhase::AllyTargetSelect { member_index };
         }
+    }
+}
+
+fn handle_item_select(
+    keyboard: &ButtonInput<KeyCode>,
+    game_state: &BattleGameState,
+    ui_state: &mut BattleUIState,
+    member_index: usize,
+) {
+    let owned = game_state.state.inventory.owned_items();
+    if owned.is_empty() {
+        ui_state.phase = BattlePhase::CommandSelect { member_index };
+        return;
+    }
+    let item_count = owned.len();
+
+    // 上下でカーソル移動
+    if input_ui::is_up_just_pressed(keyboard) && ui_state.selected_item > 0 {
+        ui_state.selected_item -= 1;
+    }
+    if input_ui::is_down_just_pressed(keyboard) && ui_state.selected_item < item_count - 1 {
+        ui_state.selected_item += 1;
+    }
+
+    // キャンセル: コマンド選択に戻る
+    if input_ui::is_cancel_just_pressed(keyboard) {
+        ui_state.phase = BattlePhase::CommandSelect { member_index };
+        return;
+    }
+
+    // 決定
+    if input_ui::is_confirm_just_pressed(keyboard) {
+        let item = owned[ui_state.selected_item];
+        ui_state.pending_item = Some(item);
+
+        // 回復アイテム → 味方選択へ
+        let first_alive = game_state.state.alive_party_indices();
+        ui_state.selected_ally_target = first_alive.first().copied().unwrap_or(0);
+        ui_state.phase = BattlePhase::AllyTargetSelect { member_index };
     }
 }
 
@@ -250,10 +300,15 @@ fn handle_ally_target_select(
         }
     }
 
-    // キャンセル: 呪文選択に戻る
+    // キャンセル: 呪文選択またはアイテム選択に戻る
     if input_ui::is_cancel_just_pressed(keyboard) {
-        ui_state.pending_spell = None;
-        ui_state.phase = BattlePhase::SpellSelect { member_index };
+        if ui_state.pending_item.is_some() {
+            ui_state.pending_item = None;
+            ui_state.phase = BattlePhase::ItemSelect { member_index };
+        } else {
+            ui_state.pending_spell = None;
+            ui_state.phase = BattlePhase::SpellSelect { member_index };
+        }
         return;
     }
 
@@ -265,6 +320,10 @@ fn handle_ally_target_select(
             ui_state
                 .pending_commands
                 .set(member_index, BattleAction::Spell { spell, target });
+        } else if let Some(item) = ui_state.pending_item.take() {
+            ui_state
+                .pending_commands
+                .set(member_index, BattleAction::UseItem { item, target });
         }
 
         // 次の生存メンバーを探す
@@ -475,6 +534,36 @@ fn results_to_messages(
                         },
                     ));
                 }
+
+                // ターゲットのHP更新エフェクト
+                if let TargetId::Party(pi) = target {
+                    let max_hp = state.party[*pi].stats.max_hp;
+                    running_party_hp[*pi] = (running_party_hp[*pi] + amount).min(max_hp);
+                    effects.push((
+                        msg_index,
+                        MessageEffect::UpdatePartyHp {
+                            member_index: *pi,
+                            new_hp: running_party_hp[*pi],
+                        },
+                    ));
+                }
+            }
+            TurnResult::ItemUsed {
+                user,
+                item,
+                target,
+                amount,
+            } => {
+                let user_name = actor_name(user, state, &enemy_names);
+                let target_name = target_name_str(target, state, &enemy_names);
+                let msg_index = messages.len();
+                messages.push(format!(
+                    "{}は {}を つかった！ {}の HPが {}かいふく！",
+                    user_name,
+                    item.name(),
+                    target_name,
+                    amount
+                ));
 
                 // ターゲットのHP更新エフェクト
                 if let TargetId::Party(pi) = target {

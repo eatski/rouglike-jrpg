@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use battle::{generate_enemy_group, BattleAction, BattleState, EnemyKind, SpellKind};
+use battle::{generate_enemy_group, BattleAction, BattleState, EnemyKind, ItemKind, SpellKind};
 
 use movement_ui::{Bounce, MovementLocked, PendingMove, Player, TilePosition};
 use shared_ui::{ActiveMap, MovementState, PartyState};
@@ -100,6 +100,10 @@ pub struct BattleUIState {
     pub selected_spell: usize,
     /// 選択済みの呪文（ターゲット選択へ渡す）
     pub pending_spell: Option<SpellKind>,
+    /// アイテム選択中のカーソル位置
+    pub selected_item: usize,
+    /// 選択済みのアイテム（ターゲット選択へ渡す）
+    pub pending_item: Option<ItemKind>,
     /// 味方ターゲット選択中のカーソル位置
     pub selected_ally_target: usize,
     /// メッセージindex → 適用する視覚効果のリスト
@@ -118,6 +122,8 @@ pub enum BattlePhase {
     CommandSelect { member_index: usize },
     /// 呪文選択中
     SpellSelect { member_index: usize },
+    /// アイテム選択中
+    ItemSelect { member_index: usize },
     /// ターゲット選択中（敵）
     TargetSelect { member_index: usize },
     /// 味方ターゲット選択中（回復呪文用）
@@ -188,7 +194,7 @@ pub fn setup_battle_scene(
         .iter()
         .map(|e| asset_server.load(e.kind.sprite_path()))
         .collect();
-    let battle_state = BattleState::new(party, enemies);
+    let battle_state = BattleState::new(party, enemies, party_state.inventory.clone());
 
     let font: Handle<Font> = asset_server.load("fonts/NotoSansJP-Bold.ttf");
 
@@ -212,6 +218,8 @@ pub fn setup_battle_scene(
         display_party_mp,
         selected_spell: 0,
         pending_spell: None,
+        selected_item: 0,
+        pending_item: None,
         selected_ally_target: 0,
         message_effects: Vec::new(),
         shake_timer: None,
@@ -524,6 +532,16 @@ fn build_bottom_area(
                 ));
                 cmd_area.spawn((
                     CommandCursor { index: 2 },
+                    Text::new("  どうぐ"),
+                    TextFont {
+                        font: font.clone(),
+                        font_size: 16.0,
+                        ..default()
+                    },
+                    TextColor(unselected_color),
+                ));
+                cmd_area.spawn((
+                    CommandCursor { index: 3 },
                     Text::new("  にげる"),
                     TextFont {
                         font: font.clone(),
@@ -556,6 +574,9 @@ pub fn cleanup_battle_scene(
             persistent.stats.mp = member.stats.mp;
         }
     }
+
+    // インベントリを書き戻す
+    party_state.inventory = game_state.state.inventory.clone();
 
     for entity in &query {
         commands.entity(entity).despawn();

@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use crate::constants::{MOVEMENT_INITIAL_DELAY, MOVEMENT_REPEAT_INTERVAL};
-use party::{default_party, PartyMember};
+use party::{default_party, Inventory, ItemKind, PartyMember};
 use terrain::Terrain;
 use world::map::MapData;
 
@@ -9,12 +9,16 @@ use world::map::MapData;
 #[derive(Resource)]
 pub struct PartyState {
     pub members: Vec<PartyMember>,
+    pub inventory: Inventory,
 }
 
 impl Default for PartyState {
     fn default() -> Self {
+        let mut inventory = Inventory::new();
+        inventory.add(ItemKind::Herb, 2);
         Self {
             members: default_party(),
+            inventory,
         }
     }
 }
