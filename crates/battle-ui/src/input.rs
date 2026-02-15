@@ -87,7 +87,7 @@ fn handle_command_select(
             }
             2 => {
                 // どうぐ → アイテム選択へ（空なら即戻る）
-                if game_state.state.inventory.is_empty() {
+                if game_state.state.party[member_index].inventory.is_empty() {
                     return;
                 }
                 ui_state.selected_item = 0;
@@ -164,7 +164,7 @@ fn handle_item_select(
     ui_state: &mut BattleUIState,
     member_index: usize,
 ) {
-    let owned = game_state.state.inventory.owned_items();
+    let owned = game_state.state.party[member_index].inventory.owned_items();
     if owned.is_empty() {
         ui_state.phase = BattlePhase::CommandSelect { member_index };
         return;

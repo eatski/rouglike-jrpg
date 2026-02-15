@@ -1,6 +1,6 @@
 use crate::enemy::Enemy;
 use crate::spell::{calculate_heal_amount, calculate_spell_damage, SpellKind};
-use party::{CombatStats, Inventory, ItemKind, PartyMember};
+use party::{CombatStats, ItemKind, PartyMember};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ActorId {
@@ -66,16 +66,14 @@ pub struct BattleState {
     pub party: Vec<PartyMember>,
     pub enemies: Vec<Enemy>,
     pub turn_log: Vec<TurnResult>,
-    pub inventory: Inventory,
 }
 
 impl BattleState {
-    pub fn new(party: Vec<PartyMember>, enemies: Vec<Enemy>, inventory: Inventory) -> Self {
+    pub fn new(party: Vec<PartyMember>, enemies: Vec<Enemy>) -> Self {
         Self {
             party,
             enemies,
             turn_log: Vec::new(),
-            inventory,
         }
     }
 
@@ -275,7 +273,7 @@ impl BattleState {
     ) -> Vec<TurnResult> {
         let mut results = Vec::new();
 
-        if !self.inventory.use_item(item) {
+        if !self.party[user_idx].inventory.use_item(item) {
             return results; // 在庫なし（UIで弾くが念のため）
         }
 
@@ -401,7 +399,7 @@ impl BattleState {
 mod tests {
     use super::*;
     use crate::enemy::Enemy;
-    use party::{default_party, Inventory, PartyMember};
+    use party::{default_party, PartyMember};
 
     fn make_random(damage_randoms: Vec<f32>, flee_random: f32) -> TurnRandomFactors {
         TurnRandomFactors {
@@ -414,7 +412,7 @@ mod tests {
     fn basic_3v2_turn() {
         let party = default_party();
         let enemies = vec![Enemy::slime(), Enemy::slime()];
-        let mut battle = BattleState::new(party, enemies, Inventory::new());
+        let mut battle = BattleState::new(party, enemies);
 
         let commands = vec![
             BattleAction::Attack {
@@ -443,7 +441,7 @@ mod tests {
         let party = default_party();
         // Mage(SPD7) > Hero(SPD5) > Priest(SPD4) > Slime(SPD3)
         let enemies = vec![Enemy::slime()];
-        let mut battle = BattleState::new(party, enemies, Inventory::new());
+        let mut battle = BattleState::new(party, enemies);
 
         let commands = vec![
             BattleAction::Attack {
@@ -474,7 +472,7 @@ mod tests {
     fn retarget_when_enemy_already_defeated() {
         let party = vec![PartyMember::hero(), PartyMember::mage()];
         let enemies = vec![Enemy::slime(), Enemy::slime()];
-        let mut battle = BattleState::new(party, enemies, Inventory::new());
+        let mut battle = BattleState::new(party, enemies);
 
         // 敵0を事前に倒す
         battle.enemies[0].stats.hp = 0;
@@ -507,7 +505,7 @@ mod tests {
     fn flee_success() {
         let party = default_party();
         let enemies = vec![Enemy::slime()];
-        let mut battle = BattleState::new(party, enemies, Inventory::new());
+        let mut battle = BattleState::new(party, enemies);
 
         let commands = vec![
             BattleAction::Flee,
@@ -529,7 +527,7 @@ mod tests {
     fn flee_failure() {
         let party = default_party();
         let enemies = vec![Enemy::slime()];
-        let mut battle = BattleState::new(party, enemies, Inventory::new());
+        let mut battle = BattleState::new(party, enemies);
 
         let commands = vec![
             BattleAction::Flee,
@@ -565,7 +563,7 @@ mod tests {
     fn victory_detection() {
         let party = default_party();
         let enemies = vec![Enemy::slime()];
-        let mut battle = BattleState::new(party, enemies, Inventory::new());
+        let mut battle = BattleState::new(party, enemies);
 
         // 敵を倒す
         battle.enemies[0].stats.hp = 0;
@@ -578,7 +576,7 @@ mod tests {
     fn party_wipe_detection() {
         let party = default_party();
         let enemies = vec![Enemy::slime()];
-        let mut battle = BattleState::new(party, enemies, Inventory::new());
+        let mut battle = BattleState::new(party, enemies);
 
         // 全員倒す
         for member in &mut battle.party {
@@ -593,7 +591,7 @@ mod tests {
     fn fire_spell_damages_enemy() {
         let party = default_party();
         let enemies = vec![Enemy::slime()];
-        let mut battle = BattleState::new(party, enemies, Inventory::new());
+        let mut battle = BattleState::new(party, enemies);
 
         let mage_mp_before = battle.party[1].stats.mp;
         let commands = vec![
@@ -630,7 +628,7 @@ mod tests {
         slime.stats.hp = 999;
         slime.stats.max_hp = 999;
         let enemies = vec![slime];
-        let mut battle = BattleState::new(party, enemies, Inventory::new());
+        let mut battle = BattleState::new(party, enemies);
 
         // 勇者のHPを減らす
         battle.party[0].stats.hp = 10;
@@ -666,7 +664,7 @@ mod tests {
     fn heal_retargets_to_alive_ally() {
         let party = default_party();
         let enemies = vec![Enemy::slime()];
-        let mut battle = BattleState::new(party, enemies, Inventory::new());
+        let mut battle = BattleState::new(party, enemies);
 
         // 勇者を倒す
         battle.party[0].stats.hp = 0;
@@ -701,7 +699,7 @@ mod tests {
         slime.stats.hp = 999;
         slime.stats.max_hp = 999;
         let enemies = vec![slime];
-        let mut battle = BattleState::new(party, enemies, Inventory::new());
+        let mut battle = BattleState::new(party, enemies);
 
         // 勇者を倒す
         battle.party[0].stats.hp = 0;

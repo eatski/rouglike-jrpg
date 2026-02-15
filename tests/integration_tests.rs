@@ -984,7 +984,7 @@ fn setup_battle_test_app() -> App {
 fn insert_battle_resource(app: &mut App, phase: BattlePhase) {
     let party = default_party();
     let enemies = vec![Enemy::slime()];
-    let battle_state = battle::BattleState::new(party, enemies, battle::Inventory::new());
+    let battle_state = battle::BattleState::new(party, enemies);
 
     let party_size = battle_state.party.len();
     let display_party_hp = battle_state.party.iter().map(|m| m.stats.hp).collect();

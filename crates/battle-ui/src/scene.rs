@@ -194,7 +194,7 @@ pub fn setup_battle_scene(
         .iter()
         .map(|e| asset_server.load(e.kind.sprite_path()))
         .collect();
-    let battle_state = BattleState::new(party, enemies, party_state.inventory.clone());
+    let battle_state = BattleState::new(party, enemies);
 
     let font: Handle<Font> = asset_server.load("fonts/NotoSansJP-Bold.ttf");
 
@@ -563,7 +563,7 @@ pub fn cleanup_battle_scene(
     mut party_state: ResMut<PartyState>,
     active_map: Res<ActiveMap>,
 ) {
-    // 戦闘結果のHP/MPを永続状態に書き戻す
+    // 戦闘結果のHP/MP/インベントリを永続状態に書き戻す
     for (i, member) in game_state.state.party.iter().enumerate() {
         if let Some(persistent) = party_state.members.get_mut(i) {
             persistent.stats.hp = if member.stats.hp <= 0 {
@@ -572,11 +572,9 @@ pub fn cleanup_battle_scene(
                 member.stats.hp
             };
             persistent.stats.mp = member.stats.mp;
+            persistent.inventory = member.inventory.clone();
         }
     }
-
-    // インベントリを書き戻す
-    party_state.inventory = game_state.state.inventory.clone();
 
     for entity in &query {
         commands.entity(entity).despawn();

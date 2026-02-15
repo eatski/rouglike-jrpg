@@ -1,3 +1,4 @@
+use crate::item::Inventory;
 use crate::stats::CombatStats;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -21,6 +22,7 @@ impl PartyMemberKind {
 pub struct PartyMember {
     pub kind: PartyMemberKind,
     pub stats: CombatStats,
+    pub inventory: Inventory,
 }
 
 impl PartyMember {
@@ -28,6 +30,7 @@ impl PartyMember {
         Self {
             kind: PartyMemberKind::Hero,
             stats: CombatStats::new(30, 8, 3, 5, 5),
+            inventory: Inventory::new(),
         }
     }
 
@@ -35,6 +38,7 @@ impl PartyMember {
         Self {
             kind: PartyMemberKind::Mage,
             stats: CombatStats::new(20, 10, 2, 7, 15),
+            inventory: Inventory::new(),
         }
     }
 
@@ -42,6 +46,7 @@ impl PartyMember {
         Self {
             kind: PartyMemberKind::Priest,
             stats: CombatStats::new(25, 5, 4, 4, 12),
+            inventory: Inventory::new(),
         }
     }
 }
