@@ -56,4 +56,20 @@ crateは「複数から使われるかどうか」ではなく、「意味的に
 
 **理由**: game crateの純粋ロジックとBevy依存UIを明確に分離し、テスタビリティと保守性を向上。
 
+#### エンカウントシステムの配置
+
+**pure logic**: `world::should_encounter(terrain, on_boat, random)` - ドメイン層（world crate）に配置
+
+- 地形ごとのエンカウント率判定
+- 船乗車中のエンカウント無効化ルール
+- Bevy非依存の純粋関数
+
+**Bevy system**: `world_ui::check_encounter_system` - UI機能層（world-ui crate）に配置
+
+- TileEnteredEventをリッスン
+- プレイヤー状態（座標、船乗車フラグ）をクエリ
+- should_encounter()を呼び出してAppState::Battleへ遷移
+
+**理由**: エンカウント判定は「ワールドマップ探索」の一部であり、battle crateの責務ではない。battle crateはterrain依存を削除し、戦闘ロジックに専念。
+
 設計・分析に専念し、コード実装は他の専門エージェントに委譲すること。

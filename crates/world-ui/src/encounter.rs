@@ -1,14 +1,12 @@
 use bevy::prelude::*;
 
-use battle::should_encounter;
+use world::should_encounter;
 
 use app_state::AppState;
 use movement_ui::{OnBoat, Player, TileEnteredEvent, TilePosition};
 use shared_ui::MapDataResource;
 
 /// プレイヤーがタイルに到着した際にエンカウント判定を行うシステム
-/// PlayerArrivedEvent はSmoothMoveアニメーション完了時に発火するため、
-/// 視覚的に到着してから判定される
 pub fn check_encounter_system(
     mut events: MessageReader<TileEnteredEvent>,
     player_query: Query<(&TilePosition, Option<&OnBoat>), With<Player>>,
@@ -20,15 +18,11 @@ pub fn check_encounter_system(
             continue;
         };
 
-        // 船乗車中はエンカウントなし
-        if on_boat.is_some() {
-            continue;
-        }
-
         let terrain = map_data.grid[tile_pos.y][tile_pos.x];
+        let on_boat = on_boat.is_some();
         let random_value: f32 = rand::random();
 
-        if should_encounter(terrain, random_value) {
+        if should_encounter(terrain, on_boat, random_value) {
             next_state.set(AppState::Battle);
             return;
         }

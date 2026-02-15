@@ -1,4 +1,5 @@
 mod camera;
+mod encounter;
 mod hud;
 pub mod map_mode;
 mod minimap;
@@ -11,6 +12,7 @@ pub mod tile_action;
 pub mod tile_pool;
 
 pub use camera::{camera_follow, setup_camera};
+pub use encounter::check_encounter_system;
 pub use hud::{cleanup_hud, setup_hud, toggle_hud_visibility, update_hud};
 pub use map_mode::{
     init_exploration_system, toggle_map_mode_system, update_exploration_system, ExplorationData,
