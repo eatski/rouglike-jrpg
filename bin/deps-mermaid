@@ -1,0 +1,5 @@
+#!/bin/bash
+set -e
+
+cargo run -p deps-mermaid > dist/deps.md
+echo "Generated: dist/deps.md"

@@ -40,5 +40,6 @@ members = [
     "crates/cave-ui",
     "crates/time",
     "crates/time-ui",
-    "crates/generate_tiles",
+    "tools/generate_tiles",
+    "tools/deps_mermaid",
 ]

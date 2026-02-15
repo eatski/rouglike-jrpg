@@ -33,5 +33,8 @@ target
 # Remote control (generated at runtime)
 /remote/
 
+# Generated output
+/dist/
+
 # Worktrees
 .worktrees/
