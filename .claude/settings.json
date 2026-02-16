@@ -14,9 +14,9 @@
       "Bash(find:*)",
       "Bash(chmod:*)",
       "Read",
-      "Edit(path:./**)",
-      "Write(path:./**)",
-      "Update(path:./**)",
+      "Edit",
+      "Write",
+      "Update",
       "WebSearch",
       "WebFetch(domain:kenney.nl)",
       "WebFetch(domain:opengameart.org)",
@@ -33,7 +33,16 @@
     "deny": [
       "Edit(path:.worktrees/**)",
       "Write(path:.worktrees/**)",
-      "Update(path:.worktrees/**)"
+      "Update(path:.worktrees/**)",
+      "Edit(path:/**)",
+      "Write(path:/**)",
+      "Update(path:/**)",
+      "Edit(path:../**)",
+      "Write(path:../**)",
+      "Update(path:../**)",
+      "Edit(path:~/**)",
+      "Write(path:~/**)",
+      "Update(path:~/**)"
     ]
   }
 }
