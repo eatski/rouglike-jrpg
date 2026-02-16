@@ -17,7 +17,8 @@ use movement_ui::{
     start_bounce, update_bounce, Boat, MovementBlockedEvent, MovementLocked, OnBoat, Player,
     PlayerMovedEvent, TilePosition,
 };
-use shared_ui::{ActiveMap, FieldSpellMenuOpen, MovementState, PartyState, TILE_SIZE};
+use app_state::{FieldSpellMenuOpen, PartyState};
+use movement_ui::{ActiveMap, MovementState, TILE_SIZE};
 use world_ui::{
     player_movement, start_smooth_move, sync_boat_with_player, update_smooth_move, MapModeState,
     SpawnPosition,

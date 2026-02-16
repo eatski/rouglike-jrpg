@@ -9,7 +9,8 @@ use world::map::{
 
 use movement_ui::{Boat, Player, TilePosition};
 use party::default_candidates;
-use shared_ui::{ActiveMap, RecruitmentMap, TILE_SIZE};
+use app_state::RecruitmentMap;
+use movement_ui::{ActiveMap, TILE_SIZE};
 use terrain::Terrain;
 
 use crate::resources::SpawnPosition;
@@ -113,7 +114,7 @@ pub fn spawn_field_map(mut commands: Commands, asset_server: Res<AssetServer>) {
         y: map_data.spawn_position.1,
     });
 
-    let active_map = ActiveMap::from(map_data);
+    let active_map = ActiveMap::from_grid(map_data.grid);
 
     // 船のスポーン位置を保存してスポーン
     let boat_spawns_resource = BoatSpawnsResource {

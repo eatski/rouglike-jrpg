@@ -6,7 +6,8 @@ use movement_ui::{
     Boat, MovementBlockedEvent, MovementLocked, OnBoat, PendingMove, Player, PlayerMovedEvent,
     TilePosition,
 };
-use shared_ui::{ActiveMap, FieldSpellMenuOpen, MovementState};
+use app_state::FieldSpellMenuOpen;
+use movement_ui::{ActiveMap, MovementState};
 
 use crate::map_mode::MapModeState;
 use crate::movement_helpers::{execute_boat_move, execute_walk_move, ExecuteMoveResult};

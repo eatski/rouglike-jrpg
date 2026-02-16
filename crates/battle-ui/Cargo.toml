@@ -8,6 +8,5 @@ bevy = "0.18"
 rand = "0.8"
 battle = { path = "../battle" }
 app-state = { path = "../app-state" }
-shared-ui = { path = "../shared-ui" }
 input-ui = { path = "../input-ui" }
 movement-ui = { path = "../movement-ui" }

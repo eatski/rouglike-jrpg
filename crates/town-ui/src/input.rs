@@ -6,7 +6,8 @@ use town::{buy_item, buy_weapon, candidate_first_dialogue, candidate_join_dialog
 
 use app_state::SceneState;
 use movement_ui::{Player, TilePosition};
-use shared_ui::{ActiveMap, PartyState, RecruitmentMap};
+use app_state::{PartyState, RecruitmentMap};
+use movement_ui::ActiveMap;
 
 use crate::scene::{shop_goods, ShopGoods, TownMenuPhase, TownResource};
 

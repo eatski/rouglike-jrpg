@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use battle::spell::{available_spells, calculate_heal_amount, SpellKind};
-use shared_ui::{FieldSpellMenuOpen, PartyState};
+use app_state::{FieldSpellMenuOpen, PartyState};
 
 /// フィールド呪文メニューのフェーズ
 #[derive(Debug, Clone, PartialEq, Eq)]

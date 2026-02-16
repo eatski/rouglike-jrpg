@@ -11,7 +11,6 @@ battle = { path = "crates/battle" }
 battle-ui = { path = "crates/battle-ui" }
 cave-ui = { path = "crates/cave-ui" }
 movement-ui = { path = "crates/movement-ui" }
-shared-ui = { path = "crates/shared-ui" }
 terrain = { path = "crates/terrain" }
 town-ui = { path = "crates/town-ui" }
 world = { path = "crates/world" }
@@ -32,7 +31,6 @@ members = [
     "crates/battle",
     "crates/app-state",
     "crates/input-ui",
-    "crates/shared-ui",
     "crates/movement-ui",
     "crates/battle-ui",
     "crates/town-ui",

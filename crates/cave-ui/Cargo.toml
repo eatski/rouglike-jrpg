@@ -11,6 +11,5 @@ cave = { path = "../cave" }
 terrain = { path = "../terrain" }
 app-state = { path = "../app-state" }
 input-ui = { path = "../input-ui" }
-shared-ui = { path = "../shared-ui" }
 movement-ui = { path = "../movement-ui" }
 world-ui = { path = "../world-ui" }

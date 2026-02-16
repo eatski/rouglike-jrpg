@@ -20,7 +20,7 @@ cargo test --workspace            # テスト（全crate）
 
 ## Architecture
 
-Bevy 0.18を使用した2Dローグライク風JRPGのプロトタイプ。Cargoワークスペース構成（17 crate）。
+Bevy 0.18を使用した2Dローグライク風JRPGのプロトタイプ。Cargoワークスペース構成（16 crate）。
 
 **ドメイン層（依存なし）**:
 - **terrain**: 地形・座標・方向（Terrain, Position, Direction）
@@ -32,10 +32,9 @@ Bevy 0.18を使用した2Dローグライク風JRPGのプロトタイプ。Cargo
 - **time**: 時間カウント（TimeCount構造体）
 
 **UI共通層（Bevy依存）**:
-- **app-state**: AppState（Exploring/Battle/Cave/Town）
+- **app-state**: AppState（Exploring/Battle/Cave/Town）、PartyState（パーティ、所持金、仲間候補リスト）、RecruitmentMap、FieldSpellMenuOpen
 - **input-ui**: 入力ソース抽象化（InputSource）
-- **shared-ui**: UI共通定数・リソース（PartyState: パーティ、所持金、仲間候補リスト）
-- **movement-ui**: 移動メカニクス（コンポーネント、イベント、アニメーション）
+- **movement-ui**: 移動メカニクス（コンポーネント、イベント、アニメーション、UI共通定数、MovementState、ActiveMap、WorldMapData）
 
 **UI機能層（Bevy依存）**:
 - **world-ui**: ワールドマップシーン・入力・描画・エンカウントシステム・仲間候補マーカー表示

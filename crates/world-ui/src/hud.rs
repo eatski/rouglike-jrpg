@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use shared_ui::PartyState;
+use app_state::PartyState;
 
 use crate::map_mode::MapModeState;
 

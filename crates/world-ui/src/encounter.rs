@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use app_state::BattleState;
 use movement_ui::{OnBoat, Player, TileEnteredEvent, TilePosition};
-use shared_ui::ActiveMap;
+use movement_ui::ActiveMap;
 
 /// プレイヤーがタイルに到着した際にエンカウント判定を行うシステム
 pub fn check_encounter_system(

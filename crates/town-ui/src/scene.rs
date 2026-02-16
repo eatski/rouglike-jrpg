@@ -2,7 +2,8 @@ use bevy::prelude::*;
 
 use movement_ui::{Bounce, MovementLocked, PendingMove, Player, SmoothMove, TilePosition};
 use party::{shop_items, shop_weapons, ItemKind, WeaponKind, INVENTORY_CAPACITY};
-use shared_ui::{ActiveMap, MovementState, PartyState};
+use app_state::PartyState;
+use movement_ui::{ActiveMap, MovementState};
 
 /// よろず屋の商品（アイテムと武器を統合）
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -10,7 +10,7 @@ use terrain::Terrain;
 use movement_ui::{
     Boat, Bounce, MapTile, MovementLocked, PendingMove, Player, SmoothMove, TilePosition,
 };
-use shared_ui::{ActiveMap, MovementState, WorldMapData, TILE_SIZE};
+use movement_ui::{ActiveMap, MovementState, WorldMapData, TILE_SIZE};
 
 use world_ui::{spawn_boat_entities, BoatSpawnsResource, TileTextures};
 use world_ui::{create_tile_pool, PooledTile, TilePool};

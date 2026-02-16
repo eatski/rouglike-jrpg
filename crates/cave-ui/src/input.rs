@@ -8,7 +8,8 @@ use movement_ui::{
     MovementBlockedEvent, MovementLocked, PendingMove, Player, PlayerArrivedEvent,
     PlayerMovedEvent, SmoothMove, TileEnteredEvent, TilePosition,
 };
-use shared_ui::{ActiveMap, FieldSpellMenuOpen, MovementState, TILE_SIZE};
+use app_state::FieldSpellMenuOpen;
+use movement_ui::{ActiveMap, MovementState, TILE_SIZE};
 
 const MOVE_DURATION: f32 = 0.15;
 

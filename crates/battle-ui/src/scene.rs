@@ -3,7 +3,8 @@ use bevy::prelude::*;
 use battle::{generate_enemy_group, BattleAction, BattleState, EnemyKind, ItemKind, SpellKind};
 
 use movement_ui::{Bounce, MovementLocked, PendingMove, Player, TilePosition};
-use shared_ui::{ActiveMap, MovementState, PartyState};
+use app_state::PartyState;
+use movement_ui::{ActiveMap, MovementState};
 
 use super::display::{
     CommandCursor, EnemyNameLabel, MessageText, PartyMemberHpBarFill, PartyMemberHpText,

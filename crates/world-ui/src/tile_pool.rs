@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use terrain::{Terrain, MAP_HEIGHT, MAP_WIDTH};
 
 use movement_ui::{MapTile, Player, SmoothMove, TilePosition};
-use shared_ui::{ActiveMap, TILE_SIZE, VISIBLE_CELLS};
+use movement_ui::{ActiveMap, TILE_SIZE, VISIBLE_CELLS};
 
 use crate::rendering::TileTextures;
 

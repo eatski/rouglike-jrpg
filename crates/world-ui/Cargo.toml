@@ -11,5 +11,4 @@ terrain = { path = "../terrain" }
 party = { path = "../party" }
 app-state = { path = "../app-state" }
 input-ui = { path = "../input-ui" }
-shared-ui = { path = "../shared-ui" }
 movement-ui = { path = "../movement-ui" }

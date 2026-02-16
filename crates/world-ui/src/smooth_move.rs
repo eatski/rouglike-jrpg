@@ -4,7 +4,7 @@ use movement_ui::{
     ease_out_quad, Boat, MovementBlockedEvent, MovementLocked, OnBoat, PendingMove, Player,
     PlayerMovedEvent, SmoothMove, TileEnteredEvent, TilePosition,
 };
-use shared_ui::{ActiveMap, MAP_PIXEL_HEIGHT, MAP_PIXEL_WIDTH, TILE_SIZE};
+use movement_ui::{ActiveMap, MAP_PIXEL_HEIGHT, MAP_PIXEL_WIDTH, TILE_SIZE};
 
 use crate::movement_helpers::{execute_boat_move, execute_walk_move, ExecuteMoveResult};
 

@@ -15,7 +15,8 @@ use movement_ui::{
     start_bounce, update_bounce, MovementBlockedEvent, PlayerArrivedEvent, PlayerMovedEvent,
     TileEnteredEvent,
 };
-use shared_ui::{FieldSpellMenuOpen, MovementState, PartyState, WINDOW_SIZE};
+use app_state::{FieldSpellMenuOpen, PartyState};
+use movement_ui::{MovementState, WINDOW_SIZE};
 use time_ui::{
     cleanup_time_display, setup_time_display, toggle_time_display_visibility, update_time_counter,
     update_time_display, TimeCounter,
