@@ -83,4 +83,5 @@ Bevy 0.18を使用した2Dローグライク風JRPGのプロトタイプ。Cargo
 | `test-engineer` | テスト作成・デバッグ |
 | `pixel-art-generator` | ドット絵・アセット生成 |
 | `qa-verifier` | 品質保証（テスト実行＋手動確認の促し） |
+| `screenshot-verifier` | UI変更時のスクリーンショット検証 |
 | `task-committer` | コミット・ドキュメント整理 |
