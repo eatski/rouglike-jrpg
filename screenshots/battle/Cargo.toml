@@ -1,0 +1,14 @@
+[package]
+name = "screenshot-battle"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "screenshot-battle"
+path = "src/main.rs"
+
+[dependencies]
+bevy = "0.18"
+screenshot-common = { path = "../common" }
+app-state = { path = "../../crates/app-state" }
+battle-ui = { path = "../../crates/battle-ui" }

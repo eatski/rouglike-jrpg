@@ -1,0 +1,15 @@
+[package]
+name = "screenshot-cave"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "screenshot-cave"
+path = "src/main.rs"
+
+[dependencies]
+bevy = "0.18"
+screenshot-common = { path = "../common" }
+movement-ui = { path = "../../crates/movement-ui" }
+world-ui = { path = "../../crates/world-ui" }
+cave-ui = { path = "../../crates/cave-ui" }

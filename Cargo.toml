@@ -41,4 +41,9 @@ members = [
     "tools/generate_tiles",
     "tools/deps_mermaid",
     "tools/merge_work",
+    "screenshots/common",
+    "screenshots/battle",
+    "screenshots/town",
+    "screenshots/field",
+    "screenshots/cave",
 ]

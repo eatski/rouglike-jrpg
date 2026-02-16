@@ -1,0 +1,14 @@
+[package]
+name = "screenshot-town"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "screenshot-town"
+path = "src/main.rs"
+
+[dependencies]
+bevy = "0.18"
+screenshot-common = { path = "../common" }
+app-state = { path = "../../crates/app-state" }
+town-ui = { path = "../../crates/town-ui" }

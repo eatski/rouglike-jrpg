@@ -4389,6 +4389,55 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 
 [[package]]
+name = "screenshot-battle"
+version = "0.1.0"
+dependencies = [
+ "app-state",
+ "battle-ui",
+ "bevy",
+ "screenshot-common",
+]
+
+[[package]]
+name = "screenshot-cave"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "cave-ui",
+ "movement-ui",
+ "screenshot-common",
+ "world-ui",
+]
+
+[[package]]
+name = "screenshot-common"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+]
+
+[[package]]
+name = "screenshot-field"
+version = "0.1.0"
+dependencies = [
+ "app-state",
+ "bevy",
+ "screenshot-common",
+ "time-ui",
+ "world-ui",
+]
+
+[[package]]
+name = "screenshot-town"
+version = "0.1.0"
+dependencies = [
+ "app-state",
+ "bevy",
+ "screenshot-common",
+ "town-ui",
+]
+
+[[package]]
 name = "sctk-adwaita"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

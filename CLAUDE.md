@@ -12,6 +12,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 cargo build                       # ビルド（rsファイル修正後は必ず実行）
 cargo run                         # 実行
 cargo run -p generate-tiles       # アセット生成（タイルスプライト）
+cargo run -p screenshot-battle    # 戦闘画面スクリーンショット撮影
+cargo run -p screenshot-town      # 街画面スクリーンショット撮影
+cargo run -p screenshot-field     # フィールド画面スクリーンショット撮影
+cargo run -p screenshot-cave      # 洞窟画面スクリーンショット撮影
 cargo clippy --workspace          # リント（全crate）
 cargo test --workspace            # テスト（全crate）
 ```
@@ -20,7 +24,7 @@ cargo test --workspace            # テスト（全crate）
 
 ## Architecture
 
-Bevy 0.18を使用した2Dローグライク風JRPGのプロトタイプ。Cargoワークスペース構成（16 crate）。
+Bevy 0.18を使用した2Dローグライク風JRPGのプロトタイプ。Cargoワークスペース構成（21 crate）。
 
 **ドメイン層（依存なし）**:
 - **terrain**: 地形・座標・方向（Terrain, Position, Direction）
@@ -45,6 +49,11 @@ Bevy 0.18を使用した2Dローグライク風JRPGのプロトタイプ。Cargo
 
 **ツール**:
 - **generate_tiles**: タイルスプライト生成（独立バイナリ）
+- **screenshot-common**: スクリーンショット撮影用共通ライブラリ（screenshot_app、setup_camera、screenshot_system）
+- **screenshot-battle**: 戦闘画面スクリーンショット撮影バイナリ
+- **screenshot-town**: 街画面スクリーンショット撮影バイナリ
+- **screenshot-field**: フィールド画面スクリーンショット撮影バイナリ
+- **screenshot-cave**: 洞窟画面スクリーンショット撮影バイナリ
 
 詳細は `software-architect` エージェントを参照。
 

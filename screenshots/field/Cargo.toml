@@ -1,0 +1,15 @@
+[package]
+name = "screenshot-field"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "screenshot-field"
+path = "src/main.rs"
+
+[dependencies]
+bevy = "0.18"
+screenshot-common = { path = "../common" }
+app-state = { path = "../../crates/app-state" }
+world-ui = { path = "../../crates/world-ui" }
+time-ui = { path = "../../crates/time-ui" }
