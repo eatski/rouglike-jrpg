@@ -17,10 +17,6 @@ use movement_ui::{
 };
 use app_state::{FieldSpellMenuOpen, PartyState};
 use movement_ui::{MovementState, WINDOW_SIZE};
-use time_ui::{
-    cleanup_time_display, setup_time_display, toggle_time_display_visibility, update_time_counter,
-    update_time_display, TimeCounter,
-};
 use town_ui::{cleanup_town_scene, setup_town_scene, town_display_system, town_input_system};
 use world_ui::{
     camera_follow, check_encounter_system, check_tile_action_system, cleanup_hud, init_exploration_system,
@@ -62,7 +58,6 @@ fn main() {
     .init_resource::<MapModeState>()
     .init_resource::<PartyState>()
     .init_resource::<FieldSpellMenuOpen>()
-    .init_resource::<TimeCounter>()
     .add_systems(
         Startup,
         (
@@ -75,8 +70,8 @@ fn main() {
         )
             .chain(),
     )
-    // HUD + Time: InFieldで自動管理
-    .add_systems(OnEnter(InField), (setup_hud, setup_time_display))
+    // HUD: InFieldで自動管理
+    .add_systems(OnEnter(InField), setup_hud)
     .add_systems(
         Update,
         (toggle_hud_visibility, update_hud)
@@ -89,7 +84,7 @@ fn main() {
             .chain()
             .run_if(in_state(InField)),
     )
-    .add_systems(OnExit(InField), (cleanup_hud, cleanup_time_display))
+    .add_systems(OnExit(InField), cleanup_hud)
     // Exploring
     .add_systems(
         Update,
@@ -109,9 +104,6 @@ fn main() {
             camera_follow,
             check_tile_action_system,
             check_encounter_system,
-            update_time_counter,
-            update_time_display,
-            toggle_time_display_visibility,
         )
             .chain()
             .run_if(in_state(SceneState::Exploring).and(in_state(BattleState::None))),

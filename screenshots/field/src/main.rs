@@ -2,7 +2,6 @@ use bevy::prelude::*;
 
 use app_state::PartyState;
 use screenshot_common::screenshot_app;
-use time_ui::{setup_time_display, TimeCounter};
 use world_ui::{
     camera_follow, init_exploration_system, init_minimap_system, init_tile_pool, setup_camera,
     setup_hud, spawn_field_map, spawn_player, update_visible_tiles, MapModeState,
@@ -12,7 +11,6 @@ fn main() {
     let mut app = screenshot_app("field");
     app.init_resource::<MapModeState>()
         .init_resource::<PartyState>()
-        .init_resource::<TimeCounter>()
         .add_systems(
             Startup,
             (
@@ -25,7 +23,7 @@ fn main() {
             )
                 .chain(),
         )
-        .add_systems(Startup, (setup_hud, setup_time_display))
+        .add_systems(Startup, setup_hud)
         .add_systems(
             Update,
             (update_visible_tiles, camera_follow).chain(),
