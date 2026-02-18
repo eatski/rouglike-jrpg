@@ -158,13 +158,15 @@ pub fn setup_hud(mut commands: Commands, asset_server: Res<AssetServer>, party_s
         });
 }
 
+type GoldTextQuery<'w, 's> = Query<'w, 's, &'static mut Text, (With<HudGoldText>, Without<HudHpText>, Without<HudMpText>)>;
+
 /// PartyState変化時にHUDのHP/MP/バーを更新するシステム
 pub fn update_hud(
     party_state: Res<PartyState>,
     mut hp_query: Query<(&HudHpText, &mut Text)>,
     mut mp_query: Query<(&HudMpText, &mut Text), Without<HudHpText>>,
     mut bar_query: Query<(&HudHpBarFill, &mut Node, &mut BackgroundColor)>,
-    mut gold_query: Query<&mut Text, (With<HudGoldText>, Without<HudHpText>, Without<HudMpText>)>,
+    mut gold_query: GoldTextQuery,
 ) {
     if !party_state.is_changed() {
         return;

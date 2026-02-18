@@ -24,7 +24,7 @@ cargo test --workspace            # テスト（全crate）
 
 ## Architecture
 
-Bevy 0.18を使用した2Dローグライク風JRPGのプロトタイプ。Cargoワークスペース構成（21 crate）。
+Bevy 0.18を使用した2Dローグライク風JRPGのプロトタイプ。Cargoワークスペース構成（19 crate）。
 
 **ドメイン層（依存なし）**:
 - **terrain**: 地形・座標・方向（Terrain, Position, Direction）。Mountain は歩行不可（`is_walkable()` = false）
@@ -45,7 +45,6 @@ Bevy 0.18を使用した2Dローグライク風JRPGのプロトタイプ。Cargo
 - **cave-ui**: 洞窟シーン・入力（ワールドマップ座標からシード生成し決定的な洞窟生成、ChaCha8Rng使用）
 - **town-ui**: 街シーン・入力・メニュー（やどや、よろず屋（ShopGoods統合、キャラ選択パネル、Display::Noneパネル制御）、ヒント、話を聞く（仲間候補イベント）、出る）
 - **battle-ui**: 戦闘シーン・入力（クラス別呪文選択制限、個人インベントリ使用）・表示（呪文リスト、無効コマンド灰色表示、アイテムなし時「どうぐ」灰色）
-- **time-ui**: 時間カウンター表示（右上UI、TileEnteredEventで+1、MapMode時非表示）
 
 **ツール**:
 - **generate_tiles**: タイルスプライト生成（独立バイナリ）

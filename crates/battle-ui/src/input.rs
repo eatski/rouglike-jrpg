@@ -45,11 +45,11 @@ fn handle_command_select(
     member_index: usize,
 ) {
     // 上下でカーソル移動 (0=たたかう, 1=じゅもん, 2=どうぐ, 3=にげる)
-    if input_ui::is_up_just_pressed(keyboard) && ui_state.selected_command > 0 {
-        ui_state.selected_command -= 1;
+    if input_ui::is_up_just_pressed(keyboard) {
+        ui_state.selected_command = if ui_state.selected_command > 0 { ui_state.selected_command - 1 } else { 3 };
     }
-    if input_ui::is_down_just_pressed(keyboard) && ui_state.selected_command < 3 {
-        ui_state.selected_command += 1;
+    if input_ui::is_down_just_pressed(keyboard) {
+        ui_state.selected_command = if ui_state.selected_command < 3 { ui_state.selected_command + 1 } else { 0 };
     }
 
     // キャンセル: 前のメンバーに戻る
@@ -117,13 +117,11 @@ fn handle_spell_select(
     let spell_count = spells.len();
 
     // 上下でカーソル移動
-    if input_ui::is_up_just_pressed(keyboard) && ui_state.selected_spell > 0 {
-        ui_state.selected_spell -= 1;
+    if input_ui::is_up_just_pressed(keyboard) {
+        ui_state.selected_spell = if ui_state.selected_spell > 0 { ui_state.selected_spell - 1 } else { spell_count - 1 };
     }
-    if input_ui::is_down_just_pressed(keyboard)
-        && ui_state.selected_spell < spell_count - 1
-    {
-        ui_state.selected_spell += 1;
+    if input_ui::is_down_just_pressed(keyboard) {
+        ui_state.selected_spell = if ui_state.selected_spell < spell_count - 1 { ui_state.selected_spell + 1 } else { 0 };
     }
 
     // キャンセル: コマンド選択に戻る
@@ -172,11 +170,11 @@ fn handle_item_select(
     let item_count = owned.len();
 
     // 上下でカーソル移動
-    if input_ui::is_up_just_pressed(keyboard) && ui_state.selected_item > 0 {
-        ui_state.selected_item -= 1;
+    if input_ui::is_up_just_pressed(keyboard) {
+        ui_state.selected_item = if ui_state.selected_item > 0 { ui_state.selected_item - 1 } else { item_count - 1 };
     }
-    if input_ui::is_down_just_pressed(keyboard) && ui_state.selected_item < item_count - 1 {
-        ui_state.selected_item += 1;
+    if input_ui::is_down_just_pressed(keyboard) {
+        ui_state.selected_item = if ui_state.selected_item < item_count - 1 { ui_state.selected_item + 1 } else { 0 };
     }
 
     // キャンセル: コマンド選択に戻る
@@ -214,18 +212,16 @@ fn handle_target_select(
             .iter()
             .position(|&i| i == ui_state.selected_target)
             .unwrap_or(0);
-        if current_pos > 0 {
-            ui_state.selected_target = alive_enemies[current_pos - 1];
-        }
+        let new_pos = if current_pos > 0 { current_pos - 1 } else { alive_enemies.len() - 1 };
+        ui_state.selected_target = alive_enemies[new_pos];
     }
     if input_ui::is_right_just_pressed(keyboard) {
         let current_pos = alive_enemies
             .iter()
             .position(|&i| i == ui_state.selected_target)
             .unwrap_or(0);
-        if current_pos < alive_enemies.len() - 1 {
-            ui_state.selected_target = alive_enemies[current_pos + 1];
-        }
+        let new_pos = if current_pos < alive_enemies.len() - 1 { current_pos + 1 } else { 0 };
+        ui_state.selected_target = alive_enemies[new_pos];
     }
 
     // キャンセル: pending_spellがあれば呪文選択に戻る、なければコマンド選択に戻る
@@ -286,18 +282,16 @@ fn handle_ally_target_select(
             .iter()
             .position(|&i| i == ui_state.selected_ally_target)
             .unwrap_or(0);
-        if current_pos > 0 {
-            ui_state.selected_ally_target = alive_party[current_pos - 1];
-        }
+        let new_pos = if current_pos > 0 { current_pos - 1 } else { alive_party.len() - 1 };
+        ui_state.selected_ally_target = alive_party[new_pos];
     }
     if input_ui::is_right_just_pressed(keyboard) {
         let current_pos = alive_party
             .iter()
             .position(|&i| i == ui_state.selected_ally_target)
             .unwrap_or(0);
-        if current_pos < alive_party.len() - 1 {
-            ui_state.selected_ally_target = alive_party[current_pos + 1];
-        }
+        let new_pos = if current_pos < alive_party.len() - 1 { current_pos + 1 } else { 0 };
+        ui_state.selected_ally_target = alive_party[new_pos];
     }
 
     // キャンセル: 呪文選択またはアイテム選択に戻る

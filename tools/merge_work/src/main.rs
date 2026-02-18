@@ -55,10 +55,10 @@ fn get_worktree_branches(repo: &str) -> Vec<String> {
 
     let mut branches = Vec::new();
     for line in text.lines() {
-        if let Some(rest) = line.strip_prefix("branch refs/heads/") {
-            if rest != "main" {
-                branches.push(rest.to_string());
-            }
+        if let Some(rest) = line.strip_prefix("branch refs/heads/")
+            && rest != "main"
+        {
+            branches.push(rest.to_string());
         }
     }
     branches

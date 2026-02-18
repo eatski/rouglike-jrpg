@@ -4292,8 +4292,6 @@ dependencies = [
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "terrain",
- "time",
- "time-ui",
  "town-ui",
  "world",
  "world-ui",
@@ -4423,7 +4421,6 @@ dependencies = [
  "app-state",
  "bevy",
  "screenshot-common",
- "time-ui",
  "world-ui",
 ]
 
@@ -4805,21 +4802,6 @@ dependencies = [
  "flate2",
  "jpeg-decoder",
  "weezl",
-]
-
-[[package]]
-name = "time"
-version = "0.1.0"
-
-[[package]]
-name = "time-ui"
-version = "0.1.0"
-dependencies = [
- "app-state",
- "bevy",
- "movement-ui",
- "time",
- "world-ui",
 ]
 
 [[package]]
