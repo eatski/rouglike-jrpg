@@ -1138,49 +1138,29 @@ fn battle_command_selection_with_keys() {
 
     release_battle_keys(&mut app);
 
-    // 上限確認: 0でさらにW（上）を押しても0のまま
+    // ラップアラウンド確認: 0でW（上）を押すと3に循環
     press_battle_key(&mut app, KeyCode::KeyW);
     app.update();
 
     {
         let battle_res = app.world().resource::<BattleUIState>();
         assert_eq!(
-            battle_res.selected_command, 0,
-            "Should stay at 0 (upper bound)"
+            battle_res.selected_command, 3,
+            "Should wrap to 3 (wrap around from top)"
         );
     }
 
     release_battle_keys(&mut app);
 
-    // 下限確認: 3でさらにS（下）を押しても3のまま
-    // 0→1
-    press_battle_key(&mut app, KeyCode::KeyS);
-    app.update();
-    release_battle_keys(&mut app);
-    // 1→2
-    press_battle_key(&mut app, KeyCode::KeyS);
-    app.update();
-    release_battle_keys(&mut app);
-    // 2→3
-    press_battle_key(&mut app, KeyCode::KeyS);
-    app.update();
-
-    {
-        let battle_res = app.world().resource::<BattleUIState>();
-        assert_eq!(battle_res.selected_command, 3);
-    }
-
-    release_battle_keys(&mut app);
-
-    // 3でさらにS → 3のまま
+    // ラップアラウンド確認: 3でS（下）を押すと0に循環
     press_battle_key(&mut app, KeyCode::KeyS);
     app.update();
 
     {
         let battle_res = app.world().resource::<BattleUIState>();
         assert_eq!(
-            battle_res.selected_command, 3,
-            "Should stay at 3 (lower bound)"
+            battle_res.selected_command, 0,
+            "Should wrap to 0 (wrap around from bottom)"
         );
     }
 }

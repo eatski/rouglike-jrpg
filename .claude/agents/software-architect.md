@@ -25,8 +25,6 @@ crateは「複数から使われるかどうか」ではなく、「意味的に
 
 **実例（movement-ui統合）**: `Player`, `TilePosition`, `MovementLocked`, `PendingMove`, `Boat`, `OnBoat`, 移動イベント群, `SmoothMove`, `Bounce` は全て「移動メカニクス」という共通ドメインに属する。これらを `components-ui`（コンポーネントの袋）、`events-ui`（イベントの袋）、`animation-ui`（アニメーションの袋）に分散させるのではなく、`movement-ui`（移動メカニクス）に統合した。
 
-**実例（time/time-ui分離）**: `TimeCount`（純粋なカウント構造体）を `time` crate（ドメイン層）に配置、`TimeCounter`（Bevy Resource）と表示システムを `time-ui` crate（UI機能層）に配置。game/ui分離の原則に従った構成。
-
 **判断手順**:
 1. 型の意味的所属を特定する（「何のドメインか？」）
 2. そのドメインのcrateに配置する

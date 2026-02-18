@@ -203,9 +203,18 @@ pub fn update_cave_tiles(
     }
 }
 
-pub fn cleanup_cave_scene(
+pub fn despawn_cave_entities(
     mut commands: Commands,
     cave_tile_query: Query<Entity, With<CaveTile>>,
+) {
+    for entity in &cave_tile_query {
+        commands.entity(entity).despawn();
+    }
+    commands.remove_resource::<CaveTilePool>();
+}
+
+pub fn restore_field_from_cave(
+    mut commands: Commands,
     mut player_query: Query<(Entity, &mut TilePosition, &mut Transform), With<Player>>,
     field_return: Res<FieldReturnState>,
     tile_textures: Res<TileTextures>,
@@ -213,15 +222,6 @@ pub fn cleanup_cave_scene(
     mut move_state: ResMut<MovementState>,
     world_map: Res<WorldMapData>,
 ) {
-    // 洞窟タイルを全て削除
-    for entity in &cave_tile_query {
-        commands.entity(entity).despawn();
-    }
-
-    // 洞窟リソースを削除
-    commands.remove_resource::<CaveTilePool>();
-
-    // WorldMapDataからActiveMapを復元
     let restored_map = ActiveMap {
         grid: world_map.grid.clone(),
         width: world_map.width,
@@ -230,7 +230,6 @@ pub fn cleanup_cave_scene(
         origin_y: world_map.origin_y,
     };
 
-    // プレイヤーをフィールド座標に復元
     if let Ok((entity, mut tile_pos, mut transform)) = player_query.single_mut() {
         tile_pos.x = field_return.player_tile_x;
         tile_pos.y = field_return.player_tile_y;
@@ -239,7 +238,6 @@ pub fn cleanup_cave_scene(
         transform.translation.x = world_x;
         transform.translation.y = world_y;
 
-        // 移動関連コンポーネントをクリーンアップ
         commands
             .entity(entity)
             .remove::<MovementLocked>()
@@ -251,7 +249,6 @@ pub fn cleanup_cave_scene(
     commands.remove_resource::<FieldReturnState>();
     commands.remove_resource::<WorldMapData>();
 
-    // フィールドエンティティをrespawn
     create_tile_pool(&mut commands, &tile_textures);
     spawn_boat_entities(&mut commands, &boat_spawns, &tile_textures, &restored_map);
 

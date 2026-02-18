@@ -8,8 +8,8 @@ use battle_ui::{
     setup_battle_scene,
 };
 use cave_ui::{
-    cave_player_movement, check_ladder_system, cleanup_cave_scene, setup_cave_scene,
-    start_cave_smooth_move, update_cave_smooth_move, update_cave_tiles,
+    cave_player_movement, check_ladder_system, despawn_cave_entities, restore_field_from_cave,
+    setup_cave_scene, start_cave_smooth_move, update_cave_smooth_move, update_cave_tiles,
 };
 use movement_ui::{
     start_bounce, update_bounce, MovementBlockedEvent, PlayerArrivedEvent, PlayerMovedEvent,
@@ -150,7 +150,7 @@ fn main() {
             .chain()
             .run_if(in_state(SceneState::Cave).and(in_state(BattleState::None))),
     )
-    .add_systems(OnExit(SceneState::Cave), cleanup_cave_scene);
+    .add_systems(OnExit(SceneState::Cave), (despawn_cave_entities, restore_field_from_cave).chain());
 
     app.run();
 }

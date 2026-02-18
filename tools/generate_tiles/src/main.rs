@@ -181,14 +181,16 @@ fn generate_mountain(output_dir: &Path) {
     }
 
     // ゴツゴツした岩の塊を複数配置（登れそうな岩場）
+    let rock_colors = RockColors { dark: rock_dark, mid: rock_mid, light: rock_light, edge: rock_edge, moss };
+
     // メインの大きな岩（中央下寄り）
-    draw_rocky_boulder(&mut img, &mut rng, 6, 5, 8, 10, rock_dark, rock_mid, rock_light, rock_edge, moss);
+    draw_rocky_boulder(&mut img, &mut rng, 6, 5, 8, 10, &rock_colors);
 
     // 小さな岩（左上）
-    draw_rocky_boulder(&mut img, &mut rng, 1, 2, 5, 6, rock_dark, rock_mid, rock_light, rock_edge, moss);
+    draw_rocky_boulder(&mut img, &mut rng, 1, 2, 5, 6, &rock_colors);
 
     // 小さな岩（右上）
-    draw_rocky_boulder(&mut img, &mut rng, 11, 3, 4, 5, rock_dark, rock_mid, rock_light, rock_edge, moss);
+    draw_rocky_boulder(&mut img, &mut rng, 11, 3, 4, 5, &rock_colors);
 
     // 足場になる小石を散らす
     for _ in 0..8 {
@@ -204,6 +206,14 @@ fn generate_mountain(output_dir: &Path) {
     println!("Generated: mountain.png");
 }
 
+struct RockColors {
+    dark: Rgba<u8>,
+    mid: Rgba<u8>,
+    light: Rgba<u8>,
+    edge: Rgba<u8>,
+    moss: Rgba<u8>,
+}
+
 /// ゴツゴツした岩の塊を描画
 fn draw_rocky_boulder(
     img: &mut RgbaImage,
@@ -212,12 +222,9 @@ fn draw_rocky_boulder(
     start_y: u32,
     width: u32,
     height: u32,
-    rock_dark: Rgba<u8>,
-    rock_mid: Rgba<u8>,
-    rock_light: Rgba<u8>,
-    rock_edge: Rgba<u8>,
-    moss: Rgba<u8>,
+    colors: &RockColors,
 ) {
+    let RockColors { dark: rock_dark, mid: rock_mid, light: rock_light, edge: rock_edge, moss } = *colors;
     // 岩のベース形状を描画
     for dy in 0..height {
         let y = start_y + dy;
@@ -802,21 +809,21 @@ fn generate_cave(output_dir: &Path) {
     ];
 
     for (mx, my) in moss_positions {
-        if mx < TILE_SIZE && my < TILE_SIZE {
-            if rng.gen_bool(0.7) {
-                img.put_pixel(mx, my, moss);
-            }
+        if mx < TILE_SIZE && my < TILE_SIZE
+            && rng.gen_bool(0.7)
+        {
+            img.put_pixel(mx, my, moss);
         }
     }
 
     // 入口の縁にランダムな岩の凹凸を追加
     for y in 8..13 {
         for dx in [3, 4, 11, 12] {
-            if dx < TILE_SIZE && y < TILE_SIZE {
-                if rng.gen_bool(0.3) {
-                    let color = if dx < 8 { rock_dark } else { rock_light };
-                    img.put_pixel(dx, y, color);
-                }
+            if dx < TILE_SIZE && y < TILE_SIZE
+                && rng.gen_bool(0.3)
+            {
+                let color = if dx < 8 { rock_dark } else { rock_light };
+                img.put_pixel(dx, y, color);
             }
         }
     }
@@ -1341,8 +1348,6 @@ fn generate_goblin(output_dir: &Path) {
     for x in 4..=11 {
         let color = if x == 4 || x == 11 {
             cloth_dark
-        } else if x == 5 || x == 10 {
-            cloth_brown
         } else {
             cloth_brown
         };
@@ -1605,7 +1610,7 @@ fn generate_ghost(output_dir: &Path) {
     for x in 4..=11 {
         let color = if x == 4 || x == 11 {
             ghost_dark
-        } else if x >= 6 && x <= 9 {
+        } else if (6..=9).contains(&x) {
             ghost_outline  // 口（暗い）
         } else {
             ghost_mid

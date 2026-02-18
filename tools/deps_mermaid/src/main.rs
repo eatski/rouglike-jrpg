@@ -21,11 +21,11 @@ fn main() {
             continue;
         }
         let toml_path = root.join(member_dir).join("Cargo.toml");
-        if let Ok(toml_content) = fs::read_to_string(&toml_path) {
-            if let Some(name) = parse_package_name(&toml_content) {
-                known_crates.insert(name.clone());
-                member_tomls.push((name, toml_path));
-            }
+        if let Ok(toml_content) = fs::read_to_string(&toml_path)
+            && let Some(name) = parse_package_name(&toml_content)
+        {
+            known_crates.insert(name.clone());
+            member_tomls.push((name, toml_path));
         }
     }
     known_crates.insert(root_name.clone());
@@ -131,12 +131,12 @@ fn parse_path_dependencies(content: &str, known: &BTreeSet<String>) -> Vec<Strin
             }
             continue;
         }
-        if in_deps && trimmed.contains("path") {
-            if let Some(dep_name) = trimmed.split('=').next() {
-                let dep_name = dep_name.trim().to_string();
-                if known.contains(&dep_name) {
-                    result.push(dep_name);
-                }
+        if in_deps && trimmed.contains("path")
+            && let Some(dep_name) = trimmed.split('=').next()
+        {
+            let dep_name = dep_name.trim().to_string();
+            if known.contains(&dep_name) {
+                result.push(dep_name);
             }
         }
     }
