@@ -49,7 +49,7 @@ impl Terrain {
     /// 徒歩で通行可能かどうかを判定
     #[inline]
     pub fn is_walkable(self) -> bool {
-        !matches!(self, Terrain::Sea | Terrain::CaveWall)
+        !matches!(self, Terrain::Sea | Terrain::Mountain | Terrain::CaveWall)
     }
 
     /// 船で航行可能かどうかを判定
@@ -68,7 +68,6 @@ mod tests {
     #[test]
     fn is_walkable_returns_true_for_land() {
         assert!(Terrain::Plains.is_walkable());
-        assert!(Terrain::Mountain.is_walkable());
         assert!(Terrain::Forest.is_walkable());
         assert!(Terrain::Town.is_walkable());
         assert!(Terrain::Cave.is_walkable());
@@ -80,6 +79,7 @@ mod tests {
     #[test]
     fn is_walkable_returns_false_for_impassable() {
         assert!(!Terrain::Sea.is_walkable());
+        assert!(!Terrain::Mountain.is_walkable());
         assert!(!Terrain::CaveWall.is_walkable());
     }
 

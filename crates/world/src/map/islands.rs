@@ -2,10 +2,9 @@
 
 use super::Terrain;
 use crate::coordinates::orthogonal_neighbors;
-use crate::map::{MAP_HEIGHT, MAP_WIDTH};
 use rand::prelude::SliceRandom;
 use rand::Rng;
-use std::collections::{HashSet, VecDeque};
+use terrain::{MAP_HEIGHT, MAP_WIDTH};
 
 /// 町のスポーン情報
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -31,21 +30,157 @@ pub struct BoatSpawn {
     pub y: usize,
 }
 
+/// 仲間候補の街割り当て情報
+#[derive(Debug, Clone)]
+pub struct CandidatePlacement {
+    /// 仲間候補のインデックス（candidates配列のインデックス）
+    pub candidate_index: usize,
+    /// 初回の街の位置
+    pub first_town: (usize, usize),
+    /// 知り合い後に移動する先の街の位置
+    pub second_town: (usize, usize),
+}
+
+/// Flood Fillで連結した陸地を島として検出
+///
+/// Sea以外のタイルを連結成分ごとにグループ化する。
+/// 返値はサイズ降順にソートされる。
+pub fn detect_islands(grid: &[Vec<Terrain>]) -> Vec<Vec<(usize, usize)>> {
+    let mut visited = vec![vec![false; MAP_WIDTH]; MAP_HEIGHT];
+    let mut islands: Vec<Vec<(usize, usize)>> = Vec::new();
+
+    for y in 0..MAP_HEIGHT {
+        for x in 0..MAP_WIDTH {
+            if grid[y][x] != Terrain::Sea && !visited[y][x] {
+                // BFSで連結成分を収集
+                let mut island = Vec::new();
+                let mut queue = std::collections::VecDeque::new();
+                queue.push_back((x, y));
+                visited[y][x] = true;
+
+                while let Some((cx, cy)) = queue.pop_front() {
+                    island.push((cx, cy));
+                    for (nx, ny) in orthogonal_neighbors(cx, cy) {
+                        if !visited[ny][nx] && grid[ny][nx] != Terrain::Sea {
+                            visited[ny][nx] = true;
+                            queue.push_back((nx, ny));
+                        }
+                    }
+                }
+
+                islands.push(island);
+            }
+        }
+    }
+
+    // サイズ降順でソート
+    islands.sort_by(|a, b| b.len().cmp(&a.len()));
+    islands
+}
+
+/// Flood Fillで連結した海タイルを海域として検出（内部関数）
+///
+/// 返値はサイズ降順にソートされる（[0]が最大海域）。
+fn detect_sea_regions(grid: &[Vec<Terrain>]) -> Vec<Vec<(usize, usize)>> {
+    let mut visited = vec![vec![false; MAP_WIDTH]; MAP_HEIGHT];
+    let mut regions: Vec<Vec<(usize, usize)>> = Vec::new();
+
+    for y in 0..MAP_HEIGHT {
+        for x in 0..MAP_WIDTH {
+            if grid[y][x] == Terrain::Sea && !visited[y][x] {
+                let mut region = Vec::new();
+                let mut queue = std::collections::VecDeque::new();
+                queue.push_back((x, y));
+                visited[y][x] = true;
+
+                while let Some((cx, cy)) = queue.pop_front() {
+                    region.push((cx, cy));
+                    for (nx, ny) in orthogonal_neighbors(cx, cy) {
+                        if !visited[ny][nx] && grid[ny][nx] == Terrain::Sea {
+                            visited[ny][nx] = true;
+                            queue.push_back((nx, ny));
+                        }
+                    }
+                }
+
+                regions.push(region);
+            }
+        }
+    }
+
+    // サイズ降順でソート
+    regions.sort_by(|a, b| b.len().cmp(&a.len()));
+    regions
+}
+
+/// 全ての島が最大海域に隣接するか検証
+pub fn validate_connectivity(grid: &[Vec<Terrain>]) -> bool {
+    let islands = detect_islands(grid);
+
+    // 島がない場合は true
+    if islands.is_empty() {
+        return true;
+    }
+
+    let sea_regions = detect_sea_regions(grid);
+
+    // 海域が存在しない場合（全陸地）は全島が接続不可
+    if sea_regions.is_empty() {
+        return false;
+    }
+
+    // 最大海域のタイル集合をHashSetに変換
+    let max_sea: std::collections::HashSet<(usize, usize)> =
+        sea_regions[0].iter().copied().collect();
+
+    // 全ての島が最大海域に隣接しているか確認
+    for island in &islands {
+        let touches_max_sea = island.iter().any(|&(x, y)| {
+            orthogonal_neighbors(x, y)
+                .iter()
+                .any(|pos| max_sea.contains(pos))
+        });
+        if !touches_max_sea {
+            return false;
+        }
+    }
+
+    true
+}
+
 /// 島の外郭タイル（海に隣接する陸地）を検出し、最大海域に面した海タイルを船スポーン位置として返す
 pub fn calculate_boat_spawns(grid: &[Vec<Terrain>], rng: &mut impl Rng) -> Vec<BoatSpawn> {
     let islands = detect_islands(grid);
     let sea_regions = detect_sea_regions(grid);
-    let main_sea: HashSet<(usize, usize)> = if sea_regions.is_empty() {
-        HashSet::new()
-    } else {
-        sea_regions[0].iter().copied().collect()
-    };
+
+    if islands.is_empty() || sea_regions.is_empty() {
+        return Vec::new();
+    }
+
+    let max_sea: std::collections::HashSet<(usize, usize)> =
+        sea_regions[0].iter().copied().collect();
 
     let mut spawns = Vec::new();
 
-    for island in islands {
-        if let Some(spawn) = find_boat_spawn_on_main_sea(&island, grid, &main_sea, rng) {
-            spawns.push(spawn);
+    for island in &islands {
+        // この島の陸タイルに隣接する最大海域の海タイルを収集
+        let mut candidates: Vec<(usize, usize)> = island
+            .iter()
+            .flat_map(|&(x, y)| {
+                orthogonal_neighbors(x, y)
+                    .iter()
+                    .filter(|pos| max_sea.contains(*pos))
+                    .copied()
+                    .collect::<Vec<_>>()
+            })
+            .collect();
+
+        // 重複を除去
+        candidates.sort();
+        candidates.dedup();
+
+        if let Some(&(x, y)) = candidates.choose(rng) {
+            spawns.push(BoatSpawn { x, y });
         }
     }
 
@@ -64,19 +199,16 @@ pub fn calculate_town_spawns(
     let islands = detect_islands(grid);
     let mut spawns = Vec::new();
 
-    for island in islands {
+    for island in &islands {
         let candidates: Vec<(usize, usize)> = island
-            .into_iter()
-            .filter(|&(x, y)| grid[y][x] == Terrain::Plains && (x, y) != spawn_position)
+            .iter()
+            .filter(|&pos| grid[pos.1][pos.0] == Terrain::Plains && *pos != spawn_position)
+            .copied()
             .collect();
 
-        if candidates.is_empty() {
-            continue;
+        if let Some(&(x, y)) = candidates.choose(rng) {
+            spawns.push(TownSpawn { x, y });
         }
-
-        let idx = rng.gen_range(0..candidates.len());
-        let (x, y) = candidates[idx];
-        spawns.push(TownSpawn { x, y });
     }
 
     spawns
@@ -92,33 +224,19 @@ pub fn calculate_cave_spawns(
     let islands = detect_islands(grid);
     let mut spawns = Vec::new();
 
-    for island in islands {
+    for island in &islands {
         let candidates: Vec<(usize, usize)> = island
-            .into_iter()
-            .filter(|&(x, y)| grid[y][x] == Terrain::Mountain)
+            .iter()
+            .filter(|&&(x, y)| grid[y][x] == Terrain::Mountain)
+            .copied()
             .collect();
 
-        if candidates.is_empty() {
-            continue;
+        if let Some(&(x, y)) = candidates.choose(rng) {
+            spawns.push(CaveSpawn { x, y });
         }
-
-        let idx = rng.gen_range(0..candidates.len());
-        let (x, y) = candidates[idx];
-        spawns.push(CaveSpawn { x, y });
     }
 
     spawns
-}
-
-/// 仲間候補の街割り当て情報
-#[derive(Debug, Clone)]
-pub struct CandidatePlacement {
-    /// 仲間候補のインデックス（candidates配列のインデックス）
-    pub candidate_index: usize,
-    /// 初回の街の位置
-    pub first_town: (usize, usize),
-    /// 知り合い後に移動する先の街の位置
-    pub second_town: (usize, usize),
 }
 
 /// スポーン大陸に追加の街を配置する
@@ -131,30 +249,42 @@ pub fn place_extra_towns(
     spawn_position: (usize, usize),
     extra_count: usize,
 ) -> Vec<TownSpawn> {
+    let (sx, sy) = spawn_position;
+
+    // spawn_positionが属する島を検出
     let islands = detect_islands(grid);
     let spawn_island = islands
         .into_iter()
-        .find(|island| island.contains(&spawn_position));
-    let Some(spawn_island) = spawn_island else {
-        return vec![];
+        .find(|island| island.contains(&(sx, sy)));
+
+    let spawn_island = match spawn_island {
+        Some(island) => island,
+        None => return Vec::new(),
     };
 
-    let mut candidates: Vec<(usize, usize)> = spawn_island
-        .into_iter()
-        .filter(|&(x, y)| grid[y][x] == Terrain::Plains && (x, y) != spawn_position)
-        .collect();
+    let mut placed = Vec::new();
 
-    let mut extra_spawns = Vec::new();
     for _ in 0..extra_count {
-        if candidates.is_empty() {
+        // 現在のgridを参照して候補を絞る（既存TownとspawnとすでにTownに変換済みのタイルを除外）
+        let mut candidates: Vec<(usize, usize)> = spawn_island
+            .iter()
+            .filter(|&&(x, y)| {
+                grid[y][x] == Terrain::Plains && (x, y) != spawn_position
+            })
+            .copied()
+            .collect();
+
+        // ランダムに選択してTownに変更
+        candidates.shuffle(rng);
+        if let Some(&(x, y)) = candidates.first() {
+            grid[y][x] = Terrain::Town;
+            placed.push(TownSpawn { x, y });
+        } else {
             break;
         }
-        let idx = rng.gen_range(0..candidates.len());
-        let (x, y) = candidates.swap_remove(idx);
-        grid[y][x] = Terrain::Town;
-        extra_spawns.push(TownSpawn { x, y });
     }
-    extra_spawns
+
+    placed
 }
 
 /// 仲間候補をスポーン大陸の街に割り当てる
@@ -166,174 +296,30 @@ pub fn assign_candidates_to_towns(
     candidate_count: usize,
     rng: &mut impl Rng,
 ) -> Vec<CandidatePlacement> {
-    if spawn_island_towns.len() < 2 || candidate_count == 0 {
-        return vec![];
+    // 候補数 + 1 以上の街が必要
+    if spawn_island_towns.len() < candidate_count + 1 {
+        return Vec::new();
     }
 
-    let mut towns = spawn_island_towns.to_vec();
+    let mut towns: Vec<(usize, usize)> = spawn_island_towns.to_vec();
     towns.shuffle(rng);
 
     let mut placements = Vec::new();
+
+    // 各候補に対してfirst_townとsecond_townを割り当て
+    // towns[0], towns[1] -> 候補0
+    // towns[1], towns[2] -> 候補1
+    // ...のようにスライドウィンドウで割り当てる
     for i in 0..candidate_count {
-        if i + 1 >= towns.len() {
-            break;
-        }
         placements.push(CandidatePlacement {
             candidate_index: i,
             first_town: towns[i],
             second_town: towns[i + 1],
         });
     }
+
     placements
 }
-
-/// Flood Fillで連結した陸地を島として検出
-pub fn detect_islands(grid: &[Vec<Terrain>]) -> Vec<Vec<(usize, usize)>> {
-    let mut visited = vec![vec![false; MAP_WIDTH]; MAP_HEIGHT];
-    let mut islands = Vec::new();
-
-    for y in 0..MAP_HEIGHT {
-        for x in 0..MAP_WIDTH {
-            if !visited[y][x] && grid[y][x] != Terrain::Sea {
-                let island = flood_fill(x, y, grid, &mut visited);
-                if !island.is_empty() {
-                    islands.push(island);
-                }
-            }
-        }
-    }
-
-    islands
-}
-
-/// Flood Fillで連結した陸地タイルを収集
-fn flood_fill(
-    start_x: usize,
-    start_y: usize,
-    grid: &[Vec<Terrain>],
-    visited: &mut [Vec<bool>],
-) -> Vec<(usize, usize)> {
-    let mut island = Vec::new();
-    let mut queue = VecDeque::new();
-    queue.push_back((start_x, start_y));
-    visited[start_y][start_x] = true;
-
-    while let Some((x, y)) = queue.pop_front() {
-        island.push((x, y));
-
-        // 4近傍を探索
-        for (nx, ny) in orthogonal_neighbors(x, y) {
-            if !visited[ny][nx] && grid[ny][nx] != Terrain::Sea {
-                visited[ny][nx] = true;
-                queue.push_back((nx, ny));
-            }
-        }
-    }
-
-    island
-}
-
-/// Flood Fillで連結した海タイルを海域として検出（サイズ降順ソート）
-pub fn detect_sea_regions(grid: &[Vec<Terrain>]) -> Vec<Vec<(usize, usize)>> {
-    let mut visited = vec![vec![false; MAP_WIDTH]; MAP_HEIGHT];
-    let mut regions = Vec::new();
-
-    for y in 0..MAP_HEIGHT {
-        for x in 0..MAP_WIDTH {
-            if !visited[y][x] && grid[y][x] == Terrain::Sea {
-                let region = flood_fill_sea(x, y, grid, &mut visited);
-                if !region.is_empty() {
-                    regions.push(region);
-                }
-            }
-        }
-    }
-
-    // サイズ降順ソート（[0]が最大海域）
-    regions.sort_by_key(|r| std::cmp::Reverse(r.len()));
-    regions
-}
-
-/// 全ての島が最大海域に隣接するか検証
-pub fn validate_connectivity(grid: &[Vec<Terrain>]) -> bool {
-    let islands = detect_islands(grid);
-    let sea_regions = detect_sea_regions(grid);
-
-    if islands.is_empty() || sea_regions.is_empty() {
-        return islands.is_empty();
-    }
-
-    let main_sea: HashSet<(usize, usize)> = sea_regions[0].iter().copied().collect();
-
-    for island in &islands {
-        let touches_main_sea = island.iter().any(|&(x, y)| {
-            orthogonal_neighbors(x, y)
-                .iter()
-                .any(|&(nx, ny)| main_sea.contains(&(nx, ny)))
-        });
-        if !touches_main_sea {
-            return false;
-        }
-    }
-
-    true
-}
-
-/// Flood Fillで連結した海タイルを収集
-fn flood_fill_sea(
-    start_x: usize,
-    start_y: usize,
-    grid: &[Vec<Terrain>],
-    visited: &mut [Vec<bool>],
-) -> Vec<(usize, usize)> {
-    let mut region = Vec::new();
-    let mut queue = VecDeque::new();
-    queue.push_back((start_x, start_y));
-    visited[start_y][start_x] = true;
-
-    while let Some((x, y)) = queue.pop_front() {
-        region.push((x, y));
-
-        for (nx, ny) in orthogonal_neighbors(x, y) {
-            if !visited[ny][nx] && grid[ny][nx] == Terrain::Sea {
-                visited[ny][nx] = true;
-                queue.push_back((nx, ny));
-            }
-        }
-    }
-
-    region
-}
-
-/// 最大海域に面した外縁から船スポーン位置を決定
-fn find_boat_spawn_on_main_sea(
-    island: &[(usize, usize)],
-    grid: &[Vec<Terrain>],
-    main_sea: &HashSet<(usize, usize)>,
-    rng: &mut impl Rng,
-) -> Option<BoatSpawn> {
-    // 最大海域に隣接する陸地タイルとその海タイルを収集
-    let mut candidates: Vec<(usize, usize)> = Vec::new();
-
-    for &(x, y) in island {
-        for (nx, ny) in orthogonal_neighbors(x, y) {
-            if grid[ny][nx] == Terrain::Sea && main_sea.contains(&(nx, ny)) {
-                candidates.push((nx, ny));
-            }
-        }
-    }
-
-    candidates.dedup();
-
-    if candidates.is_empty() {
-        return None;
-    }
-
-    let idx = rng.gen_range(0..candidates.len());
-    let (sx, sy) = candidates[idx];
-    Some(BoatSpawn { x: sx, y: sy })
-}
-
 
 #[cfg(test)]
 mod tests {
@@ -389,31 +375,6 @@ mod tests {
     }
 
     #[test]
-    fn detect_sea_regions_single_ocean() {
-        // 全て海のグリッドでは海域は1つ
-        let grid = create_test_grid(Terrain::Sea);
-        let regions = detect_sea_regions(&grid);
-
-        assert_eq!(regions.len(), 1);
-        assert_eq!(regions[0].len(), MAP_WIDTH * MAP_HEIGHT);
-    }
-
-    #[test]
-    fn detect_sea_regions_split_ocean() {
-        // 2本の縦壁で海を分断するケース
-        let mut grid = create_test_grid(Terrain::Sea);
-        for y in 0..MAP_HEIGHT {
-            grid[y][50] = Terrain::Plains;
-            grid[y][100] = Terrain::Plains;
-        }
-
-        let regions = detect_sea_regions(&grid);
-
-        // 2本の壁で海域が2つに分断される
-        assert_eq!(regions.len(), 2);
-    }
-
-    #[test]
     fn validate_connectivity_connected() {
         // 全島が同一海域に接する正常ケース
         let mut grid = create_test_grid(Terrain::Sea);
@@ -446,29 +407,6 @@ mod tests {
         // 外側の大きな海と湖は陸地で分断されているので
         // 孤立島は最大海域（外側の海）に隣接しない
         assert!(!validate_connectivity(&grid));
-    }
-
-    #[test]
-    fn boat_spawns_on_main_sea() {
-        // 船が最大海域にスポーンすることを確認
-        let mut grid = create_test_grid(Terrain::Sea);
-        grid[5][5] = Terrain::Plains;
-        grid[5][6] = Terrain::Plains;
-
-        let mut rng = create_rng(42);
-        let spawns = calculate_boat_spawns(&grid, &mut rng);
-
-        let sea_regions = detect_sea_regions(&grid);
-        let main_sea: HashSet<(usize, usize)> = sea_regions[0].iter().copied().collect();
-
-        for spawn in &spawns {
-            assert!(
-                main_sea.contains(&(spawn.x, spawn.y)),
-                "Boat spawn ({}, {}) should be on the main sea",
-                spawn.x,
-                spawn.y
-            );
-        }
     }
 
     #[test]

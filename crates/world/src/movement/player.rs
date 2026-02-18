@@ -69,14 +69,14 @@ mod tests {
     }
 
     #[test]
-    fn try_move_succeeds_on_mountain() {
+    fn try_move_blocked_by_mountain() {
         let mut grid = create_test_grid(Terrain::Sea);
         grid[5][5] = Terrain::Plains;
         grid[5][6] = Terrain::Mountain;
 
         let result = try_move(5, 5, 1, 0, &grid);
 
-        assert_eq!(result, MoveResult::Moved { new_x: 6, new_y: 5 });
+        assert_eq!(result, MoveResult::Blocked);
     }
 
     #[test]

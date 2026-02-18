@@ -27,12 +27,12 @@ cargo test --workspace            # テスト（全crate）
 Bevy 0.18を使用した2Dローグライク風JRPGのプロトタイプ。Cargoワークスペース構成（21 crate）。
 
 **ドメイン層（依存なし）**:
-- **terrain**: 地形・座標・方向（Terrain, Position, Direction）
+- **terrain**: 地形・座標・方向（Terrain, Position, Direction）。Mountain は歩行不可（`is_walkable()` = false）
 - **party**: パーティ・キャラクター・ステータス・アイテム・装備・仲間募集（PartyMember（各キャラ個別インベントリ・装備）、CombatStats、ItemKind、Inventory、INVENTORY_CAPACITY=6、WeaponKind、Equipment、effective_attack()、RecruitCandidate、RecruitmentStatus: Undiscovered→Acquaintance→Recruited）
 - **battle**: 戦闘ロジック（敵、魔法（クラス別呪文制限含む）、アイテム（個人所持）、戦闘処理（effective_attack使用））
 - **cave**: 洞窟生成ロジック
 - **town**: 街ロジック（やどや、よろず屋（アイテム・武器販売、キャラ選択購入、容量チェック）、洞窟ヒント、仲間候補との会話）
-- **world**: ワールドマップ生成・島配置・仲間候補配置
+- **world**: ワールドマップ生成（5大陸方式：大陸成長・海岸侵食・内陸湖・極小島除去・歩行連結性保証）・島配置・仲間候補配置
 - **time**: 時間カウント（TimeCount構造体）
 
 **UI共通層（Bevy依存）**:

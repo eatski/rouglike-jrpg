@@ -566,7 +566,7 @@ fn player_can_move_on_forest() {
 }
 
 #[test]
-fn player_can_move_on_mountain() {
+fn player_cannot_move_on_mountain() {
     // カスタムマップ: プレイヤーが平原の上で、右に山がある
     let mut grid = vec![vec![Terrain::Sea; MAP_WIDTH]; MAP_HEIGHT];
     let spawn_x = 50;
@@ -580,7 +580,7 @@ fn player_can_move_on_mountain() {
     // イベントカウンタをリセット
     app.world_mut().resource_mut::<EventCounters>().moved_count = 0;
 
-    // 右に移動（山に登る）
+    // 右に移動（山は通行不可）
     press_key(&mut app, 1, 0);
 
     // キー入力を反映するために複数フレーム進める
@@ -588,22 +588,18 @@ fn player_can_move_on_mountain() {
         app.update();
     }
 
-    // イベントが発行されたか確認
-    let moved_count = app.world().resource::<EventCounters>().moved_count;
-    assert!(moved_count >= 1, "PlayerMovedEvent should be emitted when moving to mountain");
-
     // 移動アニメーション完了まで待つ
     release_all_keys(&mut app);
     wait_for_movement_complete(&mut app, player_entity, 30);
 
-    // 位置が変わったか確認
+    // 位置が変わっていないか確認
     let final_pos = {
         let world = app.world();
         let tile_pos = world.get::<TilePosition>(player_entity).unwrap();
         (tile_pos.x, tile_pos.y)
     };
 
-    assert_eq!(final_pos, (spawn_x + 1, spawn_y), "Player should move onto mountain");
+    assert_eq!(final_pos, (spawn_x, spawn_y), "Player should not move onto mountain");
 }
 
 // ============================================
