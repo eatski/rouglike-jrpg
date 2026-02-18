@@ -24,11 +24,11 @@ pub fn town_input_system(
     match town_res.phase.clone() {
         TownMenuPhase::MenuSelect => {
             // 上下でカーソル移動
-            if is_up_just_pressed(&keyboard) && town_res.selected_item > 0 {
-                town_res.selected_item -= 1;
+            if is_up_just_pressed(&keyboard) {
+                town_res.selected_item = if town_res.selected_item > 0 { town_res.selected_item - 1 } else { 3 };
             }
-            if is_down_just_pressed(&keyboard) && town_res.selected_item < 3 {
-                town_res.selected_item += 1;
+            if is_down_just_pressed(&keyboard) {
+                town_res.selected_item = if town_res.selected_item < 3 { town_res.selected_item + 1 } else { 0 };
             }
 
             if is_confirm_just_pressed(&keyboard) {
@@ -108,14 +108,14 @@ pub fn town_input_system(
             let max_index = goods_list.len().saturating_sub(1);
 
             // 上下でカーソル移動
-            if is_up_just_pressed(&keyboard) && selected > 0 {
+            if is_up_just_pressed(&keyboard) {
                 town_res.phase = TownMenuPhase::ShopSelect {
-                    selected: selected - 1,
+                    selected: if selected > 0 { selected - 1 } else { max_index },
                 };
             }
-            if is_down_just_pressed(&keyboard) && selected < max_index {
+            if is_down_just_pressed(&keyboard) {
                 town_res.phase = TownMenuPhase::ShopSelect {
-                    selected: selected + 1,
+                    selected: if selected < max_index { selected + 1 } else { 0 },
                 };
             }
 
@@ -173,16 +173,16 @@ fn handle_shop_character_select(
     let max_index = party_state.members.len().saturating_sub(1);
 
     // 上下でカーソル移動
-    if is_up_just_pressed(keyboard) && selected > 0 {
+    if is_up_just_pressed(keyboard) {
         town_res.phase = TownMenuPhase::ShopCharacterSelect {
             goods,
-            selected: selected - 1,
+            selected: if selected > 0 { selected - 1 } else { max_index },
         };
     }
-    if is_down_just_pressed(keyboard) && selected < max_index {
+    if is_down_just_pressed(keyboard) {
         town_res.phase = TownMenuPhase::ShopCharacterSelect {
             goods,
-            selected: selected + 1,
+            selected: if selected < max_index { selected + 1 } else { 0 },
         };
     }
 
