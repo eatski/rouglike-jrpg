@@ -4401,8 +4401,11 @@ name = "screenshot-cave"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "cave",
  "cave-ui",
  "movement-ui",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
  "screenshot-common",
  "world-ui",
 ]
@@ -4412,6 +4415,8 @@ name = "screenshot-common"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
 ]
 
 [[package]]
@@ -4441,7 +4446,6 @@ name = "screenshot-world"
 version = "0.1.0"
 dependencies = [
  "bevy",
- "rand 0.8.5",
  "screenshot-common",
  "terrain",
  "world",
