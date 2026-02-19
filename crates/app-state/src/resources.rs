@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use party::{default_candidates, initial_party, ItemKind, PartyMember, RecruitCandidate};
 
@@ -37,3 +37,11 @@ pub struct RecruitmentMap {
 /// フィールドメニューの開閉状態
 #[derive(Resource, Default)]
 pub struct FieldMenuOpen(pub bool);
+
+/// 取得済み宝箱を管理するリソース
+/// key: ワールドマップ上の洞窟座標 (cave_x, cave_y)
+/// value: その洞窟内で取得済みの宝箱インデックスの集合
+#[derive(Resource, Default)]
+pub struct OpenedChests {
+    pub chests: HashMap<(usize, usize), HashSet<usize>>,
+}

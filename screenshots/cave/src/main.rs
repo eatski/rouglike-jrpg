@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 
+use app_state::OpenedChests;
 use cave_ui::{setup_cave_scene, update_cave_tiles};
 use movement_ui::MovementState;
 use screenshot_common::screenshot_app;
@@ -11,6 +12,7 @@ fn main() {
     let mut app = screenshot_app("cave");
     app.init_resource::<MovementState>()
         .init_resource::<MapModeState>()
+        .init_resource::<OpenedChests>()
         .add_systems(
             Startup,
             (
