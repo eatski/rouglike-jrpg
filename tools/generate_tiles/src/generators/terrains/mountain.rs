@@ -3,95 +3,105 @@ use std::path::Path;
 
 use crate::generators::common::{new_image, pixel_hash, pixel_noise, save_image, TILE_SIZE};
 
-struct RockColors {
-    dark: Rgba<u8>,
-    mid: Rgba<u8>,
-    light: Rgba<u8>,
-    edge: Rgba<u8>,
-    moss: Rgba<u8>,
-}
-
-fn draw_rocky_boulder(
+// タイル上に三角形の山ピークを描画する
+// peak_x: ピーク頂点のX座標, peak_y: ピーク頂点のY座標
+// base_y: 山の底辺のY座標, half_base: 底辺の半幅
+fn draw_mountain_peak(
     img: &mut RgbaImage,
+    peak_x: u32,
+    peak_y: u32,
+    base_y: u32,
+    half_base: u32,
     salt: u32,
-    start_x: u32,
-    start_y: u32,
-    width: u32,
-    height: u32,
-    colors: &RockColors,
+    rock_dark: Rgba<u8>,
+    rock_mid: Rgba<u8>,
+    rock_light: Rgba<u8>,
+    rock_shadow: Rgba<u8>,
+    snow: Rgba<u8>,
+    snow_shadow: Rgba<u8>,
 ) {
-    let RockColors { dark: rock_dark, mid: rock_mid, light: rock_light, edge: rock_edge, moss } = *colors;
-    let mut counter: u32 = 0;
-    for dy in 0..height {
-        let y = start_y + dy;
+    let height = base_y.saturating_sub(peak_y);
+    if height == 0 {
+        return;
+    }
+
+    for dy in 0..=height {
+        let y = peak_y + dy;
         if y >= TILE_SIZE {
             break;
         }
 
+        // 高さ比率（0.0=頂上, 1.0=麓）
         let progress = dy as f32 / height as f32;
-        let bulge = if progress < 0.3 {
-            (progress / 0.3 * 0.8 + 0.2) * width as f32
-        } else if progress < 0.7 {
-            width as f32
-        } else {
-            ((1.0 - progress) / 0.3 * 0.6 + 0.4) * width as f32
-        };
 
-        let current_width = bulge as u32;
-        let offset = (width - current_width) / 2;
+        // 三角形の左右境界（ピークから広がる）
+        let half_w = (progress * half_base as f32) as u32;
+        let left = peak_x.saturating_sub(half_w);
+        let right = (peak_x + half_w).min(TILE_SIZE - 1);
 
-        for dx in 0..current_width {
-            let x = start_x + offset + dx;
+        // 雪線（上部30%は雪）
+        let is_snow = progress < 0.30;
+
+        for x in left..=right {
             if x >= TILE_SIZE {
                 continue;
             }
 
-            let noise = pixel_hash(x, y, salt) % 3;
-            if noise == 0 && dx == 0 {
-                continue;
-            }
-            if noise == 1 && dx == current_width - 1 {
-                continue;
-            }
+            let is_left_edge = x == left;
+            let is_right_edge = x == right;
 
-            let is_left_edge = dx == 0;
-            let is_right_edge = dx == current_width - 1;
-            let is_top = dy < 2;
-            let is_bottom = dy >= height - 2;
-
-            let color = if is_left_edge || is_bottom {
-                rock_edge
-            } else if is_right_edge || is_top {
-                if pixel_noise(x, y, salt + 1) < 0.6 { rock_light } else { rock_mid }
+            let color = if is_snow {
+                // 雪エリア：左辺（影）と右辺（光）で差をつける
+                if is_left_edge {
+                    snow_shadow
+                } else if is_right_edge {
+                    snow
+                } else {
+                    // 雪のテクスチャ
+                    let n = pixel_noise(x, y, salt + 10);
+                    if n < 0.2 { snow_shadow } else { snow }
+                }
+            } else if is_left_edge {
+                // 左辺は影（険しい崖面）
+                rock_shadow
+            } else if is_right_edge {
+                // 右辺は少し明るい
+                if pixel_noise(x, y, salt + 1) < 0.5 { rock_mid } else { rock_light }
             } else {
-                let r = pixel_noise(x, y, salt + 2);
-                if r < 0.1 {
-                    moss
-                } else if r < 0.3 {
-                    rock_light
-                } else if r < 0.6 {
+                // 岩の内部：ノイズでテクスチャ
+                let n = pixel_noise(x, y, salt + 2);
+                if n < 0.15 {
+                    rock_shadow
+                } else if n < 0.40 {
+                    rock_dark
+                } else if n < 0.70 {
                     rock_mid
                 } else {
-                    rock_dark
+                    rock_light
                 }
             };
 
             img.put_pixel(x, y, color);
-            counter += 1;
         }
     }
 
-    let crack_positions: [(u32, u32); 3] = [
-        (start_x + pixel_hash(0, counter, salt + 3) % width.saturating_sub(2).max(1) + 1,
-         start_y + pixel_hash(1, counter, salt + 3) % height.saturating_sub(2).max(1) + 1),
-        (start_x + pixel_hash(2, counter, salt + 4) % width.saturating_sub(2).max(1) + 1,
-         start_y + pixel_hash(3, counter, salt + 4) % height.saturating_sub(2).max(1) + 1),
-        (start_x + pixel_hash(4, counter, salt + 5) % width.saturating_sub(2).max(1) + 1,
-         start_y + pixel_hash(5, counter, salt + 5) % height.saturating_sub(2).max(1) + 1),
-    ];
-    for (cx, cy) in crack_positions {
-        if cx < TILE_SIZE && cy < TILE_SIZE {
-            img.put_pixel(cx, cy, rock_edge);
+    // 亀裂（クラック）を縦に2本描画して険しさを強調
+    for crack_idx in 0..2u32 {
+        let cx_base = pixel_hash(crack_idx, 0, salt + 20 + crack_idx) % (half_base.max(2) - 1) + 1;
+        let crack_start = peak_y + height / 4;
+        let crack_len = height / 3;
+        for i in 0..crack_len {
+            let cy = crack_start + i;
+            if cy >= TILE_SIZE {
+                break;
+            }
+            let progress_c = i as f32 / height as f32;
+            let half_w_c = (progress_c * half_base as f32) as u32;
+            let left_c = peak_x.saturating_sub(half_w_c);
+            let cx = (left_c + cx_base).min(TILE_SIZE - 1);
+            if cx < TILE_SIZE {
+                img.put_pixel(cx, cy, rock_shadow);
+            }
         }
     }
 }
@@ -99,40 +109,76 @@ fn draw_rocky_boulder(
 pub fn generate_mountain(output_dir: &Path) {
     let mut img = new_image();
 
-    let bg = Rgba([80, 100, 70, 255]);
-    let rock_dark = Rgba([80, 70, 60, 255]);
-    let rock_mid = Rgba([120, 110, 100, 255]);
-    let rock_light = Rgba([160, 150, 135, 255]);
-    let rock_edge = Rgba([60, 55, 50, 255]);
-    let moss = Rgba([70, 90, 60, 255]);
+    // --- グレー系パレット ---
+    let bg         = Rgba([85, 82, 78, 255]);   // 岩盤グレー（背景）
+    let rock_shadow = Rgba([50, 48, 45, 255]);  // 深い影・亀裂
+    let rock_dark  = Rgba([80, 76, 72, 255]);   // 暗い岩
+    let rock_mid   = Rgba([115, 110, 105, 255]);// 中間グレー
+    let rock_light = Rgba([150, 145, 138, 255]);// 明るいグレー（光面）
+    let snow       = Rgba([220, 222, 225, 255]);// 雪
+    let snow_shadow = Rgba([170, 172, 178, 255]);// 雪の影
 
+    // 背景を岩盤グレーで塗りつぶす
     for y in 0..TILE_SIZE {
         for x in 0..TILE_SIZE {
-            img.put_pixel(x, y, bg);
+            // 背景にも少しノイズを入れて岩の質感
+            let n = pixel_noise(x, y, 1);
+            let base_color = if n < 0.2 {
+                rock_dark
+            } else if n < 0.6 {
+                bg
+            } else {
+                rock_mid
+            };
+            img.put_pixel(x, y, base_color);
         }
     }
 
-    let rock_colors = RockColors { dark: rock_dark, mid: rock_mid, light: rock_light, edge: rock_edge, moss };
+    // --- 山ピークを3つ描画（険しい峰の連なり）---
+    // 中央の主峰（一番大きく目立つ）
+    draw_mountain_peak(
+        &mut img,
+        8,    // peak_x (中央)
+        1,    // peak_y (上端近く)
+        15,   // base_y (タイル底辺)
+        8,    // half_base
+        100,
+        rock_dark, rock_mid, rock_light, rock_shadow, snow, snow_shadow,
+    );
 
-    draw_rocky_boulder(&mut img, 50, 6, 5, 8, 10, &rock_colors);
-    draw_rocky_boulder(&mut img, 60, 1, 2, 5, 6, &rock_colors);
-    draw_rocky_boulder(&mut img, 70, 11, 3, 4, 5, &rock_colors);
+    // 左の副峰（少し小さい）
+    draw_mountain_peak(
+        &mut img,
+        3,    // peak_x
+        4,    // peak_y
+        14,   // base_y
+        5,    // half_base
+        200,
+        rock_dark, rock_mid, rock_light, rock_shadow, snow, snow_shadow,
+    );
 
-    let scatter_positions: [(u32, u32); 8] = [
-        (pixel_hash(0, 0, 80) % TILE_SIZE, 10 + pixel_hash(0, 1, 80) % (TILE_SIZE - 10)),
-        (pixel_hash(1, 0, 80) % TILE_SIZE, 10 + pixel_hash(1, 1, 80) % (TILE_SIZE - 10)),
-        (pixel_hash(2, 0, 80) % TILE_SIZE, 10 + pixel_hash(2, 1, 80) % (TILE_SIZE - 10)),
-        (pixel_hash(3, 0, 80) % TILE_SIZE, 10 + pixel_hash(3, 1, 80) % (TILE_SIZE - 10)),
-        (pixel_hash(4, 0, 80) % TILE_SIZE, 10 + pixel_hash(4, 1, 80) % (TILE_SIZE - 10)),
-        (pixel_hash(5, 0, 80) % TILE_SIZE, 10 + pixel_hash(5, 1, 80) % (TILE_SIZE - 10)),
-        (pixel_hash(6, 0, 80) % TILE_SIZE, 10 + pixel_hash(6, 1, 80) % (TILE_SIZE - 10)),
-        (pixel_hash(7, 0, 80) % TILE_SIZE, 10 + pixel_hash(7, 1, 80) % (TILE_SIZE - 10)),
+    // 右の副峰
+    draw_mountain_peak(
+        &mut img,
+        13,   // peak_x
+        5,    // peak_y
+        14,   // base_y
+        4,    // half_base
+        300,
+        rock_dark, rock_mid, rock_light, rock_shadow, snow, snow_shadow,
+    );
+
+    // --- 岩屑・破片を麓に散らす ---
+    let debris: [(u32, u32); 10] = [
+        (1, 13), (3, 15), (5, 14), (7, 15), (9, 13),
+        (11, 14), (13, 15), (14, 13), (2, 14), (15, 14),
     ];
-    for (x, y) in scatter_positions {
-        let color = if pixel_noise(x, y, 81) < 0.5 { rock_mid } else { rock_dark };
-        if img.get_pixel(x, y) == &bg {
-            img.put_pixel(x, y, color);
-        }
+    for (x, y) in debris {
+        let x = x.min(TILE_SIZE - 1);
+        let y = y.min(TILE_SIZE - 1);
+        let n = pixel_noise(x, y, 400);
+        let color = if n < 0.4 { rock_shadow } else if n < 0.7 { rock_dark } else { rock_mid };
+        img.put_pixel(x, y, color);
     }
 
     save_image(&img, output_dir, "mountain.png");
