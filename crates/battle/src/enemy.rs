@@ -29,6 +29,17 @@ impl EnemyKind {
             EnemyKind::Ghost => "enemies/ghost.png",
         }
     }
+
+    /// 倒した時に得られる経験値
+    pub fn exp_reward(self) -> u32 {
+        match self {
+            EnemyKind::Slime => 3,
+            EnemyKind::Bat => 4,
+            EnemyKind::Goblin => 6,
+            EnemyKind::Wolf => 8,
+            EnemyKind::Ghost => 10,
+        }
+    }
 }
 
 const ALL_ENEMY_KINDS: [EnemyKind; 5] = [
@@ -189,6 +200,15 @@ mod tests {
         assert_eq!(generate_enemy_group(0.6, 0.0).len(), 3);
         assert_eq!(generate_enemy_group(0.85, 0.0).len(), 4);
         assert_eq!(generate_enemy_group(1.0, 0.0).len(), 4);
+    }
+
+    #[test]
+    fn exp_rewards() {
+        assert_eq!(EnemyKind::Slime.exp_reward(), 3);
+        assert_eq!(EnemyKind::Bat.exp_reward(), 4);
+        assert_eq!(EnemyKind::Goblin.exp_reward(), 6);
+        assert_eq!(EnemyKind::Wolf.exp_reward(), 8);
+        assert_eq!(EnemyKind::Ghost.exp_reward(), 10);
     }
 
     #[test]

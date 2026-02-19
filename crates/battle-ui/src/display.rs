@@ -102,7 +102,7 @@ pub fn battle_display_system(
     mut message_query: Query<&mut Text, (With<MessageText>, Without<EnemyNameLabel>, Without<PartyMemberHpText>, Without<CommandCursor>, Without<PartyMemberMpText>, Without<PartyMemberNameText>)>,
     mut party_hp_query: Query<(&PartyMemberHpText, &mut Text), (Without<EnemyNameLabel>, Without<MessageText>, Without<CommandCursor>, Without<PartyMemberMpText>, Without<PartyMemberNameText>)>,
     mut party_mp_query: Query<(&PartyMemberMpText, &mut Text), (Without<EnemyNameLabel>, Without<MessageText>, Without<CommandCursor>, Without<PartyMemberHpText>, Without<PartyMemberNameText>)>,
-    mut party_name_query: Query<(&PartyMemberNameText, &mut TextColor), (Without<EnemyNameLabel>, Without<MessageText>, Without<CommandCursor>, Without<PartyMemberHpText>, Without<PartyMemberMpText>)>,
+    mut party_name_query: Query<(&PartyMemberNameText, &mut Text, &mut TextColor), (Without<EnemyNameLabel>, Without<MessageText>, Without<CommandCursor>, Without<PartyMemberHpText>, Without<PartyMemberMpText>)>,
     mut party_bar_query: Query<(&PartyMemberHpBarFill, &mut Node, &mut BackgroundColor)>,
     mut command_query: Query<(&CommandCursor, &mut Text, &mut TextColor, &mut Visibility), (Without<EnemyNameLabel>, Without<MessageText>, Without<PartyMemberHpText>, Without<PartyMemberMpText>, Without<PartyMemberNameText>)>,
     mut target_cursor_query: Query<(&TargetCursor, &mut Visibility), (Without<EnemySprite>, Without<EnemyNameLabel>, Without<CommandCursor>)>,
@@ -149,9 +149,13 @@ pub fn battle_display_system(
         }
     }
 
-    // パーティ名前ハイライト（味方ターゲット選択時）
+    // パーティ名前+レベル更新＆ハイライト（味方ターゲット選択時）
     let is_ally_target_select = matches!(ui_state.phase, BattlePhase::AllyTargetSelect { .. });
-    for (name_text, mut color) in &mut party_name_query {
+    for (name_text, mut text, mut color) in &mut party_name_query {
+        if name_text.index < game_state.state.party.len() {
+            let member = &game_state.state.party[name_text.index];
+            **text = format!("{} Lv.{}", member.kind.name(), member.level);
+        }
         if is_ally_target_select && name_text.index == ui_state.selected_ally_target {
             *color = TextColor(COMMAND_COLOR_SELECTED); // 黄色ハイライト
         } else {

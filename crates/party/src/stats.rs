@@ -46,6 +46,27 @@ impl CombatStats {
     pub fn take_damage(&mut self, damage: i32) {
         self.hp = (self.hp - damage).max(0);
     }
+
+    /// ステータス成長を適用する
+    pub fn apply_growth(&mut self, growth: &StatGrowth) {
+        self.max_hp += growth.hp;
+        self.hp = self.max_hp; // レベルアップ時は全回復
+        self.max_mp += growth.mp;
+        self.mp = self.max_mp;
+        self.attack += growth.attack;
+        self.defense += growth.defense;
+        self.speed += growth.speed;
+    }
+}
+
+/// レベルアップ時のステータス成長値
+#[derive(Debug, Clone)]
+pub struct StatGrowth {
+    pub hp: i32,
+    pub mp: i32,
+    pub attack: i32,
+    pub defense: i32,
+    pub speed: i32,
 }
 
 #[cfg(test)]

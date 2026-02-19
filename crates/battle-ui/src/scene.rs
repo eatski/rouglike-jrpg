@@ -566,7 +566,7 @@ pub fn cleanup_battle_scene(
     mut party_state: ResMut<PartyState>,
     active_map: Res<ActiveMap>,
 ) {
-    // 戦闘結果のHP/MP/インベントリを永続状態に書き戻す
+    // 戦闘結果のHP/MP/レベル/経験値/インベントリを永続状態に書き戻す
     for (i, member) in game_state.state.party.iter().enumerate() {
         if let Some(persistent) = party_state.members.get_mut(i) {
             persistent.stats.hp = if member.stats.hp <= 0 {
@@ -575,6 +575,13 @@ pub fn cleanup_battle_scene(
                 member.stats.hp
             };
             persistent.stats.mp = member.stats.mp;
+            persistent.stats.max_hp = member.stats.max_hp;
+            persistent.stats.max_mp = member.stats.max_mp;
+            persistent.stats.attack = member.stats.attack;
+            persistent.stats.defense = member.stats.defense;
+            persistent.stats.speed = member.stats.speed;
+            persistent.level = member.level;
+            persistent.exp = member.exp;
             persistent.inventory = member.inventory.clone();
         }
     }

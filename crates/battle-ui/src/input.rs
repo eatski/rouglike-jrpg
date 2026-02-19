@@ -372,9 +372,29 @@ fn execute_turn(game_state: &mut BattleGameState, ui_state: &mut BattleUIState) 
 
     ui_state.pending_commands.clear();
 
-    let (messages, effects) =
+    let (mut messages, effects) =
         results_to_messages(&results, &game_state.state, &pre_party_hp, &pre_party_mp);
     ui_state.message_effects = effects;
+
+    // 勝利時: 経験値獲得メッセージとレベルアップ処理を追加
+    if game_state.state.is_victory() {
+        let total_exp = game_state.state.total_exp_reward();
+        messages.push(format!("けいけんち {}ポイント かくとく！", total_exp));
+
+        // 生存メンバーに経験値を付与してレベルアップ判定
+        let alive = game_state.state.alive_party_indices();
+        for &i in &alive {
+            let member = &mut game_state.state.party[i];
+            let level_ups = member.gain_exp(total_exp);
+            if level_ups > 0 {
+                messages.push(format!(
+                    "{}は レベル{}に あがった！",
+                    member.kind.name(),
+                    member.level
+                ));
+            }
+        }
+    }
 
     if messages.is_empty() {
         // メッセージがない場合、表示HPを実際のHPに同期

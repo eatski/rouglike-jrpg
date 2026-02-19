@@ -1,6 +1,6 @@
 use crate::equipment::Equipment;
 use crate::item::Inventory;
-use crate::stats::CombatStats;
+use crate::stats::{CombatStats, StatGrowth};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PartyMemberKind {
@@ -22,9 +22,18 @@ impl PartyMemberKind {
 #[derive(Debug, Clone)]
 pub struct PartyMember {
     pub kind: PartyMemberKind,
+    pub level: u32,
+    pub exp: u32,
     pub stats: CombatStats,
     pub inventory: Inventory,
     pub equipment: Equipment,
+}
+
+/// 次のレベルに必要な累計経験値
+pub fn exp_to_next_level(level: u32) -> u32 {
+    // Lv1→2: 10, Lv2→3: 25, Lv3→4: 50, ...
+    // 式: level^2 * 5 + level * 5
+    level * level * 5 + level * 5
 }
 
 impl PartyMember {
@@ -33,9 +42,24 @@ impl PartyMember {
         self.stats.attack + self.equipment.attack_bonus()
     }
 
+    /// 経験値を獲得し、レベルアップがあれば回数を返す
+    pub fn gain_exp(&mut self, amount: u32) -> u32 {
+        self.exp += amount;
+        let mut level_ups = 0;
+        while self.exp >= exp_to_next_level(self.level) {
+            self.level += 1;
+            level_ups += 1;
+            let growth = self.kind.stat_growth();
+            self.stats.apply_growth(&growth);
+        }
+        level_ups
+    }
+
     pub fn hero() -> Self {
         Self {
             kind: PartyMemberKind::Hero,
+            level: 1,
+            exp: 0,
             stats: CombatStats::new(30, 8, 3, 5, 5),
             inventory: Inventory::new(),
             equipment: Equipment::new(),
@@ -45,6 +69,8 @@ impl PartyMember {
     pub fn mage() -> Self {
         Self {
             kind: PartyMemberKind::Mage,
+            level: 1,
+            exp: 0,
             stats: CombatStats::new(20, 10, 2, 7, 15),
             inventory: Inventory::new(),
             equipment: Equipment::new(),
@@ -54,6 +80,8 @@ impl PartyMember {
     pub fn priest() -> Self {
         Self {
             kind: PartyMemberKind::Priest,
+            level: 1,
+            exp: 0,
             stats: CombatStats::new(25, 5, 4, 4, 12),
             inventory: Inventory::new(),
             equipment: Equipment::new(),
@@ -65,6 +93,35 @@ impl PartyMember {
             PartyMemberKind::Hero => Self::hero(),
             PartyMemberKind::Mage => Self::mage(),
             PartyMemberKind::Priest => Self::priest(),
+        }
+    }
+}
+
+impl PartyMemberKind {
+    /// クラス別のレベルアップ時ステータス成長値
+    pub fn stat_growth(self) -> StatGrowth {
+        match self {
+            PartyMemberKind::Hero => StatGrowth {
+                hp: 5,
+                mp: 1,
+                attack: 2,
+                defense: 1,
+                speed: 1,
+            },
+            PartyMemberKind::Mage => StatGrowth {
+                hp: 3,
+                mp: 3,
+                attack: 2,
+                defense: 1,
+                speed: 1,
+            },
+            PartyMemberKind::Priest => StatGrowth {
+                hp: 4,
+                mp: 2,
+                attack: 1,
+                defense: 1,
+                speed: 1,
+            },
         }
     }
 }
@@ -156,6 +213,8 @@ mod tests {
     #[test]
     fn hero_stats() {
         let hero = PartyMember::hero();
+        assert_eq!(hero.level, 1);
+        assert_eq!(hero.exp, 0);
         assert_eq!(hero.stats.max_hp, 30);
         assert_eq!(hero.stats.attack, 8);
         assert_eq!(hero.stats.defense, 3);
@@ -165,6 +224,8 @@ mod tests {
     #[test]
     fn mage_stats() {
         let mage = PartyMember::mage();
+        assert_eq!(mage.level, 1);
+        assert_eq!(mage.exp, 0);
         assert_eq!(mage.stats.max_hp, 20);
         assert_eq!(mage.stats.attack, 10);
         assert_eq!(mage.stats.defense, 2);
@@ -174,10 +235,47 @@ mod tests {
     #[test]
     fn priest_stats() {
         let priest = PartyMember::priest();
+        assert_eq!(priest.level, 1);
+        assert_eq!(priest.exp, 0);
         assert_eq!(priest.stats.max_hp, 25);
         assert_eq!(priest.stats.attack, 5);
         assert_eq!(priest.stats.defense, 4);
         assert_eq!(priest.stats.speed, 4);
+    }
+
+    #[test]
+    fn exp_to_next_level_values() {
+        assert_eq!(exp_to_next_level(1), 10);  // Lv1→2
+        assert_eq!(exp_to_next_level(2), 30);  // Lv2→3
+        assert_eq!(exp_to_next_level(3), 60);  // Lv3→4
+    }
+
+    #[test]
+    fn gain_exp_levels_up() {
+        let mut hero = PartyMember::hero();
+        let level_ups = hero.gain_exp(10); // ちょうどLv2に
+        assert_eq!(level_ups, 1);
+        assert_eq!(hero.level, 2);
+        assert_eq!(hero.exp, 10);
+        assert_eq!(hero.stats.max_hp, 35); // +5
+        assert_eq!(hero.stats.attack, 10); // +2
+    }
+
+    #[test]
+    fn gain_exp_multiple_level_ups() {
+        let mut hero = PartyMember::hero();
+        let level_ups = hero.gain_exp(60); // Lv1→2(10) → Lv2→3(30) → Lv3→4(60)
+        assert_eq!(level_ups, 3);
+        assert_eq!(hero.level, 4);
+    }
+
+    #[test]
+    fn gain_exp_no_level_up() {
+        let mut hero = PartyMember::hero();
+        let level_ups = hero.gain_exp(5);
+        assert_eq!(level_ups, 0);
+        assert_eq!(hero.level, 1);
+        assert_eq!(hero.exp, 5);
     }
 
     #[test]

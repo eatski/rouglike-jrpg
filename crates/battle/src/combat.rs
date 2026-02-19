@@ -393,6 +393,15 @@ impl BattleState {
             .map(|(i, _)| i)
             .collect()
     }
+
+    /// 倒した敵の合計経験値を計算
+    pub fn total_exp_reward(&self) -> u32 {
+        self.enemies
+            .iter()
+            .filter(|e| !e.stats.is_alive())
+            .map(|e| e.kind.exp_reward())
+            .sum()
+    }
 }
 
 #[cfg(test)]

@@ -26,6 +26,12 @@ pub struct HudHpBarFill {
     pub index: usize,
 }
 
+/// HUD上の名前+レベル表示テキスト
+#[derive(Component)]
+pub struct HudNameText {
+    pub index: usize,
+}
+
 /// HUD上の所持金テキスト
 #[derive(Component)]
 pub struct HudGoldText;
@@ -78,9 +84,10 @@ pub fn setup_hud(mut commands: Commands, asset_server: Res<AssetServer>, party_s
                         ..default()
                     })
                     .with_children(|col| {
-                        // 名前
+                        // 名前+レベル
                         col.spawn((
-                            Text::new(name),
+                            HudNameText { index: i },
+                            Text::new(format!("{} Lv.{}", name, member.level)),
                             TextFont {
                                 font: font.clone(),
                                 font_size: 16.0,
@@ -158,18 +165,25 @@ pub fn setup_hud(mut commands: Commands, asset_server: Res<AssetServer>, party_s
         });
 }
 
-type GoldTextQuery<'w, 's> = Query<'w, 's, &'static mut Text, (With<HudGoldText>, Without<HudHpText>, Without<HudMpText>)>;
+type GoldTextQuery<'w, 's> = Query<'w, 's, &'static mut Text, (With<HudGoldText>, Without<HudHpText>, Without<HudMpText>, Without<HudNameText>)>;
 
-/// PartyState変化時にHUDのHP/MP/バーを更新するシステム
+/// PartyState変化時にHUDのHP/MP/バー/名前+レベルを更新するシステム
 pub fn update_hud(
     party_state: Res<PartyState>,
-    mut hp_query: Query<(&HudHpText, &mut Text)>,
-    mut mp_query: Query<(&HudMpText, &mut Text), Without<HudHpText>>,
+    mut name_query: Query<(&HudNameText, &mut Text), (Without<HudHpText>, Without<HudMpText>, Without<HudGoldText>)>,
+    mut hp_query: Query<(&HudHpText, &mut Text), (Without<HudNameText>, Without<HudMpText>, Without<HudGoldText>)>,
+    mut mp_query: Query<(&HudMpText, &mut Text), (Without<HudNameText>, Without<HudHpText>, Without<HudGoldText>)>,
     mut bar_query: Query<(&HudHpBarFill, &mut Node, &mut BackgroundColor)>,
     mut gold_query: GoldTextQuery,
 ) {
     if !party_state.is_changed() {
         return;
+    }
+
+    for (name_text, mut text) in &mut name_query {
+        if let Some(member) = party_state.members.get(name_text.index) {
+            **text = format!("{} Lv.{}", member.kind.name(), member.level);
+        }
     }
 
     for (hp_text, mut text) in &mut hp_query {
