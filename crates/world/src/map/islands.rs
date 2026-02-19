@@ -195,12 +195,22 @@ const TOWNS_SMALL_ISLAND: usize = 3;
 const LARGE_ISLAND_THRESHOLD: usize = 2500;
 /// 街を配置する最小島サイズ
 const MIN_ISLAND_SIZE_FOR_TOWNS: usize = 100;
+/// 街間の最小距離
+const MIN_TOWN_DISTANCE: f64 = 10.0;
+
+/// 2点間のユークリッド距離
+fn tile_distance(x1: usize, y1: usize, x2: usize, y2: usize) -> f64 {
+    let dx = x1 as f64 - x2 as f64;
+    let dy = y1 as f64 - y2 as f64;
+    (dx * dx + dy * dy).sqrt()
+}
 
 /// 各島に町スポーン位置を計算
 ///
 /// 島のサイズに応じて街の数を決定する。
 /// 大きい島（2500タイル以上）は5個、小さい島は3個。
 /// 極小島（100タイル未満）には街を配置しない。
+/// 街同士は最低10タイルの間隔を保つ。
 /// `spawn_position` (x, y) はプレイヤー初期位置として除外する。
 pub fn calculate_town_spawns(
     grid: &[Vec<Terrain>],
@@ -228,8 +238,19 @@ pub fn calculate_town_spawns(
             .collect();
 
         candidates.shuffle(rng);
-        for &(x, y) in candidates.iter().take(town_count) {
-            spawns.push(TownSpawn { x, y });
+
+        let mut placed: Vec<(usize, usize)> = Vec::new();
+        for &(x, y) in &candidates {
+            if placed.len() >= town_count {
+                break;
+            }
+            let far_enough = placed
+                .iter()
+                .all(|&(px, py)| tile_distance(x, y, px, py) >= MIN_TOWN_DISTANCE);
+            if far_enough {
+                placed.push((x, y));
+                spawns.push(TownSpawn { x, y });
+            }
         }
     }
 
@@ -294,8 +315,14 @@ pub fn place_extra_towns(
 
     let mut placed = Vec::new();
 
+    // 既存の街座標を収集（間隔チェック用）
+    let mut existing_towns: Vec<(usize, usize)> = spawn_island
+        .iter()
+        .filter(|&&(x, y)| grid[y][x] == Terrain::Town)
+        .copied()
+        .collect();
+
     for _ in 0..extra_count {
-        // 現在のgridを参照して候補を絞る（既存TownとspawnとすでにTownに変換済みのタイルを除外）
         let mut candidates: Vec<(usize, usize)> = spawn_island
             .iter()
             .filter(|&&(x, y)| {
@@ -304,11 +331,18 @@ pub fn place_extra_towns(
             .copied()
             .collect();
 
-        // ランダムに選択してTownに変更
         candidates.shuffle(rng);
-        if let Some(&(x, y)) = candidates.first() {
+
+        let picked = candidates.iter().find(|&&(x, y)| {
+            existing_towns
+                .iter()
+                .all(|&(tx, ty)| tile_distance(x, y, tx, ty) >= MIN_TOWN_DISTANCE)
+        });
+
+        if let Some(&(x, y)) = picked {
             grid[y][x] = Terrain::Town;
             placed.push(TownSpawn { x, y });
+            existing_towns.push((x, y));
         } else {
             break;
         }
@@ -442,13 +476,13 @@ mod tests {
     #[test]
     fn place_extra_towns_adds_towns_on_spawn_island() {
         let mut grid = create_test_grid(Terrain::Sea);
-        // スポーン大陸（Plainsが多い島）
-        for y in 5..10 {
-            for x in 5..15 {
+        // スポーン大陸（十分な広さ: 30x30）
+        for y in 5..35 {
+            for x in 5..35 {
                 grid[y][x] = Terrain::Plains;
             }
         }
-        let spawn_pos = (7, 7);
+        let spawn_pos = (20, 20);
 
         let mut rng = create_rng(42);
         let extra = place_extra_towns(&mut grid, &mut rng, spawn_pos, 2);
@@ -458,6 +492,16 @@ mod tests {
             assert_eq!(grid[town.y][town.x], Terrain::Town);
             assert_ne!((town.x, town.y), spawn_pos);
         }
+
+        // 街間の距離が最小距離以上であることを検証
+        let dx = extra[0].x as f64 - extra[1].x as f64;
+        let dy = extra[0].y as f64 - extra[1].y as f64;
+        let dist = (dx * dx + dy * dy).sqrt();
+        assert!(
+            dist >= MIN_TOWN_DISTANCE,
+            "街間の距離が{:.1}で近すぎる",
+            dist
+        );
     }
 
     #[test]

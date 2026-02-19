@@ -808,6 +808,27 @@ mod tests {
             eprintln!("合計: 街{}個, 洞窟{}個", town_count, cave_count);
 
             assert!(town_count > 0, "seed {}: 街が1つもない", seed);
+
+            // 街間の最小距離を検証
+            let towns: Vec<(usize, usize)> = (0..MAP_HEIGHT)
+                .flat_map(|y| (0..MAP_WIDTH).map(move |x| (x, y)))
+                .filter(|&(x, y)| map.grid[y][x] == Terrain::Town)
+                .collect();
+
+            for i in 0..towns.len() {
+                for j in (i + 1)..towns.len() {
+                    let (x1, y1) = towns[i];
+                    let (x2, y2) = towns[j];
+                    let dx = x1 as f64 - x2 as f64;
+                    let dy = y1 as f64 - y2 as f64;
+                    let dist = (dx * dx + dy * dy).sqrt();
+                    assert!(
+                        dist >= 10.0,
+                        "seed {}: 街({},{})と({},{})の距離が{:.1}で近すぎる",
+                        seed, x1, y1, x2, y2, dist
+                    );
+                }
+            }
         }
     }
 }
