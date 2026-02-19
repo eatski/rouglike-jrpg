@@ -4393,6 +4393,7 @@ name = "screenshot-battle"
 version = "0.1.0"
 dependencies = [
  "app-state",
+ "battle",
  "battle-ui",
  "bevy",
  "screenshot-common",

@@ -127,14 +127,46 @@ fn format_goods_label(prefix: &str, goods: &ShopGoods) -> String {
     }
 }
 
+/// 町シーンの初期状態設定（リソースとして注入）
+#[derive(Resource)]
+pub struct TownSceneConfig {
+    /// 初期フェーズ
+    pub initial_phase: TownMenuPhase,
+    /// 初期選択位置
+    pub selected_item: usize,
+}
+
 pub fn setup_town_scene(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     party_state: Res<PartyState>,
 ) {
+    setup_town_scene_inner(&mut commands, &asset_server, &party_state, TownMenuPhase::MenuSelect, 0);
+}
+
+/// TownSceneConfigリソースから設定を読んでシーンを構築するシステム
+pub fn setup_town_scene_with_config(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    party_state: Res<PartyState>,
+    config: Res<TownSceneConfig>,
+) {
+    let phase = config.initial_phase.clone();
+    let selected = config.selected_item;
+    commands.remove_resource::<TownSceneConfig>();
+    setup_town_scene_inner(&mut commands, &asset_server, &party_state, phase, selected);
+}
+
+fn setup_town_scene_inner(
+    commands: &mut Commands,
+    asset_server: &AssetServer,
+    party_state: &PartyState,
+    initial_phase: TownMenuPhase,
+    selected_item: usize,
+) {
     commands.insert_resource(TownResource {
-        selected_item: 0,
-        phase: TownMenuPhase::MenuSelect,
+        selected_item,
+        phase: initial_phase,
     });
 
     let font: Handle<Font> = asset_server.load("fonts/NotoSansJP-Bold.ttf");
