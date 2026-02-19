@@ -1,8 +1,7 @@
 use image::{Rgba, RgbaImage};
-use rand::Rng;
 use std::path::Path;
 
-use crate::generators::common::{new_image, save_image, TILE_SIZE};
+use crate::generators::common::{new_image, pixel_hash, pixel_noise, save_image, TILE_SIZE};
 
 struct RockColors {
     dark: Rgba<u8>,
@@ -14,7 +13,7 @@ struct RockColors {
 
 fn draw_rocky_boulder(
     img: &mut RgbaImage,
-    rng: &mut impl rand::Rng,
+    salt: u32,
     start_x: u32,
     start_y: u32,
     width: u32,
@@ -22,6 +21,7 @@ fn draw_rocky_boulder(
     colors: &RockColors,
 ) {
     let RockColors { dark: rock_dark, mid: rock_mid, light: rock_light, edge: rock_edge, moss } = *colors;
+    let mut counter: u32 = 0;
     for dy in 0..height {
         let y = start_y + dy;
         if y >= TILE_SIZE {
@@ -46,7 +46,7 @@ fn draw_rocky_boulder(
                 continue;
             }
 
-            let noise = rng.gen_range(0..3);
+            let noise = pixel_hash(x, y, salt) % 3;
             if noise == 0 && dx == 0 {
                 continue;
             }
@@ -62,9 +62,9 @@ fn draw_rocky_boulder(
             let color = if is_left_edge || is_bottom {
                 rock_edge
             } else if is_right_edge || is_top {
-                if rng.gen_bool(0.6) { rock_light } else { rock_mid }
+                if pixel_noise(x, y, salt + 1) < 0.6 { rock_light } else { rock_mid }
             } else {
-                let r: f32 = rng.r#gen();
+                let r = pixel_noise(x, y, salt + 2);
                 if r < 0.1 {
                     moss
                 } else if r < 0.3 {
@@ -77,12 +77,19 @@ fn draw_rocky_boulder(
             };
 
             img.put_pixel(x, y, color);
+            counter += 1;
         }
     }
 
-    for _ in 0..3 {
-        let cx = start_x + rng.gen_range(1..width.saturating_sub(1));
-        let cy = start_y + rng.gen_range(1..height.saturating_sub(1));
+    let crack_positions: [(u32, u32); 3] = [
+        (start_x + pixel_hash(0, counter, salt + 3) % width.saturating_sub(2).max(1) + 1,
+         start_y + pixel_hash(1, counter, salt + 3) % height.saturating_sub(2).max(1) + 1),
+        (start_x + pixel_hash(2, counter, salt + 4) % width.saturating_sub(2).max(1) + 1,
+         start_y + pixel_hash(3, counter, salt + 4) % height.saturating_sub(2).max(1) + 1),
+        (start_x + pixel_hash(4, counter, salt + 5) % width.saturating_sub(2).max(1) + 1,
+         start_y + pixel_hash(5, counter, salt + 5) % height.saturating_sub(2).max(1) + 1),
+    ];
+    for (cx, cy) in crack_positions {
         if cx < TILE_SIZE && cy < TILE_SIZE {
             img.put_pixel(cx, cy, rock_edge);
         }
@@ -91,7 +98,6 @@ fn draw_rocky_boulder(
 
 pub fn generate_mountain(output_dir: &Path) {
     let mut img = new_image();
-    let mut rng = rand::thread_rng();
 
     let bg = Rgba([80, 100, 70, 255]);
     let rock_dark = Rgba([80, 70, 60, 255]);
@@ -108,14 +114,22 @@ pub fn generate_mountain(output_dir: &Path) {
 
     let rock_colors = RockColors { dark: rock_dark, mid: rock_mid, light: rock_light, edge: rock_edge, moss };
 
-    draw_rocky_boulder(&mut img, &mut rng, 6, 5, 8, 10, &rock_colors);
-    draw_rocky_boulder(&mut img, &mut rng, 1, 2, 5, 6, &rock_colors);
-    draw_rocky_boulder(&mut img, &mut rng, 11, 3, 4, 5, &rock_colors);
+    draw_rocky_boulder(&mut img, 50, 6, 5, 8, 10, &rock_colors);
+    draw_rocky_boulder(&mut img, 60, 1, 2, 5, 6, &rock_colors);
+    draw_rocky_boulder(&mut img, 70, 11, 3, 4, 5, &rock_colors);
 
-    for _ in 0..8 {
-        let x = rng.gen_range(0..TILE_SIZE);
-        let y = rng.gen_range(10..TILE_SIZE);
-        let color = if rng.gen_bool(0.5) { rock_mid } else { rock_dark };
+    let scatter_positions: [(u32, u32); 8] = [
+        (pixel_hash(0, 0, 80) % TILE_SIZE, 10 + pixel_hash(0, 1, 80) % (TILE_SIZE - 10)),
+        (pixel_hash(1, 0, 80) % TILE_SIZE, 10 + pixel_hash(1, 1, 80) % (TILE_SIZE - 10)),
+        (pixel_hash(2, 0, 80) % TILE_SIZE, 10 + pixel_hash(2, 1, 80) % (TILE_SIZE - 10)),
+        (pixel_hash(3, 0, 80) % TILE_SIZE, 10 + pixel_hash(3, 1, 80) % (TILE_SIZE - 10)),
+        (pixel_hash(4, 0, 80) % TILE_SIZE, 10 + pixel_hash(4, 1, 80) % (TILE_SIZE - 10)),
+        (pixel_hash(5, 0, 80) % TILE_SIZE, 10 + pixel_hash(5, 1, 80) % (TILE_SIZE - 10)),
+        (pixel_hash(6, 0, 80) % TILE_SIZE, 10 + pixel_hash(6, 1, 80) % (TILE_SIZE - 10)),
+        (pixel_hash(7, 0, 80) % TILE_SIZE, 10 + pixel_hash(7, 1, 80) % (TILE_SIZE - 10)),
+    ];
+    for (x, y) in scatter_positions {
+        let color = if pixel_noise(x, y, 81) < 0.5 { rock_mid } else { rock_dark };
         if img.get_pixel(x, y) == &bg {
             img.put_pixel(x, y, color);
         }

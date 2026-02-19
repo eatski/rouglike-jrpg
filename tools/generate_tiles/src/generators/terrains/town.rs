@@ -1,20 +1,15 @@
 use image::{Rgba, RgbaImage};
-use rand::Rng;
 use std::path::Path;
 
-use crate::generators::common::{new_image, save_image, TILE_SIZE};
+use crate::generators::common::{new_image, pixel_noise, save_image, TILE_SIZE};
 
 #[allow(clippy::too_many_arguments)]
 fn draw_house(
     img: &mut RgbaImage,
-    _rng: &mut impl rand::Rng,
     start_x: u32,
     start_y: u32,
     width: u32,
     height: u32,
-    _brick: Rgba<u8>,
-    _brick_dark: Rgba<u8>,
-    _brick_light: Rgba<u8>,
     roof_brown: Rgba<u8>,
     roof_highlight: Rgba<u8>,
     wall_beige: Rgba<u8>,
@@ -87,7 +82,6 @@ fn draw_house(
 #[allow(clippy::too_many_arguments)]
 fn draw_castle(
     img: &mut RgbaImage,
-    _rng: &mut impl rand::Rng,
     start_x: u32,
     start_y: u32,
     width: u32,
@@ -95,11 +89,6 @@ fn draw_castle(
     brick: Rgba<u8>,
     brick_dark: Rgba<u8>,
     brick_light: Rgba<u8>,
-    _roof_brown: Rgba<u8>,
-    _roof_highlight: Rgba<u8>,
-    _wall_beige: Rgba<u8>,
-    _wall_light: Rgba<u8>,
-    _wall_dark: Rgba<u8>,
     window: Rgba<u8>,
 ) {
     for dx in 0..width {
@@ -148,7 +137,6 @@ fn draw_castle(
 
 pub fn generate_town(output_dir: &Path) {
     let mut img = new_image();
-    let mut rng = rand::thread_rng();
 
     let grass_base = Rgba([90, 140, 80, 255]);
     let grass_dark = Rgba([70, 110, 60, 255]);
@@ -165,19 +153,19 @@ pub fn generate_town(output_dir: &Path) {
 
     for y in 0..TILE_SIZE {
         for x in 0..TILE_SIZE {
-            let color = if rng.gen_bool(0.2) { grass_dark } else { grass_base };
+            let color = if pixel_noise(x, y, 90) < 0.2 { grass_dark } else { grass_base };
             img.put_pixel(x, y, color);
         }
     }
 
-    draw_house(&mut img, &mut rng, 1, 3, 5, 10, brick, brick_dark, brick_light, roof_brown, roof_highlight, wall_beige, wall_light, wall_dark, window, door);
-    draw_castle(&mut img, &mut rng, 10, 2, 5, 11, brick, brick_dark, brick_light, roof_brown, roof_highlight, wall_beige, wall_light, wall_dark, window);
+    draw_house(&mut img, 1, 3, 5, 10, roof_brown, roof_highlight, wall_beige, wall_light, wall_dark, window, door);
+    draw_castle(&mut img, 10, 2, 5, 11, brick, brick_dark, brick_light, window);
 
     let stone_light = Rgba([170, 170, 160, 255]);
     let stone_dark = Rgba([130, 130, 120, 255]);
     for y in 12..TILE_SIZE {
         for x in 6..=9 {
-            let color = if rng.gen_bool(0.4) { stone_dark } else { stone_light };
+            let color = if pixel_noise(x, y, 91) < 0.4 { stone_dark } else { stone_light };
             img.put_pixel(x, y, color);
         }
     }

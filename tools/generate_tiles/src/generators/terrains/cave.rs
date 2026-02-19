@@ -1,12 +1,10 @@
 use image::Rgba;
-use rand::Rng;
 use std::path::Path;
 
-use crate::generators::common::{new_image, save_image, TILE_SIZE};
+use crate::generators::common::{new_image, pixel_noise, save_image, TILE_SIZE};
 
 pub fn generate_cave(output_dir: &Path) {
     let mut img = new_image();
-    let mut rng = rand::thread_rng();
 
     let rock_bg = Rgba([100, 95, 85, 255]);
     let rock_dark = Rgba([70, 65, 55, 255]);
@@ -18,7 +16,7 @@ pub fn generate_cave(output_dir: &Path) {
 
     for y in 0..TILE_SIZE {
         for x in 0..TILE_SIZE {
-            let r: f32 = rng.r#gen();
+            let r = pixel_noise(x, y, 40);
             let color = if r < 0.2 {
                 rock_dark
             } else if r < 0.3 {
@@ -131,7 +129,7 @@ pub fn generate_cave(output_dir: &Path) {
 
     for (mx, my) in moss_positions {
         if mx < TILE_SIZE && my < TILE_SIZE
-            && rng.gen_bool(0.7)
+            && pixel_noise(mx, my, 41) < 0.7
         {
             img.put_pixel(mx, my, moss);
         }
@@ -140,7 +138,7 @@ pub fn generate_cave(output_dir: &Path) {
     for y in 8..13 {
         for dx in [3, 4, 11, 12] {
             if dx < TILE_SIZE && y < TILE_SIZE
-                && rng.gen_bool(0.3)
+                && pixel_noise(dx, y, 42) < 0.3
             {
                 let color = if dx < 8 { rock_dark } else { rock_light };
                 img.put_pixel(dx, y, color);
