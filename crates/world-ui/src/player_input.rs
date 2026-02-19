@@ -6,7 +6,7 @@ use movement_ui::{
     Boat, MovementBlockedEvent, MovementLocked, OnBoat, PendingMove, Player, PlayerMovedEvent,
     TilePosition,
 };
-use app_state::FieldSpellMenuOpen;
+use app_state::FieldMenuOpen;
 use movement_ui::{ActiveMap, MovementState};
 
 use crate::map_mode::MapModeState;
@@ -20,7 +20,7 @@ pub fn player_movement(
     time: Res<Time>,
     active_map: Res<ActiveMap>,
     map_mode_state: Res<MapModeState>,
-    field_menu_open: Res<FieldSpellMenuOpen>,
+    field_menu_open: Res<FieldMenuOpen>,
     mut move_state: ResMut<MovementState>,
     mut query: Query<
         (
