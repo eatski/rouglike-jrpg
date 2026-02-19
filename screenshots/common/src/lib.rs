@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use bevy::prelude::*;
 use bevy::render::view::screenshot::{Screenshot, save_to_disk};
 use bevy::window::WindowResolution;
@@ -51,6 +53,9 @@ fn screenshot_system(
 ) {
     state.frame += 1;
     if state.frame == 30 {
+        if let Some(parent) = Path::new(&state.output_path).parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
         commands
             .spawn(Screenshot::primary_window())
             .observe(save_to_disk(state.output_path.clone()));
