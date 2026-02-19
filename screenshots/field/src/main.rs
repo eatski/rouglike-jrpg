@@ -2,12 +2,21 @@ use bevy::prelude::*;
 
 use app_state::PartyState;
 use movement_ui::{ActiveMap, Player, TilePosition};
-use screenshot_common::screenshot_app;
+use screenshot_common::{screenshot_app, ScreenshotRng};
 use terrain::Terrain;
 use world_ui::{
     camera_follow, init_exploration_system, init_minimap_system, init_tile_pool, setup_camera,
-    setup_hud, spawn_field_map, spawn_player, update_visible_tiles, MapModeState,
+    setup_hud, spawn_field_map_with_rng, spawn_player, update_visible_tiles, MapModeState,
 };
+
+/// 固定シードRngでフィールドマップを生成するシステム
+fn spawn_field_map_seeded(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut screenshot_rng: ResMut<ScreenshotRng>,
+) {
+    spawn_field_map_with_rng(&mut commands, &asset_server, &mut screenshot_rng.rng);
+}
 
 /// プレイヤーを海岸近くに移動するシステム（スクリーンショット用）
 fn move_player_to_coast(
@@ -50,7 +59,7 @@ fn main() {
         .add_systems(
             Startup,
             (
-                spawn_field_map,
+                spawn_field_map_seeded,
                 setup_camera,
                 spawn_player,
                 move_player_to_coast,

@@ -57,20 +57,14 @@ pub struct TileTextures {
     pub coast_lookup: [u8; 256],
 }
 
-/// Rng注入可能なフィールドマップ生成
-pub fn spawn_field_map_with_rng(
-    commands: &mut Commands,
-    asset_server: &AssetServer,
-    rng: &mut impl rand::Rng,
-) {
-    // 海岸タイルのルックアップテーブルを構築
+/// タイルテクスチャをロードする
+pub fn load_tile_textures(asset_server: &AssetServer) -> TileTextures {
     let (coast_lookup, coast_count) = crate::coast_lookup::build_lookup_table();
     let coast_tiles: Vec<Handle<Image>> = (0..coast_count)
         .map(|i| asset_server.load(format!("tiles/coast_{:03}.png", i)))
         .collect();
 
-    // テクスチャをロード
-    let tile_textures = TileTextures {
+    TileTextures {
         sea: asset_server.load("tiles/sea.png"),
         plains: asset_server.load("tiles/plains.png"),
         forest: asset_server.load("tiles/forest.png"),
@@ -84,7 +78,16 @@ pub fn spawn_field_map_with_rng(
         ladder: asset_server.load("tiles/ladder.png"),
         coast_tiles,
         coast_lookup,
-    };
+    }
+}
+
+/// Rng注入可能なフィールドマップ生成
+pub fn spawn_field_map_with_rng(
+    commands: &mut Commands,
+    asset_server: &AssetServer,
+    rng: &mut impl rand::Rng,
+) {
+    let tile_textures = load_tile_textures(asset_server);
 
     let mut map_data = generate_connected_map(rng);
 

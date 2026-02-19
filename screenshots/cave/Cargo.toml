@@ -9,7 +9,10 @@ path = "src/main.rs"
 
 [dependencies]
 bevy = "0.18"
+rand = "0.8"
+rand_chacha = "0.3"
 screenshot-common = { path = "../common" }
+cave = { path = "../../crates/cave" }
+cave-ui = { path = "../../crates/cave-ui" }
 movement-ui = { path = "../../crates/movement-ui" }
 world-ui = { path = "../../crates/world-ui" }
-cave-ui = { path = "../../crates/cave-ui" }
