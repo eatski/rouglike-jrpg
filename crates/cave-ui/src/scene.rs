@@ -4,9 +4,10 @@ use std::collections::HashMap;
 use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
 
-use cave::{generate_cave_map, CAVE_HEIGHT, CAVE_WIDTH};
+use cave::{generate_cave_map, TreasureChest, CAVE_HEIGHT, CAVE_WIDTH};
 use terrain::Terrain;
 
+use app_state::OpenedChests;
 use movement_ui::{
     Boat, Bounce, MapTile, MovementLocked, PendingMove, Player, SmoothMove, TilePosition,
 };
@@ -22,6 +23,29 @@ pub struct FieldReturnState {
     pub player_tile_y: usize,
 }
 
+/// 宝箱エンティティのマーカー
+#[derive(Component)]
+pub struct ChestEntity {
+    pub treasure_index: usize,
+}
+
+/// 現在入っている洞窟の宝箱情報
+#[derive(Resource)]
+pub struct CaveTreasures {
+    pub cave_pos: (usize, usize),
+    pub treasures: Vec<TreasureChest>,
+}
+
+/// 洞窟内メッセージ表示の状態
+#[derive(Resource, Default)]
+pub struct CaveMessageState {
+    pub message: Option<String>,
+}
+
+/// 洞窟メッセージ表示用UIマーカー
+#[derive(Component)]
+pub struct CaveMessageUI;
+
 /// 洞窟用タイルエンティティのマーカー
 #[derive(Component)]
 pub struct CaveTile;
@@ -33,6 +57,7 @@ pub struct CaveTilePool {
     pub last_player_pos: Option<(i32, i32)>,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn setup_cave_scene(
     mut commands: Commands,
     mut player_query: Query<(&mut TilePosition, &mut Transform), With<Player>>,
@@ -40,6 +65,8 @@ pub fn setup_cave_scene(
     boat_query: Query<Entity, With<Boat>>,
     mut move_state: ResMut<MovementState>,
     active_map: Res<ActiveMap>,
+    tile_textures: Res<TileTextures>,
+    opened_chests: Res<OpenedChests>,
 ) {
     // フィールド座標を保存
     let Ok((mut tile_pos, mut transform)) = player_query.single_mut() else {
@@ -71,6 +98,7 @@ pub fn setup_cave_scene(
     }
 
     // 洞窟マップ生成（ワールドマップ座標からシードを決定し、同じ洞窟は常に同じ形にする）
+    let cave_world_pos = (tile_pos.x, tile_pos.y);
     let seed = tile_pos.x as u64 * 10007 + tile_pos.y as u64;
     let mut rng = ChaCha8Rng::seed_from_u64(seed);
     let cave_data = generate_cave_map(&mut rng);
@@ -79,13 +107,41 @@ pub fn setup_cave_scene(
     // 洞窟用ActiveMapを作成
     let cave_origin_x = -(CAVE_WIDTH as f32 * TILE_SIZE) / 2.0 + TILE_SIZE / 2.0;
     let cave_origin_y = -(CAVE_HEIGHT as f32 * TILE_SIZE) / 2.0 + TILE_SIZE / 2.0;
-    commands.insert_resource(ActiveMap {
+
+    let active_map_resource = ActiveMap {
         grid: cave_data.grid,
         width: cave_data.width,
         height: cave_data.height,
         origin_x: cave_origin_x,
         origin_y: cave_origin_y,
+    };
+
+    // 宝箱エンティティをspawn（取得済みは開いた見た目で表示）
+    let scale = TILE_SIZE / 16.0;
+    let opened_set = opened_chests.chests.get(&cave_world_pos);
+    for (i, treasure) in cave_data.treasures.iter().enumerate() {
+        let is_opened = opened_set.is_some_and(|set| set.contains(&i));
+        let texture = if is_opened {
+            tile_textures.chest_open.clone()
+        } else {
+            tile_textures.chest.clone()
+        };
+        let (world_x, world_y) = active_map_resource.to_world_logical(treasure.x as i32, treasure.y as i32);
+        commands.spawn((
+            ChestEntity { treasure_index: i },
+            Sprite::from_image(texture),
+            Transform::from_xyz(world_x, world_y, 0.5).with_scale(Vec3::splat(scale)),
+        ));
+    }
+
+    // 宝箱情報をリソースとして保存
+    commands.insert_resource(CaveTreasures {
+        cave_pos: cave_world_pos,
+        treasures: cave_data.treasures,
     });
+    commands.insert_resource(CaveMessageState::default());
+
+    commands.insert_resource(active_map_resource);
 
     // プレイヤーを洞窟のスポーン位置に移動
     tile_pos.x = spawn_x;
@@ -206,11 +262,21 @@ pub fn update_cave_tiles(
 pub fn despawn_cave_entities(
     mut commands: Commands,
     cave_tile_query: Query<Entity, With<CaveTile>>,
+    chest_query: Query<Entity, With<ChestEntity>>,
+    message_ui_query: Query<Entity, With<CaveMessageUI>>,
 ) {
     for entity in &cave_tile_query {
         commands.entity(entity).despawn();
     }
+    for entity in &chest_query {
+        commands.entity(entity).despawn();
+    }
+    for entity in &message_ui_query {
+        commands.entity(entity).despawn();
+    }
     commands.remove_resource::<CaveTilePool>();
+    commands.remove_resource::<CaveTreasures>();
+    commands.remove_resource::<CaveMessageState>();
 }
 
 pub fn restore_field_from_cave(

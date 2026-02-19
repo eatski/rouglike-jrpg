@@ -1,17 +1,45 @@
+use rand::seq::SliceRandom;
 use rand::Rng;
 
+use party::{ItemKind, WeaponKind};
 use terrain::Terrain;
 
 pub const CAVE_WIDTH: usize = 30;
 pub const CAVE_HEIGHT: usize = 30;
 
 const RANDOM_WALK_STEPS: usize = 400;
+const MAX_TREASURES: usize = 3;
+
+/// 宝箱の中身
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TreasureContent {
+    Item(ItemKind),
+    Weapon(WeaponKind),
+}
+
+impl TreasureContent {
+    pub fn name(self) -> &'static str {
+        match self {
+            TreasureContent::Item(item) => item.name(),
+            TreasureContent::Weapon(weapon) => weapon.name(),
+        }
+    }
+}
+
+/// 宝箱の定義（位置と中身）
+#[derive(Debug, Clone)]
+pub struct TreasureChest {
+    pub x: usize,
+    pub y: usize,
+    pub content: TreasureContent,
+}
 
 pub struct CaveMapData {
     pub grid: Vec<Vec<Terrain>>,
     pub width: usize,
     pub height: usize,
     pub spawn_position: (usize, usize),
+    pub treasures: Vec<TreasureChest>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -79,12 +107,48 @@ pub fn generate_cave_map(rng: &mut impl Rng) -> CaveMapData {
     // スポーン地点に梯子を配置
     grid[spawn_position.1][spawn_position.0] = Terrain::Ladder;
 
+    // 宝箱配置: 床タイルからスポーン地点を除いた候補を収集
+    let mut floor_positions: Vec<(usize, usize)> = grid
+        .iter()
+        .enumerate()
+        .flat_map(|(cy, row)| {
+            row.iter().enumerate().filter_map(move |(cx, terrain)| {
+                if *terrain == Terrain::CaveFloor && (cx, cy) != spawn_position {
+                    Some((cx, cy))
+                } else {
+                    None
+                }
+            })
+        })
+        .collect();
+
+    floor_positions.shuffle(rng);
+    let treasure_count = if floor_positions.is_empty() {
+        0
+    } else {
+        rng.gen_range(1..=MAX_TREASURES.min(floor_positions.len()))
+    };
+
+    let treasures: Vec<TreasureChest> = floor_positions[..treasure_count]
+        .iter()
+        .map(|&(tx, ty)| TreasureChest {
+            x: tx,
+            y: ty,
+            content: random_treasure_content(rng),
+        })
+        .collect();
+
     CaveMapData {
         grid,
         width: CAVE_WIDTH,
         height: CAVE_HEIGHT,
         spawn_position,
+        treasures,
     }
+}
+
+fn random_treasure_content(_rng: &mut impl Rng) -> TreasureContent {
+    TreasureContent::Item(ItemKind::CopperKey)
 }
 
 

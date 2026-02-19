@@ -4,6 +4,7 @@ use bevy::prelude::*;
 use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
 
+use app_state::OpenedChests;
 use cave::{generate_cave_map, CAVE_HEIGHT, CAVE_WIDTH};
 use cave_ui::{update_cave_tiles, CaveTilePool};
 use movement_ui::{ActiveMap, Player, TilePosition, TILE_SIZE};
@@ -56,7 +57,8 @@ fn setup_cave_direct(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 fn main() {
     let mut app = screenshot_app("cave");
-    app.add_systems(Startup, (setup_cave_direct, setup_camera).chain())
+    app.init_resource::<OpenedChests>()
+        .add_systems(Startup, (setup_cave_direct, setup_camera).chain())
         .add_systems(
             Update,
             (update_cave_tiles, camera_follow).chain(),

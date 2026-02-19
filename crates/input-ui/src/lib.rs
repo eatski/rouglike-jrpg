@@ -39,6 +39,12 @@ pub fn is_confirm_just_pressed(keyboard: &ButtonInput<KeyCode>) -> bool {
         || keyboard.just_pressed(KeyCode::KeyZ)
 }
 
+pub fn clear_confirm_just_pressed(keyboard: &mut ButtonInput<KeyCode>) {
+    keyboard.clear_just_pressed(KeyCode::Enter);
+    keyboard.clear_just_pressed(KeyCode::Space);
+    keyboard.clear_just_pressed(KeyCode::KeyZ);
+}
+
 pub fn is_cancel_just_pressed(keyboard: &ButtonInput<KeyCode>) -> bool {
     keyboard.just_pressed(KeyCode::Escape) || keyboard.just_pressed(KeyCode::KeyX)
 }
