@@ -1773,6 +1773,7 @@ dependencies = [
 name = "cave"
 version = "0.1.0"
 dependencies = [
+ "party",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "terrain",
@@ -1787,6 +1788,7 @@ dependencies = [
  "cave",
  "input-ui",
  "movement-ui",
+ "party",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "terrain",
@@ -4401,6 +4403,7 @@ dependencies = [
 name = "screenshot-cave"
 version = "0.1.0"
 dependencies = [
+ "app-state",
  "bevy",
  "cave",
  "cave-ui",

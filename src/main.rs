@@ -7,8 +7,10 @@ use battle_ui::{
     cleanup_battle_scene, field_menu_display_system, field_menu_input_system,
     setup_battle_scene,
 };
+use app_state::OpenedChests;
 use cave_ui::{
-    cave_player_movement, check_ladder_system, despawn_cave_entities, restore_field_from_cave,
+    cave_message_display_system, cave_message_input_system, cave_player_movement,
+    check_chest_system, check_ladder_system, despawn_cave_entities, restore_field_from_cave,
     setup_cave_scene, start_cave_smooth_move, update_cave_smooth_move, update_cave_tiles,
 };
 use movement_ui::{
@@ -58,6 +60,7 @@ fn main() {
     .init_resource::<MapModeState>()
     .init_resource::<PartyState>()
     .init_resource::<FieldMenuOpen>()
+    .init_resource::<OpenedChests>()
     .add_systems(
         Startup,
         (
@@ -144,6 +147,9 @@ fn main() {
             update_bounce,
             update_cave_tiles,
             camera_follow,
+            check_chest_system,
+            cave_message_input_system,
+            cave_message_display_system,
             check_ladder_system,
             check_encounter_system,
         )

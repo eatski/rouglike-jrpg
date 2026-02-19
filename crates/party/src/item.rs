@@ -5,24 +5,28 @@ pub const INVENTORY_CAPACITY: u32 = 6;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ItemKind {
     Herb,
+    CopperKey,
 }
 
 impl ItemKind {
     pub fn name(self) -> &'static str {
         match self {
             ItemKind::Herb => "やくそう",
+            ItemKind::CopperKey => "どうのカギ",
         }
     }
 
     pub fn heal_power(self) -> i32 {
         match self {
             ItemKind::Herb => 25,
+            ItemKind::CopperKey => 0,
         }
     }
 
     pub fn price(self) -> u32 {
         match self {
             ItemKind::Herb => 8,
+            ItemKind::CopperKey => 0,
         }
     }
 }

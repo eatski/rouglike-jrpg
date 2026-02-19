@@ -28,6 +28,8 @@ fn main() {
     generate_cave_floor(tiles_dir);
     generate_warp_zone(tiles_dir);
     generate_ladder(tiles_dir);
+    generate_chest(tiles_dir);
+    generate_chest_open(tiles_dir);
 
     // キャラクターを生成
     generate_player(chars_dir);

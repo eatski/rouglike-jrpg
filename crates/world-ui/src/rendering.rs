@@ -53,6 +53,8 @@ pub struct TileTextures {
     pub cave_floor: Handle<Image>,
     pub warp_zone: Handle<Image>,
     pub ladder: Handle<Image>,
+    pub chest: Handle<Image>,
+    pub chest_open: Handle<Image>,
     pub coast_tiles: Vec<Handle<Image>>,
     pub coast_lookup: [u8; 256],
 }
@@ -76,6 +78,8 @@ pub fn load_tile_textures(asset_server: &AssetServer) -> TileTextures {
         cave_floor: asset_server.load("tiles/cave_floor.png"),
         warp_zone: asset_server.load("tiles/warp_zone.png"),
         ladder: asset_server.load("tiles/ladder.png"),
+        chest: asset_server.load("tiles/chest.png"),
+        chest_open: asset_server.load("tiles/chest_open.png"),
         coast_tiles,
         coast_lookup,
     }

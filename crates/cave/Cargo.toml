@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 rand = "0.8"
 terrain = { path = "../terrain" }
+party = { path = "../party" }
 
 [dev-dependencies]
 rand_chacha = "0.3"
