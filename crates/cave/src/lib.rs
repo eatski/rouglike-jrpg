@@ -147,18 +147,8 @@ pub fn generate_cave_map(rng: &mut impl Rng) -> CaveMapData {
     }
 }
 
-fn random_treasure_content(rng: &mut impl Rng) -> TreasureContent {
-    // 70% アイテム、30% 武器
-    if rng.gen_ratio(7, 10) {
-        TreasureContent::Item(ItemKind::Herb)
-    } else {
-        let weapons = [
-            WeaponKind::WoodenSword,
-            WeaponKind::IronSword,
-            WeaponKind::MageStaff,
-        ];
-        TreasureContent::Weapon(weapons[rng.gen_range(0..weapons.len())])
-    }
+fn random_treasure_content(_rng: &mut impl Rng) -> TreasureContent {
+    TreasureContent::Item(ItemKind::CopperKey)
 }
 
 

@@ -29,9 +29,9 @@ Bevy 0.18を使用した2Dローグライク風JRPGのプロトタイプ。Cargo
 
 **ドメイン層（依存なし）**:
 - **terrain**: 地形・座標・方向（Terrain, Position, Direction）。Mountain は歩行不可（`is_walkable()` = false）
-- **party**: パーティ・キャラクター・ステータス・アイテム・装備・仲間募集・レベルシステム（PartyMember（level/expフィールド、gain_exp()でレベルアップ処理）、CombatStats（apply_growth()でステータス成長）、StatGrowth（クラス別成長値）、ItemKind、Inventory、INVENTORY_CAPACITY=6、WeaponKind、Equipment、effective_attack()、RecruitCandidate、RecruitmentStatus: Undiscovered→Acquaintance→Recruited）
+- **party**: パーティ・キャラクター・ステータス・アイテム・装備・仲間募集・レベルシステム（PartyMember（level/expフィールド、gain_exp()でレベルアップ処理）、CombatStats（apply_growth()でステータス成長）、StatGrowth（クラス別成長値）、ItemKind（Herb/CopperKey）、Inventory、INVENTORY_CAPACITY=6、WeaponKind、Equipment、effective_attack()、RecruitCandidate、RecruitmentStatus: Undiscovered→Acquaintance→Recruited）
 - **battle**: 戦闘ロジック（敵（exp_reward()で経験値報酬）、魔法（クラス別呪文制限含む）、アイテム（個人所持）、戦闘処理（effective_attack使用）、BattleState::total_exp_reward()で勝利時合計経験値計算）
-- **cave**: 洞窟生成ロジック（TreasureContent/TreasureChestで宝箱定義、床タイルランダム配置（最大3個）、70%アイテム/30%武器）
+- **cave**: 洞窟生成ロジック（TreasureContent/TreasureChestで宝箱定義、床タイルランダム配置（最大3個）、宝箱の中身はCopperKey固定）
 - **town**: 街ロジック（やどや、よろず屋（アイテム・武器販売、キャラ選択購入、容量チェック）、洞窟ヒント、仲間候補との会話）
 - **world**: ワールドマップ生成（5大陸方式：大陸成長・海岸侵食・内陸湖・極小島除去・歩行連結性保証）・島配置・仲間候補配置（大大陸3500×2、小大陸2000×3、大陸間境界バッファCONTINENT_BORDER_GAP=4.0で分離、島サイズ別街数：大島5個、小島3個、極小島100タイル未満は配置なし、街間最小間隔MIN_TOWN_DISTANCE=10タイル）
 - **time**: 時間カウント（TimeCount構造体）
