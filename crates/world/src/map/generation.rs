@@ -22,15 +22,15 @@ const NUM_CONTINENTS: usize = 5;
 /// 森林クラスタ数
 const FOREST_CLUSTERS: usize = 45;
 /// 山岳クラスタ数
-const MOUNTAIN_CLUSTERS: usize = 120;
+const MOUNTAIN_CLUSTERS: usize = 60;
 /// 森林クラスタの最小タイル数
 const FOREST_CLUSTER_MIN: usize = 20;
 /// 森林クラスタの最大タイル数
 const FOREST_CLUSTER_MAX: usize = 80;
 /// 山岳クラスタの最小タイル数
-const MOUNTAIN_CLUSTER_MIN: usize = 25;
+const MOUNTAIN_CLUSTER_MIN: usize = 15;
 /// 山岳クラスタの最大タイル数
-const MOUNTAIN_CLUSTER_MAX: usize = 100;
+const MOUNTAIN_CLUSTER_MAX: usize = 50;
 
 pub struct MapData {
     pub grid: Vec<Vec<Terrain>>,
