@@ -1,0 +1,15 @@
+[package]
+name = "screenshot-world"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "screenshot-world"
+path = "src/main.rs"
+
+[dependencies]
+bevy = "0.18"
+rand = "0.8"
+screenshot-common = { path = "../common" }
+terrain = { path = "../../crates/terrain" }
+world = { path = "../../crates/world" }

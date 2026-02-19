@@ -16,6 +16,7 @@ cargo run -p screenshot-battle    # 戦闘画面スクリーンショット撮�
 cargo run -p screenshot-town      # 街画面スクリーンショット撮影
 cargo run -p screenshot-field     # フィールド画面スクリーンショット撮影
 cargo run -p screenshot-cave      # 洞窟画面スクリーンショット撮影
+cargo run -p screenshot-world     # ワールドマップスクリーンショット撮影
 cargo clippy --workspace          # リント（全crate）
 cargo test --workspace            # テスト（全crate）
 ```
@@ -32,7 +33,7 @@ Bevy 0.18を使用した2Dローグライク風JRPGのプロトタイプ。Cargo
 - **battle**: 戦闘ロジック（敵、魔法（クラス別呪文制限含む）、アイテム（個人所持）、戦闘処理（effective_attack使用））
 - **cave**: 洞窟生成ロジック
 - **town**: 街ロジック（やどや、よろず屋（アイテム・武器販売、キャラ選択購入、容量チェック）、洞窟ヒント、仲間候補との会話）
-- **world**: ワールドマップ生成（5大陸方式：大陸成長・海岸侵食・内陸湖・極小島除去・歩行連結性保証）・島配置・仲間候補配置
+- **world**: ワールドマップ生成（5大陸方式：大陸成長・海岸侵食・内陸湖・極小島除去・歩行連結性保証）・島配置・仲間候補配置（大大陸3500×2、小大陸2000×3、大陸間境界バッファCONTINENT_BORDER_GAP=4.0で分離、島サイズ別街数：大島5個、小島3個、極小島100タイル未満は配置なし）
 - **time**: 時間カウント（TimeCount構造体）
 
 **UI共通層（Bevy依存）**:
@@ -53,6 +54,7 @@ Bevy 0.18を使用した2Dローグライク風JRPGのプロトタイプ。Cargo
 - **screenshot-town**: 街画面スクリーンショット撮影バイナリ
 - **screenshot-field**: フィールド画面スクリーンショット撮影バイナリ
 - **screenshot-cave**: 洞窟画面スクリーンショット撮影バイナリ
+- **screenshot-world**: ワールドマップスクリーンショット撮影バイナリ
 
 詳細は `software-architect` エージェントを参照。
 
