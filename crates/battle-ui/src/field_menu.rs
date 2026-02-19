@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use battle::spell::{available_spells, calculate_heal_amount, SpellKind};
 use app_state::{FieldMenuOpen, PartyState};
-use party::ItemKind;
+use party::{ItemEffect, ItemKind};
 
 /// フィールドメニューのフェーズ
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -344,15 +344,25 @@ pub fn field_menu_input_system(
 
             if input_ui::is_confirm_just_pressed(&keyboard) {
                 let item = state.item_candidates[state.item_cursor];
-                if item.heal_power() > 0 {
-                    // 回復アイテム → ターゲット選択
-                    let target_candidates = alive_member_indices(&party_state);
-                    state.target_candidates = target_candidates;
-                    state.target_cursor = 0;
-                    state.phase = FieldMenuPhase::TargetSelect;
-                } else {
-                    state.message = "フィールドでは つかえない".to_string();
-                    state.phase = FieldMenuPhase::ShowMessage;
+                match item.effect() {
+                    ItemEffect::Heal { .. } => {
+                        // 回復アイテム → ターゲット選択
+                        let target_candidates = alive_member_indices(&party_state);
+                        state.target_candidates = target_candidates;
+                        state.target_cursor = 0;
+                        state.phase = FieldMenuPhase::TargetSelect;
+                    }
+                    ItemEffect::KeyItem => {
+                        // キーアイテム → 説明表示（消費しない）
+                        let member_name = party_state.members[state.selected_member].kind.name();
+                        state.message = format!(
+                            "{}は {}を しらべた。\n{}",
+                            member_name,
+                            item.name(),
+                            item.description()
+                        );
+                        state.phase = FieldMenuPhase::ShowMessage;
+                    }
                 }
             }
         }
@@ -383,26 +393,28 @@ pub fn field_menu_input_system(
                     let item = state.item_candidates[state.item_cursor];
                     let member_idx = state.selected_member;
 
-                    let used = party_state.members[member_idx].inventory.use_item(item);
-                    if !used {
-                        return;
+                    if let ItemEffect::Heal { power } = item.effect() {
+                        let used = party_state.members[member_idx].inventory.use_item(item);
+                        if !used {
+                            return;
+                        }
+
+                        let random_factor = 0.8 + rand::random::<f32>() * 0.4;
+                        let amount = calculate_heal_amount(power, random_factor);
+
+                        let target = &mut party_state.members[target_idx];
+                        target.stats.hp = (target.stats.hp + amount).min(target.stats.max_hp);
+
+                        let member_name = party_state.members[member_idx].kind.name();
+                        let target_name = party_state.members[target_idx].kind.name();
+                        state.message = format!(
+                            "{}は {}を つかった！\n{}の HPが {}かいふく！",
+                            member_name,
+                            item.name(),
+                            target_name,
+                            amount
+                        );
                     }
-
-                    let random_factor = 0.8 + rand::random::<f32>() * 0.4;
-                    let amount = calculate_heal_amount(item.heal_power(), random_factor);
-
-                    let target = &mut party_state.members[target_idx];
-                    target.stats.hp = (target.stats.hp + amount).min(target.stats.max_hp);
-
-                    let member_name = party_state.members[member_idx].kind.name();
-                    let target_name = party_state.members[target_idx].kind.name();
-                    state.message = format!(
-                        "{}は {}を つかった！\n{}の HPが {}かいふく！",
-                        member_name,
-                        item.name(),
-                        target_name,
-                        amount
-                    );
                 } else {
                     // 呪文使用
                     let spell = state.spell_candidates[state.spell_cursor];

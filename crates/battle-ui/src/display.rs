@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
 use battle::EnemyKind;
+use party::ItemEffect;
 
 use super::scene::{BattleGameState, BattlePhase, BattleSceneRoot, BattleUIState, EnemySprite};
 
@@ -63,6 +64,7 @@ fn hp_bar_color(ratio: f32) -> Color {
 
 const COMMAND_COLOR_SELECTED: Color = Color::srgb(1.0, 0.9, 0.2);
 const COMMAND_COLOR_UNSELECTED: Color = Color::srgb(0.6, 0.6, 0.6);
+const COMMAND_COLOR_DISABLED: Color = Color::srgb(0.35, 0.35, 0.35);
 
 /// 同種の敵にサフィックスを付与した表示名を生成
 fn enemy_display_names(enemies: &[battle::Enemy]) -> Vec<String> {
@@ -287,9 +289,12 @@ pub fn battle_display_system(
                     _ => 0,
                 };
                 let is_selected = cursor.index == ui_state.selected_item;
+                let can_use = !matches!(item.effect(), ItemEffect::KeyItem);
                 let prefix = if is_selected { "> " } else { "  " };
                 **text = format!("{}{} x{}", prefix, item.name(), count);
-                *color = if is_selected {
+                *color = if !can_use {
+                    TextColor(COMMAND_COLOR_DISABLED)
+                } else if is_selected {
                     TextColor(COMMAND_COLOR_SELECTED)
                 } else {
                     TextColor(COMMAND_COLOR_UNSELECTED)
