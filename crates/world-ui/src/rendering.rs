@@ -53,9 +53,17 @@ pub struct TileTextures {
     pub cave_floor: Handle<Image>,
     pub warp_zone: Handle<Image>,
     pub ladder: Handle<Image>,
+    pub coast_tiles: Vec<Handle<Image>>,
+    pub coast_lookup: [u8; 256],
 }
 
 pub fn spawn_field_map(mut commands: Commands, asset_server: Res<AssetServer>) {
+    // 海岸タイルのルックアップテーブルを構築
+    let (coast_lookup, coast_count) = crate::coast_lookup::build_lookup_table();
+    let coast_tiles: Vec<Handle<Image>> = (0..coast_count)
+        .map(|i| asset_server.load(format!("tiles/coast_{:03}.png", i)))
+        .collect();
+
     // テクスチャをロード
     let tile_textures = TileTextures {
         sea: asset_server.load("tiles/sea.png"),
@@ -69,6 +77,8 @@ pub fn spawn_field_map(mut commands: Commands, asset_server: Res<AssetServer>) {
         cave_floor: asset_server.load("tiles/cave_floor.png"),
         warp_zone: asset_server.load("tiles/warp_zone.png"),
         ladder: asset_server.load("tiles/ladder.png"),
+        coast_tiles,
+        coast_lookup,
     };
 
     let mut rng = rand::thread_rng();

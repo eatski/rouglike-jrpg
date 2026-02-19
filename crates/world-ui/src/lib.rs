@@ -1,4 +1,5 @@
 mod camera;
+mod coast_lookup;
 mod encounter;
 mod hud;
 pub mod map_mode;

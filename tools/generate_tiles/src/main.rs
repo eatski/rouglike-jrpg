@@ -21,6 +21,7 @@ fn main() {
     generate_boat(tiles_dir);
     generate_town(tiles_dir);
     generate_cave(tiles_dir);
+    generate_coast_tiles(tiles_dir);
 
     // 洞窟内部タイルを生成
     generate_cave_wall(tiles_dir);
