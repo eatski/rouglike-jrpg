@@ -4,7 +4,7 @@ use bevy::window::{Window, WindowResolution};
 use app_state::{BattleState, InField, SceneState};
 use battle_ui::{
     battle_blink_system, battle_display_system, battle_input_system, battle_shake_system,
-    cleanup_battle_scene, field_spell_display_system, field_spell_input_system,
+    cleanup_battle_scene, field_menu_display_system, field_menu_input_system,
     setup_battle_scene,
 };
 use cave_ui::{
@@ -15,7 +15,7 @@ use movement_ui::{
     start_bounce, update_bounce, MovementBlockedEvent, PlayerArrivedEvent, PlayerMovedEvent,
     TileEnteredEvent,
 };
-use app_state::{FieldSpellMenuOpen, PartyState};
+use app_state::{FieldMenuOpen, PartyState};
 use movement_ui::{MovementState, WINDOW_SIZE};
 use town_ui::{cleanup_town_scene, setup_town_scene, town_display_system, town_input_system};
 use world_ui::{
@@ -57,7 +57,7 @@ fn main() {
     .init_resource::<MovementState>()
     .init_resource::<MapModeState>()
     .init_resource::<PartyState>()
-    .init_resource::<FieldSpellMenuOpen>()
+    .init_resource::<FieldMenuOpen>()
     .add_systems(
         Startup,
         (
@@ -80,7 +80,7 @@ fn main() {
     )
     .add_systems(
         Update,
-        (field_spell_input_system, field_spell_display_system)
+        (field_menu_input_system, field_menu_display_system)
             .chain()
             .run_if(in_state(InField)),
     )

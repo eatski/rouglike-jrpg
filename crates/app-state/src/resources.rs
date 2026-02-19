@@ -34,6 +34,6 @@ pub struct RecruitmentMap {
     pub candidate_second_town: HashMap<usize, (usize, usize)>,
 }
 
-/// フィールド呪文メニューの開閉状態
+/// フィールドメニューの開閉状態
 #[derive(Resource, Default)]
-pub struct FieldSpellMenuOpen(pub bool);
+pub struct FieldMenuOpen(pub bool);

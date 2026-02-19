@@ -36,7 +36,7 @@ Bevy 0.18を使用した2Dローグライク風JRPGのプロトタイプ。Cargo
 - **time**: 時間カウント（TimeCount構造体）
 
 **UI共通層（Bevy依存）**:
-- **app-state**: AppState（Exploring/Battle/Cave/Town）、PartyState（パーティ、所持金、仲間候補リスト）、RecruitmentMap、FieldSpellMenuOpen
+- **app-state**: AppState（Exploring/Battle/Cave/Town）、PartyState（パーティ、所持金、仲間候補リスト）、RecruitmentMap、FieldMenuOpen
 - **input-ui**: 入力ソース抽象化（InputSource）
 - **movement-ui**: 移動メカニクス（コンポーネント、イベント、アニメーション、UI共通定数、MovementState、ActiveMap、WorldMapData）
 
@@ -44,7 +44,7 @@ Bevy 0.18を使用した2Dローグライク風JRPGのプロトタイプ。Cargo
 - **world-ui**: ワールドマップシーン・入力・描画・エンカウントシステム・仲間候補マーカー表示
 - **cave-ui**: 洞窟シーン・入力（ワールドマップ座標からシード生成し決定的な洞窟生成、ChaCha8Rng使用）
 - **town-ui**: 街シーン・入力・メニュー（やどや、よろず屋（ShopGoods統合、キャラ選択パネル、Display::Noneパネル制御）、ヒント、話を聞く（仲間候補イベント）、出る）
-- **battle-ui**: 戦闘シーン・入力（クラス別呪文選択制限、個人インベントリ使用）・表示（呪文リスト、無効コマンド灰色表示、アイテムなし時「どうぐ」灰色）
+- **battle-ui**: 戦闘シーン・入力（クラス別呪文選択制限、個人インベントリ使用）・表示（呪文リスト、無効コマンド灰色表示、アイテムなし時「どうぐ」灰色）・フィールドメニュー（確認キー→トップメニュー（じゅもん/どうぐ）→キャスター/メンバー選択→呪文/アイテム選択→ターゲット選択→結果表示）
 
 **ツール**:
 - **generate_tiles**: タイルスプライト生成（独立バイナリ）

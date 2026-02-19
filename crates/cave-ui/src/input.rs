@@ -8,7 +8,7 @@ use movement_ui::{
     MovementBlockedEvent, MovementLocked, PendingMove, Player, PlayerArrivedEvent,
     PlayerMovedEvent, SmoothMove, TileEnteredEvent, TilePosition,
 };
-use app_state::FieldSpellMenuOpen;
+use app_state::FieldMenuOpen;
 use movement_ui::{ActiveMap, MovementState, TILE_SIZE};
 
 const MOVE_DURATION: f32 = 0.15;
@@ -20,7 +20,7 @@ pub fn cave_player_movement(
     keyboard: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
     active_map: Res<ActiveMap>,
-    field_menu_open: Res<FieldSpellMenuOpen>,
+    field_menu_open: Res<FieldMenuOpen>,
     mut move_state: ResMut<MovementState>,
     mut query: Query<
         (Entity, &mut TilePosition, Option<&MovementLocked>),
