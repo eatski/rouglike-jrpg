@@ -187,9 +187,12 @@ pub fn calculate_boat_spawns(grid: &[Vec<Terrain>], rng: &mut impl Rng) -> Vec<B
     spawns
 }
 
-/// 各島に1つずつ町スポーン位置を計算
+/// 島あたりの街の数
+const TOWNS_PER_ISLAND: usize = 2;
+
+/// 各島に町スポーン位置を計算
 ///
-/// 各島の Plains タイルからランダムに1つ選択する。
+/// 各島の Plains タイルからランダムに `TOWNS_PER_ISLAND` 個選択する。
 /// `spawn_position` (x, y) はプレイヤー初期位置として除外する。
 pub fn calculate_town_spawns(
     grid: &[Vec<Terrain>],
@@ -200,13 +203,14 @@ pub fn calculate_town_spawns(
     let mut spawns = Vec::new();
 
     for island in &islands {
-        let candidates: Vec<(usize, usize)> = island
+        let mut candidates: Vec<(usize, usize)> = island
             .iter()
             .filter(|&pos| grid[pos.1][pos.0] == Terrain::Plains && *pos != spawn_position)
             .copied()
             .collect();
 
-        if let Some(&(x, y)) = candidates.choose(rng) {
+        candidates.shuffle(rng);
+        for &(x, y) in candidates.iter().take(TOWNS_PER_ISLAND) {
             spawns.push(TownSpawn { x, y });
         }
     }
@@ -214,9 +218,12 @@ pub fn calculate_town_spawns(
     spawns
 }
 
-/// 各島に1つずつ洞窟スポーン位置を計算
+/// 島あたりの洞窟の数
+const CAVES_PER_ISLAND: usize = 2;
+
+/// 各島に洞窟スポーン位置を計算
 ///
-/// 各島の Mountain タイルからランダムに1つ選択する。
+/// 各島の Mountain タイルからランダムに `CAVES_PER_ISLAND` 個選択する。
 pub fn calculate_cave_spawns(
     grid: &[Vec<Terrain>],
     rng: &mut impl Rng,
@@ -225,13 +232,14 @@ pub fn calculate_cave_spawns(
     let mut spawns = Vec::new();
 
     for island in &islands {
-        let candidates: Vec<(usize, usize)> = island
+        let mut candidates: Vec<(usize, usize)> = island
             .iter()
             .filter(|&&(x, y)| grid[y][x] == Terrain::Mountain)
             .copied()
             .collect();
 
-        if let Some(&(x, y)) = candidates.choose(rng) {
+        candidates.shuffle(rng);
+        for &(x, y) in candidates.iter().take(CAVES_PER_ISLAND) {
             spawns.push(CaveSpawn { x, y });
         }
     }
