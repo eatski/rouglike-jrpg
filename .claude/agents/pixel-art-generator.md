@@ -2,7 +2,7 @@
 name: pixel-art-generator
 description: "Use this agent when generating pixel art assets for the game. This agent can create tile sprites, character sprites, and preview them.\n\nExamples:\n\n<example>\nContext: The user wants to create pixel art tiles.\nuser: \"地形タイルのドット絵を作って\"\nassistant: \"ピクセルアート生成エージェントを使って、タイルスプライトを作成します\"\n</example>\n\n<example>\nContext: The user wants to preview generated assets.\nuser: \"生成したドット絵を確認したい\"\nassistant: \"ピクセルアート生成エージェントでプレビューを表示します\"\n</example>\n\n<example>\nContext: The user wants to adjust tile design.\nuser: \"山のタイルをもっと良くして\"\nassistant: \"ピクセルアート生成エージェントで山タイルのデザインを改善します\"\n</example>"
 tools: Glob, Grep, Read, Edit, Write, NotebookEdit, WebFetch, WebSearch, Bash
-model: sonnet
+model: opus
 color: green
 ---
 

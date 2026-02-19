@@ -2,7 +2,7 @@
 name: screenshot-verifier
 description: "Use this agent to verify UI changes visually using screenshot tools. This agent captures screenshots of affected screens and presents them to the user for visual confirmation.\n\nExamples:\n\n<example>\nContext: UI-related code was changed and needs visual verification.\nuser: \"戦闘UIを変更したのでスクリーンショットで確認して\"\nassistant: \"screenshot-verifierエージェントで、戦闘画面のスクリーンショットを撮影して確認します\"\n<commentary>\nUI変更の視覚的検証なので、screenshot-verifierエージェントをTask toolで起動して対応する。\n</commentary>\n</example>\n\n<example>\nContext: Multiple UI screens may be affected by a change.\nuser: \"パーティ表示を変更した。影響範囲を確認して\"\nassistant: \"screenshot-verifierエージェントで、影響する画面のスクリーンショットを撮影して確認します\"\n<commentary>\nパーティ関連の変更はbattleとtownに影響するため、screenshot-verifierで両画面を撮影する。\n</commentary>\n</example>\n\n<example>\nContext: The user wants to visually verify all screens.\nuser: \"全画面のスクリーンショットを撮って\"\nassistant: \"screenshot-verifierエージェントで、全画面のスクリーンショットを撮影します\"\n<commentary>\n全画面の視覚的検証はscreenshot-verifierの担当。\n</commentary>\n</example>"
 tools: Glob, Grep, Read, Edit, Write, NotebookEdit, WebFetch, WebSearch, Bash
-model: sonnet
+model: opus
 color: magenta
 ---
 

@@ -2,7 +2,7 @@
 name: map-generation-expert
 description: "Use this agent when working on procedural map generation, terrain algorithms, dungeon generation, world building systems, or any logic related to creating game maps or spatial data structures. This includes tile-based maps, heightmaps, biome distribution, room placement algorithms, pathfinding-aware generation, and optimization of map generation performance.\\n\\nExamples:\\n\\n<example>\\nContext: The user is implementing a new dungeon generation feature.\\nuser: \"ダンジョンの部屋配置アルゴリズムを実装したい\"\\nassistant: \"マップ生成の専門エージェントを使って、最適な部屋配置アルゴリズムを設計・実装します\"\\n<commentary>\\nダンジョン生成のロジックに関する質問なので、map-generation-expertエージェントをTask toolで起動して対応する。\\n</commentary>\\n</example>\\n\\n<example>\\nContext: The user needs to optimize terrain generation performance.\\nuser: \"地形生成が遅いので最適化したい\"\\nassistant: \"マップ生成エキスパートエージェントを使って、地形生成のパフォーマンス問題を分析・改善します\"\\n<commentary>\\nマップ生成のパフォーマンス最適化はmap-generation-expertの専門領域なので、このエージェントを起動する。\\n</commentary>\\n</example>\\n\\n<example>\\nContext: The user is debugging issues with biome distribution.\\nuser: \"バイオームの分布が偏っているバグがある\"\\nassistant: \"マップ生成の専門家エージェントでバイオーム分布アルゴリズムの問題を調査します\"\\n<commentary>\\nバイオーム分布はマップ生成ロジックの一部なので、map-generation-expertエージェントで対応する。\\n</commentary>\\n</example>"
 tools: Glob, Grep, Read, Edit, Write, NotebookEdit, WebFetch, WebSearch, Bash
-model: sonnet
+model: opus
 color: red
 ---
 

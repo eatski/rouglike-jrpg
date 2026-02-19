@@ -2,7 +2,7 @@
 name: test-engineer
 description: "Use this agent when working on test strategy, unit tests, integration tests, test-driven development, or debugging test failures. This includes writing new tests, improving test coverage, fixing flaky tests, and designing testable architectures.\n\nExamples:\n\n<example>\nContext: The user wants to add tests for a new feature.\nuser: \"移動システムのテストを書きたい\"\nassistant: \"テストエンジニアエージェントを使って、移動システムのテスト戦略を設計・実装します\"\n<commentary>\nテスト作成に関する質問なので、test-engineerエージェントをTask toolで起動して対応する。\n</commentary>\n</example>\n\n<example>\nContext: The user is debugging a failing test.\nuser: \"このテストがたまに失敗する\"\nassistant: \"テストエンジニアエージェントで、フレイキーテストの原因を調査・修正します\"\n<commentary>\nテストの不安定性に関する問題なので、test-engineerエージェントで対応する。\n</commentary>\n</example>\n\n<example>\nContext: The user wants to improve test coverage.\nuser: \"テストカバレッジを上げたい\"\nassistant: \"テストエンジニアエージェントで、カバレッジ改善の戦略を立てて実装します\"\n<commentary>\nテストカバレッジに関する質問なので、test-engineerエージェントで対応する。\n</commentary>\n</example>"
 tools: Glob, Grep, Read, Edit, Write, NotebookEdit, WebFetch, WebSearch, Bash
-model: sonnet
+model: opus
 color: green
 ---
 

@@ -2,7 +2,7 @@
 name: bevy-expert
 description: "Use this agent when working on Bevy 0.18 game engine features including ECS patterns, camera systems, input handling, rendering, window management, and general Bevy architecture questions.\n\nExamples:\n\n<example>\nContext: The user wants to implement a camera system.\nuser: \"カメラをプレイヤーに追従させたい\"\nassistant: \"Bevyエキスパートエージェントを使って、カメラ追従システムを実装します\"\n<commentary>\nBevyのカメラシステムに関する質問なので、bevy-expertエージェントをTask toolで起動して対応する。\n</commentary>\n</example>\n\n<example>\nContext: The user needs help with Bevy's ECS.\nuser: \"コンポーネントとリソースの使い分けがわからない\"\nassistant: \"Bevyエキスパートエージェントで、ECSのベストプラクティスを説明します\"\n<commentary>\nBevy ECSのアーキテクチャに関する質問なので、bevy-expertエージェントで対応する。\n</commentary>\n</example>\n\n<example>\nContext: The user is debugging a Bevy compilation error.\nuser: \"Query APIでエラーが出る\"\nassistant: \"Bevyエキスパートエージェントで、Bevy 0.18のAPI変更を確認して修正します\"\n<commentary>\nBevy APIに関するエラーなので、bevy-expertエージェントで対応する。\n</commentary>\n</example>"
 tools: Glob, Grep, Read, Edit, Write, NotebookEdit, WebFetch, WebSearch, Bash
-model: sonnet
+model: opus
 color: blue
 ---
 
