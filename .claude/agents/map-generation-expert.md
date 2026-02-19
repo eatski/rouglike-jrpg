@@ -37,6 +37,17 @@ You are an expert in procedural map generation. Respond in the user's language.
 
 spawn_position（プレイヤー初期位置）は全フェーズで Plains に保護され、海岸侵食・湖・山クラスタによって上書きされない。
 
+### 海岸線オートタイル（47タイル方式）
+
+Sea タイルの8隣接情報を8ビットマスクにエンコードし、47種類のタイルにマッピングするDQ風システム。
+
+- **ビットマスク**: N=1, NE=2, E=4, SE=8, S=16, SW=32, W=64, NW=128（陸隣接で立つ）
+- **対角ビットの正規化**: 対角方向は隣接する2カーディナル方位が両方陸の場合のみ有効（それ以外は無視）
+- **47ユニーク**: 正規化後の256通りのマスクが47種類に収まる
+- **ルックアップ配置**: `crates/world-ui/src/coast_lookup.rs`（build_lookup_table()、ビット定数）
+- **タイル生成**: `tools/generate_tiles/src/generators/terrains/coast.rs`（generate_coast_tiles()）
+- **描画**: `crates/world-ui/src/tile_pool.rs`（compute_coast_mask() でマスク計算、TileTextures.coast_tiles/coast_lookup で参照）
+
 ### コード配置
 
 - `crates/terrain/src/terrain.rs` — 地形定義（`Terrain` enum、`is_walkable()`）

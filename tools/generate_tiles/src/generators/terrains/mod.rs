@@ -1,5 +1,6 @@
 mod boat;
 mod cave;
+mod coast;
 mod forest;
 mod mountain;
 mod plains;
@@ -8,6 +9,7 @@ mod town;
 
 pub use boat::generate_boat;
 pub use cave::generate_cave;
+pub use coast::generate_coast_tiles;
 pub use forest::generate_forest;
 pub use mountain::generate_mountain;
 pub use plains::generate_plains;

@@ -4420,7 +4420,9 @@ version = "0.1.0"
 dependencies = [
  "app-state",
  "bevy",
+ "movement-ui",
  "screenshot-common",
+ "terrain",
  "world-ui",
 ]
 

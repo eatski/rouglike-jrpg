@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use std::collections::HashMap;
 
+use crate::coast_lookup;
 use terrain::{Terrain, MAP_HEIGHT, MAP_WIDTH};
 
 use movement_ui::{MapTile, Player, SmoothMove, TilePosition};
@@ -97,6 +98,30 @@ fn get_terrain_texture(terrain: Terrain, textures: &TileTextures) -> Handle<Imag
     }
 }
 
+/// Seaタイルの8隣接をチェックし、陸隣接ビットマスクを返す
+fn compute_coast_mask(x: usize, y: usize, grid: &[Vec<Terrain>]) -> u8 {
+    let w = MAP_WIDTH as i32;
+    let h = MAP_HEIGHT as i32;
+
+    let is_land = |dx: i32, dy: i32| -> bool {
+        let nx = (x as i32 + dx).rem_euclid(w) as usize;
+        let ny = (y as i32 + dy).rem_euclid(h) as usize;
+        grid[ny][nx] != Terrain::Sea
+    };
+
+    // Grid y increases upward on screen (higher y = north)
+    let mut mask = 0u8;
+    if is_land(0, 1) { mask |= coast_lookup::N; }
+    if is_land(1, 1) { mask |= coast_lookup::NE; }
+    if is_land(1, 0) { mask |= coast_lookup::E; }
+    if is_land(1, -1) { mask |= coast_lookup::SE; }
+    if is_land(0, -1) { mask |= coast_lookup::S; }
+    if is_land(-1, -1) { mask |= coast_lookup::SW; }
+    if is_land(-1, 0) { mask |= coast_lookup::W; }
+    if is_land(-1, 1) { mask |= coast_lookup::NW; }
+    mask
+}
+
 /// プレイヤー位置に応じて可視タイルを更新するシステム
 pub fn update_visible_tiles(
     mut tile_pool: ResMut<TilePool>,
@@ -174,7 +199,17 @@ pub fn update_visible_tiles(
         // マップ座標を計算（トーラスラップ）
         let (map_x, map_y) = logical_to_map(logical_x, logical_y);
         let terrain = active_map.grid[map_y][map_x];
-        let texture = get_terrain_texture(terrain, &tile_textures);
+        let texture = if terrain == Terrain::Sea {
+            let mask = compute_coast_mask(map_x, map_y, &active_map.grid);
+            if mask != 0 {
+                let idx = tile_textures.coast_lookup[mask as usize] as usize;
+                tile_textures.coast_tiles[idx].clone()
+            } else {
+                tile_textures.sea.clone()
+            }
+        } else {
+            get_terrain_texture(terrain, &tile_textures)
+        };
 
         // ワールド座標を計算
         let (world_x, world_y) = active_map.to_world_logical(logical_x, logical_y);
