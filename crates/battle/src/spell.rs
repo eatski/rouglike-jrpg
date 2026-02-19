@@ -1,35 +1,43 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SpellKind {
     Fire,
+    Blaze,
     Heal,
+    FullHeal,
 }
 
 impl SpellKind {
     pub fn name(self) -> &'static str {
         match self {
             SpellKind::Fire => "ファイヤ",
+            SpellKind::Blaze => "ブレイズ",
             SpellKind::Heal => "ヒール",
+            SpellKind::FullHeal => "フルヒール",
         }
     }
 
     pub fn mp_cost(self) -> i32 {
         match self {
             SpellKind::Fire => 3,
+            SpellKind::Blaze => 7,
             SpellKind::Heal => 4,
+            SpellKind::FullHeal => 8,
         }
     }
 
     pub fn power(self) -> i32 {
         match self {
             SpellKind::Fire => 12,
+            SpellKind::Blaze => 25,
             SpellKind::Heal => 15,
+            SpellKind::FullHeal => 40,
         }
     }
 
     pub fn is_offensive(self) -> bool {
         match self {
-            SpellKind::Fire => true,
-            SpellKind::Heal => false,
+            SpellKind::Fire | SpellKind::Blaze => true,
+            SpellKind::Heal | SpellKind::FullHeal => false,
         }
     }
 }
@@ -49,17 +57,40 @@ pub fn calculate_heal_amount(power: i32, random_factor: f32) -> i32 {
 
 /// 全呪文リストを返す
 pub fn all_spells() -> Vec<SpellKind> {
-    vec![SpellKind::Fire, SpellKind::Heal]
+    vec![
+        SpellKind::Fire,
+        SpellKind::Blaze,
+        SpellKind::Heal,
+        SpellKind::FullHeal,
+    ]
 }
 
-/// クラス別に使用可能な呪文リストを返す
-pub fn available_spells(kind: party::PartyMemberKind) -> Vec<SpellKind> {
+/// クラス別の呪文習得テーブル: (必要レベル, 呪文) のペア
+pub fn spell_learn_table(kind: party::PartyMemberKind) -> &'static [(u32, SpellKind)] {
     use party::PartyMemberKind;
     match kind {
-        PartyMemberKind::Hero => vec![],
-        PartyMemberKind::Mage => vec![SpellKind::Fire],
-        PartyMemberKind::Priest => vec![SpellKind::Heal],
+        PartyMemberKind::Hero => &[(3, SpellKind::Heal)],
+        PartyMemberKind::Mage => &[(1, SpellKind::Fire), (5, SpellKind::Blaze)],
+        PartyMemberKind::Priest => &[(1, SpellKind::Heal), (4, SpellKind::FullHeal)],
     }
+}
+
+/// クラスとレベルに応じた使用可能な呪文リストを返す
+pub fn available_spells(kind: party::PartyMemberKind, level: u32) -> Vec<SpellKind> {
+    spell_learn_table(kind)
+        .iter()
+        .filter(|(req_level, _)| level >= *req_level)
+        .map(|(_, spell)| *spell)
+        .collect()
+}
+
+/// 指定レベルで新たに習得する呪文を返す
+pub fn spells_learned_at_level(kind: party::PartyMemberKind, level: u32) -> Vec<SpellKind> {
+    spell_learn_table(kind)
+        .iter()
+        .filter(|(req_level, _)| *req_level == level)
+        .map(|(_, spell)| *spell)
+        .collect()
 }
 
 #[cfg(test)]
@@ -118,28 +149,83 @@ mod tests {
     }
 
     #[test]
-    fn all_spells_returns_both() {
+    fn blaze_properties() {
+        assert_eq!(SpellKind::Blaze.name(), "ブレイズ");
+        assert_eq!(SpellKind::Blaze.mp_cost(), 7);
+        assert_eq!(SpellKind::Blaze.power(), 25);
+        assert!(SpellKind::Blaze.is_offensive());
+    }
+
+    #[test]
+    fn fullheal_properties() {
+        assert_eq!(SpellKind::FullHeal.name(), "フルヒール");
+        assert_eq!(SpellKind::FullHeal.mp_cost(), 8);
+        assert_eq!(SpellKind::FullHeal.power(), 40);
+        assert!(!SpellKind::FullHeal.is_offensive());
+    }
+
+    #[test]
+    fn all_spells_returns_all() {
         let spells = all_spells();
-        assert_eq!(spells.len(), 2);
+        assert_eq!(spells.len(), 4);
         assert_eq!(spells[0], SpellKind::Fire);
-        assert_eq!(spells[1], SpellKind::Heal);
+        assert_eq!(spells[1], SpellKind::Blaze);
+        assert_eq!(spells[2], SpellKind::Heal);
+        assert_eq!(spells[3], SpellKind::FullHeal);
     }
 
     #[test]
-    fn hero_has_no_spells() {
-        let spells = available_spells(party::PartyMemberKind::Hero);
-        assert!(spells.is_empty());
+    fn hero_has_no_spells_before_level_3() {
+        assert!(available_spells(party::PartyMemberKind::Hero, 1).is_empty());
+        assert!(available_spells(party::PartyMemberKind::Hero, 2).is_empty());
     }
 
     #[test]
-    fn mage_has_fire() {
-        let spells = available_spells(party::PartyMemberKind::Mage);
+    fn hero_learns_heal_at_level_3() {
+        let spells = available_spells(party::PartyMemberKind::Hero, 3);
+        assert_eq!(spells, vec![SpellKind::Heal]);
+    }
+
+    #[test]
+    fn mage_learns_fire_at_level_1() {
+        let spells = available_spells(party::PartyMemberKind::Mage, 1);
         assert_eq!(spells, vec![SpellKind::Fire]);
     }
 
     #[test]
-    fn priest_has_heal() {
-        let spells = available_spells(party::PartyMemberKind::Priest);
+    fn mage_learns_blaze_at_level_5() {
+        let spells = available_spells(party::PartyMemberKind::Mage, 5);
+        assert_eq!(spells, vec![SpellKind::Fire, SpellKind::Blaze]);
+    }
+
+    #[test]
+    fn mage_no_blaze_at_level_4() {
+        let spells = available_spells(party::PartyMemberKind::Mage, 4);
+        assert_eq!(spells, vec![SpellKind::Fire]);
+    }
+
+    #[test]
+    fn priest_learns_heal_at_level_1() {
+        let spells = available_spells(party::PartyMemberKind::Priest, 1);
         assert_eq!(spells, vec![SpellKind::Heal]);
+    }
+
+    #[test]
+    fn priest_learns_fullheal_at_level_4() {
+        let spells = available_spells(party::PartyMemberKind::Priest, 4);
+        assert_eq!(spells, vec![SpellKind::Heal, SpellKind::FullHeal]);
+    }
+
+    #[test]
+    fn spells_learned_at_specific_level() {
+        assert_eq!(
+            spells_learned_at_level(party::PartyMemberKind::Mage, 1),
+            vec![SpellKind::Fire]
+        );
+        assert_eq!(
+            spells_learned_at_level(party::PartyMemberKind::Mage, 5),
+            vec![SpellKind::Blaze]
+        );
+        assert!(spells_learned_at_level(party::PartyMemberKind::Mage, 3).is_empty());
     }
 }

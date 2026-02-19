@@ -233,7 +233,7 @@ pub fn battle_display_system(
     let (spell_list, current_member_mp) = match &ui_state.phase {
         BattlePhase::SpellSelect { member_index } => {
             let member = &game_state.state.party[*member_index];
-            (battle::spell::available_spells(member.kind), member.stats.mp)
+            (battle::spell::available_spells(member.kind, member.level), member.stats.mp)
         }
         _ => (vec![], 0),
     };
@@ -241,7 +241,7 @@ pub fn battle_display_system(
     // コマンド選択フェーズ用: 呪文なしクラスかどうか、アイテムなしかどうか
     let (has_no_spells, has_no_items) = match &ui_state.phase {
         BattlePhase::CommandSelect { member_index } => (
-            battle::spell::available_spells(game_state.state.party[*member_index].kind).is_empty(),
+            battle::spell::available_spells(game_state.state.party[*member_index].kind, game_state.state.party[*member_index].level).is_empty(),
             game_state.state.party[*member_index].inventory.is_empty(),
         ),
         _ => (false, false),
