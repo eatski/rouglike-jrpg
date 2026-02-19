@@ -1,47 +1,26 @@
-use std::path::Path;
-
 use bevy::camera::{OrthographicProjection, Projection, ScalingMode};
 use bevy::prelude::*;
-use bevy::render::view::screenshot::{Screenshot, save_to_disk};
-use bevy::window::WindowResolution;
 
+use screenshot_common::{ScreenshotAppBuilder, ScreenshotRng};
 use terrain::{Terrain, MAP_HEIGHT, MAP_WIDTH};
 use world::map::generate_connected_map;
 
 const TILE_SIZE: f32 = 4.0;
-const OUTPUT_PATH: &str = "screenshots/output/world.png";
 
 fn main() {
-    let map_pixel = MAP_WIDTH as f32 * TILE_SIZE; // 600.0
+    let map_pixel = MAP_WIDTH as f32 * TILE_SIZE;
 
-    let mut app = App::new();
-    app.add_plugins(
-        DefaultPlugins
-            .set(AssetPlugin {
-                file_path: "../../assets".to_string(),
-                ..default()
-            })
-            .set(ImagePlugin::default_nearest())
-            .set(WindowPlugin {
-                primary_window: Some(Window {
-                    title: "Screenshot: world".to_string(),
-                    resolution: WindowResolution::new(map_pixel as u32, map_pixel as u32),
-                    resizable: false,
-                    ..default()
-                }),
-                ..default()
-            }),
-    )
-    .insert_resource(FrameCounter(0))
-    .add_systems(Startup, setup)
-    .add_systems(Update, screenshot_system)
-    .run();
+    let mut app = ScreenshotAppBuilder::new("world")
+        .window_size(map_pixel as u32, map_pixel as u32)
+        .build();
+    app.add_systems(Startup, setup).run();
 }
 
-#[derive(Resource)]
-struct FrameCounter(u32);
-
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut screenshot_rng: ResMut<ScreenshotRng>,
+) {
     let map_pixel = MAP_WIDTH as f32 * TILE_SIZE;
 
     // カメラ: マップ全体を表示
@@ -64,9 +43,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let tex_town: Handle<Image> = asset_server.load("tiles/town.png");
     let tex_cave: Handle<Image> = asset_server.load("tiles/cave.png");
 
-    // マップ生成
-    let mut rng = rand::thread_rng();
-    let map_data = generate_connected_map(&mut rng);
+    // マップ生成（固定シード）
+    let map_data = generate_connected_map(&mut screenshot_rng.rng);
 
     let scale = TILE_SIZE / 16.0;
     let origin_x = -(MAP_WIDTH as f32 * TILE_SIZE) / 2.0 + TILE_SIZE / 2.0;
@@ -94,24 +72,5 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 Transform::from_xyz(world_x, world_y, 0.0).with_scale(Vec3::splat(scale)),
             ));
         }
-    }
-}
-
-fn screenshot_system(
-    mut commands: Commands,
-    mut counter: ResMut<FrameCounter>,
-    mut exit: MessageWriter<AppExit>,
-) {
-    counter.0 += 1;
-    if counter.0 == 30 {
-        if let Some(parent) = Path::new(OUTPUT_PATH).parent() {
-            let _ = std::fs::create_dir_all(parent);
-        }
-        commands
-            .spawn(Screenshot::primary_window())
-            .observe(save_to_disk(OUTPUT_PATH.to_string()));
-    }
-    if counter.0 == 40 {
-        exit.write(AppExit::Success);
     }
 }
