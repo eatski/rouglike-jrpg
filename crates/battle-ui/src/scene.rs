@@ -170,7 +170,8 @@ fn enemy_display_names(enemies: &[battle::Enemy]) -> Vec<String> {
         .collect()
 }
 
-/// 戦闘シーンの初期状態設定
+/// 戦闘シーンの初期状態設定（リソースとして注入）
+#[derive(Resource)]
 pub struct BattleSceneConfig {
     /// 敵グループ
     pub enemies: Vec<battle::Enemy>,
@@ -196,12 +197,19 @@ pub fn setup_battle_scene(
     setup_battle_scene_inner(&mut commands, &asset_server, &party_state, BattleSceneConfig::random());
 }
 
+/// BattleSceneConfigリソースから設定を読んでシーンを構築するシステム
 pub fn setup_battle_scene_with_config(
-    config: BattleSceneConfig,
-) -> impl FnOnce(Commands, Res<AssetServer>, Res<PartyState>) {
-    move |mut commands, asset_server, party_state| {
-        setup_battle_scene_inner(&mut commands, &asset_server, &party_state, config);
-    }
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    party_state: Res<PartyState>,
+    config: Res<BattleSceneConfig>,
+) {
+    let config = BattleSceneConfig {
+        enemies: config.enemies.clone(),
+        initial_phase: config.initial_phase.clone(),
+    };
+    commands.remove_resource::<BattleSceneConfig>();
+    setup_battle_scene_inner(&mut commands, &asset_server, &party_state, config);
 }
 
 fn setup_battle_scene_inner(
