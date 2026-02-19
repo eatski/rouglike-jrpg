@@ -4435,6 +4435,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "screenshot-world"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "rand 0.8.5",
+ "screenshot-common",
+ "terrain",
+ "world",
+]
+
+[[package]]
 name = "sctk-adwaita"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

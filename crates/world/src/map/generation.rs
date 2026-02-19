@@ -9,14 +9,16 @@ use crate::map::islands::{
     calculate_cave_spawns, calculate_town_spawns, detect_islands, validate_connectivity,
 };
 
-/// メイン大陸の目標タイル数（侵食・湖で減るため多めに生成）
-const MAIN_CONTINENT_TARGET: usize = 4500;
-/// サブ大陸の目標タイル数（侵食・湖で減るため多めに生成）
-const SUB_CONTINENT_TARGET: usize = 2500;
+/// 大大陸の目標タイル数（大陸1,2用。侵食・湖で減るため多めに生成）
+const LARGE_CONTINENT_TARGET: usize = 3500;
+/// 小大陸の目標タイル数（大陸3,4,5用。侵食・湖で減るため多めに生成）
+const SMALL_CONTINENT_TARGET: usize = 2000;
 /// 大陸間の最小トーラス距離
 const MIN_CONTINENT_DISTANCE: f64 = 30.0;
 /// 大陸成長時の拡散確率
 const SPREAD_CHANCE: f64 = 0.65;
+/// 大陸間の境界バッファ（この距離差以内は海のまま残す）
+const CONTINENT_BORDER_GAP: f64 = 4.0;
 /// 大陸数
 const NUM_CONTINENTS: usize = 5;
 /// 森林クラスタ数
@@ -124,11 +126,11 @@ fn grow_continents(
     rng: &mut impl Rng,
 ) {
     let targets = [
-        MAIN_CONTINENT_TARGET,
-        SUB_CONTINENT_TARGET,
-        SUB_CONTINENT_TARGET,
-        SUB_CONTINENT_TARGET,
-        SUB_CONTINENT_TARGET,
+        LARGE_CONTINENT_TARGET,
+        LARGE_CONTINENT_TARGET,
+        SMALL_CONTINENT_TARGET,
+        SMALL_CONTINENT_TARGET,
+        SMALL_CONTINENT_TARGET,
     ];
 
     // 各大陸のフロンティアと陸地カウント
@@ -174,6 +176,19 @@ fn grow_continents(
                 }
                 // 侵食防止チェック: 拡散先が自分の大陸に最も近いか
                 if closest_center_index(nx, ny, centers) != continent_idx {
+                    continue;
+                }
+                // 境界バッファ: 他の大陸中心との距離差が小さい場所は海のまま残す
+                let dist_own =
+                    torus_distance(nx, ny, centers[continent_idx].0, centers[continent_idx].1);
+                let dist_nearest_other = centers
+                    .iter()
+                    .enumerate()
+                    .filter(|(i, _)| *i != continent_idx)
+                    .map(|(_, &(cx, cy))| torus_distance(nx, ny, cx, cy))
+                    .min_by(|a, b| a.partial_cmp(b).unwrap())
+                    .unwrap_or(f64::MAX);
+                if dist_nearest_other - dist_own < CONTINENT_BORDER_GAP {
                     continue;
                 }
                 grid[ny][nx] = Terrain::Plains;
@@ -745,6 +760,54 @@ mod tests {
                 "seed {} should produce a connected map",
                 seed
             );
+        }
+    }
+
+    #[test]
+    fn map_stats_island_sizes_and_towns() {
+        use crate::map::islands::detect_islands;
+
+        for seed in [42, 123, 456] {
+            let mut rng = create_rng(seed);
+            let map = generate_connected_map(&mut rng);
+
+            let islands = detect_islands(&map.grid);
+
+            let town_count: usize = map
+                .grid
+                .iter()
+                .flatten()
+                .filter(|t| **t == Terrain::Town)
+                .count();
+            let cave_count: usize = map
+                .grid
+                .iter()
+                .flatten()
+                .filter(|t| **t == Terrain::Cave)
+                .count();
+
+            eprintln!("=== seed {} ===", seed);
+            eprintln!("島数: {}", islands.len());
+            for (i, island) in islands.iter().enumerate() {
+                let towns_on_island = island
+                    .iter()
+                    .filter(|&&(x, y)| map.grid[y][x] == Terrain::Town)
+                    .count();
+                let caves_on_island = island
+                    .iter()
+                    .filter(|&&(x, y)| map.grid[y][x] == Terrain::Cave)
+                    .count();
+                eprintln!(
+                    "  島{}: {}タイル, 街{}個, 洞窟{}個",
+                    i + 1,
+                    island.len(),
+                    towns_on_island,
+                    caves_on_island
+                );
+            }
+            eprintln!("合計: 街{}個, 洞窟{}個", town_count, cave_count);
+
+            assert!(town_count > 0, "seed {}: 街が1つもない", seed);
         }
     }
 }

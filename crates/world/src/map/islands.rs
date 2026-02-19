@@ -187,12 +187,20 @@ pub fn calculate_boat_spawns(grid: &[Vec<Terrain>], rng: &mut impl Rng) -> Vec<B
     spawns
 }
 
-/// 島あたりの街の数
-const TOWNS_PER_ISLAND: usize = 2;
+/// 大きい島（大陸1,2）の街の数
+const TOWNS_LARGE_ISLAND: usize = 5;
+/// 小さい島（大陸3,4,5）の街の数
+const TOWNS_SMALL_ISLAND: usize = 3;
+/// 大きい島とみなすタイル数の閾値
+const LARGE_ISLAND_THRESHOLD: usize = 2500;
+/// 街を配置する最小島サイズ
+const MIN_ISLAND_SIZE_FOR_TOWNS: usize = 100;
 
 /// 各島に町スポーン位置を計算
 ///
-/// 各島の Plains タイルからランダムに `TOWNS_PER_ISLAND` 個選択する。
+/// 島のサイズに応じて街の数を決定する。
+/// 大きい島（2500タイル以上）は5個、小さい島は3個。
+/// 極小島（100タイル未満）には街を配置しない。
 /// `spawn_position` (x, y) はプレイヤー初期位置として除外する。
 pub fn calculate_town_spawns(
     grid: &[Vec<Terrain>],
@@ -203,6 +211,16 @@ pub fn calculate_town_spawns(
     let mut spawns = Vec::new();
 
     for island in &islands {
+        if island.len() < MIN_ISLAND_SIZE_FOR_TOWNS {
+            continue;
+        }
+
+        let town_count = if island.len() >= LARGE_ISLAND_THRESHOLD {
+            TOWNS_LARGE_ISLAND
+        } else {
+            TOWNS_SMALL_ISLAND
+        };
+
         let mut candidates: Vec<(usize, usize)> = island
             .iter()
             .filter(|&pos| grid[pos.1][pos.0] == Terrain::Plains && *pos != spawn_position)
@@ -210,7 +228,7 @@ pub fn calculate_town_spawns(
             .collect();
 
         candidates.shuffle(rng);
-        for &(x, y) in candidates.iter().take(TOWNS_PER_ISLAND) {
+        for &(x, y) in candidates.iter().take(town_count) {
             spawns.push(TownSpawn { x, y });
         }
     }
@@ -232,6 +250,10 @@ pub fn calculate_cave_spawns(
     let mut spawns = Vec::new();
 
     for island in &islands {
+        if island.len() < MIN_ISLAND_SIZE_FOR_TOWNS {
+            continue;
+        }
+
         let mut candidates: Vec<(usize, usize)> = island
             .iter()
             .filter(|&&(x, y)| grid[y][x] == Terrain::Mountain)
