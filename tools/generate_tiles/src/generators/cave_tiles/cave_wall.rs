@@ -6,10 +6,10 @@ use crate::generators::common::{new_image, pixel_hash, pixel_noise, save_image, 
 pub fn generate_cave_wall(output_dir: &Path) {
     let mut img = new_image();
 
-    let dark = Rgba([30, 28, 35, 255]);
-    let mid = Rgba([50, 45, 55, 255]);
-    let light = Rgba([70, 65, 75, 255]);
-    let highlight = Rgba([85, 80, 90, 255]);
+    let dark = Rgba([18, 16, 22, 255]);
+    let mid = Rgba([35, 30, 42, 255]);
+    let light = Rgba([52, 46, 60, 255]);
+    let highlight = Rgba([68, 60, 76, 255]);
 
     for y in 0..TILE_SIZE {
         for x in 0..TILE_SIZE {
