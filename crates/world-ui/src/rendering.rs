@@ -57,7 +57,12 @@ pub struct TileTextures {
     pub coast_lookup: [u8; 256],
 }
 
-pub fn spawn_field_map(mut commands: Commands, asset_server: Res<AssetServer>) {
+/// Rng注入可能なフィールドマップ生成
+pub fn spawn_field_map_with_rng(
+    commands: &mut Commands,
+    asset_server: &AssetServer,
+    rng: &mut impl rand::Rng,
+) {
     // 海岸タイルのルックアップテーブルを構築
     let (coast_lookup, coast_count) = crate::coast_lookup::build_lookup_table();
     let coast_tiles: Vec<Handle<Image>> = (0..coast_count)
@@ -81,14 +86,13 @@ pub fn spawn_field_map(mut commands: Commands, asset_server: Res<AssetServer>) {
         coast_lookup,
     };
 
-    let mut rng = rand::thread_rng();
-    let mut map_data = generate_connected_map(&mut rng);
+    let mut map_data = generate_connected_map(rng);
 
     // スポーン大陸に仲間候補用の追加街を配置
     let candidate_count = default_candidates().len();
     place_extra_towns(
         &mut map_data.grid,
-        &mut rng,
+        rng,
         map_data.spawn_position,
         candidate_count,
     );
@@ -104,7 +108,7 @@ pub fn spawn_field_map(mut commands: Commands, asset_server: Res<AssetServer>) {
         .collect();
 
     // 仲間候補を街に割り当て
-    let placements = assign_candidates_to_towns(&spawn_island_towns, candidate_count, &mut rng);
+    let placements = assign_candidates_to_towns(&spawn_island_towns, candidate_count, rng);
     let mut town_to_candidate = HashMap::new();
     let mut candidate_second_town = HashMap::new();
     for p in &placements {
@@ -117,7 +121,7 @@ pub fn spawn_field_map(mut commands: Commands, asset_server: Res<AssetServer>) {
     });
 
     // 船のスポーン位置を計算
-    let boat_spawns = calculate_boat_spawns(&map_data.grid, &mut rng);
+    let boat_spawns = calculate_boat_spawns(&map_data.grid, rng);
 
     commands.insert_resource(SpawnPosition {
         x: map_data.spawn_position.0,
@@ -130,12 +134,18 @@ pub fn spawn_field_map(mut commands: Commands, asset_server: Res<AssetServer>) {
     let boat_spawns_resource = BoatSpawnsResource {
         positions: boat_spawns.iter().map(|s| (s.x, s.y)).collect(),
     };
-    spawn_boat_entities(&mut commands, &boat_spawns_resource, &tile_textures, &active_map);
+    spawn_boat_entities(commands, &boat_spawns_resource, &tile_textures, &active_map);
     commands.insert_resource(boat_spawns_resource);
 
     // タイルテクスチャをリソースとして登録（タイルプールで使用）
     commands.insert_resource(tile_textures);
     commands.insert_resource(active_map);
+}
+
+/// thread_rng使用の後方互換ラッパー（Bevyシステム用）
+pub fn spawn_field_map(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let mut rng = rand::thread_rng();
+    spawn_field_map_with_rng(&mut commands, &asset_server, &mut rng);
 }
 
 pub fn spawn_player(
