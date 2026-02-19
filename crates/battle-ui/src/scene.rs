@@ -170,13 +170,48 @@ fn enemy_display_names(enemies: &[battle::Enemy]) -> Vec<String> {
         .collect()
 }
 
+/// 戦闘シーンの初期状態設定
+pub struct BattleSceneConfig {
+    /// 敵グループ
+    pub enemies: Vec<battle::Enemy>,
+    /// 初期フェーズ（Noneの場合は遭遇メッセージ表示）
+    pub initial_phase: Option<BattlePhase>,
+}
+
+impl BattleSceneConfig {
+    /// ランダムな敵グループでデフォルト設定を生成
+    pub fn random() -> Self {
+        Self {
+            enemies: generate_enemy_group(rand::random::<f32>(), rand::random::<f32>()),
+            initial_phase: None,
+        }
+    }
+}
+
 pub fn setup_battle_scene(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     party_state: Res<PartyState>,
 ) {
+    setup_battle_scene_inner(&mut commands, &asset_server, &party_state, BattleSceneConfig::random());
+}
+
+pub fn setup_battle_scene_with_config(
+    config: BattleSceneConfig,
+) -> impl FnOnce(Commands, Res<AssetServer>, Res<PartyState>) {
+    move |mut commands, asset_server, party_state| {
+        setup_battle_scene_inner(&mut commands, &asset_server, &party_state, config);
+    }
+}
+
+fn setup_battle_scene_inner(
+    commands: &mut Commands,
+    asset_server: &AssetServer,
+    party_state: &PartyState,
+    config: BattleSceneConfig,
+) {
     let party = party_state.members.clone();
-    let enemies = generate_enemy_group(rand::random::<f32>(), rand::random::<f32>());
+    let enemies = config.enemies;
     let display_names = enemy_display_names(&enemies);
 
     let encounter_msg = if enemies.len() == 1 {
@@ -204,6 +239,11 @@ pub fn setup_battle_scene(
     let display_party_hp = battle_state.party.iter().map(|m| m.stats.hp).collect();
     let display_party_mp = battle_state.party.iter().map(|m| m.stats.mp).collect();
 
+    let phase = config.initial_phase.unwrap_or(BattlePhase::ShowMessage {
+        messages: vec![encounter_msg],
+        index: 0,
+    });
+
     commands.insert_resource(BattleGameState {
         state: battle_state,
     });
@@ -211,10 +251,7 @@ pub fn setup_battle_scene(
         selected_command: 0,
         selected_target: 0,
         pending_commands: PendingCommands::new(party_size),
-        phase: BattlePhase::ShowMessage {
-            messages: vec![encounter_msg],
-            index: 0,
-        },
+        phase,
         hidden_enemies: vec![false; enemy_count],
         display_party_hp,
         display_party_mp,
@@ -251,7 +288,7 @@ pub fn setup_battle_scene(
         ))
         .with_children(|parent| {
             // === 上部 (40%): 敵表示エリア ===
-            build_enemy_area(parent, &font, &asset_server, &enemy_sprite_handles);
+            build_enemy_area(parent, &font, asset_server, &enemy_sprite_handles);
 
             // === 中部 (30%): メッセージエリア ===
             build_message_area(parent, &font, panel_bg, border_color);
