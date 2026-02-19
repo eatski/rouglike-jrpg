@@ -252,7 +252,7 @@ pub fn field_menu_input_system(
                 let member_idx = state.caster_candidates[state.caster_cursor];
                 state.selected_caster = member_idx;
 
-                let spells = available_spells(party_state.members[member_idx].kind);
+                let spells = available_spells(party_state.members[member_idx].kind, party_state.members[member_idx].level);
                 if spells.is_empty() {
                     state.message = "じゅもんを おぼえていない".to_string();
                     state.phase = FieldMenuPhase::ShowMessage;

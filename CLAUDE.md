@@ -30,7 +30,7 @@ Bevy 0.18を使用した2Dローグライク風JRPGのプロトタイプ。Cargo
 **ドメイン層（依存なし）**:
 - **terrain**: 地形・座標・方向（Terrain, Position, Direction）。Mountain は歩行不可（`is_walkable()` = false）
 - **party**: パーティ・キャラクター・ステータス・アイテム・装備・仲間募集・レベルシステム（PartyMember（level/expフィールド、gain_exp()でレベルアップ処理）、CombatStats（apply_growth()でステータス成長）、StatGrowth（クラス別成長値）、ItemKind、Inventory、INVENTORY_CAPACITY=6、WeaponKind、Equipment、effective_attack()、RecruitCandidate、RecruitmentStatus: Undiscovered→Acquaintance→Recruited）
-- **battle**: 戦闘ロジック（敵（exp_reward()で経験値報酬）、魔法（クラス別呪文制限含む）、アイテム（個人所持）、戦闘処理（effective_attack使用）、BattleState::total_exp_reward()で勝利時合計経験値計算）
+- **battle**: 戦闘ロジック（敵（exp_reward()で経験値報酬）、魔法（クラス別・レベル別呪文習得：SpellKind（Fire/Blaze/Heal/FullHeal）、spell_learn_table()でクラス別習得テーブル管理、available_spells(kind, level)でレベルに応じた呪文解放、spells_learned_at_level()で特定レベルの習得呪文判定）、アイテム（個人所持）、戦闘処理（effective_attack使用）、BattleState::total_exp_reward()で勝利時合計経験値計算）
 - **cave**: 洞窟生成ロジック
 - **town**: 街ロジック（やどや、よろず屋（アイテム・武器販売、キャラ選択購入、容量チェック）、洞窟ヒント、仲間候補との会話）
 - **world**: ワールドマップ生成（5大陸方式：大陸成長・海岸侵食・内陸湖・極小島除去・歩行連結性保証）・島配置・仲間候補配置（大大陸3500×2、小大陸2000×3、大陸間境界バッファCONTINENT_BORDER_GAP=4.0で分離、島サイズ別街数：大島5個、小島3個、極小島100タイル未満は配置なし、街間最小間隔MIN_TOWN_DISTANCE=10タイル）
@@ -45,7 +45,7 @@ Bevy 0.18を使用した2Dローグライク風JRPGのプロトタイプ。Cargo
 - **world-ui**: ワールドマップシーン・入力・描画・エンカウントシステム・仲間候補マーカー表示・フィールドHUDにレベル表示（HudNameTextコンポーネント）・海岸線オートタイル（coast_lookup: 8隣接ビットマスク→47タイルインデックス変換）
 - **cave-ui**: 洞窟シーン・入力（ワールドマップ座標からシード生成し決定的な洞窟生成、ChaCha8Rng使用）
 - **town-ui**: 街シーン・入力・メニュー（やどや、よろず屋（ShopGoods統合、キャラ選択パネル、Display::Noneパネル制御）、ヒント、話を聞く（仲間候補イベント）、出る）
-- **battle-ui**: 戦闘シーン・入力（クラス別呪文選択制限、個人インベントリ使用）・表示（呪文リスト、無効コマンド灰色表示、アイテムなし時「どうぐ」灰色）・フィールドメニュー（確認キー→トップメニュー（じゅもん/どうぐ）→キャスター/メンバー選択→呪文/アイテム選択→ターゲット選択→結果表示）・勝利時経験値獲得メッセージ・レベルアップメッセージ表示・HUDにレベル表示
+- **battle-ui**: 戦闘シーン・入力（クラス別・レベル別呪文選択制限、個人インベントリ使用）・表示（呪文リスト、無効コマンド灰色表示、アイテムなし時「どうぐ」灰色）・フィールドメニュー（確認キー→トップメニュー（じゅもん/どうぐ）→キャスター/メンバー選択→呪文/アイテム選択→ターゲット選択→結果表示）・勝利時経験値獲得メッセージ・レベルアップメッセージ表示・レベルアップ時呪文習得メッセージ（「○○は △△を おぼえた！」）・HUDにレベル表示
 
 **ツール**:
 - **generate_tiles**: タイルスプライト生成（独立バイナリ）
