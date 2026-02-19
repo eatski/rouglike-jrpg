@@ -1,7 +1,7 @@
 use image::Rgba;
 use std::path::Path;
 
-use crate::common::{new_image, save_image};
+use crate::generators::common::{new_image, save_image};
 
 pub fn generate_ghost(output_dir: &Path) {
     let mut img = new_image();

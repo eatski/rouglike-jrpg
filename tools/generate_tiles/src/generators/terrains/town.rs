@@ -2,7 +2,7 @@ use image::{Rgba, RgbaImage};
 use rand::Rng;
 use std::path::Path;
 
-use crate::common::{new_image, save_image, TILE_SIZE};
+use crate::generators::common::{new_image, save_image, TILE_SIZE};
 
 #[allow(clippy::too_many_arguments)]
 fn draw_house(

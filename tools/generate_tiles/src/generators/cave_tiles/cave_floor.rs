@@ -2,16 +2,16 @@ use image::Rgba;
 use rand::Rng;
 use std::path::Path;
 
-use crate::common::{new_image, save_image, TILE_SIZE};
+use crate::generators::common::{new_image, save_image, TILE_SIZE};
 
-pub fn generate_plains(output_dir: &Path) {
+pub fn generate_cave_floor(output_dir: &Path) {
     let mut img = new_image();
     let mut rng = rand::thread_rng();
 
-    let base = Rgba([120, 180, 100, 255]);
-    let dark = Rgba([80, 140, 70, 255]);
-    let light = Rgba([150, 210, 120, 255]);
-    let flower = Rgba([220, 180, 80, 255]);
+    let base = Rgba([80, 75, 65, 255]);
+    let dark = Rgba([60, 55, 48, 255]);
+    let light = Rgba([100, 95, 82, 255]);
+    let pebble = Rgba([110, 105, 90, 255]);
 
     for y in 0..TILE_SIZE {
         for x in 0..TILE_SIZE {
@@ -20,8 +20,8 @@ pub fn generate_plains(output_dir: &Path) {
                 dark
             } else if r < 0.25 {
                 light
-            } else if r < 0.28 {
-                flower
+            } else if r < 0.30 {
+                pebble
             } else {
                 base
             };
@@ -29,5 +29,5 @@ pub fn generate_plains(output_dir: &Path) {
         }
     }
 
-    save_image(&img, output_dir, "plains.png");
+    save_image(&img, output_dir, "cave_floor.png");
 }

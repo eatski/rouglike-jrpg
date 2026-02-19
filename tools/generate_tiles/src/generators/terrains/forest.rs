@@ -2,7 +2,7 @@ use image::Rgba;
 use rand::Rng;
 use std::path::Path;
 
-use crate::common::{new_image, save_image, TILE_SIZE};
+use crate::generators::common::{new_image, save_image, TILE_SIZE};
 
 pub fn generate_forest(output_dir: &Path) {
     let mut img = new_image();
