@@ -420,7 +420,7 @@ fn handle_item_select(
                     },
                 };
             }
-            ItemEffect::KeyItem => {
+            ItemEffect::KeyItem | ItemEffect::Material => {
                 let member_name = party_state.members[member].kind.name();
                 state.phase = FieldMenuPhase::ShowMessage {
                     message: format!(

@@ -147,8 +147,27 @@ pub fn generate_cave_map(rng: &mut impl Rng) -> CaveMapData {
     }
 }
 
-fn random_treasure_content(_rng: &mut impl Rng) -> TreasureContent {
-    TreasureContent::Item(ItemKind::CopperKey)
+fn random_treasure_content(rng: &mut impl Rng) -> TreasureContent {
+    // (中身, 重み)
+    let table: &[(TreasureContent, u32)] = &[
+        (TreasureContent::Item(ItemKind::Herb), 25),
+        (TreasureContent::Item(ItemKind::HighHerb), 15),
+        (TreasureContent::Item(ItemKind::MagicStone), 25),
+        (TreasureContent::Item(ItemKind::SilverOre), 15),
+        (TreasureContent::Item(ItemKind::AncientCoin), 10),
+        (TreasureContent::Item(ItemKind::DragonScale), 3),
+        (TreasureContent::Item(ItemKind::CopperKey), 5),
+        (TreasureContent::Weapon(WeaponKind::WoodenSword), 2),
+    ];
+    let total: u32 = table.iter().map(|(_, w)| w).sum();
+    let mut roll = rng.gen_range(0..total);
+    for (content, weight) in table {
+        if roll < *weight {
+            return *content;
+        }
+        roll -= weight;
+    }
+    table.last().unwrap().0
 }
 
 

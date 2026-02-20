@@ -9,33 +9,55 @@ pub enum ItemEffect {
     Heal { power: i32 },
     /// キーアイテム（説明表示のみ、消費しない）
     KeyItem,
+    /// 素材（売却専用、使用不可）
+    Material,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ItemKind {
     Herb,
+    HighHerb,
     CopperKey,
+    MagicStone,
+    SilverOre,
+    AncientCoin,
+    DragonScale,
 }
 
 impl ItemKind {
     pub fn name(self) -> &'static str {
         match self {
             ItemKind::Herb => "やくそう",
+            ItemKind::HighHerb => "じょうやくそう",
             ItemKind::CopperKey => "どうのカギ",
+            ItemKind::MagicStone => "まほうのいし",
+            ItemKind::SilverOre => "ぎんこうせき",
+            ItemKind::AncientCoin => "いにしえのコイン",
+            ItemKind::DragonScale => "りゅうのウロコ",
         }
     }
 
     pub fn effect(self) -> ItemEffect {
         match self {
             ItemKind::Herb => ItemEffect::Heal { power: 25 },
+            ItemKind::HighHerb => ItemEffect::Heal { power: 50 },
             ItemKind::CopperKey => ItemEffect::KeyItem,
+            ItemKind::MagicStone
+            | ItemKind::SilverOre
+            | ItemKind::AncientCoin
+            | ItemKind::DragonScale => ItemEffect::Material,
         }
     }
 
     pub fn description(self) -> &'static str {
         match self {
             ItemKind::Herb => "HPを かいふくする やくそう",
+            ItemKind::HighHerb => "HPを おおきく かいふくする",
             ItemKind::CopperKey => "どこかの とびらを あけるカギ",
+            ItemKind::MagicStone => "ふしぎな ちからを もつ いし",
+            ItemKind::SilverOre => "きれいな ぎんいろの こうせき",
+            ItemKind::AncientCoin => "おおむかしの きんか",
+            ItemKind::DragonScale => "りゅうの からだを おおう ウロコ",
         }
     }
 
@@ -44,22 +66,49 @@ impl ItemKind {
         matches!(self.effect(), ItemEffect::Heal { .. })
     }
 
+    /// 買値（0 = 購入不可）
     pub fn price(self) -> u32 {
         match self {
             ItemKind::Herb => 8,
+            ItemKind::HighHerb => 24,
             ItemKind::CopperKey => 0,
+            ItemKind::MagicStone => 0,
+            ItemKind::SilverOre => 0,
+            ItemKind::AncientCoin => 0,
+            ItemKind::DragonScale => 0,
+        }
+    }
+
+    /// 売値（0 = 売却不可）
+    pub fn sell_price(self) -> u32 {
+        match self {
+            ItemKind::Herb => 4,
+            ItemKind::HighHerb => 12,
+            ItemKind::CopperKey => 0,
+            ItemKind::MagicStone => 30,
+            ItemKind::SilverOre => 60,
+            ItemKind::AncientCoin => 120,
+            ItemKind::DragonScale => 250,
         }
     }
 }
 
 /// 道具屋で購入可能なアイテム一覧
 pub fn shop_items() -> Vec<ItemKind> {
-    vec![ItemKind::Herb]
+    vec![ItemKind::Herb, ItemKind::HighHerb]
 }
 
 /// 全アイテムリストを返す
 pub fn all_items() -> Vec<ItemKind> {
-    vec![ItemKind::Herb]
+    vec![
+        ItemKind::Herb,
+        ItemKind::HighHerb,
+        ItemKind::CopperKey,
+        ItemKind::MagicStone,
+        ItemKind::SilverOre,
+        ItemKind::AncientCoin,
+        ItemKind::DragonScale,
+    ]
 }
 
 #[derive(Debug, Clone)]
@@ -110,6 +159,17 @@ impl Inventory {
 
     pub fn count(&self, item: ItemKind) -> u32 {
         self.items.get(&item).copied().unwrap_or(0)
+    }
+
+    /// アイテムを1つ取り除く（売却用、consumableチェックなし）。成功したらtrue
+    pub fn remove_item(&mut self, item: ItemKind) -> bool {
+        if let Some(count) = self.items.get_mut(&item)
+            && *count > 0
+        {
+            *count -= 1;
+            return true;
+        }
+        false
     }
 
     /// 所持しているアイテム一覧（個数1以上）
@@ -186,10 +246,12 @@ mod tests {
     }
 
     #[test]
-    fn all_items_returns_herb() {
+    fn all_items_returns_all_variants() {
         let items = all_items();
-        assert_eq!(items.len(), 1);
-        assert_eq!(items[0], ItemKind::Herb);
+        assert_eq!(items.len(), 7);
+        assert!(items.contains(&ItemKind::Herb));
+        assert!(items.contains(&ItemKind::HighHerb));
+        assert!(items.contains(&ItemKind::DragonScale));
     }
 
     #[test]
@@ -198,10 +260,11 @@ mod tests {
     }
 
     #[test]
-    fn shop_items_returns_herb() {
+    fn shop_items_returns_purchasable() {
         let items = shop_items();
-        assert_eq!(items.len(), 1);
+        assert_eq!(items.len(), 2);
         assert_eq!(items[0], ItemKind::Herb);
+        assert_eq!(items[1], ItemKind::HighHerb);
     }
 
     #[test]

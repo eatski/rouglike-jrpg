@@ -41,6 +41,27 @@ pub fn buy_weapon(weapon: WeaponKind, gold: u32, member: &mut PartyMember) -> Bu
     }
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub enum SellResult {
+    Success { earned_gold: u32 },
+    CannotSell,
+    NotOwned,
+}
+
+/// アイテムを売却する
+pub fn sell_item(item: ItemKind, inventory: &mut Inventory) -> SellResult {
+    let sell_price = item.sell_price();
+    if sell_price == 0 {
+        return SellResult::CannotSell;
+    }
+    if !inventory.remove_item(item) {
+        return SellResult::NotOwned;
+    }
+    SellResult::Success {
+        earned_gold: sell_price,
+    }
+}
+
 /// パーティ全員のHP/MPを全回復する
 pub fn heal_party(party: &mut [PartyMember]) {
     for member in party.iter_mut() {
