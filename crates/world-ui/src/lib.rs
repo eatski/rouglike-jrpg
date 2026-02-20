@@ -13,7 +13,7 @@ pub mod tile_action;
 pub mod tile_pool;
 
 use bevy::prelude::*;
-use app_state::{BattleState, SceneState};
+use app_state::{BattleState, InField, SceneState};
 use movement_ui::{start_bounce, update_bounce};
 
 pub use camera::{camera_follow, setup_camera};
@@ -68,6 +68,36 @@ pub fn register_exploring_event_systems(app: &mut App) {
 pub fn register_exploring_logic_systems(app: &mut App) {
     register_exploring_movement_systems(app);
     register_exploring_event_systems(app);
+}
+
+pub struct WorldPlugin;
+
+impl Plugin for WorldPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<MapModeState>()
+            .add_systems(
+                Startup,
+                (
+                    spawn_field_map,
+                    setup_camera,
+                    spawn_player,
+                    init_tile_pool,
+                    init_exploration_system,
+                    init_minimap_system,
+                )
+                    .chain(),
+            )
+            .add_systems(OnEnter(InField), setup_hud)
+            .add_systems(
+                Update,
+                (toggle_hud_visibility, update_hud)
+                    .chain()
+                    .run_if(in_state(InField)),
+            )
+            .add_systems(OnExit(InField), cleanup_hud);
+
+        register_exploring_all_systems(app);
+    }
 }
 
 /// 全システム（本番用: レンダリング依存含む）

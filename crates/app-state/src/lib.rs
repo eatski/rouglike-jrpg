@@ -4,6 +4,18 @@ use bevy::prelude::*;
 
 pub use resources::{FieldMenuOpen, HokoraPositions, OpenedChests, PartyState, RecruitmentMap};
 
+pub struct AppStatePlugin;
+
+impl Plugin for AppStatePlugin {
+    fn build(&self, app: &mut App) {
+        app.init_state::<SceneState>()
+            .init_state::<BattleState>()
+            .add_computed_state::<InField>()
+            .init_resource::<PartyState>()
+            .init_resource::<OpenedChests>();
+    }
+}
+
 /// シーン（場所）の状態
 #[derive(States, Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum SceneState {

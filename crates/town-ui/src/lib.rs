@@ -1,8 +1,26 @@
 mod input;
 mod scene;
 
+use bevy::prelude::*;
+use app_state::SceneState;
+
 pub use input::town_input_system;
 pub use scene::{
     cleanup_town_scene, setup_town_scene, setup_town_scene_with_config, town_display_system,
     ShopGoods, TownMenuPhase, TownResource, TownSceneConfig,
 };
+
+pub struct TownPlugin;
+
+impl Plugin for TownPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(OnEnter(SceneState::Town), setup_town_scene)
+            .add_systems(
+                Update,
+                (town_input_system, town_display_system)
+                    .chain()
+                    .run_if(in_state(SceneState::Town)),
+            )
+            .add_systems(OnExit(SceneState::Town), cleanup_town_scene);
+    }
+}

@@ -14,6 +14,23 @@ pub use scene::{
     BattleGameState, BattlePhase, BattleSceneConfig, BattleUIState, PendingCommands,
 };
 
+use app_state::InField;
+
+pub struct BattlePlugin;
+
+impl Plugin for BattlePlugin {
+    fn build(&self, app: &mut App) {
+        register_battle_all_systems(app);
+
+        app.add_systems(
+            Update,
+            (field_menu_input_system, field_menu_display_system)
+                .chain()
+                .run_if(in_state(InField)),
+        );
+    }
+}
+
 /// 戦闘ロジックシステムのみ登録（テスト用: レンダリング非依存）
 pub fn register_battle_logic_systems(app: &mut App) {
     app.add_systems(
