@@ -1428,10 +1428,9 @@ fn full_recruitment_flow_undiscovered_to_recruited() {
 
 #[test]
 fn cave_exploration_scenario() {
-    use cave::{generate_cave_map, try_cave_move, CaveMoveResult, CAVE_WIDTH, CAVE_HEIGHT, TreasureContent};
+    use cave::{generate_cave_map, try_cave_move, CaveMoveResult, CAVE_WIDTH, CAVE_HEIGHT};
     use rand::SeedableRng;
     use rand_chacha::ChaCha8Rng;
-    use party::ItemKind;
 
     let mut rng = ChaCha8Rng::seed_from_u64(42);
     let cave = generate_cave_map(&mut rng);
@@ -1455,9 +1454,10 @@ fn cave_exploration_scenario() {
     assert!(!cave.treasures.is_empty(), "Cave should have at least one treasure");
     assert!(cave.treasures.len() <= 3, "Cave should have at most 3 treasures");
 
-    // 宝箱はCopperKey固定
+    // 宝箱は有効な中身を持つ
     for chest in &cave.treasures {
-        assert_eq!(chest.content, TreasureContent::Item(ItemKind::CopperKey));
+        // 宝箱の名前が空でないことで中身の有効性を確認
+        assert!(!chest.content.name().is_empty());
         // 宝箱は床タイル上
         assert_eq!(cave.grid[chest.y][chest.x], Terrain::CaveFloor,
             "Treasure at ({},{}) should be on CaveFloor, got {:?}", chest.x, chest.y, cave.grid[chest.y][chest.x]);
@@ -1520,31 +1520,33 @@ fn cave_treasure_adds_to_inventory() {
     use cave::{generate_cave_map, TreasureContent};
     use rand::SeedableRng;
     use rand_chacha::ChaCha8Rng;
-    use party::{PartyMember, ItemKind};
+    use party::PartyMember;
 
     let mut rng = ChaCha8Rng::seed_from_u64(42);
     let cave = generate_cave_map(&mut rng);
 
     let mut hero = PartyMember::hero();
-    assert_eq!(hero.inventory.count(ItemKind::CopperKey), 0);
+    assert!(hero.inventory.is_empty());
 
     // 宝箱を開ける（ドメインロジックとして直接追加）
+    let mut item_count = 0u32;
     for chest in &cave.treasures {
         match chest.content {
             TreasureContent::Item(item) => {
                 hero.inventory.add(item, 1);
+                item_count += 1;
             }
             TreasureContent::Weapon(_weapon) => {
-                // 武器の場合の処理（現在はCopperKey固定なのでここに来ない）
+                // 武器はインベントリに追加しない（装備扱い）
             }
         }
     }
 
-    // 洞窟内の宝箱分だけCopperKeyを所持している
+    // 宝箱のアイテム分だけインベントリに追加されている
     assert_eq!(
-        hero.inventory.count(ItemKind::CopperKey),
-        cave.treasures.len() as u32,
-        "Should have one CopperKey per treasure chest"
+        hero.inventory.total_count(),
+        item_count,
+        "Inventory should contain items from opened treasure chests"
     );
 }
 

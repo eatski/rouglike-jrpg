@@ -54,6 +54,12 @@ pub enum TownMenuPhase {
     ShopMessage { message: String },
     /// 仲間候補との会話メッセージ表示中
     RecruitMessage { message: String },
+    /// よろず屋 — かう/うる選択
+    ShopModeSelect { selected: usize },
+    /// よろず屋 — 売却キャラ選択
+    SellCharacterSelect { selected: usize },
+    /// よろず屋 — 売却アイテム選択
+    SellItemSelect { member_index: usize, selected: usize },
 }
 
 /// 町の状態管理リソース
@@ -109,6 +115,9 @@ pub struct ShopCharacterMenuItem {
 
 const SELECTED_COLOR: Color = Color::srgb(1.0, 0.9, 0.2);
 const UNSELECTED_COLOR: Color = Color::srgb(0.6, 0.6, 0.6);
+
+/// ショップパネル内のメニュー項目最大数（購入・売却で共用）
+const SHOP_PANEL_MAX_ITEMS: usize = 7;
 
 fn format_goods_label(prefix: &str, goods: &ShopGoods) -> String {
     match goods {
@@ -271,14 +280,20 @@ fn setup_town_scene_inner(
                         },
                     ));
 
-                    // 商品一覧（アイテム＋武器）
-                    for (i, goods) in shop_goods().iter().enumerate() {
-                        let prefix = if i == 0 { "> " } else { "  " };
-                        let label = format_goods_label(prefix, goods);
-                        let color = if i == 0 {
-                            SELECTED_COLOR
+                    // メニュー項目（購入・売却で共用）
+                    for i in 0..SHOP_PANEL_MAX_ITEMS {
+                        let display = if i < shop_goods().len() {
+                            Display::Flex
                         } else {
-                            UNSELECTED_COLOR
+                            Display::None
+                        };
+                        let (label, color) = if i < shop_goods().len() {
+                            let prefix = if i == 0 { "> " } else { "  " };
+                            let label = format_goods_label(prefix, &shop_goods()[i]);
+                            let color = if i == 0 { SELECTED_COLOR } else { UNSELECTED_COLOR };
+                            (label, color)
+                        } else {
+                            (String::new(), UNSELECTED_COLOR)
                         };
                         shop.spawn((
                             ShopMenuItem { index: i },
@@ -289,6 +304,10 @@ fn setup_town_scene_inner(
                                 ..default()
                             },
                             TextColor(color),
+                            Node {
+                                display,
+                                ..default()
+                            },
                         ));
                     }
                 });
@@ -413,8 +432,8 @@ pub fn town_display_system(
         (Without<TownMessageText>, Without<TownMessageArea>, Without<ShopMenuItem>, Without<ShopCharacterMenuItem>),
     >,
     mut shop_item_query: Query<
-        (&ShopMenuItem, &mut Text, &mut TextColor),
-        (Without<TownMenuItem>, Without<TownMessageText>, Without<TownMessageArea>, Without<ShopCharacterMenuItem>),
+        (&ShopMenuItem, &mut Text, &mut TextColor, &mut Node),
+        (Without<TownMenuItem>, Without<TownMessageText>, Without<TownMessageArea>, Without<ShopCharacterMenuItem>, Without<ShopGoldText>, Without<TownMainMenu>, Without<ShopMenuRoot>, Without<ShopCharacterPanel>),
     >,
     mut gold_query: Query<&mut Text, (With<ShopGoldText>, Without<TownMenuItem>, Without<ShopMenuItem>, Without<TownMessageText>, Without<TownMessageArea>, Without<ShopCharacterMenuItem>)>,
     mut message_query: Query<&mut Text, (With<TownMessageText>, Without<TownMessageArea>, Without<TownMenuItem>, Without<ShopMenuItem>, Without<ShopGoldText>, Without<ShopCharacterMenuItem>)>,
@@ -425,18 +444,27 @@ pub fn town_display_system(
         (Without<TownMenuItem>, Without<ShopMenuItem>, Without<TownMessageText>, Without<ShopGoldText>),
     >,
 ) {
-    let in_shop_select = matches!(&town_res.phase, TownMenuPhase::ShopSelect { .. });
-    let in_char_select = matches!(&town_res.phase, TownMenuPhase::ShopCharacterSelect { .. });
+    let in_shop_panel = matches!(
+        &town_res.phase,
+        TownMenuPhase::ShopSelect { .. }
+            | TownMenuPhase::ShopModeSelect { .. }
+            | TownMenuPhase::SellItemSelect { .. }
+    );
+    let in_char_select = matches!(
+        &town_res.phase,
+        TownMenuPhase::ShopCharacterSelect { .. }
+            | TownMenuPhase::SellCharacterSelect { .. }
+    );
     let in_shop_message = matches!(&town_res.phase, TownMenuPhase::ShopMessage { .. });
 
     // メインメニュー表示/非表示
     for mut node in &mut main_menu_query {
-        set_panel_visible(&mut node, !in_shop_select && !in_char_select && !in_shop_message);
+        set_panel_visible(&mut node, !in_shop_panel && !in_char_select && !in_shop_message);
     }
 
-    // ショップパネル表示/非表示（メッセージ表示中は隠す）
+    // ショップパネル表示/非表示
     for mut node in &mut shop_root_query {
-        set_panel_visible(&mut node, in_shop_select);
+        set_panel_visible(&mut node, in_shop_panel);
     }
 
     // キャラクター選択パネル表示/非表示
@@ -444,7 +472,7 @@ pub fn town_display_system(
         set_panel_visible(&mut node, in_char_select);
     }
 
-    // キャラクター選択メニュー項目の更新
+    // キャラクター選択メニュー項目の更新（購入）
     if let TownMenuPhase::ShopCharacterSelect { goods, selected } = &town_res.phase {
         for (char_item, mut text, mut color) in &mut char_item_query {
             if char_item.index < party_state.members.len() {
@@ -470,6 +498,30 @@ pub fn town_display_system(
         }
     }
 
+    // キャラクター選択メニュー項目の更新（売却）
+    if let TownMenuPhase::SellCharacterSelect { selected } = &town_res.phase {
+        for (char_item, mut text, mut color) in &mut char_item_query {
+            if char_item.index < party_state.members.len() {
+                let is_selected = char_item.index == *selected;
+                let prefix = if is_selected { "> " } else { "  " };
+                let member = &party_state.members[char_item.index];
+                let sellable_count: u32 = member
+                    .inventory
+                    .owned_items()
+                    .iter()
+                    .filter(|i| i.sell_price() > 0)
+                    .map(|i| member.inventory.count(*i))
+                    .sum();
+                **text = format!("{}{}  売却可: {}個", prefix, member.kind.name(), sellable_count);
+                *color = if is_selected {
+                    TextColor(SELECTED_COLOR)
+                } else {
+                    TextColor(UNSELECTED_COLOR)
+                };
+            }
+        }
+    }
+
     // メインメニュー項目の更新
     let labels = ["やどや", "よろず屋", "話を聞く", "街を出る"];
     for (item, mut text, mut color) in &mut menu_query {
@@ -485,21 +537,86 @@ pub fn town_display_system(
         }
     }
 
-    // ショップ商品の更新
-    if let TownMenuPhase::ShopSelect { selected } = &town_res.phase {
-        let goods_list = shop_goods();
-        for (shop_item, mut text, mut color) in &mut shop_item_query {
-            if shop_item.index < goods_list.len() {
-                let is_selected = shop_item.index == *selected;
-                let prefix = if is_selected { "> " } else { "  " };
-                **text = format_goods_label(prefix, &goods_list[shop_item.index]);
-                *color = if is_selected {
-                    TextColor(SELECTED_COLOR)
+    // ショップパネル項目の更新
+    match &town_res.phase {
+        TownMenuPhase::ShopSelect { selected } => {
+            let goods_list = shop_goods();
+            for (shop_item, mut text, mut color, mut node) in &mut shop_item_query {
+                if shop_item.index < goods_list.len() {
+                    let is_selected = shop_item.index == *selected;
+                    let prefix = if is_selected { "> " } else { "  " };
+                    **text = format_goods_label(prefix, &goods_list[shop_item.index]);
+                    *color = if is_selected {
+                        TextColor(SELECTED_COLOR)
+                    } else {
+                        TextColor(UNSELECTED_COLOR)
+                    };
+                    node.display = Display::Flex;
                 } else {
-                    TextColor(UNSELECTED_COLOR)
-                };
+                    **text = String::new();
+                    node.display = Display::None;
+                }
             }
         }
+        TownMenuPhase::ShopModeSelect { selected } => {
+            let labels = ["かう", "うる"];
+            for (shop_item, mut text, mut color, mut node) in &mut shop_item_query {
+                if shop_item.index < labels.len() {
+                    let is_selected = shop_item.index == *selected;
+                    let prefix = if is_selected { "> " } else { "  " };
+                    **text = format!("{}{}", prefix, labels[shop_item.index]);
+                    *color = if is_selected {
+                        TextColor(SELECTED_COLOR)
+                    } else {
+                        TextColor(UNSELECTED_COLOR)
+                    };
+                    node.display = Display::Flex;
+                } else {
+                    **text = String::new();
+                    node.display = Display::None;
+                }
+            }
+        }
+        TownMenuPhase::SellItemSelect {
+            member_index,
+            selected,
+        } => {
+            let sellable_items: Vec<_> = if *member_index < party_state.members.len() {
+                party_state.members[*member_index]
+                    .inventory
+                    .owned_items()
+                    .into_iter()
+                    .filter(|i| i.sell_price() > 0)
+                    .collect()
+            } else {
+                Vec::new()
+            };
+            for (shop_item, mut text, mut color, mut node) in &mut shop_item_query {
+                if shop_item.index < sellable_items.len() {
+                    let item = sellable_items[shop_item.index];
+                    let count = party_state.members[*member_index].inventory.count(item);
+                    let is_selected = shop_item.index == *selected;
+                    let prefix = if is_selected { "> " } else { "  " };
+                    **text = format!(
+                        "{}{} x{}  {}G",
+                        prefix,
+                        item.name(),
+                        count,
+                        item.sell_price()
+                    );
+                    *color = if is_selected {
+                        TextColor(SELECTED_COLOR)
+                    } else {
+                        TextColor(UNSELECTED_COLOR)
+                    };
+                    node.display = Display::Flex;
+                } else {
+                    **text = String::new();
+                    node.display = Display::None;
+                }
+            }
+        }
+        _ => {}
     }
 
     // ゴールド表示更新

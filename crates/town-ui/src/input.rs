@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use input_ui::{is_cancel_just_pressed, is_confirm_just_pressed, is_down_just_pressed, is_up_just_pressed};
 use party::{talk_to_candidate, PartyMember, TalkResult};
-use town::{buy_item, buy_weapon, candidate_first_dialogue, candidate_join_dialogue, cave_hint_dialogue, heal_party, hokora_hint_dialogue, BuyResult, BuyWeaponResult};
+use town::{buy_item, buy_weapon, candidate_first_dialogue, candidate_join_dialogue, cave_hint_dialogue, heal_party, hokora_hint_dialogue, sell_item, BuyResult, BuyWeaponResult, SellResult};
 
 use app_state::SceneState;
 use movement_ui::{Player, TilePosition};
@@ -41,8 +41,8 @@ pub fn town_input_system(
                         };
                     }
                     1 => {
-                        // よろず屋 → ショップ画面へ
-                        town_res.phase = TownMenuPhase::ShopSelect { selected: 0 };
+                        // よろず屋 → かう/うる選択へ
+                        town_res.phase = TownMenuPhase::ShopModeSelect { selected: 0 };
                     }
                     2 => {
                         // 話を聞く → 仲間候補がいればイベント、いなければ洞窟ヒント
@@ -106,11 +106,38 @@ pub fn town_input_system(
                 town_res.phase = TownMenuPhase::MenuSelect;
             }
         }
+        TownMenuPhase::ShopModeSelect { selected } => {
+            // かう/うる選択
+            if is_up_just_pressed(&keyboard) {
+                town_res.phase = TownMenuPhase::ShopModeSelect {
+                    selected: if selected > 0 { selected - 1 } else { 1 },
+                };
+            }
+            if is_down_just_pressed(&keyboard) {
+                town_res.phase = TownMenuPhase::ShopModeSelect {
+                    selected: if selected < 1 { selected + 1 } else { 0 },
+                };
+            }
+            if is_cancel_just_pressed(&keyboard) {
+                town_res.phase = TownMenuPhase::MenuSelect;
+            }
+            if is_confirm_just_pressed(&keyboard) {
+                match selected {
+                    0 => {
+                        // かう → 商品選択へ
+                        town_res.phase = TownMenuPhase::ShopSelect { selected: 0 };
+                    }
+                    _ => {
+                        // うる → 売却キャラ選択へ
+                        town_res.phase = TownMenuPhase::SellCharacterSelect { selected: 0 };
+                    }
+                }
+            }
+        }
         TownMenuPhase::ShopSelect { selected } => {
             let goods_list = shop_goods();
             let max_index = goods_list.len().saturating_sub(1);
 
-            // 上下でカーソル移動
             if is_up_just_pressed(&keyboard) {
                 town_res.phase = TownMenuPhase::ShopSelect {
                     selected: if selected > 0 { selected - 1 } else { max_index },
@@ -122,12 +149,11 @@ pub fn town_input_system(
                 };
             }
 
-            // キャンセル → メインメニューに戻る
+            // キャンセル → かう/うる選択に戻る
             if is_cancel_just_pressed(&keyboard) {
-                town_res.phase = TownMenuPhase::MenuSelect;
+                town_res.phase = TownMenuPhase::ShopModeSelect { selected: 0 };
             }
 
-            // 決定 → ゴールドチェック後キャラ選択へ
             if is_confirm_just_pressed(&keyboard) {
                 let goods = goods_list[selected];
                 if party_state.gold < goods.price() {
@@ -152,13 +178,32 @@ pub fn town_input_system(
             );
         }
         TownMenuPhase::ShopMessage { .. } => {
-            // メッセージ確認後、ショップ選択に戻る
+            // メッセージ確認後、かう/うる選択に戻る
             if is_confirm_just_pressed(&keyboard) {
-                town_res.phase = TownMenuPhase::ShopSelect { selected: 0 };
+                town_res.phase = TownMenuPhase::ShopModeSelect { selected: 0 };
             }
         }
+        TownMenuPhase::SellCharacterSelect { selected } => {
+            handle_sell_character_select(
+                &keyboard,
+                &mut town_res,
+                &party_state,
+                selected,
+            );
+        }
+        TownMenuPhase::SellItemSelect {
+            member_index,
+            selected,
+        } => {
+            handle_sell_item_select(
+                &keyboard,
+                &mut town_res,
+                &mut party_state,
+                member_index,
+                selected,
+            );
+        }
         TownMenuPhase::RecruitMessage { .. } => {
-            // 仲間メッセージ確認後、メインメニューに戻る
             if is_confirm_just_pressed(&keyboard) {
                 town_res.phase = TownMenuPhase::MenuSelect;
             }
@@ -189,7 +234,7 @@ fn handle_shop_character_select(
         };
     }
 
-    // キャンセル → ショップ選択に戻る
+    // キャンセル → 商品選択に戻る
     if is_cancel_just_pressed(keyboard) {
         town_res.phase = TownMenuPhase::ShopSelect { selected: 0 };
         return;
@@ -233,6 +278,119 @@ fn handle_shop_character_select(
                         };
                     }
                 }
+            }
+        }
+    }
+}
+
+fn handle_sell_character_select(
+    keyboard: &ButtonInput<KeyCode>,
+    town_res: &mut TownResource,
+    party_state: &PartyState,
+    selected: usize,
+) {
+    let max_index = party_state.members.len().saturating_sub(1);
+
+    if is_up_just_pressed(keyboard) {
+        town_res.phase = TownMenuPhase::SellCharacterSelect {
+            selected: if selected > 0 { selected - 1 } else { max_index },
+        };
+    }
+    if is_down_just_pressed(keyboard) {
+        town_res.phase = TownMenuPhase::SellCharacterSelect {
+            selected: if selected < max_index { selected + 1 } else { 0 },
+        };
+    }
+
+    if is_cancel_just_pressed(keyboard) {
+        town_res.phase = TownMenuPhase::ShopModeSelect { selected: 1 };
+        return;
+    }
+
+    if is_confirm_just_pressed(keyboard) {
+        let sellable: Vec<_> = party_state.members[selected]
+            .inventory
+            .owned_items()
+            .into_iter()
+            .filter(|i| i.sell_price() > 0)
+            .collect();
+        if sellable.is_empty() {
+            town_res.phase = TownMenuPhase::ShopMessage {
+                message: "うれる アイテムが ない！".to_string(),
+            };
+        } else {
+            town_res.phase = TownMenuPhase::SellItemSelect {
+                member_index: selected,
+                selected: 0,
+            };
+        }
+    }
+}
+
+fn handle_sell_item_select(
+    keyboard: &ButtonInput<KeyCode>,
+    town_res: &mut TownResource,
+    party_state: &mut PartyState,
+    member_index: usize,
+    selected: usize,
+) {
+    let sellable: Vec<_> = party_state.members[member_index]
+        .inventory
+        .owned_items()
+        .into_iter()
+        .filter(|i| i.sell_price() > 0)
+        .collect();
+
+    if sellable.is_empty() {
+        town_res.phase = TownMenuPhase::SellCharacterSelect { selected: member_index };
+        return;
+    }
+
+    let max_index = sellable.len().saturating_sub(1);
+
+    if is_up_just_pressed(keyboard) {
+        town_res.phase = TownMenuPhase::SellItemSelect {
+            member_index,
+            selected: if selected > 0 { selected - 1 } else { max_index },
+        };
+    }
+    if is_down_just_pressed(keyboard) {
+        town_res.phase = TownMenuPhase::SellItemSelect {
+            member_index,
+            selected: if selected < max_index { selected + 1 } else { 0 },
+        };
+    }
+
+    if is_cancel_just_pressed(keyboard) {
+        town_res.phase = TownMenuPhase::SellCharacterSelect { selected: member_index };
+        return;
+    }
+
+    if is_confirm_just_pressed(keyboard) {
+        let item = sellable[selected];
+        match sell_item(item, &mut party_state.members[member_index].inventory) {
+            SellResult::Success { earned_gold } => {
+                party_state.gold += earned_gold;
+                town_res.phase = TownMenuPhase::ShopMessage {
+                    message: format!(
+                        "{} を {}Gで うった！",
+                        item.name(),
+                        earned_gold
+                    ),
+                };
+            }
+            SellResult::CannotSell => {
+                town_res.phase = TownMenuPhase::ShopMessage {
+                    message: format!("{} は うれない！", item.name()),
+                };
+            }
+            SellResult::NotOwned => {
+                town_res.phase = TownMenuPhase::ShopMessage {
+                    message: format!(
+                        "{} を もっていない！",
+                        item.name()
+                    ),
+                };
             }
         }
     }

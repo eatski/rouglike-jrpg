@@ -292,7 +292,7 @@ impl BattleState {
                     });
                 }
             }
-            ItemEffect::KeyItem => {
+            ItemEffect::KeyItem | ItemEffect::Material => {
                 // 戦闘中は使えない（UIで弾くが念のため）
             }
         }
