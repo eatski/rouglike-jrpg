@@ -15,6 +15,9 @@ use movement_ui::{
 };
 use app_state::{FieldMenuOpen, PartyState};
 use movement_ui::{MovementState, WINDOW_SIZE};
+use hokora_ui::{
+    cleanup_hokora_scene, hokora_display_system, hokora_input_system, setup_hokora_scene,
+};
 use town_ui::{cleanup_town_scene, setup_town_scene, town_display_system, town_input_system};
 use world_ui::{
     camera_follow, check_encounter_system, cleanup_hud, init_exploration_system,
@@ -99,6 +102,15 @@ fn main() {
             .run_if(in_state(SceneState::Town)),
     )
     .add_systems(OnExit(SceneState::Town), cleanup_town_scene)
+    // Hokora
+    .add_systems(OnEnter(SceneState::Hokora), setup_hokora_scene)
+    .add_systems(
+        Update,
+        (hokora_input_system, hokora_display_system)
+            .chain()
+            .run_if(in_state(SceneState::Hokora)),
+    )
+    .add_systems(OnExit(SceneState::Hokora), cleanup_hokora_scene)
     // Cave
     .add_systems(OnEnter(SceneState::Cave), setup_cave_scene)
     .add_systems(

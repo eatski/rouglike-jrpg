@@ -9,7 +9,7 @@ use world::map::{
 
 use movement_ui::{Boat, Player, TilePosition};
 use party::default_candidates;
-use app_state::RecruitmentMap;
+use app_state::{HokoraPositions, RecruitmentMap};
 use movement_ui::{ActiveMap, TILE_SIZE};
 use terrain::Terrain;
 
@@ -49,6 +49,7 @@ pub struct TileTextures {
     pub boat: Handle<Image>,
     pub town: Handle<Image>,
     pub cave: Handle<Image>,
+    pub hokora: Handle<Image>,
     pub cave_wall: Handle<Image>,
     pub cave_floor: Handle<Image>,
     pub warp_zone: Handle<Image>,
@@ -74,6 +75,7 @@ pub fn load_tile_textures(asset_server: &AssetServer) -> TileTextures {
         boat: asset_server.load("tiles/boat.png"),
         town: asset_server.load("tiles/town.png"),
         cave: asset_server.load("tiles/cave.png"),
+        hokora: asset_server.load("tiles/hokora.png"),
         cave_wall: asset_server.load("tiles/cave_wall.png"),
         cave_floor: asset_server.load("tiles/cave_floor.png"),
         warp_zone: asset_server.load("tiles/warp_zone.png"),
@@ -133,6 +135,19 @@ pub fn spawn_field_map_with_rng(
     commands.insert_resource(SpawnPosition {
         x: map_data.spawn_position.0,
         y: map_data.spawn_position.1,
+    });
+
+    // 祠座標を収集
+    let mut hokora_positions = Vec::new();
+    for (y, row) in map_data.grid.iter().enumerate() {
+        for (x, &terrain) in row.iter().enumerate() {
+            if terrain == Terrain::Hokora {
+                hokora_positions.push((x, y));
+            }
+        }
+    }
+    commands.insert_resource(HokoraPositions {
+        positions: hokora_positions,
     });
 
     let active_map = ActiveMap::from_grid(map_data.grid);

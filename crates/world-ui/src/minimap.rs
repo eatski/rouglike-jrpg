@@ -32,6 +32,7 @@ fn terrain_to_color(terrain: Terrain) -> [u8; 4] {
         Terrain::CaveFloor => [140, 120, 90, 255], // 薄い茶色
         Terrain::WarpZone => [180, 100, 200, 255], // 紫
         Terrain::Ladder => [200, 180, 60, 255],    // 黄色
+        Terrain::Hokora => [190, 45, 40, 255],     // 赤（鳥居の色）
     }
 }
 

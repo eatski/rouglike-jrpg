@@ -38,6 +38,12 @@ pub struct RecruitmentMap {
 #[derive(Resource, Default)]
 pub struct FieldMenuOpen(pub bool);
 
+/// 祠のワールドマップ座標を保持するリソース
+#[derive(Resource, Default)]
+pub struct HokoraPositions {
+    pub positions: Vec<(usize, usize)>,
+}
+
 /// 取得済み宝箱を管理するリソース
 /// key: ワールドマップ上の洞窟座標 (cave_x, cave_y)
 /// value: その洞窟内で取得済みの宝箱インデックスの集合

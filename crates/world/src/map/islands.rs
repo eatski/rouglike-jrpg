@@ -30,6 +30,14 @@ pub struct BoatSpawn {
     pub y: usize,
 }
 
+/// 祠のスポーン情報
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct HokoraSpawn {
+    /// タイル座標
+    pub x: usize,
+    pub y: usize,
+}
+
 /// 仲間候補の街割り当て情報
 #[derive(Debug, Clone)]
 pub struct CandidatePlacement {
@@ -284,6 +292,41 @@ pub fn calculate_cave_spawns(
         candidates.shuffle(rng);
         for &(x, y) in candidates.iter().take(CAVES_PER_ISLAND) {
             spawns.push(CaveSpawn { x, y });
+        }
+    }
+
+    spawns
+}
+
+/// 大陸1と大陸2に祠を1つずつ配置する
+///
+/// 各大陸中心を含む島から Plains タイルを選んで祠を配置する。
+/// `spawn_position` は除外する。
+pub fn calculate_hokora_spawns(
+    grid: &[Vec<Terrain>],
+    rng: &mut impl Rng,
+    continent_centers: &[(usize, usize)],
+    spawn_position: (usize, usize),
+) -> Vec<HokoraSpawn> {
+    let islands = detect_islands(grid);
+    let mut spawns = Vec::new();
+
+    // 大陸1と大陸2（centers[0]とcenters[1]）に1つずつ配置
+    for &center in continent_centers.iter().take(2) {
+        // この大陸中心を含む島を検出
+        let island = islands.iter().find(|island| island.contains(&center));
+        if let Some(island) = island {
+            let mut candidates: Vec<(usize, usize)> = island
+                .iter()
+                .filter(|&&(x, y)| {
+                    grid[y][x] == Terrain::Plains && (x, y) != spawn_position
+                })
+                .copied()
+                .collect();
+            candidates.shuffle(rng);
+            if let Some(&(x, y)) = candidates.first() {
+                spawns.push(HokoraSpawn { x, y });
+            }
         }
     }
 
