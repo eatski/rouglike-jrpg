@@ -112,15 +112,20 @@ pub fn candidate_join_dialogue(kind: PartyMemberKind) -> String {
     format!("{name}が なかまに くわわった！")
 }
 
-/// 街の位置から最寄りの洞窟の方角を教える台詞を生成する
-pub fn cave_hint_dialogue(grid: &[Vec<Terrain>], town_x: usize, town_y: usize) -> String {
+/// グリッド内で指定テラインへの最短方向を求める
+fn find_nearest_terrain(
+    grid: &[Vec<Terrain>],
+    town_x: usize,
+    town_y: usize,
+    target: Terrain,
+) -> Option<(i32, i32, i32)> {
     let mut best_dist = i32::MAX;
     let mut best_dx = 0i32;
     let mut best_dy = 0i32;
 
     for (y, row) in grid.iter().enumerate() {
         for (x, terrain) in row.iter().enumerate() {
-            if *terrain == Terrain::Cave {
+            if *terrain == target {
                 let dx = torus_delta(town_x, x, MAP_WIDTH);
                 let dy = torus_delta(town_y, y, MAP_HEIGHT);
                 let dist = dx.abs() + dy.abs();
@@ -134,12 +139,32 @@ pub fn cave_hint_dialogue(grid: &[Vec<Terrain>], town_x: usize, town_y: usize) -
     }
 
     if best_dist == i32::MAX {
-        return townsperson_dialogue().to_string();
+        None
+    } else {
+        Some((best_dx, best_dy, best_dist))
     }
+}
 
-    let dir = direction_label(best_dx, best_dy);
-    let modifier = distance_modifier(best_dist);
+/// 街の位置から最寄りの洞窟の方角を教える台詞を生成する
+pub fn cave_hint_dialogue(grid: &[Vec<Terrain>], town_x: usize, town_y: usize) -> String {
+    let Some((dx, dy, dist)) = find_nearest_terrain(grid, town_x, town_y, Terrain::Cave) else {
+        return townsperson_dialogue().to_string();
+    };
+
+    let dir = direction_label(dx, dy);
+    let modifier = distance_modifier(dist);
     format!("{modifier} {dir}のほうに\nどうくつが あるらしいぞ")
+}
+
+/// 街の位置から最寄りの祠の方角を教える台詞を生成する
+pub fn hokora_hint_dialogue(grid: &[Vec<Terrain>], town_x: usize, town_y: usize) -> String {
+    let Some((dx, dy, dist)) = find_nearest_terrain(grid, town_x, town_y, Terrain::Hokora) else {
+        return townsperson_dialogue().to_string();
+    };
+
+    let dir = direction_label(dx, dy);
+    let modifier = distance_modifier(dist);
+    format!("{modifier} {dir}のほうに\nふるい ほこらが あるそうだ")
 }
 
 #[cfg(test)]
@@ -233,6 +258,37 @@ mod tests {
         assert!(
             dialogue.contains("はるか とおくの"),
             "遠い洞窟: {dialogue}"
+        );
+    }
+
+    #[test]
+    fn hokora_hint_dialogue_to_the_east() {
+        let mut grid = make_grid(MAP_WIDTH, MAP_HEIGHT);
+        grid[75][90] = Terrain::Hokora;
+        let dialogue = hokora_hint_dialogue(&grid, 75, 75);
+        assert!(
+            dialogue.contains("ひがし"),
+            "東の祠が検出されるべき: {dialogue}"
+        );
+        assert!(dialogue.contains("ほこら"));
+    }
+
+    #[test]
+    fn hokora_hint_dialogue_no_hokora_fallback() {
+        let grid = make_grid(MAP_WIDTH, MAP_HEIGHT);
+        let dialogue = hokora_hint_dialogue(&grid, 75, 75);
+        assert_eq!(dialogue, townsperson_dialogue());
+    }
+
+    #[test]
+    fn hokora_hint_dialogue_wraparound() {
+        let mut grid = make_grid(MAP_WIDTH, MAP_HEIGHT);
+        // 街(5, 5)からマップ端の反対側(x=145)に祠を配置
+        grid[5][MAP_WIDTH - 5] = Terrain::Hokora;
+        let dialogue = hokora_hint_dialogue(&grid, 5, 5);
+        assert!(
+            dialogue.contains("すぐ ちかくの"),
+            "ラップアラウンドで近い祠が選ばれるべき: {dialogue}"
         );
     }
 
