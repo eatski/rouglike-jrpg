@@ -25,7 +25,7 @@ cargo test --workspace            # テスト（全crate）
 
 ## Architecture
 
-Bevy 0.18を使用した2Dローグライク風JRPGのプロトタイプ。Cargoワークスペース構成（19 crate）。
+Bevy 0.18を使用した2Dローグライク風JRPGのプロトタイプ。Cargoワークスペース構成（20 crate）。
 
 **ドメイン層（依存なし）**:
 - **terrain**: 地形・座標・方向（Terrain, Position, Direction）。Mountain は歩行不可（`is_walkable()` = false）
@@ -37,7 +37,7 @@ Bevy 0.18を使用した2Dローグライク風JRPGのプロトタイプ。Cargo
 - **time**: 時間カウント（TimeCount構造体）
 
 **UI共通層（Bevy依存）**:
-- **app-state**: AppState（Exploring/Battle/Cave/Town）、PartyState（パーティ、所持金、仲間候補リスト）、RecruitmentMap、FieldMenuOpen、OpenedChests（取得済み宝箱の永続管理：洞窟座標→インデックス集合のHashMap）
+- **app-state**: AppState（Exploring/Battle/Cave/Town）、SceneState（Exploring/Town/Cave/Hokora）、PartyState（パーティ、所持金、仲間候補リスト）、RecruitmentMap、FieldMenuOpen、HokoraPositions（祠のワールドマップ座標リスト）、OpenedChests（取得済み宝箱の永続管理：洞窟座標→インデックス集合のHashMap）
 - **input-ui**: 入力ソース抽象化（InputSource）、確認キー消費関数（clear_confirm_just_pressed）
 - **movement-ui**: 移動メカニクス（コンポーネント、イベント、アニメーション、UI共通定数、MovementState、ActiveMap、WorldMapData）
 
@@ -46,6 +46,7 @@ Bevy 0.18を使用した2Dローグライク風JRPGのプロトタイプ。Cargo
 - **cave-ui**: 洞窟シーン・入力（ワールドマップ座標からシード生成し決定的な洞窟生成、ChaCha8Rng使用）・宝箱表示（ChestEntity/CaveTreasures）・宝箱取得システム（check_chest_system: TileEnteredEvent検知→アイテム/武器追加→OpenedChests記録）・メッセージ表示（CaveMessageState/CaveMessageUI、cave_message_input_system/cave_message_display_system）
 - **town-ui**: 街シーン・入力・メニュー（やどや、よろず屋（ShopGoods統合、キャラ選択パネル、Display::Noneパネル制御）、ヒント、話を聞く（仲間候補イベント）、出る）
 - **battle-ui**: 戦闘シーン・入力（クラス別・レベル別呪文選択制限、個人インベントリ使用）・表示（呪文リスト、無効コマンド灰色表示、アイテムなし時「どうぐ」灰色）・フィールドメニュー（確認キー→トップメニュー（じゅもん/どうぐ）→キャスター/メンバー選択→呪文/アイテム選択→ターゲット選択→結果表示）・勝利時経験値獲得メッセージ・レベルアップメッセージ表示・レベルアップ時呪文習得メッセージ（「○○は △△を おぼえた！」）・HUDにレベル表示
+- **hokora-ui**: 祠シーン・入力・表示（銅の鍵でワープ：最寄り祠を特定しもう一方の祠へテレポート、メニュー：様子を見る/扉を開ける/出る、鍵なし時メッセージ表示）
 
 **ツール**:
 - **generate_tiles**: タイルスプライト生成（独立バイナリ）

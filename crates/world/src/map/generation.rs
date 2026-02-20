@@ -6,7 +6,8 @@ use std::collections::{HashSet, VecDeque};
 
 use crate::coordinates::orthogonal_neighbors;
 use crate::map::islands::{
-    calculate_cave_spawns, calculate_town_spawns, detect_islands, validate_connectivity,
+    calculate_cave_spawns, calculate_hokora_spawns, calculate_town_spawns, detect_islands,
+    validate_connectivity,
 };
 
 /// 大大陸の目標タイル数（大陸1,2用。侵食・湖で減るため多めに生成）
@@ -585,6 +586,11 @@ pub fn generate_map(rng: &mut impl Rng) -> MapData {
     let cave_spawns = calculate_cave_spawns(&grid, rng);
     for cave in &cave_spawns {
         grid[cave.y][cave.x] = Terrain::Cave;
+    }
+
+    let hokora_spawns = calculate_hokora_spawns(&grid, rng, &centers, spawn_position);
+    for hokora in &hokora_spawns {
+        grid[hokora.y][hokora.x] = Terrain::Hokora;
     }
 
     // spawn_position が Plains であることを最終保証

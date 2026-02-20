@@ -2,7 +2,7 @@ mod resources;
 
 use bevy::prelude::*;
 
-pub use resources::{FieldMenuOpen, OpenedChests, PartyState, RecruitmentMap};
+pub use resources::{FieldMenuOpen, HokoraPositions, OpenedChests, PartyState, RecruitmentMap};
 
 /// シーン（場所）の状態
 #[derive(States, Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
@@ -11,6 +11,7 @@ pub enum SceneState {
     Exploring,
     Town,
     Cave,
+    Hokora,
 }
 
 /// 戦闘オーバーレイの状態

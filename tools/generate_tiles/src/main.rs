@@ -20,6 +20,7 @@ fn main() {
     generate_mountain(tiles_dir);
     generate_boat(tiles_dir);
     generate_town(tiles_dir);
+    generate_hokora(tiles_dir);
     generate_cave(tiles_dir);
     generate_coast_tiles(tiles_dir);
 

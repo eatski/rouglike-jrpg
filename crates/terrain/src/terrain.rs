@@ -5,6 +5,7 @@ pub const MAP_HEIGHT: usize = 150;
 pub enum TileAction {
     EnterTown,
     EnterCave,
+    EnterHokora,
     None,
 }
 
@@ -20,6 +21,7 @@ pub enum Terrain {
     CaveFloor,
     WarpZone,
     Ladder,
+    Hokora,
 }
 
 impl Terrain {
@@ -29,6 +31,7 @@ impl Terrain {
         match self {
             Terrain::Town => TileAction::EnterTown,
             Terrain::Cave => TileAction::EnterCave,
+            Terrain::Hokora => TileAction::EnterHokora,
             _ => TileAction::None,
         }
     }
@@ -42,7 +45,7 @@ impl Terrain {
             Terrain::Mountain => 0.08,
             Terrain::Sea => 0.10,
             Terrain::CaveFloor => 0.05,
-            Terrain::Town | Terrain::Cave | Terrain::CaveWall | Terrain::WarpZone | Terrain::Ladder => 0.0,
+            Terrain::Town | Terrain::Cave | Terrain::CaveWall | Terrain::WarpZone | Terrain::Ladder | Terrain::Hokora => 0.0,
         }
     }
 
@@ -74,6 +77,7 @@ mod tests {
         assert!(Terrain::CaveFloor.is_walkable());
         assert!(Terrain::WarpZone.is_walkable());
         assert!(Terrain::Ladder.is_walkable());
+        assert!(Terrain::Hokora.is_walkable());
     }
 
     #[test]
@@ -116,6 +120,11 @@ mod tests {
     }
 
     #[test]
+    fn tile_action_returns_enter_hokora_for_hokora() {
+        assert_eq!(Terrain::Hokora.tile_action(), TileAction::EnterHokora);
+    }
+
+    #[test]
     fn encounter_rate_cave_floor() {
         assert!(Terrain::CaveFloor.encounter_rate() > 0.0);
     }
@@ -126,5 +135,6 @@ mod tests {
         assert_eq!(Terrain::CaveWall.encounter_rate(), 0.0);
         assert_eq!(Terrain::WarpZone.encounter_rate(), 0.0);
         assert_eq!(Terrain::Ladder.encounter_rate(), 0.0);
+        assert_eq!(Terrain::Hokora.encounter_rate(), 0.0);
     }
 }

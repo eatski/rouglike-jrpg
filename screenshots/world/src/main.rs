@@ -42,6 +42,7 @@ fn setup(
     let tex_mountain: Handle<Image> = asset_server.load("tiles/mountain.png");
     let tex_town: Handle<Image> = asset_server.load("tiles/town.png");
     let tex_cave: Handle<Image> = asset_server.load("tiles/cave.png");
+    let tex_hokora: Handle<Image> = asset_server.load("tiles/hokora.png");
 
     // マップ生成（固定シード）
     let map_data = generate_connected_map(&mut screenshot_rng.rng);
@@ -61,6 +62,7 @@ fn setup(
                 Terrain::Mountain => tex_mountain.clone(),
                 Terrain::Town => tex_town.clone(),
                 Terrain::Cave => tex_cave.clone(),
+                Terrain::Hokora => tex_hokora.clone(),
                 _ => tex_sea.clone(),
             };
 
