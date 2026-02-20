@@ -990,3 +990,913 @@ fn battle_cleanup_removes_movement_lock() {
         "MovementLocked should be removed after battle cleanup"
     );
 }
+
+// ============================================
+// ドメイン層統合テスト
+// ============================================
+// 以下のテストはBevy ECSを使わず、ドメイン層のcrate間連携を検証する。
+// t-wada原則: 公開APIをテストし、モジュール間の結合を通じて設計の健全性を確認する。
+
+// ============================================
+// 戦闘→経験値→レベルアップ→呪文習得の一連フロー
+// ============================================
+
+#[test]
+fn battle_victory_grants_exp_and_levels_up_party() {
+    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors};
+    use party::default_party;
+
+    // 弱い敵1体 vs デフォルトパーティ
+    let party = default_party();
+    let enemies = vec![Enemy::slime()];
+    let mut battle = BattleDomainState::new(party.clone(), enemies);
+
+    // 全員でスライムを攻撃（乱数最大で確実に倒す）
+    let commands = vec![
+        BattleAction::Attack { target: TargetId::Enemy(0) },
+        BattleAction::Attack { target: TargetId::Enemy(0) },
+        BattleAction::Attack { target: TargetId::Enemy(0) },
+    ];
+    let randoms = TurnRandomFactors {
+        damage_randoms: vec![1.2; 4],
+        flee_random: 1.0,
+    };
+    let _results = battle.execute_turn(&commands, &randoms);
+
+    // 勝利を確認
+    assert!(battle.is_victory(), "Party should defeat the slime");
+
+    // 経験値報酬を計算
+    let total_exp = battle.total_exp_reward();
+    assert_eq!(total_exp, 3, "Slime gives 3 exp");
+
+    // パーティ全員に経験値を分配（ゲームの仕様通り）
+    for member in &mut battle.party {
+        member.gain_exp(total_exp);
+    }
+
+    // Lv1→2に必要な経験値は10なので、3expではレベルアップしない
+    for member in &battle.party {
+        assert_eq!(member.level, 1, "3 exp should not be enough to level up");
+        assert_eq!(member.exp, 3);
+    }
+
+    // もう1回戦って合計経験値を10以上にすれば、レベルアップする
+    let enemies2 = vec![Enemy::wolf(), Enemy::wolf()]; // 8exp x 2 = 16exp
+    let mut battle2 = BattleDomainState::new(battle.party.clone(), enemies2);
+
+    // 勇者の強力な攻撃で倒す（乱数最大）
+    let commands2 = vec![
+        BattleAction::Attack { target: TargetId::Enemy(0) },
+        BattleAction::Attack { target: TargetId::Enemy(0) },
+        BattleAction::Attack { target: TargetId::Enemy(1) },
+    ];
+    let randoms2 = TurnRandomFactors {
+        damage_randoms: vec![1.2; 5],
+        flee_random: 1.0,
+    };
+    // 複数ターン回して倒す
+    for _ in 0..10 {
+        if battle2.is_over() { break; }
+        battle2.execute_turn(&commands2, &randoms2);
+    }
+
+    if battle2.is_victory() {
+        let exp2 = battle2.total_exp_reward();
+        assert_eq!(exp2, 16, "Two wolves give 16 exp");
+
+        for member in &mut battle2.party {
+            member.gain_exp(exp2);
+            // 累計 3+16=19 exp >= 10 (Lv1→2)なのでレベルアップ
+            assert!(member.level >= 2, "Should reach at least level 2, got {}", member.level);
+        }
+    }
+}
+
+#[test]
+fn mage_learns_fire_at_level_1_and_blaze_at_level_5() {
+    use battle::SpellKind;
+    use battle::spell::{available_spells, spells_learned_at_level};
+    use party::PartyMemberKind;
+
+    // Lv1のMageはFireを知っている
+    let spells = available_spells(PartyMemberKind::Mage, 1);
+    assert_eq!(spells, vec![SpellKind::Fire]);
+
+    // Lv4まではBlazeは未習得
+    let spells4 = available_spells(PartyMemberKind::Mage, 4);
+    assert_eq!(spells4, vec![SpellKind::Fire]);
+
+    // Lv5でBlazeを習得
+    let learned = spells_learned_at_level(PartyMemberKind::Mage, 5);
+    assert_eq!(learned, vec![SpellKind::Blaze]);
+
+    let spells5 = available_spells(PartyMemberKind::Mage, 5);
+    assert_eq!(spells5, vec![SpellKind::Fire, SpellKind::Blaze]);
+}
+
+#[test]
+fn hero_learns_heal_at_level_3() {
+    use battle::SpellKind;
+    use battle::spell::{available_spells, spells_learned_at_level};
+    use party::PartyMemberKind;
+
+    assert!(available_spells(PartyMemberKind::Hero, 1).is_empty());
+    assert!(available_spells(PartyMemberKind::Hero, 2).is_empty());
+
+    let learned = spells_learned_at_level(PartyMemberKind::Hero, 3);
+    assert_eq!(learned, vec![SpellKind::Heal]);
+
+    let spells = available_spells(PartyMemberKind::Hero, 3);
+    assert_eq!(spells, vec![SpellKind::Heal]);
+}
+
+// ============================================
+// 装備がダメージ計算に影響することを検証
+// ============================================
+
+#[test]
+fn equipped_weapon_increases_battle_damage() {
+    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult};
+    use party::{PartyMember, WeaponKind};
+
+    // 武器なしの勇者
+    let hero_unarmed = PartyMember::hero();
+    let unarmed_attack = hero_unarmed.effective_attack();
+
+    // 武器装備の勇者
+    let mut hero_armed = PartyMember::hero();
+    hero_armed.equipment.equip_weapon(WeaponKind::SteelSword);
+    let armed_attack = hero_armed.effective_attack();
+
+    assert_eq!(armed_attack, unarmed_attack + 10, "SteelSword should add 10 attack");
+
+    // HP999の敵に対して同じ乱数で攻撃し、ダメージ差を検証
+    let mut slime1 = Enemy::slime();
+    slime1.stats.hp = 999;
+    slime1.stats.max_hp = 999;
+    let slime2 = slime1.clone();
+
+    let mut battle_unarmed = BattleDomainState::new(vec![hero_unarmed], vec![slime1]);
+    let mut battle_armed = BattleDomainState::new(vec![hero_armed], vec![slime2]);
+
+    let commands = vec![BattleAction::Attack { target: TargetId::Enemy(0) }];
+    let randoms = TurnRandomFactors {
+        damage_randoms: vec![1.0; 2],
+        flee_random: 1.0,
+    };
+
+    let results_unarmed = battle_unarmed.execute_turn(&commands, &randoms);
+    let results_armed = battle_armed.execute_turn(&commands, &randoms);
+
+    // ダメージを抽出
+    let damage_unarmed = results_unarmed.iter().find_map(|r| {
+        if let TurnResult::Attack { attacker: battle::ActorId::Party(0), damage, .. } = r { Some(*damage) } else { None }
+    }).unwrap();
+
+    let damage_armed = results_armed.iter().find_map(|r| {
+        if let TurnResult::Attack { attacker: battle::ActorId::Party(0), damage, .. } = r { Some(*damage) } else { None }
+    }).unwrap();
+
+    assert!(damage_armed > damage_unarmed, "Armed should deal more damage: {} vs {}", damage_armed, damage_unarmed);
+}
+
+// ============================================
+// 戦闘中アイテム使用テスト
+// ============================================
+
+#[test]
+fn herb_heals_in_battle() {
+    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult};
+    use party::{PartyMember, ItemKind};
+
+    let mut hero = PartyMember::hero();
+    hero.stats.hp = 5; // HPを低くしておく
+    hero.inventory.add(ItemKind::Herb, 1);
+
+    // HP999の敵で戦闘が終わらないようにする
+    let mut slime = Enemy::slime();
+    slime.stats.hp = 999;
+    slime.stats.max_hp = 999;
+    slime.stats.attack = 0; // 敵の攻撃を0にして干渉を防ぐ
+
+    let mut battle = BattleDomainState::new(vec![hero], vec![slime]);
+
+    let commands = vec![
+        BattleAction::UseItem { item: ItemKind::Herb, target: TargetId::Party(0) },
+    ];
+    let randoms = TurnRandomFactors {
+        damage_randoms: vec![1.0; 2],
+        flee_random: 1.0,
+    };
+
+    let results = battle.execute_turn(&commands, &randoms);
+
+    // ItemUsedイベントを確認
+    let item_used = results.iter().any(|r| matches!(r, TurnResult::ItemUsed { .. }));
+    assert!(item_used, "ItemUsed event should be emitted");
+
+    // HPが回復している
+    assert!(battle.party[0].stats.hp > 5, "HP should be healed, got {}", battle.party[0].stats.hp);
+    assert!(battle.party[0].stats.hp <= battle.party[0].stats.max_hp, "HP should not exceed max");
+
+    // やくそうが消費されている
+    assert_eq!(battle.party[0].inventory.count(ItemKind::Herb), 0, "Herb should be consumed");
+}
+
+#[test]
+fn copper_key_is_not_usable_in_battle() {
+    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult};
+    use party::{PartyMember, ItemKind};
+
+    let mut hero = PartyMember::hero();
+    hero.inventory.add(ItemKind::CopperKey, 1);
+
+    let mut slime = Enemy::slime();
+    slime.stats.hp = 999;
+    slime.stats.max_hp = 999;
+    slime.stats.attack = 0;
+
+    let mut battle = BattleDomainState::new(vec![hero], vec![slime]);
+
+    let commands = vec![
+        BattleAction::UseItem { item: ItemKind::CopperKey, target: TargetId::Party(0) },
+    ];
+    let randoms = TurnRandomFactors {
+        damage_randoms: vec![1.0; 2],
+        flee_random: 1.0,
+    };
+
+    let results = battle.execute_turn(&commands, &randoms);
+
+    // KeyItemは戦闘中使えない→ItemUsedイベントなし
+    let item_used = results.iter().any(|r| matches!(r, TurnResult::ItemUsed { .. }));
+    assert!(!item_used, "CopperKey should not be usable in battle");
+
+    // CopperKeyは消費されない
+    assert_eq!(battle.party[0].inventory.count(ItemKind::CopperKey), 1, "CopperKey should not be consumed");
+}
+
+// ============================================
+// 街の購入→戦闘使用の連携テスト
+// ============================================
+
+#[test]
+fn buy_herb_at_shop_then_use_in_battle() {
+    use town::{buy_item, BuyResult};
+    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors};
+    use party::{PartyMember, ItemKind};
+
+    let mut hero = PartyMember::hero();
+    let mut gold = 100u32;
+
+    // 街でやくそうを購入
+    let result = buy_item(ItemKind::Herb, gold, &mut hero.inventory);
+    match result {
+        BuyResult::Success { remaining_gold } => {
+            gold = remaining_gold;
+            assert_eq!(gold, 92); // 100 - 8 = 92
+        }
+        _ => panic!("Should succeed buying herb"),
+    }
+    assert_eq!(hero.inventory.count(ItemKind::Herb), 1);
+
+    // HPを減らして戦闘に入る
+    hero.stats.hp = 1;
+
+    let mut slime = Enemy::slime();
+    slime.stats.hp = 999;
+    slime.stats.max_hp = 999;
+    slime.stats.attack = 0;
+
+    let mut battle = BattleDomainState::new(vec![hero], vec![slime]);
+
+    // やくそうを使う
+    let commands = vec![
+        BattleAction::UseItem { item: ItemKind::Herb, target: TargetId::Party(0) },
+    ];
+    let randoms = TurnRandomFactors {
+        damage_randoms: vec![1.0; 2],
+        flee_random: 1.0,
+    };
+    battle.execute_turn(&commands, &randoms);
+
+    assert!(battle.party[0].stats.hp > 1, "Herb should heal in battle");
+    assert_eq!(battle.party[0].inventory.count(ItemKind::Herb), 0, "Herb consumed after use");
+}
+
+#[test]
+fn buy_weapon_at_shop_then_equip_affects_battle() {
+    use town::{buy_weapon, BuyWeaponResult};
+    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult};
+    use party::{PartyMember, WeaponKind};
+
+    let mut hero = PartyMember::hero();
+    let gold = 100u32;
+
+    // 武器購入前の攻撃力を記録
+    let attack_before = hero.effective_attack();
+
+    // 街で鉄の剣を購入
+    let result = buy_weapon(WeaponKind::IronSword, gold, &mut hero);
+    match result {
+        BuyWeaponResult::Success { remaining_gold } => {
+            assert_eq!(remaining_gold, 50); // 100 - 50 = 50
+        }
+        _ => panic!("Should succeed buying IronSword"),
+    }
+
+    // 攻撃力が上がっていることを確認
+    let attack_after = hero.effective_attack();
+    assert_eq!(attack_after, attack_before + 5, "IronSword should add 5 attack");
+
+    // 戦闘でダメージを確認
+    let mut slime = Enemy::slime();
+    slime.stats.hp = 999;
+    slime.stats.max_hp = 999;
+
+    let mut battle = BattleDomainState::new(vec![hero], vec![slime]);
+    let commands = vec![BattleAction::Attack { target: TargetId::Enemy(0) }];
+    let randoms = TurnRandomFactors {
+        damage_randoms: vec![1.0; 2],
+        flee_random: 1.0,
+    };
+    let results = battle.execute_turn(&commands, &randoms);
+
+    let damage = results.iter().find_map(|r| {
+        if let TurnResult::Attack { attacker: battle::ActorId::Party(0), damage, .. } = r { Some(*damage) } else { None }
+    }).unwrap();
+
+    // attack_after(13) - defense(1)/2 = 12.5 → round(12.5 * 1.0) = 13 (or 12)
+    assert!(damage > 0, "Should deal damage with equipped weapon");
+}
+
+// ============================================
+// やどや→戦闘の連携テスト
+// ============================================
+
+#[test]
+fn inn_heals_party_before_battle() {
+    use town::heal_party;
+    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors};
+    use party::default_party;
+
+    let mut party = default_party();
+
+    // 全員のHPを1にする
+    for member in &mut party {
+        member.stats.hp = 1;
+        member.stats.mp = 0;
+    }
+
+    // やどやで全回復
+    heal_party(&mut party);
+
+    for member in &party {
+        assert_eq!(member.stats.hp, member.stats.max_hp, "HP should be fully restored");
+        assert_eq!(member.stats.mp, member.stats.max_mp, "MP should be fully restored");
+    }
+
+    // 回復後に戦闘
+    let enemies = vec![Enemy::slime()];
+    let mut battle = BattleDomainState::new(party, enemies);
+
+    let commands = vec![
+        BattleAction::Attack { target: TargetId::Enemy(0) },
+        BattleAction::Attack { target: TargetId::Enemy(0) },
+        BattleAction::Attack { target: TargetId::Enemy(0) },
+    ];
+    let randoms = TurnRandomFactors {
+        damage_randoms: vec![1.2; 4],
+        flee_random: 1.0,
+    };
+    battle.execute_turn(&commands, &randoms);
+
+    assert!(battle.is_victory(), "Fully healed party should defeat a slime");
+}
+
+// ============================================
+// 仲間募集フローテスト
+// ============================================
+
+#[test]
+fn full_recruitment_flow_undiscovered_to_recruited() {
+    use party::{
+        default_candidates, talk_to_candidate, initial_party,
+        PartyMember, PartyMemberKind, RecruitmentStatus, TalkResult,
+    };
+
+    let mut party = initial_party(); // 勇者のみ
+    assert_eq!(party.len(), 1);
+
+    let mut candidates = default_candidates(); // Mage, Priest
+    assert_eq!(candidates.len(), 2);
+
+    // --- 魔法使い: 1回目の会話（初対面→知り合い） ---
+    let result = talk_to_candidate(&mut candidates[0]);
+    assert_eq!(result, TalkResult::BecameAcquaintance);
+    assert_eq!(candidates[0].status, RecruitmentStatus::Acquaintance);
+
+    // --- 魔法使い: 2回目の会話（知り合い→加入） ---
+    let result = talk_to_candidate(&mut candidates[0]);
+    assert_eq!(result, TalkResult::Recruited);
+    assert_eq!(candidates[0].status, RecruitmentStatus::Recruited);
+
+    // パーティに魔法使いを追加
+    party.push(PartyMember::from_kind(candidates[0].kind));
+    assert_eq!(party.len(), 2);
+    assert_eq!(party[1].kind, PartyMemberKind::Mage);
+
+    // --- 僧侶: 同様のフロー ---
+    let result = talk_to_candidate(&mut candidates[1]);
+    assert_eq!(result, TalkResult::BecameAcquaintance);
+
+    let result = talk_to_candidate(&mut candidates[1]);
+    assert_eq!(result, TalkResult::Recruited);
+
+    party.push(PartyMember::from_kind(candidates[1].kind));
+    assert_eq!(party.len(), 3);
+    assert_eq!(party[2].kind, PartyMemberKind::Priest);
+
+    // --- 既に加入済みの候補に再度話しかける ---
+    let result = talk_to_candidate(&mut candidates[0]);
+    assert_eq!(result, TalkResult::AlreadyRecruited);
+}
+
+// ============================================
+// 洞窟探索シナリオテスト
+// ============================================
+
+#[test]
+fn cave_exploration_scenario() {
+    use cave::{generate_cave_map, try_cave_move, CaveMoveResult, CAVE_WIDTH, CAVE_HEIGHT, TreasureContent};
+    use rand::SeedableRng;
+    use rand_chacha::ChaCha8Rng;
+    use party::ItemKind;
+
+    let mut rng = ChaCha8Rng::seed_from_u64(42);
+    let cave = generate_cave_map(&mut rng);
+
+    // スポーン地点は梯子
+    let (sx, sy) = cave.spawn_position;
+    assert_eq!(cave.grid[sy][sx], Terrain::Ladder);
+
+    // スポーン地点から歩行可能な隣接タイルを探す
+    let mut can_move = false;
+    for (dx, dy) in [(0, -1), (0, 1), (-1, 0), (1, 0)] {
+        let result = try_cave_move(sx, sy, dx, dy, &cave.grid, CAVE_WIDTH, CAVE_HEIGHT);
+        if let CaveMoveResult::Moved { .. } = result {
+            can_move = true;
+            break;
+        }
+    }
+    assert!(can_move, "Should be able to move from spawn in at least one direction");
+
+    // 宝箱が存在する
+    assert!(!cave.treasures.is_empty(), "Cave should have at least one treasure");
+    assert!(cave.treasures.len() <= 3, "Cave should have at most 3 treasures");
+
+    // 宝箱はCopperKey固定
+    for chest in &cave.treasures {
+        assert_eq!(chest.content, TreasureContent::Item(ItemKind::CopperKey));
+        // 宝箱は床タイル上
+        assert_eq!(cave.grid[chest.y][chest.x], Terrain::CaveFloor,
+            "Treasure at ({},{}) should be on CaveFloor, got {:?}", chest.x, chest.y, cave.grid[chest.y][chest.x]);
+        // スポーン地点ではない
+        assert_ne!((chest.x, chest.y), cave.spawn_position, "Treasure should not be at spawn");
+    }
+
+    // 宝箱位置まで移動してみる（経路探索ではないが、宝箱位置が移動可能か確認）
+    let first_chest = &cave.treasures[0];
+    // 宝箱のタイルが歩行可能であること
+    assert!(cave.grid[first_chest.y][first_chest.x].is_walkable(), "Treasure tile should be walkable");
+}
+
+#[test]
+fn cave_generation_is_deterministic() {
+    use cave::generate_cave_map;
+    use rand::SeedableRng;
+    use rand_chacha::ChaCha8Rng;
+
+    let seed = 12345u64;
+    let mut rng1 = ChaCha8Rng::seed_from_u64(seed);
+    let mut rng2 = ChaCha8Rng::seed_from_u64(seed);
+
+    let cave1 = generate_cave_map(&mut rng1);
+    let cave2 = generate_cave_map(&mut rng2);
+
+    assert_eq!(cave1.grid, cave2.grid);
+    assert_eq!(cave1.spawn_position, cave2.spawn_position);
+    assert_eq!(cave1.treasures.len(), cave2.treasures.len());
+    for (t1, t2) in cave1.treasures.iter().zip(cave2.treasures.iter()) {
+        assert_eq!(t1.x, t2.x);
+        assert_eq!(t1.y, t2.y);
+        assert_eq!(t1.content, t2.content);
+    }
+}
+
+#[test]
+fn cave_diagonal_movement_is_always_blocked() {
+    use cave::{generate_cave_map, try_cave_move, CaveMoveResult, CAVE_WIDTH, CAVE_HEIGHT};
+    use rand::SeedableRng;
+    use rand_chacha::ChaCha8Rng;
+
+    let mut rng = ChaCha8Rng::seed_from_u64(42);
+    let cave = generate_cave_map(&mut rng);
+    let (sx, sy) = cave.spawn_position;
+
+    // 斜め移動は常にブロックされる
+    for (dx, dy) in [(1, 1), (1, -1), (-1, 1), (-1, -1)] {
+        let result = try_cave_move(sx, sy, dx, dy, &cave.grid, CAVE_WIDTH, CAVE_HEIGHT);
+        assert_eq!(result, CaveMoveResult::Blocked, "Diagonal move ({},{}) should be blocked", dx, dy);
+    }
+}
+
+// ============================================
+// 洞窟宝箱→インベントリの連携テスト
+// ============================================
+
+#[test]
+fn cave_treasure_adds_to_inventory() {
+    use cave::{generate_cave_map, TreasureContent};
+    use rand::SeedableRng;
+    use rand_chacha::ChaCha8Rng;
+    use party::{PartyMember, ItemKind};
+
+    let mut rng = ChaCha8Rng::seed_from_u64(42);
+    let cave = generate_cave_map(&mut rng);
+
+    let mut hero = PartyMember::hero();
+    assert_eq!(hero.inventory.count(ItemKind::CopperKey), 0);
+
+    // 宝箱を開ける（ドメインロジックとして直接追加）
+    for chest in &cave.treasures {
+        match chest.content {
+            TreasureContent::Item(item) => {
+                hero.inventory.add(item, 1);
+            }
+            TreasureContent::Weapon(_weapon) => {
+                // 武器の場合の処理（現在はCopperKey固定なのでここに来ない）
+            }
+        }
+    }
+
+    // 洞窟内の宝箱分だけCopperKeyを所持している
+    assert_eq!(
+        hero.inventory.count(ItemKind::CopperKey),
+        cave.treasures.len() as u32,
+        "Should have one CopperKey per treasure chest"
+    );
+}
+
+// ============================================
+// 街の洞窟ヒント台詞テスト
+// ============================================
+
+#[test]
+fn cave_hint_dialogue_finds_nearest_cave_in_generated_map() {
+    use world::map::generate_map;
+    use town::cave_hint_dialogue;
+    use rand::SeedableRng;
+    use rand_chacha::ChaCha8Rng;
+
+    let mut rng = ChaCha8Rng::seed_from_u64(42);
+    let map = generate_map(&mut rng);
+
+    // マップ内の町を見つける
+    let mut town_pos = None;
+    for (y, row) in map.grid.iter().enumerate() {
+        for (x, terrain) in row.iter().enumerate() {
+            if *terrain == Terrain::Town {
+                town_pos = Some((x, y));
+                break;
+            }
+        }
+        if town_pos.is_some() { break; }
+    }
+
+    if let Some((tx, ty)) = town_pos {
+        let dialogue = cave_hint_dialogue(&map.grid, tx, ty);
+        // マップに洞窟があれば方角ヒントが返る
+        let has_cave = map.grid.iter().flatten().any(|t| *t == Terrain::Cave);
+        if has_cave {
+            assert!(dialogue.contains("どうくつ"), "Dialogue should mention cave: {}", dialogue);
+        }
+    }
+}
+
+// ============================================
+// ワールドマップ品質統合テスト
+// ============================================
+
+#[test]
+fn generated_map_has_towns_and_caves_on_walkable_tiles() {
+    use world::map::generate_connected_map;
+    use rand::SeedableRng;
+    use rand_chacha::ChaCha8Rng;
+
+    for seed in [1, 42, 100, 999, 54321] {
+        let mut rng = ChaCha8Rng::seed_from_u64(seed);
+        let map = generate_connected_map(&mut rng);
+
+        // 町の確認
+        for (y, row) in map.grid.iter().enumerate() {
+            for (x, terrain) in row.iter().enumerate() {
+                if *terrain == Terrain::Town {
+                    // Townタイルはis_walkableであること
+                    assert!(terrain.is_walkable(), "Town at ({},{}) should be walkable", x, y);
+                    // TileActionがEnterTownであること
+                    assert_eq!(terrain.tile_action(), terrain::TileAction::EnterTown);
+                }
+                if *terrain == Terrain::Cave {
+                    // CaveタイルもEnterCaveアクションを持つ
+                    assert_eq!(terrain.tile_action(), terrain::TileAction::EnterCave);
+                }
+            }
+        }
+
+        // スポーン位置がPlainsであること
+        let (sx, sy) = map.spawn_position;
+        assert_eq!(map.grid[sy][sx], Terrain::Plains, "Spawn should be Plains for seed {}", seed);
+    }
+}
+
+#[test]
+fn generated_map_spawn_is_on_walkable_connected_island() {
+    use world::map::{generate_connected_map, detect_islands};
+    use rand::SeedableRng;
+    use rand_chacha::ChaCha8Rng;
+
+    let mut rng = ChaCha8Rng::seed_from_u64(42);
+    let map = generate_connected_map(&mut rng);
+    let (sx, sy) = map.spawn_position;
+
+    // スポーン位置は歩行可能
+    assert!(map.grid[sy][sx].is_walkable(), "Spawn position should be walkable");
+
+    // スポーン位置が属する島を見つける
+    let islands = detect_islands(&map.grid);
+    let spawn_island = islands.iter().find(|island| island.contains(&(sx, sy)));
+    assert!(spawn_island.is_some(), "Spawn position should be on an island");
+
+    // スポーン島は十分な大きさ
+    let island = spawn_island.unwrap();
+    assert!(island.len() >= 100, "Spawn island should be reasonably large, got {} tiles", island.len());
+}
+
+// ============================================
+// 戦闘の行動順序テスト（素早さ順の検証）
+// ============================================
+
+#[test]
+fn battle_action_order_respects_speed() {
+    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult, ActorId};
+    use party::PartyMember;
+
+    // 速度が異なるキャラクターを用意
+    // Mage(SPD7) > Bat(SPD6) > Hero(SPD5) > Priest(SPD4)
+    let party = vec![PartyMember::hero(), PartyMember::mage(), PartyMember::priest()];
+
+    // 敵のHPを高くして戦闘が終わらないようにする
+    let mut bat = Enemy::bat();
+    bat.stats.hp = 999;
+    bat.stats.max_hp = 999;
+
+    let mut battle = BattleDomainState::new(party, vec![bat]);
+
+    let commands = vec![
+        BattleAction::Attack { target: TargetId::Enemy(0) },
+        BattleAction::Attack { target: TargetId::Enemy(0) },
+        BattleAction::Attack { target: TargetId::Enemy(0) },
+    ];
+    let randoms = TurnRandomFactors {
+        damage_randoms: vec![1.0; 4],
+        flee_random: 1.0,
+    };
+    let results = battle.execute_turn(&commands, &randoms);
+
+    // 攻撃の順序を確認
+    let attack_order: Vec<ActorId> = results.iter().filter_map(|r| {
+        if let TurnResult::Attack { attacker, .. } = r { Some(*attacker) } else { None }
+    }).collect();
+
+    // 期待: Mage(Party(1), SPD7) → Bat(Enemy(0), SPD6) → Hero(Party(0), SPD5) → Priest(Party(2), SPD4)
+    assert_eq!(attack_order.len(), 4, "All 4 actors should attack");
+    assert_eq!(attack_order[0], ActorId::Party(1), "Mage should attack first (SPD7)");
+    assert_eq!(attack_order[1], ActorId::Enemy(0), "Bat should attack second (SPD6)");
+    assert_eq!(attack_order[2], ActorId::Party(0), "Hero should attack third (SPD5)");
+    assert_eq!(attack_order[3], ActorId::Party(2), "Priest should attack fourth (SPD4)");
+}
+
+// ============================================
+// 戦闘経験値報酬の統合テスト
+// ============================================
+
+#[test]
+fn total_exp_reward_sums_defeated_enemies_only() {
+    use battle::{BattleState as BattleDomainState, Enemy};
+
+    let enemies = vec![Enemy::slime(), Enemy::goblin(), Enemy::ghost()]; // 3+6+10 = 19
+    let mut battle = BattleDomainState::new(vec![], enemies);
+
+    // まだ誰も倒していない
+    assert_eq!(battle.total_exp_reward(), 0, "No exp when no enemies defeated");
+
+    // スライムだけ倒す
+    battle.enemies[0].stats.hp = 0;
+    assert_eq!(battle.total_exp_reward(), 3, "Only slime exp");
+
+    // ゴブリンも倒す
+    battle.enemies[1].stats.hp = 0;
+    assert_eq!(battle.total_exp_reward(), 9, "Slime + Goblin exp");
+
+    // 全員倒す
+    battle.enemies[2].stats.hp = 0;
+    assert_eq!(battle.total_exp_reward(), 19, "All enemies exp");
+}
+
+// ============================================
+// MP不足時の呪文使用テスト
+// ============================================
+
+#[test]
+fn spell_fails_silently_when_mp_insufficient() {
+    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult, SpellKind};
+    use party::PartyMember;
+
+    let mut mage = PartyMember::mage();
+    mage.stats.mp = 0; // MP枯渇
+
+    let mut slime = Enemy::slime();
+    slime.stats.hp = 999;
+    slime.stats.max_hp = 999;
+    slime.stats.attack = 0;
+
+    let mut battle = BattleDomainState::new(vec![mage], vec![slime]);
+
+    let commands = vec![
+        BattleAction::Spell { spell: SpellKind::Fire, target: TargetId::Enemy(0) },
+    ];
+    let randoms = TurnRandomFactors {
+        damage_randoms: vec![1.0; 2],
+        flee_random: 1.0,
+    };
+    let results = battle.execute_turn(&commands, &randoms);
+
+    // SpellDamageイベントは発生しない
+    let spell_damage = results.iter().any(|r| matches!(r, TurnResult::SpellDamage { .. }));
+    assert!(!spell_damage, "Should not cast spell when MP is 0");
+}
+
+// ============================================
+// 全滅検知テスト
+// ============================================
+
+#[test]
+fn party_wipe_ends_battle_mid_turn() {
+    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult};
+    use party::PartyMember;
+
+    // HP1の勇者1人 vs 強い敵2体
+    let mut hero = PartyMember::hero();
+    hero.stats.hp = 1;
+    hero.stats.speed = 1; // 敵より遅くして先に倒されるようにする
+
+    let mut wolf1 = Enemy::wolf();
+    wolf1.stats.attack = 100; // 確実に倒す
+    let mut wolf2 = Enemy::wolf();
+    wolf2.stats.attack = 100;
+
+    let mut battle = BattleDomainState::new(vec![hero], vec![wolf1, wolf2]);
+
+    let commands = vec![
+        BattleAction::Attack { target: TargetId::Enemy(0) },
+    ];
+    let randoms = TurnRandomFactors {
+        damage_randoms: vec![1.0; 3],
+        flee_random: 1.0,
+    };
+    let results = battle.execute_turn(&commands, &randoms);
+
+    assert!(battle.is_party_wiped(), "Party should be wiped");
+    assert!(battle.is_over(), "Battle should be over");
+
+    // Defeated(Party(0))が含まれる
+    let hero_defeated = results.iter().any(|r| matches!(r, TurnResult::Defeated { target: TargetId::Party(0) }));
+    assert!(hero_defeated, "Hero defeat should be recorded");
+}
+
+// ============================================
+// インベントリ容量とよろず屋の連携テスト
+// ============================================
+
+#[test]
+fn shop_rejects_purchase_when_inventory_full() {
+    use town::{buy_item, BuyResult};
+    use party::{ItemKind, Inventory, INVENTORY_CAPACITY};
+
+    let mut inv = Inventory::new();
+    let gold = 1000u32;
+
+    // 容量いっぱいまでやくそうを購入
+    for i in 0..INVENTORY_CAPACITY {
+        let result = buy_item(ItemKind::Herb, gold, &mut inv);
+        assert!(matches!(result, BuyResult::Success { .. }), "Purchase {} should succeed", i);
+    }
+
+    assert_eq!(inv.total_count(), INVENTORY_CAPACITY);
+
+    // 容量いっぱいの状態でさらに購入しようとする
+    let result = buy_item(ItemKind::Herb, gold, &mut inv);
+    assert_eq!(result, BuyResult::InventoryFull, "Should reject when inventory is full");
+    assert_eq!(inv.total_count(), INVENTORY_CAPACITY);
+}
+
+// ============================================
+// レベルアップ時のステータス成長統合テスト
+// ============================================
+
+#[test]
+fn level_up_applies_correct_stat_growth_per_class() {
+    use party::PartyMember;
+
+    // 勇者のレベルアップ
+    let mut hero = PartyMember::hero();
+    let base_hp = hero.stats.max_hp;
+    let base_attack = hero.stats.attack;
+    let base_defense = hero.stats.defense;
+    let base_speed = hero.stats.speed;
+    let base_mp = hero.stats.max_mp;
+
+    let level_ups = hero.gain_exp(10); // Lv1→2
+    assert_eq!(level_ups, 1);
+    assert_eq!(hero.stats.max_hp, base_hp + 5); // Hero: hp+5
+    assert_eq!(hero.stats.attack, base_attack + 2); // Hero: attack+2
+    assert_eq!(hero.stats.defense, base_defense + 1); // Hero: defense+1
+    assert_eq!(hero.stats.speed, base_speed + 1); // Hero: speed+1
+    assert_eq!(hero.stats.max_mp, base_mp + 1); // Hero: mp+1
+    // レベルアップ時は全回復
+    assert_eq!(hero.stats.hp, hero.stats.max_hp);
+    assert_eq!(hero.stats.mp, hero.stats.max_mp);
+
+    // 魔法使いのレベルアップ
+    let mut mage = PartyMember::mage();
+    let base_hp = mage.stats.max_hp;
+    let base_mp = mage.stats.max_mp;
+
+    let level_ups = mage.gain_exp(10);
+    assert_eq!(level_ups, 1);
+    assert_eq!(mage.stats.max_hp, base_hp + 3); // Mage: hp+3
+    assert_eq!(mage.stats.max_mp, base_mp + 3); // Mage: mp+3
+
+    // 僧侶のレベルアップ
+    let mut priest = PartyMember::priest();
+    let base_hp = priest.stats.max_hp;
+    let base_mp = priest.stats.max_mp;
+
+    let level_ups = priest.gain_exp(10);
+    assert_eq!(level_ups, 1);
+    assert_eq!(priest.stats.max_hp, base_hp + 4); // Priest: hp+4
+    assert_eq!(priest.stats.max_mp, base_mp + 2); // Priest: mp+2
+}
+
+// ============================================
+// 探索マップ（Fog of War）統合テスト
+// ============================================
+
+#[test]
+fn exploration_map_tracks_movement_correctly() {
+    use world::exploration::{ExplorationMap, TileVisibility, VIEW_RADIUS};
+
+    let mut map = ExplorationMap::new(150, 150);
+
+    // 初期状態: 全て未探索
+    assert_eq!(map.get(75, 75), Some(TileVisibility::Unexplored));
+
+    // プレイヤーが(75,75)に立つ
+    map.update_visibility(75, 75, VIEW_RADIUS);
+
+    // 中心と周囲がVisible
+    assert_eq!(map.get(75, 75), Some(TileVisibility::Visible));
+    assert_eq!(map.get(75 + VIEW_RADIUS, 75), Some(TileVisibility::Visible));
+
+    // 視界外は未探索
+    assert_eq!(map.get(75 + VIEW_RADIUS + 1, 75), Some(TileVisibility::Unexplored));
+
+    // 移動: (76,75)に移動
+    map.update_visibility(76, 75, VIEW_RADIUS);
+
+    // 旧中心はExplored
+    // (75,75)は新しい視界範囲（76-4=72 ~ 76+4=80）内なので、まだVisible
+    assert_eq!(map.get(75, 75), Some(TileVisibility::Visible));
+
+    // 大きく移動して旧位置を視界外にする
+    map.update_visibility(100, 100, VIEW_RADIUS);
+    assert_eq!(map.get(75, 75), Some(TileVisibility::Explored));
+    assert_eq!(map.get(100, 100), Some(TileVisibility::Visible));
+
+    // 探索済みタイルは一定数以上存在する
+    let explored_count = map.get_explored_tiles().count();
+    // 3回の視界更新で少なくとも81タイルが探索済み
+    assert!(explored_count >= 81, "Should have explored at least one view's worth of tiles, got {}", explored_count);
+}

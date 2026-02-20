@@ -19,6 +19,9 @@ world-ui = { path = "crates/world-ui" }
 
 [dev-dependencies]
 rand_chacha = "0.3"
+party = { path = "crates/party" }
+cave = { path = "crates/cave" }
+town = { path = "crates/town" }
 
 [workspace]
 members = [
