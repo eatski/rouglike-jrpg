@@ -15,6 +15,7 @@ pub use scene::{
 };
 
 use app_state::InField;
+use cave_ui::cave_message_input_system;
 
 pub struct BattlePlugin;
 
@@ -24,7 +25,10 @@ impl Plugin for BattlePlugin {
 
         app.add_systems(
             Update,
-            (field_menu_input_system, field_menu_display_system)
+            (
+                field_menu_input_system.after(cave_message_input_system),
+                field_menu_display_system,
+            )
                 .chain()
                 .run_if(in_state(InField)),
         );

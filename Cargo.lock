@@ -336,6 +336,7 @@ dependencies = [
  "app-state",
  "battle",
  "bevy",
+ "cave-ui",
  "input-ui",
  "movement-ui",
  "party",
