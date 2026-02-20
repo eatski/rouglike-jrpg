@@ -1,6 +1,6 @@
 use crate::enemy::Enemy;
 use crate::spell::{calculate_heal_amount, calculate_spell_damage, SpellKind};
-use party::{CombatStats, ItemKind, PartyMember};
+use party::{CombatStats, ItemEffect, ItemKind, PartyMember};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ActorId {
@@ -273,22 +273,28 @@ impl BattleState {
     ) -> Vec<TurnResult> {
         let mut results = Vec::new();
 
-        if !self.party[user_idx].inventory.use_item(item) {
-            return results; // 在庫なし（UIで弾くが念のため）
-        }
+        match item.effect() {
+            ItemEffect::Heal { power } => {
+                if !self.party[user_idx].inventory.use_item(item) {
+                    return results; // 在庫なし（UIで弾くが念のため）
+                }
 
-        // 回復アイテム → 味方ターゲット
-        let actual_target = self.retarget_ally(target);
-        if let Some(TargetId::Party(pi)) = actual_target {
-            let amount = calculate_heal_amount(item.heal_power(), random_factor);
-            let member = &mut self.party[pi];
-            member.stats.hp = (member.stats.hp + amount).min(member.stats.max_hp);
-            results.push(TurnResult::ItemUsed {
-                user: ActorId::Party(user_idx),
-                item,
-                target: TargetId::Party(pi),
-                amount,
-            });
+                let actual_target = self.retarget_ally(target);
+                if let Some(TargetId::Party(pi)) = actual_target {
+                    let amount = calculate_heal_amount(power, random_factor);
+                    let member = &mut self.party[pi];
+                    member.stats.hp = (member.stats.hp + amount).min(member.stats.max_hp);
+                    results.push(TurnResult::ItemUsed {
+                        user: ActorId::Party(user_idx),
+                        item,
+                        target: TargetId::Party(pi),
+                        amount,
+                    });
+                }
+            }
+            ItemEffect::KeyItem => {
+                // 戦闘中は使えない（UIで弾くが念のため）
+            }
         }
 
         results

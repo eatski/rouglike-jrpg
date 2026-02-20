@@ -2,6 +2,15 @@ use std::collections::HashMap;
 
 pub const INVENTORY_CAPACITY: u32 = 6;
 
+/// アイテム使用時の効果
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ItemEffect {
+    /// HP回復
+    Heal { power: i32 },
+    /// キーアイテム（説明表示のみ、消費しない）
+    KeyItem,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ItemKind {
     Herb,
@@ -16,11 +25,23 @@ impl ItemKind {
         }
     }
 
-    pub fn heal_power(self) -> i32 {
+    pub fn effect(self) -> ItemEffect {
         match self {
-            ItemKind::Herb => 25,
-            ItemKind::CopperKey => 0,
+            ItemKind::Herb => ItemEffect::Heal { power: 25 },
+            ItemKind::CopperKey => ItemEffect::KeyItem,
         }
+    }
+
+    pub fn description(self) -> &'static str {
+        match self {
+            ItemKind::Herb => "HPを かいふくする やくそう",
+            ItemKind::CopperKey => "どこかの とびらを あけるカギ",
+        }
+    }
+
+    /// 使用時に消費されるか
+    pub fn is_consumable(self) -> bool {
+        matches!(self.effect(), ItemEffect::Heal { .. })
     }
 
     pub fn price(self) -> u32 {
@@ -118,7 +139,15 @@ mod tests {
     #[test]
     fn herb_properties() {
         assert_eq!(ItemKind::Herb.name(), "やくそう");
-        assert_eq!(ItemKind::Herb.heal_power(), 25);
+        assert_eq!(ItemKind::Herb.effect(), ItemEffect::Heal { power: 25 });
+        assert!(ItemKind::Herb.is_consumable());
+    }
+
+    #[test]
+    fn copper_key_properties() {
+        assert_eq!(ItemKind::CopperKey.name(), "どうのカギ");
+        assert_eq!(ItemKind::CopperKey.effect(), ItemEffect::KeyItem);
+        assert!(!ItemKind::CopperKey.is_consumable());
     }
 
     #[test]

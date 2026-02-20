@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
 use battle::{ActorId, BattleAction, SpellKind, TargetId, TurnRandomFactors, TurnResult};
+use party::ItemEffect;
 
 use app_state::BattleState;
 
@@ -186,6 +187,12 @@ fn handle_item_select(
     // 決定
     if input_ui::is_confirm_just_pressed(keyboard) {
         let item = owned[ui_state.selected_item];
+
+        // キーアイテムは戦闘中使用不可
+        if matches!(item.effect(), ItemEffect::KeyItem) {
+            return;
+        }
+
         ui_state.pending_item = Some(item);
 
         // 回復アイテム → 味方選択へ
