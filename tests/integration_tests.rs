@@ -2,6 +2,9 @@
 //!
 //! MinimalPluginsを使用してウィンドウなしでECSシステムを実行し、
 //! game crateのロジックとui crateのBevyシステムを結合してテストする。
+//!
+//! 本番（main.rs）と同じregister関数・State条件を使用し、
+//! テストと本番のシステム登録の乖離を最小限に抑える。
 
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
@@ -12,17 +15,14 @@ use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
 use std::time::Duration;
 use app_state::{BattleState, SceneState};
-use battle_ui::{battle_input_system, BattleGameState, BattlePhase, BattleUIState, PendingCommands};
+use battle_ui::{BattlePhase, BattleUIState};
 use movement_ui::{
-    start_bounce, update_bounce, Boat, MovementBlockedEvent, MovementLocked, OnBoat, Player,
+    Boat, MovementBlockedEvent, MovementLocked, OnBoat, Player,
     PlayerMovedEvent, TilePosition,
 };
 use app_state::{FieldMenuOpen, PartyState};
 use movement_ui::{ActiveMap, MovementState, TILE_SIZE};
-use world_ui::{
-    player_movement, start_smooth_move, sync_boat_with_player, update_smooth_move, MapModeState,
-    SpawnPosition,
-};
+use world_ui::{MapModeState, SpawnPosition};
 
 /// イベントカウンタ（テスト用）
 #[derive(Resource, Default)]
@@ -60,11 +60,16 @@ fn setup_test_app(seed: u64) -> App {
 }
 
 /// テスト用のBevyアプリをセットアップ（カスタムマップ）
+///
+/// 本番と同じregister関数・State条件を使用する。
 fn setup_test_app_with_map(grid: Vec<Vec<Terrain>>, spawn_x: usize, spawn_y: usize) -> App {
     let mut app = App::new();
 
     // MinimalPluginsのみを使用（ウィンドウ、レンダリングなし）
     app.add_plugins(MinimalPlugins);
+
+    // StatesPluginを追加（State遷移をサポート）
+    app.add_plugins(bevy::state::app::StatesPlugin);
 
     // 時間制御を手動に設定（テストで明示的に進める）
     // 1フレーム=50msに設定することで、初回遅延(150ms)を3フレームで超えられる
@@ -72,6 +77,10 @@ fn setup_test_app_with_map(grid: Vec<Vec<Terrain>>, spawn_x: usize, spawn_y: usi
         .resource_mut::<Time<Virtual>>()
         .set_relative_speed(1.0);
     app.insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_millis(50)));
+
+    // State登録（本番と同じ）
+    app.init_state::<SceneState>();   // デフォルト: Exploring
+    app.init_state::<BattleState>();  // デフォルト: None
 
     // 必要なリソースをセットアップ
     let width = grid[0].len();
@@ -93,6 +102,7 @@ fn setup_test_app_with_map(grid: Vec<Vec<Terrain>>, spawn_x: usize, spawn_y: usi
     app.insert_resource(EventCounters::default());
     app.insert_resource(MapModeState::default());
     app.init_resource::<FieldMenuOpen>();
+    app.init_resource::<PartyState>();
     app.init_resource::<ButtonInput<KeyCode>>();
 
     // イベントを登録
@@ -101,11 +111,10 @@ fn setup_test_app_with_map(grid: Vec<Vec<Terrain>>, spawn_x: usize, spawn_y: usi
     app.add_message::<movement_ui::PlayerArrivedEvent>();
     app.add_message::<movement_ui::TileEnteredEvent>();
 
-    // システムを手動で追加（通常のPluginは使わない）
-    app.add_systems(Update, player_movement);
-    app.add_systems(Update, start_smooth_move);
-    app.add_systems(Update, update_smooth_move);
-    app.add_systems(Update, sync_boat_with_player);
+    // 本番と同じシステム登録（移動コアのみ、エンカウント除外）
+    world_ui::register_exploring_movement_systems(&mut app);
+
+    // テスト専用イベントカウンタ（run_if外で常時実行）
     app.add_systems(Update, count_moved_events);
     app.add_systems(Update, count_blocked_events);
 
@@ -330,11 +339,11 @@ fn player_on_boat_can_move_on_sea() {
 
     // 右に移動（船に乗る）
     press_key(&mut app, 1, 0);
-    for _ in 0..3 {
-        app.update();
-    }
+    app.update();
     release_all_keys(&mut app);
     wait_for_movement_complete(&mut app, player_entity, 30);
+    // キー未押下フレームでMovementStateをリセット
+    app.update();
 
     // 乗船したか確認
     let on_boat_after_first_move = {
@@ -345,9 +354,7 @@ fn player_on_boat_can_move_on_sea() {
 
     // さらに右に移動（海上を移動）
     press_key(&mut app, 1, 0);
-    for _ in 0..3 {
-        app.update();
-    }
+    app.update();
     release_all_keys(&mut app);
     wait_for_movement_complete(&mut app, player_entity, 30);
 
@@ -387,17 +394,15 @@ fn player_can_disembark_from_boat() {
 
     // 右に移動（船に乗る）
     press_key(&mut app, 1, 0);
-    for _ in 0..3 {
-        app.update();
-    }
+    app.update();
     release_all_keys(&mut app);
     wait_for_movement_complete(&mut app, player_entity, 30);
+    // キー未押下フレームでMovementStateをリセット
+    app.update();
 
     // さらに右に移動（陸地に下船）
     press_key(&mut app, 1, 0);
-    for _ in 0..3 {
-        app.update();
-    }
+    app.update();
     release_all_keys(&mut app);
     wait_for_movement_complete(&mut app, player_entity, 30);
 
@@ -623,14 +628,11 @@ fn player_can_move_multiple_steps() {
     // 3回右に移動
     for i in 0..3 {
         press_key(&mut app, 1, 0);
-
-        // 初回遅延を超えるために3フレーム進める
-        for _ in 0..3 {
-            app.update();
-        }
-
+        app.update();
         release_all_keys(&mut app);
         wait_for_movement_complete(&mut app, player_entity, 30);
+        // キー未押下フレームでMovementStateをリセット（次のpress_keyでdirection_changed発火に必要）
+        app.update();
 
         // 各移動後の位置を確認
         let pos = {
@@ -667,10 +669,9 @@ fn player_cannot_move_while_locked() {
     // 右に移動開始
     press_key(&mut app, 1, 0);
 
-    // 初回遅延を超えて移動が始まる
-    for _ in 0..3 {
-        app.update();
-    }
+    // 移動開始後1フレームでアニメーション中になる
+    // （chain + ApplyDeferredにより同一フレームでSmoothMove開始＋1ティック）
+    app.update();
 
     // MovementLockedが設定されているか確認
     let is_locked = {
@@ -682,10 +683,8 @@ fn player_cannot_move_while_locked() {
     // ロック中に上方向のキーを押す（上は平原なので、ロック無視なら移動してしまう）
     press_key(&mut app, 0, 1);
 
-    // 複数フレーム進める
-    for _ in 0..3 {
-        app.update();
-    }
+    // 1フレーム進める（ロック中なので上移動は無視される）
+    app.update();
 
     // 移動完了まで待つ
     release_all_keys(&mut app);
@@ -706,17 +705,6 @@ fn player_cannot_move_while_locked() {
 // バウンスアニメーションテスト
 // ============================================
 
-/// バウンスシステムを含むテストアプリをセットアップ
-fn setup_test_app_with_bounce(grid: Vec<Vec<Terrain>>, spawn_x: usize, spawn_y: usize) -> App {
-    let mut app = setup_test_app_with_map(grid, spawn_x, spawn_y);
-
-    // バウンスシステムを追加
-    app.add_systems(Update, start_bounce);
-    app.add_systems(Update, update_bounce);
-
-    app
-}
-
 #[test]
 fn blocked_movement_triggers_bounce_and_clears() {
     // カスタムマップ: プレイヤーが平原、右は海
@@ -726,7 +714,9 @@ fn blocked_movement_triggers_bounce_and_clears() {
     grid[spawn_y][spawn_x] = Terrain::Plains;
     // grid[spawn_y][spawn_x + 1] は海のまま
 
-    let mut app = setup_test_app_with_bounce(grid, spawn_x, spawn_y);
+    // bounceはregister_exploring_movement_systemsに含まれるため
+    // setup_test_app_with_mapのみで十分
+    let mut app = setup_test_app_with_map(grid, spawn_x, spawn_y);
     let player_entity = spawn_test_player(&mut app);
 
     // イベントカウンタをリセット
@@ -920,20 +910,16 @@ fn multiple_moves_emit_correct_event_count() {
     // 3回右に移動
     for _ in 0..3 {
         press_key(&mut app, 1, 0);
-
-        // 初回遅延を超えるために3フレーム進める
-        for _ in 0..3 {
-            app.update();
-        }
-
+        app.update();
         release_all_keys(&mut app);
         wait_for_movement_complete(&mut app, player_entity, 30);
+        // キー未押下フレームでMovementStateをリセット
+        app.update();
     }
 
     // イベントカウントを確認（moved_countのみ）
     let counters = app.world().resource::<EventCounters>();
     assert_eq!(counters.moved_count, 3, "Should emit 3 PlayerMovedEvents");
-    // blocked_countは検証しない（MovementStateの内部状態により変動する可能性がある）
 
     // 最終位置を確認
     let final_pos = {
@@ -949,7 +935,7 @@ fn multiple_moves_emit_correct_event_count() {
 // 戦闘システムテスト
 // ============================================
 
-/// 戦闘用のBevyアプリをセットアップ（MinimalPlugins + State + BattleResource直接挿入）
+/// 戦闘用のBevyアプリをセットアップ（MinimalPlugins + State + register関数）
 fn setup_battle_test_app() -> App {
     let mut app = App::new();
 
@@ -971,43 +957,45 @@ fn setup_battle_test_app() -> App {
     // 必要なリソースをセットアップ
     app.init_resource::<ButtonInput<KeyCode>>();
 
-    // 戦闘入力システムを追加
-    app.add_systems(Update, battle_input_system);
+    // cleanup_battle_sceneが必要とするリソース
+    app.insert_resource(MovementState::default());
+    app.init_resource::<PartyState>();
+    app.insert_resource(ActiveMap {
+        grid: vec![vec![Terrain::Plains; 1]; 1],
+        width: 1,
+        height: 1,
+        origin_x: 0.0,
+        origin_y: 0.0,
+    });
+
+    // 本番と同じシステム登録（ロジックのみ）
+    battle_ui::register_battle_logic_systems(&mut app);
 
     app
 }
 
-/// BattleGameState + BattleUIState を直接挿入するヘルパー
+/// BattleGameState + BattleUIState を init_battle_resources で生成して挿入するヘルパー
+///
+/// リソースを先に挿入してからBattleState::Activeに遷移する。
+/// これにより、遷移時に実行されるbattle_input_systemがリソースを参照できる。
 fn insert_battle_resource(app: &mut App, phase: BattlePhase) {
+    // 本番と同じロジックでリソース生成
     let party = default_party();
     let enemies = vec![Enemy::slime()];
-    let battle_state = battle::BattleState::new(party, enemies);
+    let (game_state, mut ui_state) = battle_ui::init_battle_resources(party, enemies);
 
-    let party_size = battle_state.party.len();
-    let display_party_hp = battle_state.party.iter().map(|m| m.stats.hp).collect();
-    let display_party_mp = battle_state.party.iter().map(|m| m.stats.mp).collect();
+    // テスト用にphaseを上書き
+    ui_state.phase = phase;
 
-    app.insert_resource(BattleGameState {
-        state: battle_state,
-    });
-    app.insert_resource(BattleUIState {
-        selected_command: 0,
-        selected_target: 0,
-        pending_commands: PendingCommands::new(party_size),
-        phase,
-        hidden_enemies: vec![false; 1],
-        display_party_hp,
-        display_party_mp,
-        selected_spell: 0,
-        pending_spell: None,
-        selected_item: 0,
-        pending_item: None,
-        selected_ally_target: 0,
-        message_effects: Vec::new(),
-        shake_timer: None,
-        blink_timer: None,
-        blink_enemy: None,
-    });
+    // リソースを先に挿入（battle_input_systemが参照可能にする）
+    app.insert_resource(game_state);
+    app.insert_resource(ui_state);
+
+    // BattleState::Activeに遷移（run_if条件を満たす）
+    app.world_mut()
+        .resource_mut::<NextState<BattleState>>()
+        .set(BattleState::Active);
+    app.update();
 }
 
 /// キーを押すヘルパー（戦闘用）
@@ -1084,7 +1072,10 @@ fn battle_phase_transitions_from_command_to_exploring() {
     }
 
     // BattleOverでEnterを押すとBattleState::Noneに遷移
+    // 1フレーム目: battle_input_systemがNextStateを設定
+    // 2フレーム目: StateTransitionスケジュールが状態を適用 + cleanup実行
     press_battle_key(&mut app, KeyCode::Enter);
+    app.update();
     app.update();
 
     let current_state = app.world().resource::<State<BattleState>>();
@@ -1211,7 +1202,7 @@ fn battle_flee_command_transitions_correctly() {
 
 #[test]
 fn battle_cleanup_removes_movement_lock() {
-    // 通常のマップアプリをセットアップ
+    // 通常のマップアプリをセットアップ（State登録含む）
     let mut grid = vec![vec![Terrain::Sea; MAP_WIDTH]; MAP_HEIGHT];
     let spawn_x = 50;
     let spawn_y = 50;
@@ -1219,15 +1210,7 @@ fn battle_cleanup_removes_movement_lock() {
 
     let mut app = setup_test_app_with_map(grid, spawn_x, spawn_y);
 
-    // StatesPluginを追加
-    app.add_plugins(bevy::state::app::StatesPlugin);
-
-    // ステートを追加
-    app.init_state::<SceneState>();
-    app.init_state::<BattleState>();
-    app.init_resource::<PartyState>();
-
-    // cleanup_battle_sceneシステムを追加（OnExit(BattleState::Active)で実行される想定）
+    // cleanup_battle_sceneシステムを追加（OnExit(BattleState::Active)で実行される）
     app.add_systems(OnExit(BattleState::Active), battle_ui::cleanup_battle_scene);
 
     let player_entity = spawn_test_player(&mut app);
@@ -1253,7 +1236,12 @@ fn battle_cleanup_removes_movement_lock() {
     app.update();
 
     // BattleResourceを挿入（戦闘シーンセットアップの代わり）
-    insert_battle_resource(&mut app, BattlePhase::CommandSelect { member_index: 0 });
+    let party = default_party();
+    let enemies = vec![Enemy::slime()];
+    let (game_state, mut ui_state) = battle_ui::init_battle_resources(party, enemies);
+    ui_state.phase = BattlePhase::CommandSelect { member_index: 0 };
+    app.insert_resource(game_state);
+    app.insert_resource(ui_state);
 
     // 戦闘終了（BattleState::Noneに戻る）→ cleanup_battle_sceneが実行される
     app.world_mut()
