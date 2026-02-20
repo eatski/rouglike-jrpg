@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use input_ui::{is_cancel_just_pressed, is_confirm_just_pressed, is_down_just_pressed, is_up_just_pressed};
 use party::{talk_to_candidate, PartyMember, TalkResult};
-use town::{buy_item, buy_weapon, candidate_first_dialogue, candidate_join_dialogue, cave_hint_dialogue, heal_party, BuyResult, BuyWeaponResult};
+use town::{buy_item, buy_weapon, candidate_first_dialogue, candidate_join_dialogue, cave_hint_dialogue, heal_party, hokora_hint_dialogue, BuyResult, BuyWeaponResult};
 
 use app_state::SceneState;
 use movement_ui::{Player, TilePosition};
@@ -80,13 +80,16 @@ pub fn town_input_system(
                                     TalkResult::AlreadyRecruited => {}
                                 }
                             } else {
-                                let dialogue =
-                                    cave_hint_dialogue(&active_map.grid, pos.x, pos.y);
+                                let cave = cave_hint_dialogue(&active_map.grid, pos.x, pos.y);
+                                let hokora = hokora_hint_dialogue(&active_map.grid, pos.x, pos.y);
+                                let dialogue = format!("{cave}\n\n{hokora}");
                                 town_res.phase =
                                     TownMenuPhase::ShowMessage { message: dialogue };
                             }
                         } else {
-                            let dialogue = cave_hint_dialogue(&active_map.grid, 0, 0);
+                            let cave = cave_hint_dialogue(&active_map.grid, 0, 0);
+                            let hokora = hokora_hint_dialogue(&active_map.grid, 0, 0);
+                            let dialogue = format!("{cave}\n\n{hokora}");
                             town_res.phase = TownMenuPhase::ShowMessage { message: dialogue };
                         }
                     }
