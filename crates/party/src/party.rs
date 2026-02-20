@@ -37,6 +37,15 @@ pub fn exp_to_next_level(level: u32) -> u32 {
 }
 
 impl PartyMember {
+    /// 戦闘結果を永続状態に反映する（kindは変更しない）
+    pub fn sync_from_battle(&mut self, battle_member: &PartyMember) {
+        self.stats = battle_member.stats.clone();
+        self.level = battle_member.level;
+        self.exp = battle_member.exp;
+        self.inventory = battle_member.inventory.clone();
+        self.equipment = battle_member.equipment.clone();
+    }
+
     /// 装備込みの実効攻撃力
     pub fn effective_attack(&self) -> i32 {
         self.stats.attack + self.equipment.attack_bonus()

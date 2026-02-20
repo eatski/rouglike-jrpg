@@ -27,7 +27,7 @@ impl Default for MovementState {
 }
 
 /// 現在のアクティブマップ（フィールド or 洞窟）
-#[derive(Resource)]
+#[derive(Resource, Clone)]
 pub struct ActiveMap {
     pub grid: Vec<Vec<Terrain>>,
     pub width: usize,
@@ -76,10 +76,4 @@ impl ActiveMap {
 
 /// ワールドマップデータの永続保存用リソース（洞窟進入時に退避）
 #[derive(Resource)]
-pub struct WorldMapData {
-    pub grid: Vec<Vec<Terrain>>,
-    pub width: usize,
-    pub height: usize,
-    pub origin_x: f32,
-    pub origin_y: f32,
-}
+pub struct WorldMapData(pub ActiveMap);

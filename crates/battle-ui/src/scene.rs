@@ -142,7 +142,7 @@ pub struct EnemySprite {
 }
 
 /// 同種の敵にサフィックスを付与した表示名を生成
-fn enemy_display_names(enemies: &[battle::Enemy]) -> Vec<String> {
+pub(crate) fn enemy_display_names(enemies: &[battle::Enemy]) -> Vec<String> {
     // 同種の敵が複数いる場合のみサフィックス付与
     let mut kind_counts: std::collections::HashMap<EnemyKind, usize> =
         std::collections::HashMap::new();
@@ -630,23 +630,14 @@ pub fn cleanup_battle_scene(
     mut party_state: ResMut<PartyState>,
     active_map: Res<ActiveMap>,
 ) {
-    // 戦闘結果のHP/MP/レベル/経験値/インベントリを永続状態に書き戻す
+    // 戦闘結果を永続状態に書き戻す
     for (i, member) in game_state.state.party.iter().enumerate() {
         if let Some(persistent) = party_state.members.get_mut(i) {
-            persistent.stats.hp = if member.stats.hp <= 0 {
-                1 // 戦闘不能メンバーはHP=1で生存（全滅処理は別タスク）
-            } else {
-                member.stats.hp
-            };
-            persistent.stats.mp = member.stats.mp;
-            persistent.stats.max_hp = member.stats.max_hp;
-            persistent.stats.max_mp = member.stats.max_mp;
-            persistent.stats.attack = member.stats.attack;
-            persistent.stats.defense = member.stats.defense;
-            persistent.stats.speed = member.stats.speed;
-            persistent.level = member.level;
-            persistent.exp = member.exp;
-            persistent.inventory = member.inventory.clone();
+            persistent.sync_from_battle(member);
+            // 戦闘不能メンバーはHP=1で生存（全滅処理は別タスク）
+            if persistent.stats.hp <= 0 {
+                persistent.stats.hp = 1;
+            }
         }
     }
 

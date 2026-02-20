@@ -4,48 +4,44 @@ use battle::spell::{available_spells, calculate_heal_amount, SpellKind};
 use app_state::{FieldMenuOpen, PartyState};
 use party::{ItemEffect, ItemKind};
 
-/// フィールドメニューのフェーズ
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// ターゲット選択の文脈（呪文 or アイテム）
+#[derive(Debug, Clone)]
+pub enum TargetContext {
+    Spell {
+        caster: usize,
+        spells: Vec<SpellKind>,
+        spell_cursor: usize,
+    },
+    Item {
+        member: usize,
+        items: Vec<ItemKind>,
+        item_cursor: usize,
+    },
+}
+
+/// フィールドメニューのフェーズ（各フェーズが自身のデータを保持）
+#[derive(Debug, Clone)]
 pub enum FieldMenuPhase {
     /// トップメニュー（じゅもん/どうぐ）
-    TopMenu,
+    TopMenu { cursor: usize },
     /// キャスター選択（呪文フロー）
-    CasterSelect,
+    CasterSelect { candidates: Vec<usize>, cursor: usize },
     /// 呪文選択
-    SpellSelect,
+    SpellSelect { caster: usize, spells: Vec<SpellKind>, cursor: usize },
     /// メンバー選択（アイテムフロー）
-    MemberSelect,
+    MemberSelect { candidates: Vec<usize>, cursor: usize },
     /// アイテム選択
-    ItemSelect,
+    ItemSelect { member: usize, items: Vec<ItemKind>, cursor: usize },
     /// ターゲット選択（共用）
-    TargetSelect,
+    TargetSelect { candidates: Vec<usize>, cursor: usize, context: TargetContext },
     /// メッセージ表示
-    ShowMessage,
+    ShowMessage { message: String },
 }
 
 /// フィールドメニューの状態
 #[derive(Resource)]
 pub struct FieldMenuState {
-    phase: FieldMenuPhase,
-    // トップメニュー
-    top_cursor: usize,
-    // 呪文フロー
-    caster_candidates: Vec<usize>,
-    caster_cursor: usize,
-    selected_caster: usize,
-    spell_candidates: Vec<SpellKind>,
-    spell_cursor: usize,
-    // アイテムフロー
-    member_candidates: Vec<usize>,
-    member_cursor: usize,
-    selected_member: usize,
-    item_candidates: Vec<ItemKind>,
-    item_cursor: usize,
-    // 共用
-    target_candidates: Vec<usize>,
-    target_cursor: usize,
-    is_item_mode: bool,
-    message: String,
+    pub phase: FieldMenuPhase,
 }
 
 /// フィールドメニューのUIルートマーカー
@@ -153,18 +149,27 @@ fn alive_member_indices(party_state: &PartyState) -> Vec<usize> {
         .collect()
 }
 
+fn close_menu(
+    commands: &mut Commands,
+    root_query: &Query<Entity, With<FieldMenuRoot>>,
+) {
+    despawn_menu_ui(commands, root_query);
+    commands.remove_resource::<FieldMenuState>();
+    commands.remove_resource::<FieldMenuOpen>();
+}
+
 /// フィールドメニューの入力処理システム
 #[allow(clippy::too_many_arguments)]
 pub fn field_menu_input_system(
     mut commands: Commands,
     keyboard: Res<ButtonInput<KeyCode>>,
     asset_server: Res<AssetServer>,
-    mut menu_open: ResMut<FieldMenuOpen>,
+    menu_open: Option<Res<FieldMenuOpen>>,
     mut party_state: ResMut<PartyState>,
     state: Option<ResMut<FieldMenuState>>,
     root_query: Query<Entity, With<FieldMenuRoot>>,
 ) {
-    if !menu_open.0 {
+    if menu_open.is_none() {
         // メニュー非表示: 確認キーで開く
         if input_ui::is_confirm_just_pressed(&keyboard) {
             let alive = alive_member_indices(&party_state);
@@ -173,26 +178,11 @@ pub fn field_menu_input_system(
             }
 
             commands.insert_resource(FieldMenuState {
-                phase: FieldMenuPhase::TopMenu,
-                top_cursor: 0,
-                caster_candidates: Vec::new(),
-                caster_cursor: 0,
-                selected_caster: 0,
-                spell_candidates: Vec::new(),
-                spell_cursor: 0,
-                member_candidates: Vec::new(),
-                member_cursor: 0,
-                selected_member: 0,
-                item_candidates: Vec::new(),
-                item_cursor: 0,
-                target_candidates: Vec::new(),
-                target_cursor: 0,
-                is_item_mode: false,
-                message: String::new(),
+                phase: FieldMenuPhase::TopMenu { cursor: 0 },
             });
 
             spawn_menu_ui(&mut commands, &asset_server);
-            menu_open.0 = true;
+            commands.insert_resource(FieldMenuOpen);
         }
         return;
     }
@@ -200,263 +190,341 @@ pub fn field_menu_input_system(
     let Some(mut state) = state else { return };
 
     match state.phase.clone() {
-        FieldMenuPhase::TopMenu => {
-            if input_ui::is_up_just_pressed(&keyboard) && state.top_cursor > 0 {
-                state.top_cursor -= 1;
-            }
-            if input_ui::is_down_just_pressed(&keyboard) && state.top_cursor < 1 {
-                state.top_cursor += 1;
-            }
-
-            if input_ui::is_cancel_just_pressed(&keyboard) {
-                despawn_menu_ui(&mut commands, &root_query);
-                commands.remove_resource::<FieldMenuState>();
-                menu_open.0 = false;
-                return;
-            }
-
+        FieldMenuPhase::TopMenu { cursor } => {
+            handle_top_menu(&keyboard, &mut state, &party_state, &mut commands, &root_query, cursor);
+        }
+        FieldMenuPhase::CasterSelect { candidates, cursor } => {
+            handle_caster_select(&keyboard, &mut state, &party_state, candidates, cursor);
+        }
+        FieldMenuPhase::SpellSelect { caster, spells, cursor } => {
+            handle_spell_select(&keyboard, &mut state, &party_state, caster, spells, cursor);
+        }
+        FieldMenuPhase::MemberSelect { candidates, cursor } => {
+            handle_member_select(&keyboard, &mut state, &party_state, candidates, cursor);
+        }
+        FieldMenuPhase::ItemSelect { member, items, cursor } => {
+            handle_item_select(&keyboard, &mut state, &party_state, member, items, cursor);
+        }
+        FieldMenuPhase::TargetSelect { candidates, cursor, context } => {
+            handle_target_select(
+                &keyboard, &mut state, &mut party_state,
+                candidates, cursor, context,
+            );
+        }
+        FieldMenuPhase::ShowMessage { .. } => {
             if input_ui::is_confirm_just_pressed(&keyboard) {
-                if state.top_cursor == 0 {
-                    // じゅもん → CasterSelect
-                    let caster_candidates = alive_member_indices(&party_state);
-                    state.caster_candidates = caster_candidates;
-                    state.caster_cursor = 0;
-                    state.is_item_mode = false;
-                    state.phase = FieldMenuPhase::CasterSelect;
-                } else {
-                    // どうぐ → MemberSelect
-                    let member_candidates = alive_member_indices(&party_state);
-                    state.member_candidates = member_candidates;
-                    state.member_cursor = 0;
-                    state.is_item_mode = true;
-                    state.phase = FieldMenuPhase::MemberSelect;
-                }
+                state.phase = FieldMenuPhase::TopMenu { cursor: 0 };
+            }
+            if input_ui::is_cancel_just_pressed(&keyboard) {
+                close_menu(&mut commands, &root_query);
             }
         }
-        FieldMenuPhase::CasterSelect => {
-            let count = state.caster_candidates.len();
+    }
+}
 
-            if input_ui::is_up_just_pressed(&keyboard) && state.caster_cursor > 0 {
-                state.caster_cursor -= 1;
+fn handle_top_menu(
+    keyboard: &ButtonInput<KeyCode>,
+    state: &mut FieldMenuState,
+    party_state: &PartyState,
+    commands: &mut Commands,
+    root_query: &Query<Entity, With<FieldMenuRoot>>,
+    mut cursor: usize,
+) {
+    if input_ui::is_up_just_pressed(keyboard) && cursor > 0 {
+        cursor -= 1;
+    }
+    if input_ui::is_down_just_pressed(keyboard) && cursor < 1 {
+        cursor += 1;
+    }
+    state.phase = FieldMenuPhase::TopMenu { cursor };
+
+    if input_ui::is_cancel_just_pressed(keyboard) {
+        close_menu(commands, root_query);
+        return;
+    }
+
+    if input_ui::is_confirm_just_pressed(keyboard) {
+        if cursor == 0 {
+            // じゅもん → CasterSelect
+            let candidates = alive_member_indices(party_state);
+            state.phase = FieldMenuPhase::CasterSelect { candidates, cursor: 0 };
+        } else {
+            // どうぐ → MemberSelect
+            let candidates = alive_member_indices(party_state);
+            state.phase = FieldMenuPhase::MemberSelect { candidates, cursor: 0 };
+        }
+    }
+}
+
+fn handle_caster_select(
+    keyboard: &ButtonInput<KeyCode>,
+    state: &mut FieldMenuState,
+    party_state: &PartyState,
+    candidates: Vec<usize>,
+    mut cursor: usize,
+) {
+    let count = candidates.len();
+    if input_ui::is_up_just_pressed(keyboard) && cursor > 0 {
+        cursor -= 1;
+    }
+    if input_ui::is_down_just_pressed(keyboard) && cursor < count - 1 {
+        cursor += 1;
+    }
+    state.phase = FieldMenuPhase::CasterSelect { candidates: candidates.clone(), cursor };
+
+    if input_ui::is_cancel_just_pressed(keyboard) {
+        state.phase = FieldMenuPhase::TopMenu { cursor: 0 };
+        return;
+    }
+
+    if input_ui::is_confirm_just_pressed(keyboard) {
+        let member_idx = candidates[cursor];
+        let spells = available_spells(party_state.members[member_idx].kind, party_state.members[member_idx].level);
+        if spells.is_empty() {
+            state.phase = FieldMenuPhase::ShowMessage {
+                message: "じゅもんを おぼえていない".to_string(),
+            };
+        } else {
+            state.phase = FieldMenuPhase::SpellSelect {
+                caster: member_idx,
+                spells,
+                cursor: 0,
+            };
+        }
+    }
+}
+
+fn handle_spell_select(
+    keyboard: &ButtonInput<KeyCode>,
+    state: &mut FieldMenuState,
+    party_state: &PartyState,
+    caster: usize,
+    spells: Vec<SpellKind>,
+    mut cursor: usize,
+) {
+    let count = spells.len();
+    if input_ui::is_up_just_pressed(keyboard) && cursor > 0 {
+        cursor -= 1;
+    }
+    if input_ui::is_down_just_pressed(keyboard) && cursor < count - 1 {
+        cursor += 1;
+    }
+    state.phase = FieldMenuPhase::SpellSelect { caster, spells: spells.clone(), cursor };
+
+    if input_ui::is_cancel_just_pressed(keyboard) {
+        let candidates = alive_member_indices(party_state);
+        state.phase = FieldMenuPhase::CasterSelect { candidates, cursor: 0 };
+        return;
+    }
+
+    if input_ui::is_confirm_just_pressed(keyboard) {
+        let spell = spells[cursor];
+        let caster_member = &party_state.members[caster];
+
+        if caster_member.stats.mp < spell.mp_cost() {
+            return;
+        }
+
+        if spell.is_offensive() {
+            state.phase = FieldMenuPhase::ShowMessage {
+                message: "フィールドでは つかえない".to_string(),
+            };
+        } else {
+            let target_candidates = alive_member_indices(party_state);
+            state.phase = FieldMenuPhase::TargetSelect {
+                candidates: target_candidates,
+                cursor: 0,
+                context: TargetContext::Spell {
+                    caster,
+                    spells,
+                    spell_cursor: cursor,
+                },
+            };
+        }
+    }
+}
+
+fn handle_member_select(
+    keyboard: &ButtonInput<KeyCode>,
+    state: &mut FieldMenuState,
+    party_state: &PartyState,
+    candidates: Vec<usize>,
+    mut cursor: usize,
+) {
+    let count = candidates.len();
+    if input_ui::is_up_just_pressed(keyboard) && cursor > 0 {
+        cursor -= 1;
+    }
+    if input_ui::is_down_just_pressed(keyboard) && cursor < count - 1 {
+        cursor += 1;
+    }
+    state.phase = FieldMenuPhase::MemberSelect { candidates: candidates.clone(), cursor };
+
+    if input_ui::is_cancel_just_pressed(keyboard) {
+        state.phase = FieldMenuPhase::TopMenu { cursor: 0 };
+        return;
+    }
+
+    if input_ui::is_confirm_just_pressed(keyboard) {
+        let member_idx = candidates[cursor];
+        let items = party_state.members[member_idx].inventory.owned_items();
+        if items.is_empty() {
+            state.phase = FieldMenuPhase::ShowMessage {
+                message: "もちものが ない".to_string(),
+            };
+        } else {
+            state.phase = FieldMenuPhase::ItemSelect {
+                member: member_idx,
+                items,
+                cursor: 0,
+            };
+        }
+    }
+}
+
+fn handle_item_select(
+    keyboard: &ButtonInput<KeyCode>,
+    state: &mut FieldMenuState,
+    party_state: &PartyState,
+    member: usize,
+    items: Vec<ItemKind>,
+    mut cursor: usize,
+) {
+    let count = items.len();
+    if input_ui::is_up_just_pressed(keyboard) && cursor > 0 {
+        cursor -= 1;
+    }
+    if input_ui::is_down_just_pressed(keyboard) && cursor < count - 1 {
+        cursor += 1;
+    }
+    state.phase = FieldMenuPhase::ItemSelect { member, items: items.clone(), cursor };
+
+    if input_ui::is_cancel_just_pressed(keyboard) {
+        let candidates = alive_member_indices(party_state);
+        state.phase = FieldMenuPhase::MemberSelect { candidates, cursor: 0 };
+        return;
+    }
+
+    if input_ui::is_confirm_just_pressed(keyboard) {
+        let item = items[cursor];
+        match item.effect() {
+            ItemEffect::Heal { .. } => {
+                let target_candidates = alive_member_indices(party_state);
+                state.phase = FieldMenuPhase::TargetSelect {
+                    candidates: target_candidates,
+                    cursor: 0,
+                    context: TargetContext::Item {
+                        member,
+                        items,
+                        item_cursor: cursor,
+                    },
+                };
             }
-            if input_ui::is_down_just_pressed(&keyboard) && state.caster_cursor < count - 1 {
-                state.caster_cursor += 1;
-            }
-
-            if input_ui::is_cancel_just_pressed(&keyboard) {
-                state.phase = FieldMenuPhase::TopMenu;
-                return;
-            }
-
-            if input_ui::is_confirm_just_pressed(&keyboard) {
-                let member_idx = state.caster_candidates[state.caster_cursor];
-                state.selected_caster = member_idx;
-
-                let spells = available_spells(party_state.members[member_idx].kind, party_state.members[member_idx].level);
-                if spells.is_empty() {
-                    state.message = "じゅもんを おぼえていない".to_string();
-                    state.phase = FieldMenuPhase::ShowMessage;
-                } else {
-                    state.spell_candidates = spells;
-                    state.spell_cursor = 0;
-                    state.phase = FieldMenuPhase::SpellSelect;
-                }
+            ItemEffect::KeyItem => {
+                let member_name = party_state.members[member].kind.name();
+                state.phase = FieldMenuPhase::ShowMessage {
+                    message: format!(
+                        "{}は {}を しらべた。\n{}",
+                        member_name,
+                        item.name(),
+                        item.description()
+                    ),
+                };
             }
         }
-        FieldMenuPhase::SpellSelect => {
-            let count = state.spell_candidates.len();
+    }
+}
 
-            if input_ui::is_up_just_pressed(&keyboard) && state.spell_cursor > 0 {
-                state.spell_cursor -= 1;
+fn handle_target_select(
+    keyboard: &ButtonInput<KeyCode>,
+    state: &mut FieldMenuState,
+    party_state: &mut PartyState,
+    candidates: Vec<usize>,
+    mut cursor: usize,
+    context: TargetContext,
+) {
+    let count = candidates.len();
+    if input_ui::is_up_just_pressed(keyboard) && cursor > 0 {
+        cursor -= 1;
+    }
+    if input_ui::is_down_just_pressed(keyboard) && cursor < count - 1 {
+        cursor += 1;
+    }
+    state.phase = FieldMenuPhase::TargetSelect {
+        candidates: candidates.clone(),
+        cursor,
+        context: context.clone(),
+    };
+
+    if input_ui::is_cancel_just_pressed(keyboard) {
+        match context {
+            TargetContext::Item { member, items, item_cursor } => {
+                state.phase = FieldMenuPhase::ItemSelect { member, items, cursor: item_cursor };
             }
-            if input_ui::is_down_just_pressed(&keyboard) && state.spell_cursor < count - 1 {
-                state.spell_cursor += 1;
-            }
-
-            if input_ui::is_cancel_just_pressed(&keyboard) {
-                state.phase = FieldMenuPhase::CasterSelect;
-                return;
-            }
-
-            if input_ui::is_confirm_just_pressed(&keyboard) {
-                let spell = state.spell_candidates[state.spell_cursor];
-                let caster = &party_state.members[state.selected_caster];
-
-                if caster.stats.mp < spell.mp_cost() {
-                    return;
-                }
-
-                if spell.is_offensive() {
-                    state.message = "フィールドでは つかえない".to_string();
-                    state.phase = FieldMenuPhase::ShowMessage;
-                } else {
-                    let target_candidates = alive_member_indices(&party_state);
-                    state.target_candidates = target_candidates;
-                    state.target_cursor = 0;
-                    state.phase = FieldMenuPhase::TargetSelect;
-                }
-            }
-        }
-        FieldMenuPhase::MemberSelect => {
-            let count = state.member_candidates.len();
-
-            if input_ui::is_up_just_pressed(&keyboard) && state.member_cursor > 0 {
-                state.member_cursor -= 1;
-            }
-            if input_ui::is_down_just_pressed(&keyboard) && state.member_cursor < count - 1 {
-                state.member_cursor += 1;
-            }
-
-            if input_ui::is_cancel_just_pressed(&keyboard) {
-                state.phase = FieldMenuPhase::TopMenu;
-                return;
-            }
-
-            if input_ui::is_confirm_just_pressed(&keyboard) {
-                let member_idx = state.member_candidates[state.member_cursor];
-                state.selected_member = member_idx;
-
-                let items = party_state.members[member_idx].inventory.owned_items();
-                if items.is_empty() {
-                    state.message = "もちものが ない".to_string();
-                    state.phase = FieldMenuPhase::ShowMessage;
-                } else {
-                    state.item_candidates = items;
-                    state.item_cursor = 0;
-                    state.phase = FieldMenuPhase::ItemSelect;
-                }
+            TargetContext::Spell { caster, spells, spell_cursor } => {
+                state.phase = FieldMenuPhase::SpellSelect { caster, spells, cursor: spell_cursor };
             }
         }
-        FieldMenuPhase::ItemSelect => {
-            let count = state.item_candidates.len();
+        return;
+    }
 
-            if input_ui::is_up_just_pressed(&keyboard) && state.item_cursor > 0 {
-                state.item_cursor -= 1;
-            }
-            if input_ui::is_down_just_pressed(&keyboard) && state.item_cursor < count - 1 {
-                state.item_cursor += 1;
-            }
+    if input_ui::is_confirm_just_pressed(keyboard) {
+        let target_idx = candidates[cursor];
 
-            if input_ui::is_cancel_just_pressed(&keyboard) {
-                state.phase = FieldMenuPhase::MemberSelect;
-                return;
-            }
-
-            if input_ui::is_confirm_just_pressed(&keyboard) {
-                let item = state.item_candidates[state.item_cursor];
-                match item.effect() {
-                    ItemEffect::Heal { .. } => {
-                        // 回復アイテム → ターゲット選択
-                        let target_candidates = alive_member_indices(&party_state);
-                        state.target_candidates = target_candidates;
-                        state.target_cursor = 0;
-                        state.phase = FieldMenuPhase::TargetSelect;
-                    }
-                    ItemEffect::KeyItem => {
-                        // キーアイテム → 説明表示（消費しない）
-                        let member_name = party_state.members[state.selected_member].kind.name();
-                        state.message = format!(
-                            "{}は {}を しらべた。\n{}",
-                            member_name,
-                            item.name(),
-                            item.description()
-                        );
-                        state.phase = FieldMenuPhase::ShowMessage;
-                    }
-                }
-            }
-        }
-        FieldMenuPhase::TargetSelect => {
-            let count = state.target_candidates.len();
-
-            if input_ui::is_up_just_pressed(&keyboard) && state.target_cursor > 0 {
-                state.target_cursor -= 1;
-            }
-            if input_ui::is_down_just_pressed(&keyboard) && state.target_cursor < count - 1 {
-                state.target_cursor += 1;
-            }
-
-            if input_ui::is_cancel_just_pressed(&keyboard) {
-                if state.is_item_mode {
-                    state.phase = FieldMenuPhase::ItemSelect;
-                } else {
-                    state.phase = FieldMenuPhase::SpellSelect;
-                }
-                return;
-            }
-
-            if input_ui::is_confirm_just_pressed(&keyboard) {
-                let target_idx = state.target_candidates[state.target_cursor];
-
-                if state.is_item_mode {
-                    // アイテム使用
-                    let item = state.item_candidates[state.item_cursor];
-                    let member_idx = state.selected_member;
-
-                    if let ItemEffect::Heal { power } = item.effect() {
-                        let used = party_state.members[member_idx].inventory.use_item(item);
-                        if !used {
-                            return;
-                        }
-
-                        let random_factor = 0.8 + rand::random::<f32>() * 0.4;
-                        let amount = calculate_heal_amount(power, random_factor);
-
-                        let target = &mut party_state.members[target_idx];
-                        target.stats.hp = (target.stats.hp + amount).min(target.stats.max_hp);
-
-                        let member_name = party_state.members[member_idx].kind.name();
-                        let target_name = party_state.members[target_idx].kind.name();
-                        state.message = format!(
-                            "{}は {}を つかった！\n{}の HPが {}かいふく！",
-                            member_name,
-                            item.name(),
-                            target_name,
-                            amount
-                        );
-                    }
-                } else {
-                    // 呪文使用
-                    let spell = state.spell_candidates[state.spell_cursor];
-                    let caster_idx = state.selected_caster;
-
-                    let consumed = party_state.members[caster_idx].stats.use_mp(spell.mp_cost());
-                    if !consumed {
+        let message = match context {
+            TargetContext::Item { member, ref items, item_cursor } => {
+                let item = items[item_cursor];
+                if let ItemEffect::Heal { power } = item.effect() {
+                    let used = party_state.members[member].inventory.use_item(item);
+                    if !used {
                         return;
                     }
 
                     let random_factor = 0.8 + rand::random::<f32>() * 0.4;
-                    let amount = calculate_heal_amount(spell.power(), random_factor);
+                    let amount = calculate_heal_amount(power, random_factor);
 
                     let target = &mut party_state.members[target_idx];
                     target.stats.hp = (target.stats.hp + amount).min(target.stats.max_hp);
 
-                    let caster_name = party_state.members[caster_idx].kind.name();
+                    let member_name = party_state.members[member].kind.name();
                     let target_name = party_state.members[target_idx].kind.name();
-                    state.message = format!(
-                        "{}は {}を となえた！\n{}の HPが {}かいふく！",
-                        caster_name,
-                        spell.name(),
+                    format!(
+                        "{}は {}を つかった！\n{}の HPが {}かいふく！",
+                        member_name,
+                        item.name(),
                         target_name,
                         amount
-                    );
+                    )
+                } else {
+                    return;
                 }
-                state.phase = FieldMenuPhase::ShowMessage;
             }
-        }
-        FieldMenuPhase::ShowMessage => {
-            if input_ui::is_confirm_just_pressed(&keyboard) {
-                // トップメニューに戻る
-                state.top_cursor = 0;
-                state.phase = FieldMenuPhase::TopMenu;
-            }
+            TargetContext::Spell { caster, ref spells, spell_cursor } => {
+                let spell = spells[spell_cursor];
 
-            if input_ui::is_cancel_just_pressed(&keyboard) {
-                despawn_menu_ui(&mut commands, &root_query);
-                commands.remove_resource::<FieldMenuState>();
-                menu_open.0 = false;
+                let consumed = party_state.members[caster].stats.use_mp(spell.mp_cost());
+                if !consumed {
+                    return;
+                }
+
+                let random_factor = 0.8 + rand::random::<f32>() * 0.4;
+                let amount = calculate_heal_amount(spell.power(), random_factor);
+
+                let target = &mut party_state.members[target_idx];
+                target.stats.hp = (target.stats.hp + amount).min(target.stats.max_hp);
+
+                let caster_name = party_state.members[caster].kind.name();
+                let target_name = party_state.members[target_idx].kind.name();
+                format!(
+                    "{}は {}を となえた！\n{}の HPが {}かいふく！",
+                    caster_name,
+                    spell.name(),
+                    target_name,
+                    amount
+                )
             }
-        }
+        };
+        state.phase = FieldMenuPhase::ShowMessage { message };
     }
 }
 
@@ -474,40 +542,40 @@ pub fn field_menu_display_system(
 
     // タイトル更新
     for mut text in &mut title_query {
-        match state.phase {
-            FieldMenuPhase::TopMenu => {
+        match &state.phase {
+            FieldMenuPhase::TopMenu { .. } => {
                 **text = String::new();
             }
-            FieldMenuPhase::CasterSelect => {
+            FieldMenuPhase::CasterSelect { .. } => {
                 **text = "だれが じゅもんを つかう？".to_string();
             }
-            FieldMenuPhase::SpellSelect => {
-                let name = party_state.members[state.selected_caster].kind.name();
+            FieldMenuPhase::SpellSelect { caster, .. } => {
+                let name = party_state.members[*caster].kind.name();
                 **text = format!("{}の じゅもん", name);
             }
-            FieldMenuPhase::MemberSelect => {
+            FieldMenuPhase::MemberSelect { .. } => {
                 **text = "だれの どうぐを つかう？".to_string();
             }
-            FieldMenuPhase::ItemSelect => {
-                let name = party_state.members[state.selected_member].kind.name();
+            FieldMenuPhase::ItemSelect { member, .. } => {
+                let name = party_state.members[*member].kind.name();
                 **text = format!("{}の もちもの", name);
             }
-            FieldMenuPhase::TargetSelect => {
+            FieldMenuPhase::TargetSelect { .. } => {
                 **text = "だれに つかう？".to_string();
             }
-            FieldMenuPhase::ShowMessage => {
-                **text = state.message.clone();
+            FieldMenuPhase::ShowMessage { message } => {
+                **text = message.clone();
             }
         }
     }
 
     // メニューアイテム更新
     for (item, mut text, mut color, mut vis) in &mut item_query {
-        match state.phase {
-            FieldMenuPhase::TopMenu => {
+        match &state.phase {
+            FieldMenuPhase::TopMenu { cursor } => {
                 let labels = ["じゅもん", "どうぐ"];
                 if item.index < labels.len() {
-                    let is_selected = item.index == state.top_cursor;
+                    let is_selected = item.index == *cursor;
                     let prefix = if is_selected { "> " } else { "  " };
                     **text = format!("{}{}", prefix, labels[item.index]);
                     *color = if is_selected {
@@ -520,11 +588,11 @@ pub fn field_menu_display_system(
                     *vis = Visibility::Hidden;
                 }
             }
-            FieldMenuPhase::CasterSelect => {
-                if item.index < state.caster_candidates.len() {
-                    let member_idx = state.caster_candidates[item.index];
+            FieldMenuPhase::CasterSelect { candidates, cursor } => {
+                if item.index < candidates.len() {
+                    let member_idx = candidates[item.index];
                     let member = &party_state.members[member_idx];
-                    let is_selected = item.index == state.caster_cursor;
+                    let is_selected = item.index == *cursor;
                     let prefix = if is_selected { "> " } else { "  " };
                     **text = format!(
                         "{}{} HP:{}/{} MP:{}/{}",
@@ -545,11 +613,11 @@ pub fn field_menu_display_system(
                     *vis = Visibility::Hidden;
                 }
             }
-            FieldMenuPhase::SpellSelect => {
-                if item.index < state.spell_candidates.len() {
-                    let spell = state.spell_candidates[item.index];
-                    let is_selected = item.index == state.spell_cursor;
-                    let caster_mp = party_state.members[state.selected_caster].stats.mp;
+            FieldMenuPhase::SpellSelect { caster, spells, cursor } => {
+                if item.index < spells.len() {
+                    let spell = spells[item.index];
+                    let is_selected = item.index == *cursor;
+                    let caster_mp = party_state.members[*caster].stats.mp;
                     let can_use = caster_mp >= spell.mp_cost();
                     let prefix = if is_selected { "> " } else { "  " };
                     **text = format!("{}{} ({})", prefix, spell.name(), spell.mp_cost());
@@ -565,11 +633,11 @@ pub fn field_menu_display_system(
                     *vis = Visibility::Hidden;
                 }
             }
-            FieldMenuPhase::MemberSelect => {
-                if item.index < state.member_candidates.len() {
-                    let member_idx = state.member_candidates[item.index];
+            FieldMenuPhase::MemberSelect { candidates, cursor } => {
+                if item.index < candidates.len() {
+                    let member_idx = candidates[item.index];
                     let member = &party_state.members[member_idx];
-                    let is_selected = item.index == state.member_cursor;
+                    let is_selected = item.index == *cursor;
                     let prefix = if is_selected { "> " } else { "  " };
                     **text = format!(
                         "{}{} HP:{}/{}",
@@ -588,13 +656,13 @@ pub fn field_menu_display_system(
                     *vis = Visibility::Hidden;
                 }
             }
-            FieldMenuPhase::ItemSelect => {
-                if item.index < state.item_candidates.len() {
-                    let item_kind = state.item_candidates[item.index];
-                    let count = party_state.members[state.selected_member]
+            FieldMenuPhase::ItemSelect { member, items, cursor } => {
+                if item.index < items.len() {
+                    let item_kind = items[item.index];
+                    let count = party_state.members[*member]
                         .inventory
                         .count(item_kind);
-                    let is_selected = item.index == state.item_cursor;
+                    let is_selected = item.index == *cursor;
                     let prefix = if is_selected { "> " } else { "  " };
                     **text = format!("{}{} x{}", prefix, item_kind.name(), count);
                     *color = if is_selected {
@@ -607,11 +675,11 @@ pub fn field_menu_display_system(
                     *vis = Visibility::Hidden;
                 }
             }
-            FieldMenuPhase::TargetSelect => {
-                if item.index < state.target_candidates.len() {
-                    let member_idx = state.target_candidates[item.index];
+            FieldMenuPhase::TargetSelect { candidates, cursor, .. } => {
+                if item.index < candidates.len() {
+                    let member_idx = candidates[item.index];
                     let member = &party_state.members[member_idx];
-                    let is_selected = item.index == state.target_cursor;
+                    let is_selected = item.index == *cursor;
                     let prefix = if is_selected { "> " } else { "  " };
                     **text = format!(
                         "{}{} HP:{}/{}",
@@ -630,7 +698,7 @@ pub fn field_menu_display_system(
                     *vis = Visibility::Hidden;
                 }
             }
-            FieldMenuPhase::ShowMessage => {
+            FieldMenuPhase::ShowMessage { .. } => {
                 *vis = Visibility::Hidden;
             }
         }

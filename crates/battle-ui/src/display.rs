@@ -1,9 +1,10 @@
 use bevy::prelude::*;
 
-use battle::EnemyKind;
 use party::ItemEffect;
 
-use super::scene::{BattleGameState, BattlePhase, BattleSceneRoot, BattleUIState, EnemySprite};
+use super::scene::{
+    enemy_display_names, BattleGameState, BattlePhase, BattleSceneRoot, BattleUIState, EnemySprite,
+};
 
 /// 敵名ラベルのマーカー
 #[derive(Component)]
@@ -65,34 +66,6 @@ fn hp_bar_color(ratio: f32) -> Color {
 const COMMAND_COLOR_SELECTED: Color = Color::srgb(1.0, 0.9, 0.2);
 const COMMAND_COLOR_UNSELECTED: Color = Color::srgb(0.6, 0.6, 0.6);
 const COMMAND_COLOR_DISABLED: Color = Color::srgb(0.35, 0.35, 0.35);
-
-/// 同種の敵にサフィックスを付与した表示名を生成
-fn enemy_display_names(enemies: &[battle::Enemy]) -> Vec<String> {
-    let mut kind_counts: std::collections::HashMap<EnemyKind, usize> =
-        std::collections::HashMap::new();
-    for e in enemies {
-        *kind_counts.entry(e.kind).or_insert(0) += 1;
-    }
-
-    let suffixes = ['A', 'B', 'C', 'D'];
-    let mut kind_indices: std::collections::HashMap<EnemyKind, usize> =
-        std::collections::HashMap::new();
-
-    enemies
-        .iter()
-        .map(|e| {
-            let count = kind_counts[&e.kind];
-            if count > 1 {
-                let idx = kind_indices.entry(e.kind).or_insert(0);
-                let suffix = suffixes.get(*idx).unwrap_or(&'?');
-                *idx += 1;
-                format!("{}{}", e.kind.name(), suffix)
-            } else {
-                e.kind.name().to_string()
-            }
-        })
-        .collect()
-}
 
 /// 戦闘画面の表示を更新するシステム
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]

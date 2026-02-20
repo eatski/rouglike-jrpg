@@ -20,7 +20,7 @@ use movement_ui::{
     Boat, MovementBlockedEvent, MovementLocked, OnBoat, Player,
     PlayerMovedEvent, TilePosition,
 };
-use app_state::{FieldMenuOpen, PartyState};
+use app_state::PartyState;
 use movement_ui::{ActiveMap, MovementState, TILE_SIZE};
 use world_ui::{MapModeState, SpawnPosition};
 
@@ -104,7 +104,6 @@ fn setup_test_app_with_map(grid: Vec<Vec<Terrain>>, spawn_x: usize, spawn_y: usi
     app.insert_resource(MovementState::default());
     app.insert_resource(EventCounters::default());
     app.insert_resource(MapModeState::default());
-    app.init_resource::<FieldMenuOpen>();
     app.init_resource::<PartyState>();
     app.init_resource::<ButtonInput<KeyCode>>();
 

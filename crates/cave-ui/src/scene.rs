@@ -62,11 +62,12 @@ pub fn setup_cave_scene(
     mut commands: Commands,
     mut player_query: Query<(&mut TilePosition, &mut Transform), With<Player>>,
     tile_pool_query: Query<Entity, With<PooledTile>>,
-    boat_query: Query<Entity, With<Boat>>,
+    boat_query: Query<(Entity, &TilePosition), (With<Boat>, Without<Player>)>,
     mut move_state: ResMut<MovementState>,
     active_map: Res<ActiveMap>,
     tile_textures: Res<TileTextures>,
     opened_chests: Res<OpenedChests>,
+    mut boat_spawns: ResMut<BoatSpawnsResource>,
 ) {
     // フィールド座標を保存
     let Ok((mut tile_pos, mut transform)) = player_query.single_mut() else {
@@ -79,13 +80,10 @@ pub fn setup_cave_scene(
     });
 
     // ワールドマップを退避
-    commands.insert_resource(WorldMapData {
-        grid: active_map.grid.clone(),
-        width: active_map.width,
-        height: active_map.height,
-        origin_x: active_map.origin_x,
-        origin_y: active_map.origin_y,
-    });
+    commands.insert_resource(WorldMapData(active_map.clone()));
+
+    // 船の現在位置をBoatSpawnsResourceに同期（移動後の位置を保存）
+    boat_spawns.positions = boat_query.iter().map(|(_, pos)| (pos.x, pos.y)).collect();
 
     // フィールドエンティティをdespawn
     for entity in &tile_pool_query {
@@ -93,7 +91,7 @@ pub fn setup_cave_scene(
     }
     commands.remove_resource::<TilePool>();
 
-    for entity in &boat_query {
+    for (entity, _) in &boat_query {
         commands.entity(entity).despawn();
     }
 
@@ -288,13 +286,7 @@ pub fn restore_field_from_cave(
     mut move_state: ResMut<MovementState>,
     world_map: Res<WorldMapData>,
 ) {
-    let restored_map = ActiveMap {
-        grid: world_map.grid.clone(),
-        width: world_map.width,
-        height: world_map.height,
-        origin_x: world_map.origin_x,
-        origin_y: world_map.origin_y,
-    };
+    let restored_map = world_map.0.clone();
 
     if let Ok((entity, mut tile_pos, mut transform)) = player_query.single_mut() {
         tile_pos.x = field_return.player_tile_x;

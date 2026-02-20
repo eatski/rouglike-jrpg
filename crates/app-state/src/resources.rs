@@ -34,9 +34,9 @@ pub struct RecruitmentMap {
     pub candidate_second_town: HashMap<usize, (usize, usize)>,
 }
 
-/// フィールドメニューの開閉状態
-#[derive(Resource, Default)]
-pub struct FieldMenuOpen(pub bool);
+/// フィールドメニュー開閉のマーカーリソース（存在=開、不在=閉）
+#[derive(Resource)]
+pub struct FieldMenuOpen;
 
 /// 祠のワールドマップ座標を保持するリソース
 #[derive(Resource, Default)]

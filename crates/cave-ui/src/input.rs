@@ -24,7 +24,7 @@ pub fn cave_player_movement(
     keyboard: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
     active_map: Res<ActiveMap>,
-    field_menu_open: Res<FieldMenuOpen>,
+    field_menu_open: Option<Res<FieldMenuOpen>>,
     cave_message: Option<Res<CaveMessageState>>,
     mut move_state: ResMut<MovementState>,
     mut query: Query<
@@ -43,7 +43,7 @@ pub fn cave_player_movement(
     }
 
     // フィールド呪文メニュー中は移動を無効化
-    if field_menu_open.0 {
+    if field_menu_open.is_some() {
         return;
     }
 

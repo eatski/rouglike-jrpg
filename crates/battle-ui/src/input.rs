@@ -5,7 +5,9 @@ use party::ItemEffect;
 
 use app_state::BattleState;
 
-use super::scene::{BattleGameState, BattlePhase, BattleUIState, MessageEffect};
+use super::scene::{
+    enemy_display_names, BattleGameState, BattlePhase, BattleUIState, MessageEffect,
+};
 
 /// 戦闘中の入力処理システム
 pub fn battle_input_system(
@@ -716,35 +718,6 @@ fn target_name_str(
         TargetId::Enemy(i) => enemy_names.get(*i).cloned().unwrap_or_default(),
         TargetId::Party(i) => state.party[*i].kind.name().to_string(),
     }
-}
-
-/// 同種の敵にサフィックスを付与した表示名を生成
-fn enemy_display_names(enemies: &[battle::Enemy]) -> Vec<String> {
-    use battle::EnemyKind;
-    let mut kind_counts: std::collections::HashMap<EnemyKind, usize> =
-        std::collections::HashMap::new();
-    for e in enemies {
-        *kind_counts.entry(e.kind).or_insert(0) += 1;
-    }
-
-    let suffixes = ['A', 'B', 'C', 'D'];
-    let mut kind_indices: std::collections::HashMap<EnemyKind, usize> =
-        std::collections::HashMap::new();
-
-    enemies
-        .iter()
-        .map(|e| {
-            let count = kind_counts[&e.kind];
-            if count > 1 {
-                let idx = kind_indices.entry(e.kind).or_insert(0);
-                let suffix = suffixes.get(*idx).unwrap_or(&'?');
-                *idx += 1;
-                format!("{}{}", e.kind.name(), suffix)
-            } else {
-                e.kind.name().to_string()
-            }
-        })
-        .collect()
 }
 
 fn handle_show_message(

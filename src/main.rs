@@ -13,7 +13,7 @@ use movement_ui::{
     start_bounce, update_bounce, MovementBlockedEvent, PlayerArrivedEvent, PlayerMovedEvent,
     TileEnteredEvent,
 };
-use app_state::{FieldMenuOpen, PartyState};
+use app_state::PartyState;
 use movement_ui::{MovementState, WINDOW_SIZE};
 use hokora_ui::{
     cleanup_hokora_scene, hokora_display_system, hokora_input_system, setup_hokora_scene,
@@ -56,7 +56,6 @@ fn main() {
     .init_resource::<MovementState>()
     .init_resource::<MapModeState>()
     .init_resource::<PartyState>()
-    .init_resource::<FieldMenuOpen>()
     .init_resource::<OpenedChests>()
     .add_systems(
         Startup,
