@@ -2,11 +2,7 @@ use bevy::prelude::*;
 use bevy::window::{Window, WindowResolution};
 
 use app_state::{BattleState, InField, SceneState};
-use battle_ui::{
-    battle_blink_system, battle_display_system, battle_input_system, battle_shake_system,
-    cleanup_battle_scene, field_menu_display_system, field_menu_input_system,
-    setup_battle_scene,
-};
+use battle_ui::{field_menu_display_system, field_menu_input_system};
 use app_state::OpenedChests;
 use cave_ui::{
     cave_message_display_system, cave_message_input_system, cave_player_movement,
@@ -21,12 +17,10 @@ use app_state::{FieldMenuOpen, PartyState};
 use movement_ui::{MovementState, WINDOW_SIZE};
 use town_ui::{cleanup_town_scene, setup_town_scene, town_display_system, town_input_system};
 use world_ui::{
-    camera_follow, check_encounter_system, check_tile_action_system, cleanup_hud, init_exploration_system,
-    init_minimap_system, init_tile_pool, player_movement, setup_camera, setup_hud,
-    spawn_field_map, spawn_player, start_smooth_move, sync_boat_with_player,
-    toggle_hud_visibility, toggle_map_mode_system, toggle_minimap_visibility_system,
-    update_exploration_system, update_hud, update_minimap_texture_system, update_smooth_move,
-    update_visible_tiles, MapModeState,
+    camera_follow, check_encounter_system, cleanup_hud, init_exploration_system,
+    init_minimap_system, init_tile_pool, setup_camera, setup_hud,
+    spawn_field_map, spawn_player,
+    toggle_hud_visibility, update_hud, MapModeState,
 };
 
 fn main() {
@@ -87,44 +81,15 @@ fn main() {
             .chain()
             .run_if(in_state(InField)),
     )
-    .add_systems(OnExit(InField), cleanup_hud)
+    .add_systems(OnExit(InField), cleanup_hud);
+
     // Exploring
-    .add_systems(
-        Update,
-        (
-            toggle_map_mode_system,
-            toggle_minimap_visibility_system,
-            player_movement,
-            start_bounce,
-            start_smooth_move,
-            ApplyDeferred,
-            update_smooth_move,
-            update_bounce,
-            update_visible_tiles,
-            update_exploration_system,
-            update_minimap_texture_system,
-            sync_boat_with_player,
-            camera_follow,
-            check_tile_action_system,
-            check_encounter_system,
-        )
-            .chain()
-            .run_if(in_state(SceneState::Exploring).and(in_state(BattleState::None))),
-    )
+    world_ui::register_exploring_all_systems(&mut app);
+
     // Battle
-    .add_systems(OnEnter(BattleState::Active), setup_battle_scene)
-    .add_systems(
-        Update,
-        (
-            battle_input_system,
-            battle_display_system,
-            battle_blink_system,
-            battle_shake_system,
-        )
-            .chain()
-            .run_if(in_state(BattleState::Active)),
-    )
-    .add_systems(OnExit(BattleState::Active), cleanup_battle_scene)
+    battle_ui::register_battle_all_systems(&mut app);
+
+    app
     // Town
     .add_systems(OnEnter(SceneState::Town), setup_town_scene)
     .add_systems(

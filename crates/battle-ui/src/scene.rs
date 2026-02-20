@@ -189,6 +189,63 @@ impl BattleSceneConfig {
     }
 }
 
+/// パーティと敵からBattleGameStateとBattleUIStateを生成する純関数
+///
+/// setup_battle_sceneとテストの両方で使用し、リソース初期化ロジックの一貫性を保証する。
+pub fn init_battle_resources(
+    party: Vec<party::PartyMember>,
+    enemies: Vec<battle::Enemy>,
+    initial_phase: Option<BattlePhase>,
+) -> (BattleGameState, BattleUIState) {
+    let display_names = enemy_display_names(&enemies);
+
+    let encounter_msg = if enemies.len() == 1 {
+        format!("{}が あらわれた！", display_names[0])
+    } else {
+        format!(
+            "{}が {}匹 あらわれた！",
+            enemies[0].kind.name(),
+            enemies.len()
+        )
+    };
+
+    let enemy_count = enemies.len();
+    let battle_state = BattleState::new(party, enemies);
+
+    let party_size = battle_state.party.len();
+    let display_party_hp = battle_state.party.iter().map(|m| m.stats.hp).collect();
+    let display_party_mp = battle_state.party.iter().map(|m| m.stats.mp).collect();
+
+    let phase = initial_phase.unwrap_or(BattlePhase::ShowMessage {
+        messages: vec![encounter_msg],
+        index: 0,
+    });
+
+    let game_state = BattleGameState {
+        state: battle_state,
+    };
+    let ui_state = BattleUIState {
+        selected_command: 0,
+        selected_target: 0,
+        pending_commands: PendingCommands::new(party_size),
+        phase,
+        hidden_enemies: vec![false; enemy_count],
+        display_party_hp,
+        display_party_mp,
+        selected_spell: 0,
+        pending_spell: None,
+        selected_item: 0,
+        pending_item: None,
+        selected_ally_target: 0,
+        message_effects: Vec::new(),
+        shake_timer: None,
+        blink_timer: None,
+        blink_enemy: None,
+    };
+
+    (game_state, ui_state)
+}
+
 pub fn setup_battle_scene(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -220,59 +277,21 @@ fn setup_battle_scene_inner(
 ) {
     let party = party_state.members.clone();
     let enemies = config.enemies;
-    let display_names = enemy_display_names(&enemies);
 
-    let encounter_msg = if enemies.len() == 1 {
-        format!("{}が あらわれた！", display_names[0])
-    } else {
-        format!(
-            "{}が {}匹 あらわれた！",
-            enemies[0].kind.name(),
-            enemies.len()
-        )
-    };
-
-    let enemy_count = enemies.len();
     // スプライトハンドルを事前にロード（enemiesはBattleState::newでmoveされるため）
     let enemy_sprite_handles: Vec<Handle<Image>> = enemies
         .iter()
         .map(|e| asset_server.load(e.kind.sprite_path()))
         .collect();
-    let battle_state = BattleState::new(party, enemies);
+
+    let (game_state, ui_state) = init_battle_resources(party, enemies, config.initial_phase);
 
     let font: Handle<Font> = asset_server.load("fonts/NotoSansJP-Bold.ttf");
 
-    let party_size = battle_state.party.len();
-    let party_member_names: Vec<&str> = battle_state.party.iter().map(|m| m.kind.name()).collect();
-    let display_party_hp = battle_state.party.iter().map(|m| m.stats.hp).collect();
-    let display_party_mp = battle_state.party.iter().map(|m| m.stats.mp).collect();
+    let party_member_names: Vec<&str> = game_state.state.party.iter().map(|m| m.kind.name()).collect();
 
-    let phase = config.initial_phase.unwrap_or(BattlePhase::ShowMessage {
-        messages: vec![encounter_msg],
-        index: 0,
-    });
-
-    commands.insert_resource(BattleGameState {
-        state: battle_state,
-    });
-    commands.insert_resource(BattleUIState {
-        selected_command: 0,
-        selected_target: 0,
-        pending_commands: PendingCommands::new(party_size),
-        phase,
-        hidden_enemies: vec![false; enemy_count],
-        display_party_hp,
-        display_party_mp,
-        selected_spell: 0,
-        pending_spell: None,
-        selected_item: 0,
-        pending_item: None,
-        selected_ally_target: 0,
-        message_effects: Vec::new(),
-        shake_timer: None,
-        blink_timer: None,
-        blink_enemy: None,
-    });
+    commands.insert_resource(game_state);
+    commands.insert_resource(ui_state);
 
     let panel_bg = Color::srgba(0.1, 0.1, 0.15, 0.85);
     let border_color = Color::srgb(0.4, 0.4, 0.5);
