@@ -79,7 +79,10 @@ fn main() {
     )
     .add_systems(
         Update,
-        (field_menu_input_system, field_menu_display_system)
+        (
+            field_menu_input_system.after(cave_message_input_system),
+            field_menu_display_system,
+        )
             .chain()
             .run_if(in_state(InField)),
     )
