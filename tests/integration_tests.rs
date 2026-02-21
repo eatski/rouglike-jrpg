@@ -2174,6 +2174,570 @@ fn sell_material_item_succeeds() {
 }
 
 // ============================================
+// 戦闘勝利→レベルアップ→呪文習得の連携テスト
+// ============================================
+
+#[test]
+fn battle_victory_leveling_unlocks_new_spell() {
+    use battle::{BattleState as BattleDomainState, Enemy, SpellKind};
+    use battle::spell::{available_spells, spells_learned_at_level};
+    use party::{PartyMember, PartyMemberKind};
+
+    // 勇者Lv1: Healは未習得（Lv3で習得）
+    let mut hero = PartyMember::hero();
+    assert!(available_spells(PartyMemberKind::Hero, hero.level).is_empty());
+
+    // 十分な経験値を得るために複数回戦闘
+    // exp_to_next_level(1)=10, exp_to_next_level(2)=25 → Lv3到達に累計35必要
+    // Ghost×4 = 10×4 = 40exp per battle
+    let enemies = vec![Enemy::ghost(), Enemy::ghost(), Enemy::ghost(), Enemy::ghost()];
+    let mut battle = BattleDomainState::new(vec![hero.clone()], enemies);
+
+    // 全敵を倒す
+    for enemy in &mut battle.enemies {
+        enemy.stats.hp = 0;
+    }
+    assert!(battle.is_victory());
+
+    let total_exp = battle.total_exp_reward();
+    assert_eq!(total_exp, 40);
+
+    // 経験値を得てレベルアップ
+    let level_ups = hero.gain_exp(total_exp);
+    assert!(level_ups >= 2, "Should level up at least twice with 40 exp, got {} level ups", level_ups);
+    assert!(hero.level >= 3, "Should reach at least level 3, got {}", hero.level);
+
+    // Lv3で勇者はHealを習得
+    let learned = spells_learned_at_level(PartyMemberKind::Hero, 3);
+    assert_eq!(learned, vec![SpellKind::Heal]);
+
+    let spells = available_spells(PartyMemberKind::Hero, hero.level);
+    assert!(spells.contains(&SpellKind::Heal), "Hero at level {} should know Heal", hero.level);
+}
+
+// ============================================
+// sync_from_battle でHP/MP/インベントリが反映されるテスト
+// ============================================
+
+#[test]
+fn sync_from_battle_reflects_battle_state() {
+    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors};
+    use party::{PartyMember, ItemKind};
+
+    // パーティ側（元データ）
+    let mut original_hero = PartyMember::hero();
+    original_hero.inventory.add(ItemKind::Herb, 2);
+    // 戦闘用コピー
+    let battle_hero = original_hero.clone();
+
+    // 戦闘でやくそうを1つ使い、ダメージも受ける
+    let mut slime = Enemy::slime();
+    slime.stats.hp = 999;
+    slime.stats.max_hp = 999;
+    slime.stats.attack = 0;
+
+    let mut battle = BattleDomainState::new(vec![battle_hero], vec![slime]);
+
+    // HPを減らしてやくそうを使用
+    battle.party[0].stats.hp = 5;
+    let commands = vec![
+        BattleAction::UseItem { item: ItemKind::Herb, target: TargetId::Party(0) },
+    ];
+    let randoms = TurnRandomFactors {
+        damage_randoms: vec![1.0; 2],
+        flee_random: 1.0,
+    };
+    battle.execute_turn(&commands, &randoms);
+
+    // 戦闘後のHP（回復済み）とインベントリ（Herb 1つ消費）
+    let battle_hp = battle.party[0].stats.hp;
+    let battle_herb_count = battle.party[0].inventory.count(ItemKind::Herb);
+    assert!(battle_hp > 5, "HP should be healed in battle");
+    assert_eq!(battle_herb_count, 1, "One herb should be consumed");
+
+    // sync_from_battle で元データに反映
+    original_hero.sync_from_battle(&battle.party[0]);
+
+    assert_eq!(original_hero.stats.hp, battle_hp, "HP should be synced");
+    assert_eq!(original_hero.inventory.count(ItemKind::Herb), 1, "Inventory should be synced");
+}
+
+// ============================================
+// 洞窟宝箱→街で売却の連携テスト
+// ============================================
+
+#[test]
+fn cave_treasure_sold_at_shop() {
+    use cave::{generate_cave_map, TreasureContent};
+    use town::{sell_item, SellResult};
+    use rand::SeedableRng;
+    use rand_chacha::ChaCha8Rng;
+    use party::PartyMember;
+
+    let mut rng = ChaCha8Rng::seed_from_u64(42);
+    let cave = generate_cave_map(&mut rng);
+
+    let mut hero = PartyMember::hero();
+    // 洞窟の宝箱からアイテムを入手
+    for chest in &cave.treasures {
+        if let TreasureContent::Item(item) = chest.content {
+            hero.inventory.add(item, 1);
+        }
+    }
+
+    // 所持アイテムのうち売却可能なものをすべて売る
+    let owned = hero.inventory.owned_items();
+    let mut total_earned = 0u32;
+    for item in &owned {
+        // 同じアイテムが複数ある場合に全て売却
+        while hero.inventory.count(*item) > 0 {
+            let result = sell_item(*item, &mut hero.inventory);
+            match result {
+                SellResult::Success { earned_gold } => {
+                    total_earned += earned_gold;
+                    assert!(earned_gold > 0, "Sold item should earn gold");
+                }
+                SellResult::CannotSell => {
+                    assert_eq!(item.sell_price(), 0, "CannotSell should only happen for items with sell_price=0");
+                    break;
+                }
+                _ => break,
+            }
+        }
+    }
+
+    // 売却可能なアイテムはすべてインベントリから消えている
+    for item in &owned {
+        if item.sell_price() > 0 {
+            assert_eq!(hero.inventory.count(*item), 0, "{} should be removed after selling", item.name());
+        }
+    }
+    assert!(total_earned > 0, "Should earn some gold from selling cave treasures");
+}
+
+// ============================================
+// 武器買い替えで旧武器が置き換わるテスト
+// ============================================
+
+#[test]
+fn weapon_upgrade_replaces_old_and_changes_damage() {
+    use town::{buy_weapon, BuyWeaponResult};
+    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult};
+    use party::{PartyMember, WeaponKind};
+
+    let mut hero = PartyMember::hero();
+    let gold = 500u32;
+
+    // 鉄の剣を購入（+5）
+    let result = buy_weapon(WeaponKind::IronSword, gold, &mut hero);
+    let remaining = match result {
+        BuyWeaponResult::Success { remaining_gold } => remaining_gold,
+        _ => panic!("Should buy IronSword"),
+    };
+    assert_eq!(hero.equipment.weapon, Some(WeaponKind::IronSword));
+    let attack_with_iron = hero.effective_attack();
+
+    // HP999の敵にダメージを与えて記録
+    let mut slime = Enemy::slime();
+    slime.stats.hp = 999;
+    slime.stats.max_hp = 999;
+    let mut battle1 = BattleDomainState::new(vec![hero.clone()], vec![slime.clone()]);
+    let commands = vec![BattleAction::Attack { target: TargetId::Enemy(0) }];
+    let randoms = TurnRandomFactors { damage_randoms: vec![1.0; 2], flee_random: 1.0 };
+    let results1 = battle1.execute_turn(&commands, &randoms);
+    let damage_iron = results1.iter().find_map(|r| {
+        if let TurnResult::Attack { attacker: battle::ActorId::Party(0), damage, .. } = r { Some(*damage) } else { None }
+    }).unwrap();
+
+    // 鋼の剣に買い替え（+10）
+    let result = buy_weapon(WeaponKind::SteelSword, remaining, &mut hero);
+    assert!(matches!(result, BuyWeaponResult::Success { .. }));
+    assert_eq!(hero.equipment.weapon, Some(WeaponKind::SteelSword));
+    let attack_with_steel = hero.effective_attack();
+    assert_eq!(attack_with_steel, attack_with_iron + 5, "SteelSword(+10) should be 5 more than IronSword(+5)");
+
+    // 同じ敵に同じ乱数で攻撃→ダメージが増えている
+    let mut battle2 = BattleDomainState::new(vec![hero], vec![slime]);
+    let results2 = battle2.execute_turn(&commands, &randoms);
+    let damage_steel = results2.iter().find_map(|r| {
+        if let TurnResult::Attack { attacker: battle::ActorId::Party(0), damage, .. } = r { Some(*damage) } else { None }
+    }).unwrap();
+
+    assert!(damage_steel > damage_iron, "SteelSword should deal more damage: {} vs {}", damage_steel, damage_iron);
+}
+
+// ============================================
+// 大量経験値で複数レベルアップのテスト
+// ============================================
+
+#[test]
+fn large_exp_gain_causes_multiple_level_ups() {
+    use party::PartyMember;
+
+    let mut hero = PartyMember::hero();
+    assert_eq!(hero.level, 1);
+
+    let base_max_hp = hero.stats.max_hp;
+    let base_attack = hero.stats.attack;
+
+    // 100exp → Lv1→2(10exp) + Lv2→3(25exp) + Lv3→4(50exp) = 85exp消費 → Lv4到達
+    let level_ups = hero.gain_exp(100);
+    assert!(level_ups >= 3, "Should gain at least 3 levels with 100 exp, got {}", level_ups);
+    assert!(hero.level >= 4, "Should reach at least level 4, got {}", hero.level);
+
+    // ステータスが複数回成長している
+    assert!(hero.stats.max_hp > base_max_hp + 5, "max_hp should grow multiple times");
+    assert!(hero.stats.attack > base_attack + 2, "attack should grow multiple times");
+
+    // レベルアップ時は全回復
+    assert_eq!(hero.stats.hp, hero.stats.max_hp, "HP should be fully restored");
+    assert_eq!(hero.stats.mp, hero.stats.max_mp, "MP should be fully restored");
+}
+
+// ============================================
+// sell_itemの未所持・売却不可エッジケースのテスト
+// ============================================
+
+#[test]
+fn sell_item_not_owned_returns_not_owned() {
+    use town::{sell_item, SellResult};
+    use party::{Inventory, ItemKind};
+
+    let mut inv = Inventory::new();
+    // 所持していないアイテムを売却しようとする
+    let result = sell_item(ItemKind::Herb, &mut inv);
+    assert_eq!(result, SellResult::NotOwned, "Selling unowned item should return NotOwned");
+}
+
+#[test]
+fn sell_herb_succeeds_at_half_price() {
+    use town::{sell_item, SellResult};
+    use party::{Inventory, ItemKind};
+
+    let mut inv = Inventory::new();
+    inv.add(ItemKind::Herb, 1);
+
+    // やくそうは売却可能（sell_price=4、購入価格8の半額）
+    let result = sell_item(ItemKind::Herb, &mut inv);
+    assert_eq!(result, SellResult::Success { earned_gold: 4 }, "Herb should sell for 4 gold");
+    assert_eq!(inv.count(ItemKind::Herb), 0, "Herb should be removed after selling");
+}
+
+// ============================================
+// レベルアップ後のheal_partyが新max_hpまで回復するテスト
+// ============================================
+
+#[test]
+fn heal_party_restores_to_increased_max_after_level_up() {
+    use town::heal_party;
+    use party::PartyMember;
+
+    let mut hero = PartyMember::hero();
+    hero.gain_exp(10); // Lv1→2, max_hp増加
+    let new_max_hp = hero.stats.max_hp;
+    let new_max_mp = hero.stats.max_mp;
+
+    // ダメージを受けた後
+    hero.stats.hp = 1;
+    hero.stats.mp = 0;
+
+    let mut party = vec![hero];
+    heal_party(&mut party);
+
+    assert_eq!(party[0].stats.hp, new_max_hp, "HP should restore to new max_hp after level up");
+    assert_eq!(party[0].stats.mp, new_max_mp, "MP should restore to new max_mp after level up");
+}
+
+// ============================================
+// 仲間募集→パーティ追加→戦闘の一連フロー
+// ============================================
+
+#[test]
+fn recruit_party_then_battle_together() {
+    use party::{initial_party, default_candidates, talk_to_candidate, PartyMember, PartyMemberKind, TalkResult};
+    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult, ActorId};
+
+    // 勇者のみでスタート
+    let mut party = initial_party();
+    assert_eq!(party.len(), 1);
+    assert_eq!(party[0].kind, PartyMemberKind::Hero);
+
+    // 魔法使いを募集
+    let mut candidates = default_candidates();
+    talk_to_candidate(&mut candidates[0]); // Acquaintance
+    let result = talk_to_candidate(&mut candidates[0]); // Recruited
+    assert_eq!(result, TalkResult::Recruited);
+    party.push(PartyMember::from_kind(candidates[0].kind));
+
+    assert_eq!(party.len(), 2);
+
+    // 2人で戦闘（HP999の敵で両方の行動を確認）
+    let mut wolf = Enemy::wolf();
+    wolf.stats.hp = 999;
+    wolf.stats.max_hp = 999;
+    wolf.stats.attack = 0;
+    let enemies = vec![wolf];
+    let mut battle = BattleDomainState::new(party, enemies);
+
+    let commands = vec![
+        BattleAction::Attack { target: TargetId::Enemy(0) },
+        BattleAction::Attack { target: TargetId::Enemy(0) },
+    ];
+    let randoms = TurnRandomFactors {
+        damage_randoms: vec![1.0; 3],
+        flee_random: 1.0,
+    };
+    let results = battle.execute_turn(&commands, &randoms);
+
+    // 両方が攻撃に参加
+    let hero_attacked = results.iter().any(|r| matches!(r, TurnResult::Attack { attacker: ActorId::Party(0), .. }));
+    let mage_attacked = results.iter().any(|r| matches!(r, TurnResult::Attack { attacker: ActorId::Party(1), .. }));
+    assert!(hero_attacked, "Hero should attack");
+    assert!(mage_attacked, "Mage should attack");
+}
+
+// ============================================
+// 金額不足での購入失敗テスト
+// ============================================
+
+#[test]
+fn buy_item_fails_with_insufficient_gold() {
+    use town::{buy_item, BuyResult};
+    use party::{Inventory, ItemKind};
+
+    let mut inv = Inventory::new();
+    // やくそうは8ゴールド
+    let result = buy_item(ItemKind::Herb, 7, &mut inv);
+    assert_eq!(result, BuyResult::InsufficientGold, "Should fail with 7 gold for 8-gold herb");
+    assert_eq!(inv.count(ItemKind::Herb), 0, "No herb should be added");
+}
+
+#[test]
+fn buy_weapon_fails_with_insufficient_gold() {
+    use town::{buy_weapon, BuyWeaponResult};
+    use party::{PartyMember, WeaponKind};
+
+    let mut hero = PartyMember::hero();
+    // 鉄の剣は50ゴールド
+    let result = buy_weapon(WeaponKind::IronSword, 49, &mut hero);
+    assert_eq!(result, BuyWeaponResult::InsufficientGold, "Should fail with 49 gold for 50-gold sword");
+    assert_eq!(hero.equipment.weapon, None, "No weapon should be equipped");
+}
+
+// ============================================
+// HighHerbの戦闘中使用テスト
+// ============================================
+
+#[test]
+fn high_herb_heals_more_than_regular_herb_in_battle() {
+    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult};
+    use party::{PartyMember, ItemKind};
+
+    // 勇者1: やくそうで回復
+    let mut hero1 = PartyMember::hero();
+    hero1.stats.hp = 1;
+    hero1.inventory.add(ItemKind::Herb, 1);
+
+    let mut slime1 = Enemy::slime();
+    slime1.stats.hp = 999;
+    slime1.stats.max_hp = 999;
+    slime1.stats.attack = 0;
+
+    let mut battle1 = BattleDomainState::new(vec![hero1], vec![slime1]);
+    let commands = vec![BattleAction::UseItem { item: ItemKind::Herb, target: TargetId::Party(0) }];
+    let randoms = TurnRandomFactors { damage_randoms: vec![1.0; 2], flee_random: 1.0 };
+    let results1 = battle1.execute_turn(&commands, &randoms);
+    let heal_herb = results1.iter().find_map(|r| {
+        if let TurnResult::ItemUsed { amount, .. } = r { Some(*amount) } else { None }
+    }).unwrap();
+
+    // 勇者2: 上やくそうで回復
+    let mut hero2 = PartyMember::hero();
+    hero2.stats.hp = 1;
+    hero2.inventory.add(ItemKind::HighHerb, 1);
+
+    let mut slime2 = Enemy::slime();
+    slime2.stats.hp = 999;
+    slime2.stats.max_hp = 999;
+    slime2.stats.attack = 0;
+
+    let mut battle2 = BattleDomainState::new(vec![hero2], vec![slime2]);
+    let commands2 = vec![BattleAction::UseItem { item: ItemKind::HighHerb, target: TargetId::Party(0) }];
+    let results2 = battle2.execute_turn(&commands2, &randoms);
+    let heal_high = results2.iter().find_map(|r| {
+        if let TurnResult::ItemUsed { amount, .. } = r { Some(*amount) } else { None }
+    }).unwrap();
+
+    assert!(heal_high > heal_herb, "HighHerb should heal more than Herb: {} vs {}", heal_high, heal_herb);
+}
+
+// ============================================
+// 全素材アイテムの売却価格検証
+// ============================================
+
+#[test]
+fn all_material_items_can_be_sold_with_correct_price() {
+    use town::{sell_item, SellResult};
+    use party::{Inventory, ItemKind};
+
+    let materials = [
+        (ItemKind::MagicStone, 30),
+        (ItemKind::SilverOre, 60),
+        (ItemKind::AncientCoin, 120),
+        (ItemKind::DragonScale, 250),
+    ];
+
+    for (item, expected_price) in &materials {
+        let mut inv = Inventory::new();
+        inv.add(*item, 1);
+
+        let result = sell_item(*item, &mut inv);
+        assert_eq!(result, SellResult::Success { earned_gold: *expected_price },
+            "{} should sell for {} gold", item.name(), expected_price);
+        assert_eq!(inv.count(*item), 0, "{} should be removed after selling", item.name());
+    }
+}
+
+// ============================================
+// 敵グループ生成→戦闘→経験値の完全フロー
+// ============================================
+
+#[test]
+fn generated_enemy_group_battle_to_victory_and_exp() {
+    use battle::{BattleAction, BattleState as BattleDomainState, TargetId, TurnRandomFactors};
+    use battle::enemy::generate_enemy_group;
+    use party::default_party;
+
+    // ランダムな敵グループを生成
+    let enemies = generate_enemy_group(0.5, 0.3); // 2匹のグループ
+    assert!(!enemies.is_empty());
+
+    let party = default_party();
+    let mut battle = BattleDomainState::new(party, enemies);
+
+    // 全敵を全員で攻撃して勝利を目指す
+    let commands = vec![
+        BattleAction::Attack { target: TargetId::Enemy(0) },
+        BattleAction::Attack { target: TargetId::Enemy(0) },
+        BattleAction::Attack { target: TargetId::Enemy(0) },
+    ];
+    let randoms = TurnRandomFactors {
+        damage_randoms: vec![1.2; 10],
+        flee_random: 1.0,
+    };
+
+    // 複数ターン実行して勝利
+    for _ in 0..20 {
+        if battle.is_over() { break; }
+        battle.execute_turn(&commands, &randoms);
+    }
+
+    if battle.is_victory() {
+        let total_exp = battle.total_exp_reward();
+        assert!(total_exp > 0, "Defeated enemies should give exp");
+
+        // 経験値をパーティに分配
+        for member in &mut battle.party {
+            if member.stats.is_alive() {
+                member.gain_exp(total_exp);
+                assert!(member.exp > 0, "Party member should have exp after battle");
+            }
+        }
+    }
+}
+
+// ============================================
+// 複数ターン戦闘でturn_logが蓄積されるテスト
+// ============================================
+
+#[test]
+fn multi_turn_battle_accumulates_turn_log() {
+    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors};
+    use party::default_party;
+
+    let party = default_party();
+    let mut wolf = Enemy::wolf();
+    wolf.stats.hp = 999;
+    wolf.stats.max_hp = 999;
+    wolf.stats.attack = 0; // パーティを倒さない
+
+    let mut battle = BattleDomainState::new(party, vec![wolf]);
+
+    let commands = vec![
+        BattleAction::Attack { target: TargetId::Enemy(0) },
+        BattleAction::Attack { target: TargetId::Enemy(0) },
+        BattleAction::Attack { target: TargetId::Enemy(0) },
+    ];
+    let randoms = TurnRandomFactors {
+        damage_randoms: vec![1.0; 4],
+        flee_random: 1.0,
+    };
+
+    // 3ターン実行
+    battle.execute_turn(&commands, &randoms);
+    let log_after_1 = battle.turn_log.len();
+    assert!(log_after_1 > 0, "Turn log should have entries after turn 1");
+
+    battle.execute_turn(&commands, &randoms);
+    let log_after_2 = battle.turn_log.len();
+    assert!(log_after_2 > log_after_1, "Turn log should grow after turn 2");
+
+    battle.execute_turn(&commands, &randoms);
+    let log_after_3 = battle.turn_log.len();
+    assert!(log_after_3 > log_after_2, "Turn log should grow after turn 3");
+}
+
+// ============================================
+// 装備→購入→戦闘→勝利→経験値→レベルアップの長いフロー
+// ============================================
+
+#[test]
+fn full_town_equip_battle_levelup_flow() {
+    use town::{buy_weapon, buy_item, heal_party, BuyWeaponResult, BuyResult};
+    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors};
+    use party::{PartyMember, ItemKind, WeaponKind};
+
+    let mut hero = PartyMember::hero();
+    let mut gold = 500u32;
+
+    // 1. 街で武器を買う
+    if let BuyWeaponResult::Success { remaining_gold } = buy_weapon(WeaponKind::IronSword, gold, &mut hero) {
+        gold = remaining_gold;
+    }
+
+    // 2. やくそうを買う
+    if let BuyResult::Success { remaining_gold } = buy_item(ItemKind::Herb, gold, &mut hero.inventory) {
+        let _gold = remaining_gold;
+    }
+
+    // 3. 戦闘に入る（ゴースト3体 = 30exp）
+    let enemies = vec![Enemy::ghost(), Enemy::ghost(), Enemy::ghost()];
+    let mut battle = BattleDomainState::new(vec![hero], enemies);
+
+    let commands = vec![BattleAction::Attack { target: TargetId::Enemy(0) }];
+    let randoms = TurnRandomFactors { damage_randoms: vec![1.2; 4], flee_random: 1.0 };
+
+    for _ in 0..30 {
+        if battle.is_over() { break; }
+        battle.execute_turn(&commands, &randoms);
+    }
+
+    // 4. 勝利したら経験値を得てレベルアップ
+    if battle.is_victory() {
+        let exp = battle.total_exp_reward();
+        assert_eq!(exp, 30);
+
+        let level_ups = battle.party[0].gain_exp(exp);
+        assert!(level_ups >= 1, "Should level up at least once");
+
+        // 5. レベルアップ後、やどやで回復
+        battle.party[0].stats.hp = 1;
+        heal_party(&mut battle.party);
+        assert_eq!(battle.party[0].stats.hp, battle.party[0].stats.max_hp);
+    }
+}
+
+// ============================================
 // 同速時のパーティ優先テスト
 // ============================================
 
