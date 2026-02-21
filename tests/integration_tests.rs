@@ -1901,3 +1901,310 @@ fn exploration_map_tracks_movement_correctly() {
     // 3回の視界更新で少なくとも81タイルが探索済み
     assert!(explored_count >= 81, "Should have explored at least one view's worth of tiles, got {}", explored_count);
 }
+
+// ============================================
+// 逃走判定ロジックの検証
+// ============================================
+
+#[test]
+fn flee_succeeds_when_random_below_threshold() {
+    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult};
+    use party::default_party;
+
+    let party = default_party();
+    let mut slime = Enemy::slime();
+    slime.stats.hp = 999;
+    slime.stats.max_hp = 999;
+    let enemies = vec![slime];
+    let mut battle = BattleDomainState::new(party, enemies);
+
+    let commands = vec![
+        BattleAction::Flee,
+        BattleAction::Attack { target: TargetId::Enemy(0) },
+        BattleAction::Attack { target: TargetId::Enemy(0) },
+    ];
+
+    // flee_random = 0.3 < 0.5 → 逃走成功
+    let randoms = TurnRandomFactors {
+        damage_randoms: vec![1.0; 4],
+        flee_random: 0.3,
+    };
+    let results = battle.execute_turn(&commands, &randoms);
+    assert_eq!(results, vec![TurnResult::Fled], "Should flee when random < 0.5");
+    assert!(battle.is_over());
+}
+
+#[test]
+fn flee_fails_when_random_above_threshold() {
+    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult, ActorId};
+    use party::default_party;
+
+    let party = default_party();
+    let mut slime = Enemy::slime();
+    slime.stats.hp = 999;
+    slime.stats.max_hp = 999;
+    let enemies = vec![slime];
+    let mut battle = BattleDomainState::new(party, enemies);
+
+    let commands = vec![
+        BattleAction::Flee,
+        BattleAction::Attack { target: TargetId::Enemy(0) },
+        BattleAction::Attack { target: TargetId::Enemy(0) },
+    ];
+
+    // flee_random = 0.7 >= 0.5 → 逃走失敗
+    let randoms = TurnRandomFactors {
+        damage_randoms: vec![1.0; 4],
+        flee_random: 0.7,
+    };
+    let results = battle.execute_turn(&commands, &randoms);
+
+    assert!(matches!(results[0], TurnResult::FleeFailed), "First result should be FleeFailed");
+    assert!(!battle.is_over(), "Battle should continue after flee failure");
+
+    // 逃走失敗時は敵だけが行動する
+    let enemy_attacks = results.iter().filter(|r| {
+        matches!(r, TurnResult::Attack { attacker: ActorId::Enemy(_), .. })
+    }).count();
+    assert!(enemy_attacks > 0, "Enemies should attack after flee failure");
+
+    // パーティは行動しない
+    let party_attacks = results.iter().filter(|r| {
+        matches!(r, TurnResult::Attack { attacker: ActorId::Party(_), .. })
+    }).count();
+    assert_eq!(party_attacks, 0, "Party should not attack after flee failure");
+}
+
+// ============================================
+// ダメージ計算式の検証
+// ============================================
+
+#[test]
+fn physical_damage_formula_uses_half_defense() {
+    use party::CombatStats;
+
+    // ダメージ = (attack - defense/2) * random_factor, 最小1
+    // attack=20, defense=10, random=1.0 → 20 - 5 = 15
+    let damage = CombatStats::calculate_damage(20, 10, 1.0);
+    assert_eq!(damage, 15, "Damage should be attack - defense/2");
+
+    // defense/2 であって defense*2 ではないことを確認
+    // attack=10, defense=6, random=1.0 → 10 - 3 = 7 (defense/2の場合)
+    // もし defense*2 だったら → 10 - 12 = -2 → 1 (最小値保証)
+    let damage = CombatStats::calculate_damage(10, 6, 1.0);
+    assert_eq!(damage, 7, "Damage should use defense/2, not defense*2");
+}
+
+#[test]
+fn spell_damage_formula_uses_quarter_defense() {
+    use battle::spell::calculate_spell_damage;
+
+    // 呪文ダメージ = (power - defense/4) * random_factor, 最小1
+    // power=12, defense=4, random=1.0 → 12 - 1 = 11
+    let damage = calculate_spell_damage(12, 4, 1.0);
+    assert_eq!(damage, 11, "Spell damage should be power - defense/4");
+
+    // defense/4 であって defense*4 や +defense/4 ではないことを確認
+    // power=20, defense=8, random=1.0 → 20 - 2 = 18 (defense/4の場合)
+    // もし +defense/4 だったら → 20 + 2 = 22
+    let damage = calculate_spell_damage(20, 8, 1.0);
+    assert_eq!(damage, 18, "Spell damage should subtract defense/4");
+}
+
+// ============================================
+// MP境界条件のテスト
+// ============================================
+
+#[test]
+fn spell_succeeds_when_mp_exactly_equals_cost() {
+    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult, SpellKind};
+    use party::PartyMember;
+
+    let mut mage = PartyMember::mage();
+    mage.stats.mp = 3; // Fire のMP消費量ちょうど
+
+    let mut slime = Enemy::slime();
+    slime.stats.hp = 999;
+    slime.stats.max_hp = 999;
+    slime.stats.attack = 0;
+
+    let mut battle = BattleDomainState::new(vec![mage], vec![slime]);
+
+    let commands = vec![
+        BattleAction::Spell { spell: SpellKind::Fire, target: TargetId::Enemy(0) },
+    ];
+    let randoms = TurnRandomFactors {
+        damage_randoms: vec![1.0; 2],
+        flee_random: 1.0,
+    };
+    let results = battle.execute_turn(&commands, &randoms);
+
+    // MPちょうどなら呪文は成功すべき
+    let spell_cast = results.iter().any(|r| matches!(r, TurnResult::SpellDamage { .. }));
+    assert!(spell_cast, "Spell should succeed when MP exactly equals cost");
+    assert_eq!(battle.party[0].stats.mp, 0, "MP should be exactly 0 after casting");
+}
+
+// ============================================
+// HP回復上限の検証
+// ============================================
+
+#[test]
+fn heal_spell_does_not_exceed_max_hp() {
+    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors};
+    use party::PartyMember;
+
+    // 僧侶のHPをmax_hpの1だけ下に設定
+    // Heal power=15 → 回復量15。キャップなしなら max_hp+14 になる
+    let mut priest = PartyMember::priest();
+    priest.stats.hp = priest.stats.max_hp - 1;
+
+    let mut slime = Enemy::slime();
+    slime.stats.hp = 999;
+    slime.stats.max_hp = 999;
+    slime.stats.attack = 0; // 最低ダメージ1は発生するがHP超過の判定には影響しない
+
+    let mut battle = BattleDomainState::new(vec![priest], vec![slime]);
+
+    let commands = vec![
+        BattleAction::Spell { spell: battle::SpellKind::Heal, target: TargetId::Party(0) },
+    ];
+    let randoms = TurnRandomFactors {
+        damage_randoms: vec![1.0; 2],
+        flee_random: 1.0,
+    };
+    battle.execute_turn(&commands, &randoms);
+
+    // HP回復はmax_hpを超えない（敵の最低1ダメージで下がる場合もある）
+    assert!(battle.party[0].stats.hp <= battle.party[0].stats.max_hp,
+        "Heal should cap at max_hp, got {} > {}", battle.party[0].stats.hp, battle.party[0].stats.max_hp);
+}
+
+#[test]
+fn item_heal_does_not_exceed_max_hp() {
+    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors};
+    use party::{PartyMember, ItemKind};
+
+    // HPをmax_hpの1だけ下に。Herb power=25 → キャップなしなら max_hp+24
+    let mut hero = PartyMember::hero();
+    hero.stats.hp = hero.stats.max_hp - 1;
+    hero.inventory.add(ItemKind::Herb, 1);
+
+    let mut slime = Enemy::slime();
+    slime.stats.hp = 999;
+    slime.stats.max_hp = 999;
+    slime.stats.attack = 0;
+
+    let mut battle = BattleDomainState::new(vec![hero], vec![slime]);
+
+    let commands = vec![
+        BattleAction::UseItem { item: ItemKind::Herb, target: TargetId::Party(0) },
+    ];
+    let randoms = TurnRandomFactors {
+        damage_randoms: vec![1.0; 2],
+        flee_random: 1.0,
+    };
+    battle.execute_turn(&commands, &randoms);
+
+    // アイテム回復もmax_hpを超えない
+    assert!(battle.party[0].stats.hp <= battle.party[0].stats.max_hp,
+        "Item heal should cap at max_hp, got {} > {}", battle.party[0].stats.hp, battle.party[0].stats.max_hp);
+}
+
+// ============================================
+// take_damageのHP下限保証
+// ============================================
+
+#[test]
+fn take_damage_does_not_go_below_zero() {
+    use party::CombatStats;
+
+    let mut stats = CombatStats::new(10, 5, 2, 3, 0);
+    stats.take_damage(100); // HPを大幅に超えるダメージ
+    assert_eq!(stats.hp, 0, "HP should not go below zero");
+    assert!(stats.hp >= 0, "HP must never be negative");
+}
+
+// ============================================
+// 購入の金額境界条件テスト
+// ============================================
+
+#[test]
+fn buy_item_succeeds_with_exact_gold() {
+    use town::{buy_item, BuyResult};
+    use party::{Inventory, ItemKind};
+
+    let mut inv = Inventory::new();
+    // やくそうの価格は8ゴールド
+    let result = buy_item(ItemKind::Herb, 8, &mut inv);
+    assert_eq!(result, BuyResult::Success { remaining_gold: 0 },
+        "Should succeed when gold exactly equals price");
+    assert_eq!(inv.count(ItemKind::Herb), 1);
+}
+
+// ============================================
+// 売却機能のテスト
+// ============================================
+
+#[test]
+fn sell_key_item_is_rejected() {
+    use town::{sell_item, SellResult};
+    use party::{Inventory, ItemKind};
+
+    let mut inv = Inventory::new();
+    inv.add(ItemKind::CopperKey, 1);
+
+    let result = sell_item(ItemKind::CopperKey, &mut inv);
+    assert_eq!(result, SellResult::CannotSell, "Key items should not be sellable");
+    assert_eq!(inv.count(ItemKind::CopperKey), 1, "Key item should remain in inventory");
+}
+
+#[test]
+fn sell_material_item_succeeds() {
+    use town::{sell_item, SellResult};
+    use party::{Inventory, ItemKind};
+
+    let mut inv = Inventory::new();
+    inv.add(ItemKind::MagicStone, 1);
+
+    let result = sell_item(ItemKind::MagicStone, &mut inv);
+    assert_eq!(result, SellResult::Success { earned_gold: 30 },
+        "Material item should sell for its sell_price");
+    assert_eq!(inv.count(ItemKind::MagicStone), 0, "Item should be removed after selling");
+}
+
+// ============================================
+// 同速時のパーティ優先テスト
+// ============================================
+
+#[test]
+fn same_speed_party_acts_before_enemy() {
+    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult, ActorId};
+    use party::{PartyMember, CombatStats};
+
+    // 勇者と敵を同じ速度にする
+    let mut hero = PartyMember::hero();
+    hero.stats = CombatStats::new(100, 20, 5, 10, 0); // speed=10
+
+    let mut enemy = Enemy::slime();
+    enemy.stats = CombatStats::new(999, 5, 2, 10, 0); // speed=10 (同速)
+
+    let mut battle = BattleDomainState::new(vec![hero], vec![enemy]);
+
+    let commands = vec![
+        BattleAction::Attack { target: TargetId::Enemy(0) },
+    ];
+    let randoms = TurnRandomFactors {
+        damage_randoms: vec![1.0; 2],
+        flee_random: 1.0,
+    };
+    let results = battle.execute_turn(&commands, &randoms);
+
+    let attack_order: Vec<ActorId> = results.iter().filter_map(|r| {
+        if let TurnResult::Attack { attacker, .. } = r { Some(*attacker) } else { None }
+    }).collect();
+
+    assert_eq!(attack_order.len(), 2, "Both actors should attack");
+    assert_eq!(attack_order[0], ActorId::Party(0), "Party should act first at same speed");
+    assert_eq!(attack_order[1], ActorId::Enemy(0), "Enemy should act second at same speed");
+}

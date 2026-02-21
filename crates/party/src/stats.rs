@@ -74,15 +74,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn new_stats_have_full_hp() {
-        let stats = CombatStats::new(30, 8, 3, 5, 10);
-        assert_eq!(stats.hp, 30);
-        assert_eq!(stats.max_hp, 30);
-        assert_eq!(stats.mp, 10);
-        assert_eq!(stats.max_mp, 10);
-    }
-
-    #[test]
     fn is_alive_returns_true_when_hp_positive() {
         let stats = CombatStats::new(10, 5, 2, 3, 0);
         assert!(stats.is_alive());

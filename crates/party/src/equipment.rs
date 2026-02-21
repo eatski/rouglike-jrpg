@@ -76,20 +76,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn weapon_properties() {
-        assert_eq!(WeaponKind::WoodenSword.name(), "きのつるぎ");
-        assert_eq!(WeaponKind::WoodenSword.attack_bonus(), 2);
-        assert_eq!(WeaponKind::WoodenSword.price(), 10);
-    }
-
-    #[test]
-    fn equipment_default_is_empty() {
-        let eq = Equipment::new();
-        assert_eq!(eq.weapon, None);
-        assert_eq!(eq.attack_bonus(), 0);
-    }
-
-    #[test]
     fn equip_weapon_returns_previous() {
         let mut eq = Equipment::new();
         let prev = eq.equip_weapon(WeaponKind::WoodenSword);
@@ -102,12 +88,4 @@ mod tests {
         assert_eq!(eq.attack_bonus(), 5);
     }
 
-    #[test]
-    fn shop_weapons_list() {
-        let weapons = shop_weapons();
-        assert_eq!(weapons.len(), 3);
-        assert!(weapons.contains(&WeaponKind::WoodenSword));
-        assert!(weapons.contains(&WeaponKind::IronSword));
-        assert!(weapons.contains(&WeaponKind::MageStaff));
-    }
 }

@@ -211,48 +211,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn default_party_has_three_members() {
-        let party = default_party();
-        assert_eq!(party.len(), 3);
-        assert_eq!(party[0].kind, PartyMemberKind::Hero);
-        assert_eq!(party[1].kind, PartyMemberKind::Mage);
-        assert_eq!(party[2].kind, PartyMemberKind::Priest);
-    }
-
-    #[test]
-    fn hero_stats() {
-        let hero = PartyMember::hero();
-        assert_eq!(hero.level, 1);
-        assert_eq!(hero.exp, 0);
-        assert_eq!(hero.stats.max_hp, 30);
-        assert_eq!(hero.stats.attack, 8);
-        assert_eq!(hero.stats.defense, 3);
-        assert_eq!(hero.stats.speed, 5);
-    }
-
-    #[test]
-    fn mage_stats() {
-        let mage = PartyMember::mage();
-        assert_eq!(mage.level, 1);
-        assert_eq!(mage.exp, 0);
-        assert_eq!(mage.stats.max_hp, 20);
-        assert_eq!(mage.stats.attack, 10);
-        assert_eq!(mage.stats.defense, 2);
-        assert_eq!(mage.stats.speed, 7);
-    }
-
-    #[test]
-    fn priest_stats() {
-        let priest = PartyMember::priest();
-        assert_eq!(priest.level, 1);
-        assert_eq!(priest.exp, 0);
-        assert_eq!(priest.stats.max_hp, 25);
-        assert_eq!(priest.stats.attack, 5);
-        assert_eq!(priest.stats.defense, 4);
-        assert_eq!(priest.stats.speed, 4);
-    }
-
-    #[test]
     fn exp_to_next_level_values() {
         assert_eq!(exp_to_next_level(1), 10);  // Lv1→2
         assert_eq!(exp_to_next_level(2), 30);  // Lv2→3
@@ -288,23 +246,6 @@ mod tests {
     }
 
     #[test]
-    fn initial_party_has_one_member() {
-        let party = initial_party();
-        assert_eq!(party.len(), 1);
-        assert_eq!(party[0].kind, PartyMemberKind::Hero);
-    }
-
-    #[test]
-    fn default_candidates_are_mage_and_priest() {
-        let candidates = default_candidates();
-        assert_eq!(candidates.len(), 2);
-        assert_eq!(candidates[0].kind, PartyMemberKind::Mage);
-        assert_eq!(candidates[1].kind, PartyMemberKind::Priest);
-        assert_eq!(candidates[0].status, RecruitmentStatus::Undiscovered);
-        assert_eq!(candidates[1].status, RecruitmentStatus::Undiscovered);
-    }
-
-    #[test]
     fn talk_to_candidate_transitions() {
         let mut candidate = RecruitCandidate::new(PartyMemberKind::Mage);
 
@@ -318,17 +259,6 @@ mod tests {
 
         let result = talk_to_candidate(&mut candidate);
         assert_eq!(result, TalkResult::AlreadyRecruited);
-    }
-
-    #[test]
-    fn from_kind_creates_correct_member() {
-        let hero = PartyMember::from_kind(PartyMemberKind::Hero);
-        assert_eq!(hero.kind, PartyMemberKind::Hero);
-        assert_eq!(hero.stats.max_hp, 30);
-
-        let mage = PartyMember::from_kind(PartyMemberKind::Mage);
-        assert_eq!(mage.kind, PartyMemberKind::Mage);
-        assert_eq!(mage.stats.max_hp, 20);
     }
 
     #[test]

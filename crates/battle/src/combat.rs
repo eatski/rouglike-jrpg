@@ -152,11 +152,6 @@ impl BattleState {
                     results.extend(self.execute_enemy_attack(ei, random));
                 }
             }
-
-            // 戦闘終了チェック
-            if self.is_over() {
-                break;
-            }
         }
 
         self.turn_log.extend(results.clone());

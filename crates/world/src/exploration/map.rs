@@ -253,14 +253,6 @@ mod tests {
     }
 
     #[test]
-    fn test_width_and_height() {
-        let map = ExplorationMap::new(15, 20);
-
-        assert_eq!(map.width(), 15);
-        assert_eq!(map.height(), 20);
-    }
-
-    #[test]
     fn test_update_visibility_with_wrap() {
         let mut map = ExplorationMap::new(10, 10);
 

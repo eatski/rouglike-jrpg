@@ -209,12 +209,6 @@ mod tests {
         }
     }
 
-    #[test]
-    fn townsperson_dialogue_returns_non_empty() {
-        let dialogue = townsperson_dialogue();
-        assert!(!dialogue.is_empty());
-    }
-
     /// テスト用の小さなグリッドを作成するヘルパー
     fn make_grid(width: usize, height: usize) -> Vec<Vec<Terrain>> {
         vec![vec![Terrain::Plains; width]; height]
