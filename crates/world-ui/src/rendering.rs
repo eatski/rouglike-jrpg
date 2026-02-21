@@ -9,7 +9,7 @@ use world::map::{
 
 use movement_ui::{Boat, Player, TilePosition};
 use party::default_candidates;
-use app_state::{HokoraPositions, RecruitmentMap};
+use app_state::{Continent1CavePositions, HokoraPositions, RecruitmentMap};
 use movement_ui::{ActiveMap, TILE_SIZE};
 use terrain::Terrain;
 
@@ -106,14 +106,21 @@ pub fn spawn_field_map_with_rng(
         candidate_count,
     );
 
-    // スポーン大陸のTown座標を収集
+    // スポーン大陸の座標を収集
     let islands = detect_islands(&map_data.grid);
-    let spawn_island_towns: Vec<(usize, usize)> = islands
+    let spawn_island: Vec<(usize, usize)> = islands
         .into_iter()
         .find(|island| island.contains(&map_data.spawn_position))
-        .unwrap_or_default()
-        .into_iter()
+        .unwrap_or_default();
+    let spawn_island_towns: Vec<(usize, usize)> = spawn_island
+        .iter()
+        .copied()
         .filter(|&(x, y)| map_data.grid[y][x] == Terrain::Town)
+        .collect();
+    let continent1_caves: Vec<(usize, usize)> = spawn_island
+        .iter()
+        .copied()
+        .filter(|&(x, y)| map_data.grid[y][x] == Terrain::Cave)
         .collect();
 
     // 仲間候補を街に割り当て
@@ -143,6 +150,9 @@ pub fn spawn_field_map_with_rng(
     commands.insert_resource(HokoraPositions {
         positions: hokora_positions,
         warp_destinations,
+    });
+    commands.insert_resource(Continent1CavePositions {
+        positions: continent1_caves,
     });
 
     let active_map = ActiveMap::from_grid(map_data.grid);

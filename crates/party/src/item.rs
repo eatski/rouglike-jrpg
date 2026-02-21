@@ -18,6 +18,7 @@ pub enum ItemKind {
     Herb,
     HighHerb,
     CopperKey,
+    MoonFragment,
     MagicStone,
     SilverOre,
     AncientCoin,
@@ -30,6 +31,7 @@ impl ItemKind {
             ItemKind::Herb => "やくそう",
             ItemKind::HighHerb => "じょうやくそう",
             ItemKind::CopperKey => "どうのカギ",
+            ItemKind::MoonFragment => "つきのかけら",
             ItemKind::MagicStone => "まほうのいし",
             ItemKind::SilverOre => "ぎんこうせき",
             ItemKind::AncientCoin => "いにしえのコイン",
@@ -42,7 +44,8 @@ impl ItemKind {
             ItemKind::Herb => ItemEffect::Heal { power: 25 },
             ItemKind::HighHerb => ItemEffect::Heal { power: 50 },
             ItemKind::CopperKey => ItemEffect::KeyItem,
-            ItemKind::MagicStone
+            ItemKind::MoonFragment
+            | ItemKind::MagicStone
             | ItemKind::SilverOre
             | ItemKind::AncientCoin
             | ItemKind::DragonScale => ItemEffect::Material,
@@ -54,6 +57,7 @@ impl ItemKind {
             ItemKind::Herb => "HPを かいふくする やくそう",
             ItemKind::HighHerb => "HPを おおきく かいふくする",
             ItemKind::CopperKey => "どこかの とびらを あけるカギ",
+            ItemKind::MoonFragment => "ほこらの とびらを ひらく ふしぎな かけら",
             ItemKind::MagicStone => "ふしぎな ちからを もつ いし",
             ItemKind::SilverOre => "きれいな ぎんいろの こうせき",
             ItemKind::AncientCoin => "おおむかしの きんか",
@@ -72,6 +76,7 @@ impl ItemKind {
             ItemKind::Herb => 8,
             ItemKind::HighHerb => 24,
             ItemKind::CopperKey => 0,
+            ItemKind::MoonFragment => 50,
             ItemKind::MagicStone => 0,
             ItemKind::SilverOre => 0,
             ItemKind::AncientCoin => 0,
@@ -85,6 +90,7 @@ impl ItemKind {
             ItemKind::Herb => 4,
             ItemKind::HighHerb => 12,
             ItemKind::CopperKey => 0,
+            ItemKind::MoonFragment => 25,
             ItemKind::MagicStone => 30,
             ItemKind::SilverOre => 60,
             ItemKind::AncientCoin => 120,
@@ -95,7 +101,7 @@ impl ItemKind {
 
 /// 道具屋で購入可能なアイテム一覧
 pub fn shop_items() -> Vec<ItemKind> {
-    vec![ItemKind::Herb, ItemKind::HighHerb]
+    vec![ItemKind::Herb, ItemKind::HighHerb, ItemKind::MoonFragment]
 }
 
 /// 全アイテムリストを返す
@@ -104,6 +110,7 @@ pub fn all_items() -> Vec<ItemKind> {
         ItemKind::Herb,
         ItemKind::HighHerb,
         ItemKind::CopperKey,
+        ItemKind::MoonFragment,
         ItemKind::MagicStone,
         ItemKind::SilverOre,
         ItemKind::AncientCoin,

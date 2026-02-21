@@ -18,7 +18,7 @@ fn setup_cave_direct(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // 固定シードで洞窟マップを生成
     let mut rng = ChaCha8Rng::seed_from_u64(42);
-    let cave_data = generate_cave_map(&mut rng);
+    let cave_data = generate_cave_map(&mut rng, &[]);
     let (spawn_x, spawn_y) = cave_data.spawn_position;
 
     // 洞窟用ActiveMapを構築

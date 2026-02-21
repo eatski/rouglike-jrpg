@@ -4,10 +4,11 @@ use std::collections::HashMap;
 use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
 
-use cave::{generate_cave_map, TreasureChest, CAVE_HEIGHT, CAVE_WIDTH};
+use cave::{generate_cave_map, TreasureChest, TreasureContent, CAVE_HEIGHT, CAVE_WIDTH};
+use party::ItemKind;
 use terrain::Terrain;
 
-use app_state::OpenedChests;
+use app_state::{Continent1CavePositions, OpenedChests};
 use movement_ui::{
     Boat, Bounce, MapTile, MovementLocked, PendingMove, Player, SmoothMove, TilePosition,
 };
@@ -68,6 +69,7 @@ pub fn setup_cave_scene(
     tile_textures: Res<TileTextures>,
     opened_chests: Res<OpenedChests>,
     mut boat_spawns: ResMut<BoatSpawnsResource>,
+    continent1_caves: Res<Continent1CavePositions>,
 ) {
     // フィールド座標を保存
     let Ok((mut tile_pos, mut transform)) = player_query.single_mut() else {
@@ -99,7 +101,16 @@ pub fn setup_cave_scene(
     let cave_world_pos = (tile_pos.x, tile_pos.y);
     let seed = tile_pos.x as u64 * 10007 + tile_pos.y as u64;
     let mut rng = ChaCha8Rng::seed_from_u64(seed);
-    let cave_data = generate_cave_map(&mut rng);
+    let guaranteed_items: Vec<TreasureContent> =
+        if continent1_caves.positions.contains(&cave_world_pos) {
+            vec![
+                TreasureContent::Item(ItemKind::MoonFragment),
+                TreasureContent::Item(ItemKind::MoonFragment),
+            ]
+        } else {
+            vec![]
+        };
+    let cave_data = generate_cave_map(&mut rng, &guaranteed_items);
     let (spawn_x, spawn_y) = cave_data.spawn_position;
 
     // 洞窟用ActiveMapを作成

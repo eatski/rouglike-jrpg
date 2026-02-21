@@ -46,6 +46,12 @@ pub struct HokoraPositions {
     pub warp_destinations: Vec<(usize, usize)>,
 }
 
+/// 大陸1にある洞窟のワールドマップ座標
+#[derive(Resource, Default)]
+pub struct Continent1CavePositions {
+    pub positions: Vec<(usize, usize)>,
+}
+
 /// 取得済み宝箱を管理するリソース
 /// key: ワールドマップ上の洞窟座標 (cave_x, cave_y)
 /// value: その洞窟内で取得済みの宝箱インデックスの集合

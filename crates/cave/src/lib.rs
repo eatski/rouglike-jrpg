@@ -79,7 +79,7 @@ pub fn try_cave_move(
     }
 }
 
-pub fn generate_cave_map(rng: &mut impl Rng) -> CaveMapData {
+pub fn generate_cave_map(rng: &mut impl Rng, guaranteed_items: &[TreasureContent]) -> CaveMapData {
     let mut grid = vec![vec![Terrain::CaveWall; CAVE_WIDTH]; CAVE_HEIGHT];
 
     // ランダムウォークで通路を掘る
@@ -123,18 +123,24 @@ pub fn generate_cave_map(rng: &mut impl Rng) -> CaveMapData {
         .collect();
 
     floor_positions.shuffle(rng);
-    let treasure_count = if floor_positions.is_empty() {
+    let random_count = if floor_positions.is_empty() {
         0
     } else {
         rng.gen_range(1..=MAX_TREASURES.min(floor_positions.len()))
     };
+    let treasure_count = random_count.max(guaranteed_items.len()).min(floor_positions.len());
 
     let treasures: Vec<TreasureChest> = floor_positions[..treasure_count]
         .iter()
-        .map(|&(tx, ty)| TreasureChest {
+        .enumerate()
+        .map(|(i, &(tx, ty))| TreasureChest {
             x: tx,
             y: ty,
-            content: random_treasure_content(rng),
+            content: if i < guaranteed_items.len() {
+                guaranteed_items[i]
+            } else {
+                random_treasure_content(rng)
+            },
         })
         .collect();
 
@@ -156,7 +162,7 @@ fn random_treasure_content(rng: &mut impl Rng) -> TreasureContent {
         (TreasureContent::Item(ItemKind::SilverOre), 15),
         (TreasureContent::Item(ItemKind::AncientCoin), 10),
         (TreasureContent::Item(ItemKind::DragonScale), 3),
-        (TreasureContent::Item(ItemKind::CopperKey), 5),
+        (TreasureContent::Item(ItemKind::MoonFragment), 10),
         (TreasureContent::Weapon(WeaponKind::WoodenSword), 2),
     ];
     let total: u32 = table.iter().map(|(_, w)| w).sum();
@@ -184,7 +190,7 @@ mod tests {
     #[test]
     fn generate_cave_map_correct_size() {
         let mut rng = create_rng(42);
-        let map = generate_cave_map(&mut rng);
+        let map = generate_cave_map(&mut rng, &[]);
         assert_eq!(map.grid.len(), CAVE_HEIGHT);
         for row in &map.grid {
             assert_eq!(row.len(), CAVE_WIDTH);
@@ -196,7 +202,7 @@ mod tests {
     #[test]
     fn generate_cave_map_spawn_is_ladder() {
         let mut rng = create_rng(42);
-        let map = generate_cave_map(&mut rng);
+        let map = generate_cave_map(&mut rng, &[]);
         let (sx, sy) = map.spawn_position;
         assert_eq!(map.grid[sy][sx], Terrain::Ladder);
     }
@@ -204,7 +210,7 @@ mod tests {
     #[test]
     fn generate_cave_map_has_floor_tiles() {
         let mut rng = create_rng(42);
-        let map = generate_cave_map(&mut rng);
+        let map = generate_cave_map(&mut rng, &[]);
         let floor_count = map
             .grid
             .iter()
@@ -217,7 +223,7 @@ mod tests {
     #[test]
     fn generate_cave_map_edges_are_walls() {
         let mut rng = create_rng(42);
-        let map = generate_cave_map(&mut rng);
+        let map = generate_cave_map(&mut rng, &[]);
         // 外周は壁（ワープゾーンは外周に置かれない）
         for x in 0..CAVE_WIDTH {
             assert_ne!(
@@ -249,8 +255,8 @@ mod tests {
     fn generate_cave_map_deterministic() {
         let mut rng1 = create_rng(123);
         let mut rng2 = create_rng(123);
-        let map1 = generate_cave_map(&mut rng1);
-        let map2 = generate_cave_map(&mut rng2);
+        let map1 = generate_cave_map(&mut rng1, &[]);
+        let map2 = generate_cave_map(&mut rng2, &[]);
         assert_eq!(map1.spawn_position, map2.spawn_position);
         assert_eq!(map1.grid, map2.grid);
     }
