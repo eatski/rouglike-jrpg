@@ -2,6 +2,9 @@
 
 日本語で対応してください。
 
+## Tool
+各ツール（ReadやEditなど）の対象を指定するパスは相対パスで指定すること
+
 ## Build Commands
 
 ```bash
