@@ -218,7 +218,7 @@ impl BattleState {
 
         // MP消費
         if !self.party[caster_idx].stats.use_mp(spell.mp_cost()) {
-            return results; // MP不足（UIで弾くが念のため）
+            return results;
         }
 
         if spell.is_offensive() {
@@ -271,7 +271,7 @@ impl BattleState {
         match item.effect() {
             ItemEffect::Heal { power } => {
                 if !self.party[user_idx].inventory.use_item(item) {
-                    return results; // 在庫なし（UIで弾くが念のため）
+                    return results;
                 }
 
                 let actual_target = self.retarget_ally(target);
@@ -287,9 +287,8 @@ impl BattleState {
                     });
                 }
             }
-            ItemEffect::KeyItem | ItemEffect::Material => {
-                // 戦闘中は使えない（UIで弾くが念のため）
-            }
+            ItemEffect::KeyItem | ItemEffect::Material => {}
+
         }
 
         results
