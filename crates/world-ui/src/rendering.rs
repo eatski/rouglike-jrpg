@@ -21,6 +21,12 @@ pub struct BoatSpawnsResource {
     pub positions: Vec<(usize, usize)>,
 }
 
+/// ボス洞窟のワールドマップ座標を保持するリソース
+#[derive(Resource)]
+pub struct BossCaveWorldPos {
+    pub position: Option<(usize, usize)>,
+}
+
 /// 保存された位置に船エンティティをスポーンする
 pub fn spawn_boat_entities(
     commands: &mut Commands,
@@ -56,6 +62,12 @@ pub struct TileTextures {
     pub ladder: Handle<Image>,
     pub chest: Handle<Image>,
     pub chest_open: Handle<Image>,
+    pub boss_cave: Handle<Image>,
+    pub boss_cave_wall: Handle<Image>,
+    pub boss_cave_floor: Handle<Image>,
+    pub dark_plains: Handle<Image>,
+    pub dark_forest: Handle<Image>,
+    pub dark_lord: Handle<Image>,
     pub coast_tiles: Vec<Handle<Image>>,
     pub coast_lookup: [u8; 256],
 }
@@ -82,6 +94,12 @@ pub fn load_tile_textures(asset_server: &AssetServer) -> TileTextures {
         ladder: asset_server.load("tiles/ladder.png"),
         chest: asset_server.load("tiles/chest.png"),
         chest_open: asset_server.load("tiles/chest_open.png"),
+        boss_cave: asset_server.load("tiles/boss_cave.png"),
+        boss_cave_wall: asset_server.load("tiles/boss_cave_wall.png"),
+        boss_cave_floor: asset_server.load("tiles/boss_cave_floor.png"),
+        dark_plains: asset_server.load("tiles/dark_plains.png"),
+        dark_forest: asset_server.load("tiles/dark_forest.png"),
+        dark_lord: asset_server.load("enemies/dark_lord.png"),
         coast_tiles,
         coast_lookup,
     }
@@ -148,6 +166,11 @@ pub fn spawn_field_map_with_rng(
     }
     commands.insert_resource(HokoraPositions {
         positions: hokora_positions,
+    });
+
+    // ボス洞窟座標を保存
+    commands.insert_resource(BossCaveWorldPos {
+        position: map_data.boss_cave_position,
     });
 
     let active_map = ActiveMap::from_grid(map_data.grid);

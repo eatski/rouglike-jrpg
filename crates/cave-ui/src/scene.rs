@@ -4,16 +4,16 @@ use std::collections::HashMap;
 use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
 
-use cave::{generate_cave_map, TreasureChest, CAVE_HEIGHT, CAVE_WIDTH};
+use cave::{generate_boss_cave_map, generate_cave_map, TreasureChest, CAVE_HEIGHT, CAVE_WIDTH};
 use terrain::Terrain;
 
-use app_state::OpenedChests;
+use app_state::{BossDefeated, OpenedChests};
 use movement_ui::{
     Boat, Bounce, MapTile, MovementLocked, PendingMove, Player, SmoothMove, TilePosition,
 };
 use movement_ui::{ActiveMap, MovementState, WorldMapData, TILE_SIZE};
 
-use world_ui::{spawn_boat_entities, BoatSpawnsResource, TileTextures};
+use world_ui::{spawn_boat_entities, BoatSpawnsResource, BossCaveWorldPos, TileTextures};
 use world_ui::{create_tile_pool, PooledTile, TilePool};
 
 /// 洞窟進入前のフィールド座標を保存
@@ -55,6 +55,20 @@ pub struct CaveTile;
 pub struct CaveTilePool {
     pub active_tiles: HashMap<(i32, i32), Entity>,
     pub last_player_pos: Option<(i32, i32)>,
+}
+
+/// ボスエンティティのマーカー
+#[derive(Component)]
+pub struct BossEntity {
+    pub tile_x: usize,
+    pub tile_y: usize,
+}
+
+/// ボス洞窟の状態リソース
+#[derive(Resource)]
+pub struct BossCaveState {
+    pub boss_position: (usize, usize),
+    pub cave_world_pos: (usize, usize),
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -159,6 +173,108 @@ pub fn setup_cave_scene(
     *move_state = MovementState::default();
 }
 
+/// ボス洞窟シーンのセットアップ
+#[allow(clippy::too_many_arguments)]
+pub fn setup_boss_cave_scene(
+    mut commands: Commands,
+    mut player_query: Query<(&mut TilePosition, &mut Transform), With<Player>>,
+    tile_pool_query: Query<Entity, With<PooledTile>>,
+    boat_query: Query<(Entity, &TilePosition), (With<Boat>, Without<Player>)>,
+    mut move_state: ResMut<MovementState>,
+    active_map: Res<ActiveMap>,
+    tile_textures: Res<TileTextures>,
+    _boss_cave_world_pos: Res<BossCaveWorldPos>,
+    boss_defeated: Option<Res<BossDefeated>>,
+    mut boat_spawns: ResMut<BoatSpawnsResource>,
+) {
+    let Ok((mut tile_pos, mut transform)) = player_query.single_mut() else {
+        return;
+    };
+
+    // フィールド座標を保存
+    commands.insert_resource(FieldReturnState {
+        player_tile_x: tile_pos.x,
+        player_tile_y: tile_pos.y,
+    });
+
+    // ワールドマップを退避
+    commands.insert_resource(WorldMapData(active_map.clone()));
+
+    // 船の現在位置をBoatSpawnsResourceに同期
+    boat_spawns.positions = boat_query.iter().map(|(_, pos)| (pos.x, pos.y)).collect();
+
+    // フィールドエンティティをdespawn
+    for entity in &tile_pool_query {
+        commands.entity(entity).despawn();
+    }
+    commands.remove_resource::<TilePool>();
+
+    for (entity, _) in &boat_query {
+        commands.entity(entity).despawn();
+    }
+
+    // ボス洞窟マップ生成
+    let cave_world_pos = (tile_pos.x, tile_pos.y);
+    let seed = tile_pos.x as u64 * 10007 + tile_pos.y as u64 + 999;
+    let mut rng = ChaCha8Rng::seed_from_u64(seed);
+    let cave_data = generate_boss_cave_map(&mut rng);
+    let (spawn_x, spawn_y) = cave_data.spawn_position;
+
+    // 洞窟用ActiveMapを作成
+    let cave_origin_x = -(CAVE_WIDTH as f32 * TILE_SIZE) / 2.0 + TILE_SIZE / 2.0;
+    let cave_origin_y = -(CAVE_HEIGHT as f32 * TILE_SIZE) / 2.0 + TILE_SIZE / 2.0;
+
+    let active_map_resource = ActiveMap {
+        grid: cave_data.grid,
+        width: cave_data.width,
+        height: cave_data.height,
+        origin_x: cave_origin_x,
+        origin_y: cave_origin_y,
+    };
+
+    // ボス洞窟状態リソース
+    commands.insert_resource(BossCaveState {
+        boss_position: cave_data.boss_position,
+        cave_world_pos,
+    });
+
+    // ボススプライトを配置（撃破済みでなければ）
+    if boss_defeated.is_none() {
+        let scale = TILE_SIZE / 16.0;
+        let (boss_world_x, boss_world_y) = active_map_resource.to_world_logical(
+            cave_data.boss_position.0 as i32,
+            cave_data.boss_position.1 as i32,
+        );
+        commands.spawn((
+            BossEntity {
+                tile_x: cave_data.boss_position.0,
+                tile_y: cave_data.boss_position.1,
+            },
+            Sprite::from_image(tile_textures.dark_lord.clone()),
+            Transform::from_xyz(boss_world_x, boss_world_y, 0.5).with_scale(Vec3::splat(scale)),
+        ));
+    }
+
+    commands.insert_resource(CaveMessageState::default());
+    commands.insert_resource(active_map_resource);
+
+    // プレイヤーをスポーン位置に移動
+    tile_pos.x = spawn_x;
+    tile_pos.y = spawn_y;
+    let world_x = cave_origin_x + spawn_x as f32 * TILE_SIZE;
+    let world_y = cave_origin_y + spawn_y as f32 * TILE_SIZE;
+    transform.translation.x = world_x;
+    transform.translation.y = world_y;
+
+    // 洞窟用タイルプールを初期化
+    commands.insert_resource(CaveTilePool {
+        active_tiles: HashMap::new(),
+        last_player_pos: None,
+    });
+
+    *move_state = MovementState::default();
+}
+
 /// 洞窟タイルの表示を更新するシステム
 pub fn update_cave_tiles(
     mut commands: Commands,
@@ -237,6 +353,8 @@ pub fn update_cave_tiles(
         let texture = match terrain {
             Terrain::CaveWall => tile_textures.cave_wall.clone(),
             Terrain::CaveFloor => tile_textures.cave_floor.clone(),
+            Terrain::BossCaveWall => tile_textures.boss_cave_wall.clone(),
+            Terrain::BossCaveFloor => tile_textures.boss_cave_floor.clone(),
             Terrain::WarpZone => tile_textures.warp_zone.clone(),
             Terrain::Ladder => tile_textures.ladder.clone(),
             _ => tile_textures.cave_wall.clone(),
@@ -262,6 +380,7 @@ pub fn despawn_cave_entities(
     cave_tile_query: Query<Entity, With<CaveTile>>,
     chest_query: Query<Entity, With<ChestEntity>>,
     message_ui_query: Query<Entity, With<CaveMessageUI>>,
+    boss_query: Query<Entity, With<BossEntity>>,
 ) {
     for entity in &cave_tile_query {
         commands.entity(entity).despawn();
@@ -272,9 +391,13 @@ pub fn despawn_cave_entities(
     for entity in &message_ui_query {
         commands.entity(entity).despawn();
     }
+    for entity in &boss_query {
+        commands.entity(entity).despawn();
+    }
     commands.remove_resource::<CaveTilePool>();
     commands.remove_resource::<CaveTreasures>();
     commands.remove_resource::<CaveMessageState>();
+    commands.remove_resource::<BossCaveState>();
 }
 
 pub fn restore_field_from_cave(

@@ -33,6 +33,11 @@ fn terrain_to_color(terrain: Terrain) -> [u8; 4] {
         Terrain::WarpZone => [180, 100, 200, 255], // 紫
         Terrain::Ladder => [200, 180, 60, 255],    // 黄色
         Terrain::Hokora => [190, 45, 40, 255],     // 赤（鳥居の色）
+        Terrain::BossCave => [120, 40, 100, 255],  // 紫（ボス洞窟入口）
+        Terrain::BossCaveWall => [50, 20, 55, 255], // 暗い紫
+        Terrain::BossCaveFloor => [100, 65, 105, 255], // 紫系床
+        Terrain::DarkPlains => [90, 70, 100, 255],  // 暗い紫緑（禍々しい平地）
+        Terrain::DarkForest => [50, 30, 60, 255],   // 暗い紫（禍々しい森）
     }
 }
 

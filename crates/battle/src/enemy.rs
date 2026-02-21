@@ -7,6 +7,7 @@ pub enum EnemyKind {
     Goblin,
     Wolf,
     Ghost,
+    DarkLord,
 }
 
 impl EnemyKind {
@@ -17,6 +18,7 @@ impl EnemyKind {
             EnemyKind::Goblin => "ゴブリン",
             EnemyKind::Wolf => "おおかみ",
             EnemyKind::Ghost => "ゴースト",
+            EnemyKind::DarkLord => "まおう",
         }
     }
 
@@ -27,6 +29,7 @@ impl EnemyKind {
             EnemyKind::Goblin => "enemies/goblin.png",
             EnemyKind::Wolf => "enemies/wolf.png",
             EnemyKind::Ghost => "enemies/ghost.png",
+            EnemyKind::DarkLord => "enemies/dark_lord.png",
         }
     }
 
@@ -38,6 +41,7 @@ impl EnemyKind {
             EnemyKind::Goblin => 6,
             EnemyKind::Wolf => 8,
             EnemyKind::Ghost => 10,
+            EnemyKind::DarkLord => 100,
         }
     }
 }
@@ -92,6 +96,13 @@ impl Enemy {
         }
     }
 
+    pub fn dark_lord() -> Self {
+        Self {
+            kind: EnemyKind::DarkLord,
+            stats: CombatStats::new(200, 25, 15, 8, 50),
+        }
+    }
+
     fn from_kind(kind: EnemyKind) -> Self {
         match kind {
             EnemyKind::Slime => Self::slime(),
@@ -99,6 +110,7 @@ impl Enemy {
             EnemyKind::Goblin => Self::goblin(),
             EnemyKind::Wolf => Self::wolf(),
             EnemyKind::Ghost => Self::ghost(),
+            EnemyKind::DarkLord => Self::dark_lord(),
         }
     }
 }
