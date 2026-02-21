@@ -2,7 +2,10 @@ mod resources;
 
 use bevy::prelude::*;
 
-pub use resources::{FieldMenuOpen, HokoraPositions, OpenedChests, PartyState, RecruitmentMap};
+pub use resources::{
+    Continent1CavePositions, FieldMenuOpen, HokoraPositions, OpenedChests, PartyState,
+    RecruitmentMap,
+};
 
 pub struct AppStatePlugin;
 

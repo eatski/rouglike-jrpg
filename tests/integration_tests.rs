@@ -1433,7 +1433,7 @@ fn cave_exploration_scenario() {
     use rand_chacha::ChaCha8Rng;
 
     let mut rng = ChaCha8Rng::seed_from_u64(42);
-    let cave = generate_cave_map(&mut rng);
+    let cave = generate_cave_map(&mut rng, &[]);
 
     // スポーン地点は梯子
     let (sx, sy) = cave.spawn_position;
@@ -1481,8 +1481,8 @@ fn cave_generation_is_deterministic() {
     let mut rng1 = ChaCha8Rng::seed_from_u64(seed);
     let mut rng2 = ChaCha8Rng::seed_from_u64(seed);
 
-    let cave1 = generate_cave_map(&mut rng1);
-    let cave2 = generate_cave_map(&mut rng2);
+    let cave1 = generate_cave_map(&mut rng1, &[]);
+    let cave2 = generate_cave_map(&mut rng2, &[]);
 
     assert_eq!(cave1.grid, cave2.grid);
     assert_eq!(cave1.spawn_position, cave2.spawn_position);
@@ -1501,7 +1501,7 @@ fn cave_diagonal_movement_is_always_blocked() {
     use rand_chacha::ChaCha8Rng;
 
     let mut rng = ChaCha8Rng::seed_from_u64(42);
-    let cave = generate_cave_map(&mut rng);
+    let cave = generate_cave_map(&mut rng, &[]);
     let (sx, sy) = cave.spawn_position;
 
     // 斜め移動は常にブロックされる
@@ -1523,7 +1523,7 @@ fn cave_treasure_adds_to_inventory() {
     use party::PartyMember;
 
     let mut rng = ChaCha8Rng::seed_from_u64(42);
-    let cave = generate_cave_map(&mut rng);
+    let cave = generate_cave_map(&mut rng, &[]);
 
     let mut hero = PartyMember::hero();
     assert!(hero.inventory.is_empty());
@@ -2275,7 +2275,7 @@ fn cave_treasure_sold_at_shop() {
     use party::PartyMember;
 
     let mut rng = ChaCha8Rng::seed_from_u64(42);
-    let cave = generate_cave_map(&mut rng);
+    let cave = generate_cave_map(&mut rng, &[]);
 
     let mut hero = PartyMember::hero();
     // 洞窟の宝箱からアイテムを入手
