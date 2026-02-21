@@ -13,7 +13,7 @@ use movement_ui::{
 };
 use movement_ui::{ActiveMap, MovementState, WorldMapData, TILE_SIZE};
 
-use world_ui::{spawn_boat_entities, BoatSpawnsResource, TileTextures};
+use world_ui::{spawn_boat_entities, BoatSpawnsResource, MapModeState, TileTextures};
 use world_ui::{create_tile_pool, PooledTile, TilePool};
 
 /// 洞窟進入前のフィールド座標を保存
@@ -68,7 +68,10 @@ pub fn setup_cave_scene(
     tile_textures: Res<TileTextures>,
     opened_chests: Res<OpenedChests>,
     mut boat_spawns: ResMut<BoatSpawnsResource>,
+    mut map_mode_state: ResMut<MapModeState>,
 ) {
+    // ワールドでマップモードがONのまま洞窟に入った場合にリセット
+    map_mode_state.enabled = false;
     // フィールド座標を保存
     let Ok((mut tile_pos, mut transform)) = player_query.single_mut() else {
         return;
@@ -168,6 +171,7 @@ pub fn update_cave_tiles(
     mut cave_pool: ResMut<CaveTilePool>,
     smooth_move_query: Query<&SmoothMove, With<Player>>,
     mut tile_query: Query<(&mut Transform, &mut Sprite, &mut Visibility), With<CaveTile>>,
+    map_mode_state: Res<MapModeState>,
 ) {
     // SmoothMove中はスキップ（完了フレーム以外）
     for smooth_move in smooth_move_query.iter() {
@@ -182,7 +186,10 @@ pub fn update_cave_tiles(
 
     let player_tile = (player_pos.x as i32, player_pos.y as i32);
 
-    if cave_pool.last_player_pos == Some(player_tile) {
+    // マップモード切替時は強制再描画
+    let force_redraw = map_mode_state.is_changed();
+
+    if cave_pool.last_player_pos == Some(player_tile) && !force_redraw {
         return;
     }
     cave_pool.last_player_pos = Some(player_tile);
@@ -192,11 +199,20 @@ pub fn update_cave_tiles(
 
     // 新しい表示範囲
     let mut needed: Vec<(i32, i32)> = Vec::new();
-    for dy in -half..=half {
-        for dx in -half..=half {
-            let lx = player_tile.0 + dx;
-            let ly = player_tile.1 + dy;
-            needed.push((lx, ly));
+    if map_mode_state.enabled {
+        // マップモード: 全タイルを描画
+        for ly in 0..active_map.height as i32 {
+            for lx in 0..active_map.width as i32 {
+                needed.push((lx, ly));
+            }
+        }
+    } else {
+        for dy in -half..=half {
+            for dx in -half..=half {
+                let lx = player_tile.0 + dx;
+                let ly = player_tile.1 + dy;
+                needed.push((lx, ly));
+            }
         }
     }
 

@@ -11,7 +11,7 @@ use movement_ui::{
 use app_state::FieldMenuOpen;
 use movement_ui::{ActiveMap, MovementState, TILE_SIZE};
 
-use world_ui::TileTextures;
+use world_ui::{MapModeState, TileTextures};
 
 use crate::scene::{CaveMessageState, CaveMessageUI, CaveTreasures, ChestEntity};
 
@@ -24,6 +24,7 @@ pub fn cave_player_movement(
     keyboard: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
     active_map: Res<ActiveMap>,
+    map_mode_state: Res<MapModeState>,
     field_menu_open: Option<Res<FieldMenuOpen>>,
     cave_message: Option<Res<CaveMessageState>>,
     mut move_state: ResMut<MovementState>,
@@ -39,6 +40,11 @@ pub fn cave_player_movement(
     };
 
     if locked.is_some() {
+        return;
+    }
+
+    // マップモード中は移動を無効化
+    if map_mode_state.enabled {
         return;
     }
 
