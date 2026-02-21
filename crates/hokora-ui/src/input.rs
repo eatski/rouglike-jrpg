@@ -56,9 +56,14 @@ pub fn hokora_input_system(
             }
         }
         HokoraMenuPhase::ShowMessage { .. } => {
-            // メッセージ表示中は Enter でメニューに戻る
             if is_confirm_just_pressed(&keyboard) {
-                hokora_res.phase = HokoraMenuPhase::MenuSelect;
+                if hokora_res.warped {
+                    // ワープ後はフィールドに遷移
+                    next_state.set(SceneState::Exploring);
+                } else {
+                    // 通常メッセージはメニューに戻る
+                    hokora_res.phase = HokoraMenuPhase::MenuSelect;
+                }
             }
         }
     }
@@ -97,6 +102,7 @@ fn handle_open_door(
 
     tile_pos.x = dest_x;
     tile_pos.y = dest_y;
+    hokora_res.warped = true;
     hokora_res.phase = HokoraMenuPhase::ShowMessage {
         message: "つきのかけらが かがやき\nとびらが ひらいた！\nとおい ばしょに ワープした！".to_string(),
     };
