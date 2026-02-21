@@ -4,7 +4,7 @@ use terrain::{Terrain, MAP_HEIGHT, MAP_WIDTH};
 
 use std::collections::{HashSet, VecDeque};
 
-use crate::coordinates::orthogonal_neighbors;
+use crate::coordinates::{orthogonal_neighbors, wrap_position};
 use crate::map::islands::{
     calculate_cave_spawns, calculate_hokora_spawns, calculate_town_spawns, detect_islands,
     validate_connectivity,
@@ -433,6 +433,28 @@ fn scatter_terrain_clusters(
     }
 }
 
+/// 特殊タイル（Town/Cave/Hokora）の周囲2マスを歩行可能にする
+///
+/// 街・洞窟・祠の周囲2マス以内の Mountain や Sea を Plains に変換し、
+/// プレイヤーが確実にアクセスできるようにする。
+fn clear_around_special_tiles(grid: &mut Vec<Vec<Terrain>>) {
+    let special_tiles: Vec<(usize, usize)> = (0..MAP_HEIGHT)
+        .flat_map(|y| (0..MAP_WIDTH).map(move |x| (x, y)))
+        .filter(|&(x, y)| matches!(grid[y][x], Terrain::Town | Terrain::Cave | Terrain::Hokora))
+        .collect();
+
+    for &(sx, sy) in &special_tiles {
+        for dy in -2i32..=2 {
+            for dx in -2i32..=2 {
+                let (nx, ny) = wrap_position(sx, sy, dx, dy);
+                if !grid[ny][nx].is_walkable() {
+                    grid[ny][nx] = Terrain::Plains;
+                }
+            }
+        }
+    }
+}
+
 /// 各島内の歩行可能タイルが全て連結であることを保証する
 ///
 /// Mountain が歩行不可のため、山の配置で歩行可能エリアが分断される可能性がある。
@@ -595,6 +617,9 @@ pub fn generate_map(rng: &mut impl Rng) -> MapData {
 
     // spawn_position が Plains であることを最終保証
     grid[spawn_position.1][spawn_position.0] = Terrain::Plains;
+
+    // Phase 4.5: 特殊タイルの周囲2マスを歩行可能にする
+    clear_around_special_tiles(&mut grid);
 
     // Phase 5: 歩行可能タイルの連結性を保証（山で道が塞がれないようにする）
     ensure_walkable_connectivity(&mut grid);
