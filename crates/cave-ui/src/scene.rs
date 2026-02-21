@@ -61,7 +61,7 @@ pub struct CaveTilePool {
 #[allow(clippy::too_many_arguments)]
 pub fn setup_cave_scene(
     mut commands: Commands,
-    mut player_query: Query<(&mut TilePosition, &mut Transform), With<Player>>,
+    mut player_query: Query<&mut TilePosition, With<Player>>,
     tile_pool_query: Query<Entity, With<PooledTile>>,
     boat_query: Query<(Entity, &TilePosition), (With<Boat>, Without<Player>)>,
     mut move_state: ResMut<MovementState>,
@@ -75,7 +75,7 @@ pub fn setup_cave_scene(
     // ワールドでマップモードがONのまま洞窟に入った場合にリセット
     map_mode_state.enabled = false;
     // フィールド座標を保存
-    let Ok((mut tile_pos, mut transform)) = player_query.single_mut() else {
+    let Ok(mut tile_pos) = player_query.single_mut() else {
         return;
     };
 
@@ -158,10 +158,6 @@ pub fn setup_cave_scene(
     // プレイヤーを洞窟のスポーン位置に移動
     tile_pos.x = spawn_x;
     tile_pos.y = spawn_y;
-    let world_x = cave_origin_x + spawn_x as f32 * TILE_SIZE;
-    let world_y = cave_origin_y + spawn_y as f32 * TILE_SIZE;
-    transform.translation.x = world_x;
-    transform.translation.y = world_y;
 
     // 洞窟用タイルプールを初期化
     commands.insert_resource(CaveTilePool {
@@ -306,7 +302,7 @@ pub fn despawn_cave_entities(
 
 pub fn restore_field_from_cave(
     mut commands: Commands,
-    mut player_query: Query<(Entity, &mut TilePosition, &mut Transform), With<Player>>,
+    mut player_query: Query<(Entity, &mut TilePosition), With<Player>>,
     field_return: Res<FieldReturnState>,
     tile_textures: Res<TileTextures>,
     boat_spawns: Res<BoatSpawnsResource>,
@@ -315,13 +311,9 @@ pub fn restore_field_from_cave(
 ) {
     let restored_map = world_map.0.clone();
 
-    if let Ok((entity, mut tile_pos, mut transform)) = player_query.single_mut() {
+    if let Ok((entity, mut tile_pos)) = player_query.single_mut() {
         tile_pos.x = field_return.player_tile_x;
         tile_pos.y = field_return.player_tile_y;
-
-        let (world_x, world_y) = restored_map.to_world(tile_pos.x, tile_pos.y);
-        transform.translation.x = world_x;
-        transform.translation.y = world_y;
 
         commands
             .entity(entity)

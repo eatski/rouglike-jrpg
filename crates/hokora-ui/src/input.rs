@@ -4,7 +4,7 @@ use input_ui::{is_confirm_just_pressed, is_down_just_pressed, is_up_just_pressed
 use party::ItemKind;
 
 use app_state::{PartyState, SceneState};
-use movement_ui::{ActiveMap, Player, TilePosition};
+use movement_ui::{Player, TilePosition};
 
 use crate::scene::{HokoraMenuPhase, HokoraResource};
 
@@ -16,8 +16,7 @@ pub fn hokora_input_system(
     mut hokora_res: ResMut<HokoraResource>,
     mut next_state: ResMut<NextState<SceneState>>,
     party_state: Res<PartyState>,
-    mut player_query: Query<(&mut TilePosition, &mut Transform), With<Player>>,
-    active_map: Res<ActiveMap>,
+    mut player_query: Query<&mut TilePosition, With<Player>>,
 ) {
     match hokora_res.phase.clone() {
         HokoraMenuPhase::MenuSelect => {
@@ -47,7 +46,7 @@ pub fn hokora_input_system(
                     }
                     1 => {
                         // 扉を開ける
-                        handle_open_door(&mut hokora_res, &party_state, &mut player_query, &active_map);
+                        handle_open_door(&mut hokora_res, &party_state, &mut player_query);
                     }
                     _ => {
                         // 出る
@@ -57,9 +56,14 @@ pub fn hokora_input_system(
             }
         }
         HokoraMenuPhase::ShowMessage { .. } => {
-            // メッセージ表示中は Enter でメニューに戻る
             if is_confirm_just_pressed(&keyboard) {
-                hokora_res.phase = HokoraMenuPhase::MenuSelect;
+                if hokora_res.warped {
+                    // ワープ後はフィールドに遷移
+                    next_state.set(SceneState::Exploring);
+                } else {
+                    // 通常メッセージはメニューに戻る
+                    hokora_res.phase = HokoraMenuPhase::MenuSelect;
+                }
             }
         }
     }
@@ -70,8 +74,7 @@ const MOON_FRAGMENT_REQUIRED: u32 = 3;
 fn handle_open_door(
     hokora_res: &mut HokoraResource,
     party_state: &PartyState,
-    player_query: &mut Query<(&mut TilePosition, &mut Transform), With<Player>>,
-    active_map: &ActiveMap,
+    player_query: &mut Query<&mut TilePosition, With<Player>>,
 ) {
     let total_fragments: u32 = party_state
         .members
@@ -93,15 +96,13 @@ fn handle_open_door(
         return;
     };
 
-    let Ok((mut tile_pos, mut transform)) = player_query.single_mut() else {
+    let Ok(mut tile_pos) = player_query.single_mut() else {
         return;
     };
 
     tile_pos.x = dest_x;
     tile_pos.y = dest_y;
-    let (world_x, world_y) = active_map.to_world(dest_x, dest_y);
-    transform.translation.x = world_x;
-    transform.translation.y = world_y;
+    hokora_res.warped = true;
     hokora_res.phase = HokoraMenuPhase::ShowMessage {
         message: "つきのかけらが かがやき\nとびらが ひらいた！\nとおい ばしょに ワープした！".to_string(),
     };

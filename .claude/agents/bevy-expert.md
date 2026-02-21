@@ -54,3 +54,30 @@ tuple structではなく `BorderColor::all(color)` を使う。
 **重要**:
 - 画面遷移を伴う判定は必ず `TileEnteredEvent` を使う。テレポートでは発火しないため、脱出直後の再突入を防げる。
 - **洞窟のワープゾーンは例外**: `PlayerArrivedEvent` を使用。これによりExploring側へのイベント漏れを防ぎ、即再入洞バグを回避。
+
+### PostUpdateでの自動同期パターン
+
+ゲームロジック側で `TilePosition` を変更するだけで `Transform` が自動更新される一元化パターン。各システムで手動同期すると漏れによるバグが発生しやすいため推奨。
+
+```rust
+fn sync_tile_to_transform(
+    active_map: Option<Res<ActiveMap>>,
+    mut query: Query<
+        (&TilePosition, &mut Transform),
+        (Changed<TilePosition>, With<Player>, Without<SmoothMove>),
+    >,
+) {
+    let Some(active_map) = active_map else { return; };
+    for (tile_pos, mut transform) in &mut query {
+        let (world_x, world_y) = active_map.to_world(tile_pos.x, tile_pos.y);
+        transform.translation.x = world_x;
+        transform.translation.y = world_y;
+    }
+}
+// Plugin登録:
+.add_systems(PostUpdate, sync_tile_to_transform);
+```
+
+- `Changed<TilePosition>` で変更時のみ実行（毎フレーム不要）
+- `Without<SmoothMove>` でアニメーション中はスキップ（SmoothMove側がTransformを制御）
+- `Option<Res<ActiveMap>>` でマップ未ロード時も安全

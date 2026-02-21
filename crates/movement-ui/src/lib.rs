@@ -22,6 +22,27 @@ impl Plugin for MovementPlugin {
             .add_message::<PlayerMovedEvent>()
             .add_message::<PlayerArrivedEvent>()
             .add_message::<TileEnteredEvent>()
-            .init_resource::<MovementState>();
+            .init_resource::<MovementState>()
+            .add_systems(PostUpdate, sync_tile_to_transform);
+    }
+}
+
+/// TilePosition変更時にTransformを自動同期するシステム。
+/// SmoothMoveアニメーション中はスキップされる（SmoothMove側がTransformを制御するため）。
+#[allow(clippy::type_complexity)]
+fn sync_tile_to_transform(
+    active_map: Option<Res<ActiveMap>>,
+    mut query: Query<
+        (&TilePosition, &mut Transform),
+        (Changed<TilePosition>, With<Player>, Without<SmoothMove>),
+    >,
+) {
+    let Some(active_map) = active_map else {
+        return;
+    };
+    for (tile_pos, mut transform) in &mut query {
+        let (world_x, world_y) = active_map.to_world(tile_pos.x, tile_pos.y);
+        transform.translation.x = world_x;
+        transform.translation.y = world_y;
     }
 }

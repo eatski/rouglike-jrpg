@@ -1,9 +1,9 @@
 use bevy::prelude::*;
 
-use movement_ui::{Bounce, MovementLocked, PendingMove, Player, SmoothMove, TilePosition};
+use movement_ui::{Bounce, MovementLocked, PendingMove, Player, SmoothMove};
 use party::{shop_items, shop_weapons, ItemKind, WeaponKind, INVENTORY_CAPACITY};
 use app_state::PartyState;
-use movement_ui::{ActiveMap, MovementState};
+use movement_ui::MovementState;
 
 /// よろず屋の商品（アイテムと武器を統合）
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -389,9 +389,8 @@ fn setup_town_scene_inner(
 pub fn cleanup_town_scene(
     mut commands: Commands,
     query: Query<Entity, With<TownSceneRoot>>,
-    mut player_query: Query<(Entity, &TilePosition, &mut Transform), With<Player>>,
+    player_query: Query<Entity, With<Player>>,
     mut move_state: ResMut<MovementState>,
-    active_map: Res<ActiveMap>,
 ) {
     for entity in &query {
         commands.entity(entity).despawn();
@@ -399,17 +398,13 @@ pub fn cleanup_town_scene(
     commands.remove_resource::<TownResource>();
 
     // プレイヤーの移動関連コンポーネントをクリーンアップ
-    if let Ok((entity, tile_pos, mut transform)) = player_query.single_mut() {
+    if let Ok(entity) = player_query.single() {
         commands
             .entity(entity)
             .remove::<MovementLocked>()
             .remove::<SmoothMove>()
             .remove::<PendingMove>()
             .remove::<Bounce>();
-
-        let (world_x, world_y) = active_map.to_world(tile_pos.x, tile_pos.y);
-        transform.translation.x = world_x;
-        transform.translation.y = world_y;
     }
 
     *move_state = MovementState::default();

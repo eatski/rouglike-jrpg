@@ -2,9 +2,9 @@ use bevy::prelude::*;
 
 use battle::{generate_enemy_group, BattleAction, BattleState, EnemyKind, ItemKind, SpellKind};
 
-use movement_ui::{Bounce, MovementLocked, PendingMove, Player, TilePosition};
+use movement_ui::{Bounce, MovementLocked, PendingMove, Player};
 use app_state::PartyState;
-use movement_ui::{ActiveMap, MovementState};
+use movement_ui::MovementState;
 
 use super::display::{
     CommandCursor, EnemyNameLabel, MessageText, PartyMemberHpBarFill, PartyMemberHpText,
@@ -624,11 +624,10 @@ fn build_bottom_area(
 pub fn cleanup_battle_scene(
     mut commands: Commands,
     query: Query<Entity, With<BattleSceneRoot>>,
-    mut player_query: Query<(Entity, &TilePosition, &mut Transform), With<Player>>,
+    player_query: Query<Entity, With<Player>>,
     mut move_state: ResMut<MovementState>,
     game_state: Res<BattleGameState>,
     mut party_state: ResMut<PartyState>,
-    active_map: Res<ActiveMap>,
 ) {
     // 戦闘結果を永続状態に書き戻す
     for (i, member) in game_state.state.party.iter().enumerate() {
@@ -648,18 +647,13 @@ pub fn cleanup_battle_scene(
     commands.remove_resource::<BattleUIState>();
 
     // プレイヤーの移動関連コンポーネントをクリーンアップ
-    if let Ok((entity, tile_pos, mut transform)) = player_query.single_mut() {
+    if let Ok(entity) = player_query.single() {
         commands
             .entity(entity)
             .remove::<MovementLocked>()
             .remove::<movement_ui::SmoothMove>()
             .remove::<PendingMove>()
             .remove::<Bounce>();
-
-        // タイル座標に基づいて正確な位置にスナップ
-        let (world_x, world_y) = active_map.to_world(tile_pos.x, tile_pos.y);
-        transform.translation.x = world_x;
-        transform.translation.y = world_y;
     }
 
     // 移動状態をリセット

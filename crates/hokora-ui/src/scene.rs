@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use app_state::HokoraPositions;
 use movement_ui::{Bounce, MovementLocked, PendingMove, Player, SmoothMove, TilePosition};
-use movement_ui::{ActiveMap, MovementState};
+use movement_ui::MovementState;
 
 /// 祠シーンのルートUIエンティティを識別するマーカー
 #[derive(Component)]
@@ -26,6 +26,8 @@ pub struct HokoraResource {
     pub phase: HokoraMenuPhase,
     /// ワープ先の座標（もう一方の祠）
     pub warp_destination: Option<(usize, usize)>,
+    /// ワープ済みフラグ（メッセージ後にフィールドへ遷移するため）
+    pub warped: bool,
 }
 
 /// メニュー項目のマーカー
@@ -72,6 +74,7 @@ pub fn setup_hokora_scene(
         selected_item: 0,
         phase: HokoraMenuPhase::MenuSelect,
         warp_destination,
+        warped: false,
     });
 
     let font: Handle<Font> = asset_server.load("fonts/NotoSansJP-Bold.ttf");
@@ -176,9 +179,8 @@ pub fn setup_hokora_scene(
 pub fn cleanup_hokora_scene(
     mut commands: Commands,
     query: Query<Entity, With<HokoraSceneRoot>>,
-    mut player_query: Query<(Entity, &TilePosition, &mut Transform), With<Player>>,
+    player_query: Query<Entity, With<Player>>,
     mut move_state: ResMut<MovementState>,
-    active_map: Res<ActiveMap>,
 ) {
     for entity in &query {
         commands.entity(entity).despawn();
@@ -186,17 +188,13 @@ pub fn cleanup_hokora_scene(
     commands.remove_resource::<HokoraResource>();
 
     // プレイヤーの移動関連コンポーネントをクリーンアップ
-    if let Ok((entity, tile_pos, mut transform)) = player_query.single_mut() {
+    if let Ok(entity) = player_query.single() {
         commands
             .entity(entity)
             .remove::<MovementLocked>()
             .remove::<SmoothMove>()
             .remove::<PendingMove>()
             .remove::<Bounce>();
-
-        let (world_x, world_y) = active_map.to_world(tile_pos.x, tile_pos.y);
-        transform.translation.x = world_x;
-        transform.translation.y = world_y;
     }
 
     *move_state = MovementState::default();
