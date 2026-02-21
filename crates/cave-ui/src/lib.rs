@@ -4,7 +4,7 @@ mod scene;
 use bevy::prelude::*;
 use app_state::{BattleState, SceneState};
 use movement_ui::{start_bounce, update_bounce};
-use world_ui::{camera_follow, check_encounter_system};
+use world_ui::{camera_follow, check_encounter_system, reset_map_mode_system, toggle_map_mode_system};
 
 pub use input::{
     cave_message_display_system, cave_message_input_system, cave_player_movement,
@@ -20,6 +20,7 @@ impl Plugin for CavePlugin {
             .add_systems(
                 Update,
                 (
+                    toggle_map_mode_system,
                     cave_player_movement,
                     start_cave_smooth_move,
                     ApplyDeferred,
@@ -37,6 +38,6 @@ impl Plugin for CavePlugin {
                     .chain()
                     .run_if(in_state(SceneState::Cave).and(in_state(BattleState::None))),
             )
-            .add_systems(OnExit(SceneState::Cave), (despawn_cave_entities, restore_field_from_cave).chain());
+            .add_systems(OnExit(SceneState::Cave), (reset_map_mode_system, despawn_cave_entities, restore_field_from_cave).chain());
     }
 }

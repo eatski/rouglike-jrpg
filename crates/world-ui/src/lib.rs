@@ -20,8 +20,8 @@ pub use camera::{camera_follow, setup_camera};
 pub use encounter::check_encounter_system;
 pub use hud::{cleanup_hud, setup_hud, toggle_hud_visibility, update_hud};
 pub use map_mode::{
-    init_exploration_system, toggle_map_mode_system, update_exploration_system, ExplorationData,
-    MapModeState,
+    init_exploration_system, reset_map_mode_system, toggle_map_mode_system,
+    update_exploration_system, ExplorationData, MapModeState,
 };
 pub use minimap::{init_minimap_system, toggle_minimap_visibility_system, update_minimap_texture_system};
 pub use player_input::{player_movement, sync_boat_with_player};
