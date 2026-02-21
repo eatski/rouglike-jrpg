@@ -137,17 +137,12 @@ pub fn spawn_field_map_with_rng(
         y: map_data.spawn_position.1,
     });
 
-    // 祠座標を収集
-    let mut hokora_positions = Vec::new();
-    for (y, row) in map_data.grid.iter().enumerate() {
-        for (x, &terrain) in row.iter().enumerate() {
-            if terrain == Terrain::Hokora {
-                hokora_positions.push((x, y));
-            }
-        }
-    }
+    // 祠の位置とワープ先を生成データから直接取得
+    let (hokora_positions, warp_destinations): (Vec<_>, Vec<_>) =
+        map_data.hokora_spawns.iter().copied().unzip();
     commands.insert_resource(HokoraPositions {
         positions: hokora_positions,
+        warp_destinations,
     });
 
     let active_map = ActiveMap::from_grid(map_data.grid);

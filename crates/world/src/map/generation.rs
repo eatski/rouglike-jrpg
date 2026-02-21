@@ -38,6 +38,8 @@ const MOUNTAIN_CLUSTER_MAX: usize = 50;
 pub struct MapData {
     pub grid: Vec<Vec<Terrain>>,
     pub spawn_position: (usize, usize),
+    /// 祠の位置とワープ先（配置順: [大陸1, 大陸2]）
+    pub hokora_spawns: Vec<((usize, usize), (usize, usize))>,
 }
 
 /// トーラス距離を計算
@@ -589,6 +591,10 @@ pub fn generate_map(rng: &mut impl Rng) -> MapData {
     }
 
     let hokora_spawns = calculate_hokora_spawns(&grid, rng, &centers, spawn_position);
+    let hokora_spawn_data: Vec<((usize, usize), (usize, usize))> = hokora_spawns
+        .iter()
+        .map(|h| ((h.x, h.y), h.warp_destination))
+        .collect();
     for hokora in &hokora_spawns {
         grid[hokora.y][hokora.x] = Terrain::Hokora;
     }
@@ -602,6 +608,7 @@ pub fn generate_map(rng: &mut impl Rng) -> MapData {
     MapData {
         grid,
         spawn_position,
+        hokora_spawns: hokora_spawn_data,
     }
 }
 

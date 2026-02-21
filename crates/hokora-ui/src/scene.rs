@@ -51,9 +51,9 @@ pub fn setup_hokora_scene(
     hokora_positions: Res<HokoraPositions>,
     player_query: Query<&TilePosition, With<Player>>,
 ) {
-    // 最寄りの祠を特定し、もう一方をワープ先とする
+    // 最寄りの祠を特定し、対応するワープ先を取得
     let warp_destination = if let Ok(pos) = player_query.single() {
-        let entered = hokora_positions
+        hokora_positions
             .positions
             .iter()
             .enumerate()
@@ -62,8 +62,8 @@ pub fn setup_hokora_scene(
                 let dy = pos.y as isize - hy as isize;
                 dx * dx + dy * dy
             })
-            .map(|(i, _)| i);
-        entered.and_then(|i| hokora_positions.positions.get(1 - i).copied())
+            .map(|(i, _)| i)
+            .and_then(|i| hokora_positions.warp_destinations.get(i).copied())
     } else {
         None
     };

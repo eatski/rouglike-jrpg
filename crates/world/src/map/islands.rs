@@ -36,6 +36,8 @@ pub struct HokoraSpawn {
     /// タイル座標
     pub x: usize,
     pub y: usize,
+    /// ワープ先座標
+    pub warp_destination: (usize, usize),
 }
 
 /// 仲間候補の街割り当て情報
@@ -302,6 +304,10 @@ pub fn calculate_cave_spawns(
 ///
 /// 各大陸中心を含む島から Plains タイルを選んで祠を配置する。
 /// `spawn_position` は除外する。
+///
+/// ワープ先:
+/// - 大陸1の祠 → 大陸2のPlainsタイル（何もない場所）
+/// - 大陸2の祠 → 大陸1の祠の座標
 pub fn calculate_hokora_spawns(
     grid: &[Vec<Terrain>],
     rng: &mut impl Rng,
@@ -309,11 +315,13 @@ pub fn calculate_hokora_spawns(
     spawn_position: (usize, usize),
 ) -> Vec<HokoraSpawn> {
     let islands = detect_islands(grid);
-    let mut spawns = Vec::new();
 
-    // 大陸1と大陸2（centers[0]とcenters[1]）に1つずつ配置
-    for &center in continent_centers.iter().take(2) {
-        // この大陸中心を含む島を検出
+    // まず各大陸の祠位置を決定
+    let mut hokora_positions: Vec<(usize, usize)> = Vec::new();
+    // 大陸2のPlainsタイル候補（ワープ先用）
+    let mut continent2_plains: Vec<(usize, usize)> = Vec::new();
+
+    for (idx, &center) in continent_centers.iter().take(2).enumerate() {
         let island = islands.iter().find(|island| island.contains(&center));
         if let Some(island) = island {
             let mut candidates: Vec<(usize, usize)> = island
@@ -324,13 +332,53 @@ pub fn calculate_hokora_spawns(
                 .copied()
                 .collect();
             candidates.shuffle(rng);
-            if let Some(&(x, y)) = candidates.first() {
-                spawns.push(HokoraSpawn { x, y });
+            if let Some(&pos) = candidates.first() {
+                hokora_positions.push(pos);
+            }
+            // 大陸2のPlains候補を保存
+            if idx == 1 {
+                continent2_plains = candidates;
             }
         }
     }
 
-    spawns
+    if hokora_positions.len() < 2 {
+        // 2つの大陸に配置できなかった場合はフォールバック
+        return hokora_positions
+            .into_iter()
+            .map(|(x, y)| HokoraSpawn {
+                x,
+                y,
+                warp_destination: (x, y),
+            })
+            .collect();
+    }
+
+    let hokora0 = hokora_positions[0]; // 大陸1の祠
+    let hokora1 = hokora_positions[1]; // 大陸2の祠
+
+    // 大陸1の祠のワープ先: 大陸2のPlainsタイル（祠自体は除外）
+    let warp_dest_0 = continent2_plains
+        .iter()
+        .find(|&&pos| pos != hokora1)
+        .copied()
+        .unwrap_or(hokora1); // フォールバック: 大陸2の祠
+
+    // 大陸2の祠のワープ先: 大陸1の祠
+    let warp_dest_1 = hokora0;
+
+    vec![
+        HokoraSpawn {
+            x: hokora0.0,
+            y: hokora0.1,
+            warp_destination: warp_dest_0,
+        },
+        HokoraSpawn {
+            x: hokora1.0,
+            y: hokora1.1,
+            warp_destination: warp_dest_1,
+        },
+    ]
 }
 
 /// スポーン大陸に追加の街を配置する

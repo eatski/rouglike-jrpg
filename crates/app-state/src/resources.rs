@@ -42,6 +42,8 @@ pub struct FieldMenuOpen;
 #[derive(Resource, Default)]
 pub struct HokoraPositions {
     pub positions: Vec<(usize, usize)>,
+    /// 各祠のワープ先座標（positionsと同じ順序）
+    pub warp_destinations: Vec<(usize, usize)>,
 }
 
 /// 取得済み宝箱を管理するリソース

@@ -95,6 +95,6 @@ fn handle_open_door(
     tile_pos.x = dest_x;
     tile_pos.y = dest_y;
     hokora_res.phase = HokoraMenuPhase::ShowMessage {
-        message: "とびらが ひらいた！\nべつの ほこらに ワープした！".to_string(),
+        message: "とびらが ひらいた！\nとおい ばしょに ワープした！".to_string(),
     };
 }
