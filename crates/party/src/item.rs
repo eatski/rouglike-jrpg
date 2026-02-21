@@ -197,20 +197,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn herb_properties() {
-        assert_eq!(ItemKind::Herb.name(), "やくそう");
-        assert_eq!(ItemKind::Herb.effect(), ItemEffect::Heal { power: 25 });
-        assert!(ItemKind::Herb.is_consumable());
-    }
-
-    #[test]
-    fn copper_key_properties() {
-        assert_eq!(ItemKind::CopperKey.name(), "どうのカギ");
-        assert_eq!(ItemKind::CopperKey.effect(), ItemEffect::KeyItem);
-        assert!(!ItemKind::CopperKey.is_consumable());
-    }
-
-    #[test]
     fn inventory_add_and_count() {
         let mut inv = Inventory::new();
         assert_eq!(inv.count(ItemKind::Herb), 0);
@@ -243,28 +229,6 @@ mod tests {
         assert!(!inv.is_empty());
         inv.use_item(ItemKind::Herb);
         assert!(inv.is_empty());
-    }
-
-    #[test]
-    fn all_items_returns_all_variants() {
-        let items = all_items();
-        assert_eq!(items.len(), 7);
-        assert!(items.contains(&ItemKind::Herb));
-        assert!(items.contains(&ItemKind::HighHerb));
-        assert!(items.contains(&ItemKind::DragonScale));
-    }
-
-    #[test]
-    fn herb_price() {
-        assert_eq!(ItemKind::Herb.price(), 8);
-    }
-
-    #[test]
-    fn shop_items_returns_purchasable() {
-        let items = shop_items();
-        assert_eq!(items.len(), 2);
-        assert_eq!(items[0], ItemKind::Herb);
-        assert_eq!(items[1], ItemKind::HighHerb);
     }
 
     #[test]

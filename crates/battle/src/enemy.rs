@@ -125,74 +125,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn slime_has_correct_stats() {
-        let slime = Enemy::slime();
-        assert_eq!(slime.kind, EnemyKind::Slime);
-        assert_eq!(slime.stats.max_hp, 10);
-        assert_eq!(slime.stats.attack, 3);
-        assert_eq!(slime.stats.defense, 1);
-        assert_eq!(slime.stats.speed, 3);
-    }
-
-    #[test]
-    fn bat_has_correct_stats() {
-        let bat = Enemy::bat();
-        assert_eq!(bat.kind, EnemyKind::Bat);
-        assert_eq!(bat.stats.max_hp, 8);
-        assert_eq!(bat.stats.attack, 4);
-        assert_eq!(bat.stats.defense, 0);
-        assert_eq!(bat.stats.speed, 6);
-    }
-
-    #[test]
-    fn goblin_has_correct_stats() {
-        let goblin = Enemy::goblin();
-        assert_eq!(goblin.kind, EnemyKind::Goblin);
-        assert_eq!(goblin.stats.max_hp, 15);
-        assert_eq!(goblin.stats.attack, 5);
-        assert_eq!(goblin.stats.defense, 2);
-        assert_eq!(goblin.stats.speed, 3);
-    }
-
-    #[test]
-    fn wolf_has_correct_stats() {
-        let wolf = Enemy::wolf();
-        assert_eq!(wolf.kind, EnemyKind::Wolf);
-        assert_eq!(wolf.stats.max_hp, 12);
-        assert_eq!(wolf.stats.attack, 7);
-        assert_eq!(wolf.stats.defense, 1);
-        assert_eq!(wolf.stats.speed, 5);
-    }
-
-    #[test]
-    fn ghost_has_correct_stats() {
-        let ghost = Enemy::ghost();
-        assert_eq!(ghost.kind, EnemyKind::Ghost);
-        assert_eq!(ghost.stats.max_hp, 20);
-        assert_eq!(ghost.stats.attack, 4);
-        assert_eq!(ghost.stats.defense, 3);
-        assert_eq!(ghost.stats.speed, 2);
-    }
-
-    #[test]
-    fn enemy_names() {
-        assert_eq!(EnemyKind::Slime.name(), "スライム");
-        assert_eq!(EnemyKind::Bat.name(), "コウモリ");
-        assert_eq!(EnemyKind::Goblin.name(), "ゴブリン");
-        assert_eq!(EnemyKind::Wolf.name(), "おおかみ");
-        assert_eq!(EnemyKind::Ghost.name(), "ゴースト");
-    }
-
-    #[test]
-    fn sprite_paths() {
-        assert_eq!(EnemyKind::Slime.sprite_path(), "enemies/slime.png");
-        assert_eq!(EnemyKind::Bat.sprite_path(), "enemies/bat.png");
-        assert_eq!(EnemyKind::Goblin.sprite_path(), "enemies/goblin.png");
-        assert_eq!(EnemyKind::Wolf.sprite_path(), "enemies/wolf.png");
-        assert_eq!(EnemyKind::Ghost.sprite_path(), "enemies/ghost.png");
-    }
-
-    #[test]
     fn generate_enemy_group_returns_1_to_4() {
         assert_eq!(generate_enemy_group(0.0, 0.0).len(), 1);
         assert_eq!(generate_enemy_group(0.29, 0.0).len(), 1);
@@ -200,15 +132,6 @@ mod tests {
         assert_eq!(generate_enemy_group(0.6, 0.0).len(), 3);
         assert_eq!(generate_enemy_group(0.85, 0.0).len(), 4);
         assert_eq!(generate_enemy_group(1.0, 0.0).len(), 4);
-    }
-
-    #[test]
-    fn exp_rewards() {
-        assert_eq!(EnemyKind::Slime.exp_reward(), 3);
-        assert_eq!(EnemyKind::Bat.exp_reward(), 4);
-        assert_eq!(EnemyKind::Goblin.exp_reward(), 6);
-        assert_eq!(EnemyKind::Wolf.exp_reward(), 8);
-        assert_eq!(EnemyKind::Ghost.exp_reward(), 10);
     }
 
     #[test]

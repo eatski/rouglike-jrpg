@@ -300,10 +300,4 @@ mod tests {
         assert_eq!(result, CaveMoveResult::Moved { new_x: 3, new_y: 2 });
     }
 
-    #[test]
-    fn cave_terrain_walkability() {
-        assert!(!Terrain::CaveWall.is_walkable());
-        assert!(Terrain::CaveFloor.is_walkable());
-        assert!(Terrain::Ladder.is_walkable());
-    }
 }

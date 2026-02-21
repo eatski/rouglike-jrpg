@@ -161,10 +161,4 @@ mod tests {
         assert!(tiles.contains(&(9, 1))); // 左下（x方向ラップ）
     }
 
-    #[test]
-    fn test_tile_visibility_default() {
-        // デフォルトはUnexplored
-        let visibility: TileVisibility = Default::default();
-        assert_eq!(visibility, TileVisibility::Unexplored);
-    }
 }

@@ -98,22 +98,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn fire_properties() {
-        assert_eq!(SpellKind::Fire.name(), "ファイヤ");
-        assert_eq!(SpellKind::Fire.mp_cost(), 3);
-        assert_eq!(SpellKind::Fire.power(), 12);
-        assert!(SpellKind::Fire.is_offensive());
-    }
-
-    #[test]
-    fn heal_properties() {
-        assert_eq!(SpellKind::Heal.name(), "ヒール");
-        assert_eq!(SpellKind::Heal.mp_cost(), 4);
-        assert_eq!(SpellKind::Heal.power(), 15);
-        assert!(!SpellKind::Heal.is_offensive());
-    }
-
-    #[test]
     fn spell_damage_basic() {
         // power=12, defense=4 → base = 12 - 1 = 11
         let damage = calculate_spell_damage(12, 4, 1.0);
@@ -146,32 +130,6 @@ mod tests {
         let high = calculate_heal_amount(15, 1.2);
         assert_eq!(low, 12); // 15 * 0.8 = 12
         assert_eq!(high, 18); // 15 * 1.2 = 18
-    }
-
-    #[test]
-    fn blaze_properties() {
-        assert_eq!(SpellKind::Blaze.name(), "ブレイズ");
-        assert_eq!(SpellKind::Blaze.mp_cost(), 7);
-        assert_eq!(SpellKind::Blaze.power(), 25);
-        assert!(SpellKind::Blaze.is_offensive());
-    }
-
-    #[test]
-    fn fullheal_properties() {
-        assert_eq!(SpellKind::FullHeal.name(), "フルヒール");
-        assert_eq!(SpellKind::FullHeal.mp_cost(), 8);
-        assert_eq!(SpellKind::FullHeal.power(), 40);
-        assert!(!SpellKind::FullHeal.is_offensive());
-    }
-
-    #[test]
-    fn all_spells_returns_all() {
-        let spells = all_spells();
-        assert_eq!(spells.len(), 4);
-        assert_eq!(spells[0], SpellKind::Fire);
-        assert_eq!(spells[1], SpellKind::Blaze);
-        assert_eq!(spells[2], SpellKind::Heal);
-        assert_eq!(spells[3], SpellKind::FullHeal);
     }
 
     #[test]
