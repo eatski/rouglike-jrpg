@@ -116,8 +116,10 @@ pub fn try_boat_move_or_disembark(
 
     if grid[new_y][new_x].is_navigable() {
         BoatMoveResult::MovedOnSea { new_x, new_y }
-    } else {
+    } else if grid[new_y][new_x].is_walkable() {
         BoatMoveResult::Disembarked { new_x, new_y }
+    } else {
+        BoatMoveResult::Blocked
     }
 }
 
@@ -206,6 +208,16 @@ mod tests {
         let grid = create_test_grid(Terrain::Sea);
 
         let result = try_boat_move_or_disembark(5, 5, 1, 1, &grid);
+
+        assert_eq!(result, BoatMoveResult::Blocked);
+    }
+
+    #[test]
+    fn try_boat_move_or_disembark_blocked_by_mountain() {
+        let mut grid = create_test_grid(Terrain::Sea);
+        grid[5][6] = Terrain::Mountain;
+
+        let result = try_boat_move_or_disembark(5, 5, 1, 0, &grid);
 
         assert_eq!(result, BoatMoveResult::Blocked);
     }
