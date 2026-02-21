@@ -3,8 +3,8 @@ mod resources;
 use bevy::prelude::*;
 
 pub use resources::{
-    Continent1CavePositions, FieldMenuOpen, HokoraPositions, OpenedChests, PartyState,
-    RecruitmentMap,
+    BossBattlePending, BossDefeated, Continent1CavePositions, FieldMenuOpen, HokoraPositions,
+    OpenedChests, PartyState, RecruitmentMap,
 };
 
 pub struct AppStatePlugin;
@@ -26,6 +26,7 @@ pub enum SceneState {
     Exploring,
     Town,
     Cave,
+    BossCave,
     Hokora,
 }
 
@@ -47,7 +48,8 @@ impl ComputedStates for InField {
     fn compute(sources: Self::SourceStates) -> Option<Self> {
         match sources {
             (SceneState::Exploring, BattleState::None)
-            | (SceneState::Cave, BattleState::None) => Some(InField),
+            | (SceneState::Cave, BattleState::None)
+            | (SceneState::BossCave, BattleState::None) => Some(InField),
             _ => None,
         }
     }

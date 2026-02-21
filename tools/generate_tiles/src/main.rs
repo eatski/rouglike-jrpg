@@ -22,11 +22,16 @@ fn main() {
     generate_town(tiles_dir);
     generate_hokora(tiles_dir);
     generate_cave(tiles_dir);
+    generate_boss_cave(tiles_dir);
+    generate_dark_plains(tiles_dir);
+    generate_dark_forest(tiles_dir);
     generate_coast_tiles(tiles_dir);
 
     // 洞窟内部タイルを生成
     generate_cave_wall(tiles_dir);
     generate_cave_floor(tiles_dir);
+    generate_boss_cave_wall(tiles_dir);
+    generate_boss_cave_floor(tiles_dir);
     generate_warp_zone(tiles_dir);
     generate_ladder(tiles_dir);
     generate_chest(tiles_dir);
@@ -41,6 +46,7 @@ fn main() {
     generate_goblin(enemies_dir);
     generate_wolf(enemies_dir);
     generate_ghost(enemies_dir);
+    generate_dark_lord(enemies_dir);
 
     println!("Assets generated in assets/");
 }

@@ -243,7 +243,10 @@ pub fn calculate_town_spawns(
 
         let mut candidates: Vec<(usize, usize)> = island
             .iter()
-            .filter(|&pos| grid[pos.1][pos.0] == Terrain::Plains && *pos != spawn_position)
+            .filter(|&pos| {
+                matches!(grid[pos.1][pos.0], Terrain::Plains | Terrain::DarkPlains)
+                    && *pos != spawn_position
+            })
             .copied()
             .collect();
 
@@ -273,9 +276,11 @@ const CAVES_PER_ISLAND: usize = 2;
 /// 各島に洞窟スポーン位置を計算
 ///
 /// 各島の Mountain タイルからランダムに `CAVES_PER_ISLAND` 個選択する。
+/// `boss_continent_center` が指定された場合、その大陸中心を含む島はスキップする。
 pub fn calculate_cave_spawns(
     grid: &[Vec<Terrain>],
     rng: &mut impl Rng,
+    boss_continent_center: Option<(usize, usize)>,
 ) -> Vec<CaveSpawn> {
     let islands = detect_islands(grid);
     let mut spawns = Vec::new();
@@ -283,6 +288,13 @@ pub fn calculate_cave_spawns(
     for island in &islands {
         if island.len() < MIN_ISLAND_SIZE_FOR_TOWNS {
             continue;
+        }
+
+        // ボス大陸の島には通常洞窟を配置しない
+        if let Some(center) = boss_continent_center {
+            if island.contains(&center) {
+                continue;
+            }
         }
 
         let mut candidates: Vec<(usize, usize)> = island
@@ -298,6 +310,29 @@ pub fn calculate_cave_spawns(
     }
 
     spawns
+}
+
+/// ボス洞窟のスポーン位置を計算
+///
+/// ボス大陸中心を含む島の Mountain タイルから1つ選択する。
+pub fn calculate_boss_cave_spawn(
+    grid: &[Vec<Terrain>],
+    rng: &mut impl Rng,
+    boss_continent_center: (usize, usize),
+) -> Option<(usize, usize)> {
+    let islands = detect_islands(grid);
+    let island = islands
+        .iter()
+        .find(|island| island.contains(&boss_continent_center))?;
+
+    let mut candidates: Vec<(usize, usize)> = island
+        .iter()
+        .filter(|&&(x, y)| grid[y][x] == Terrain::Mountain)
+        .copied()
+        .collect();
+
+    candidates.shuffle(rng);
+    candidates.first().copied()
 }
 
 /// 大陸1と大陸2に祠を1つずつ配置する

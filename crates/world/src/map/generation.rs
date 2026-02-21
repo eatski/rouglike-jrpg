@@ -6,8 +6,8 @@ use std::collections::{HashSet, VecDeque};
 
 use crate::coordinates::{orthogonal_neighbors, wrap_position};
 use crate::map::islands::{
-    calculate_cave_spawns, calculate_hokora_spawns, calculate_town_spawns, detect_islands,
-    validate_connectivity,
+    calculate_boss_cave_spawn, calculate_cave_spawns, calculate_hokora_spawns,
+    calculate_town_spawns, detect_islands, validate_connectivity,
 };
 
 /// 大大陸の目標タイル数（大陸1,2用。侵食・湖で減るため多めに生成）
@@ -40,6 +40,7 @@ pub struct MapData {
     pub spawn_position: (usize, usize),
     /// 祠の位置とワープ先（配置順: [大陸1, 大陸2]）
     pub hokora_spawns: Vec<((usize, usize), (usize, usize))>,
+    pub boss_cave_position: Option<(usize, usize)>,
 }
 
 /// トーラス距離を計算
@@ -217,14 +218,14 @@ fn grow_continents(
 /// 2パス実行することで、より複雑な海岸線を生成する。
 fn erode_coastline(
     grid: &mut Vec<Vec<Terrain>>,
-    spawn_position: (usize, usize),
+    protected: &[(usize, usize)],
     rng: &mut impl Rng,
 ) {
     for _ in 0..2 {
         let coastal: Vec<(usize, usize)> = (0..MAP_HEIGHT)
             .flat_map(|y| (0..MAP_WIDTH).map(move |x| (x, y)))
             .filter(|&(x, y)| {
-                if grid[y][x] == Terrain::Sea || (x, y) == spawn_position {
+                if grid[y][x] == Terrain::Sea || protected.contains(&(x, y)) {
                     return false;
                 }
                 // 隣接に海が2つ以上あるタイルを優先的に侵食
@@ -235,7 +236,7 @@ fn erode_coastline(
             .collect();
 
         for &(x, y) in &coastal {
-            if (x, y) == spawn_position {
+            if protected.contains(&(x, y)) {
                 continue;
             }
             let sea_neighbors = orthogonal_neighbors(x, y)
@@ -260,7 +261,7 @@ fn erode_coastline(
 /// 内陸（海に隣接しない）の陸地にクラスタ状の湖を生成する。
 fn place_lakes(
     grid: &mut Vec<Vec<Terrain>>,
-    spawn_position: (usize, usize),
+    protected: &[(usize, usize)],
     rng: &mut impl Rng,
 ) {
     const LAKE_CLUSTERS: usize = 60;
@@ -271,7 +272,7 @@ fn place_lakes(
     let inland: Vec<(usize, usize)> = (0..MAP_HEIGHT)
         .flat_map(|y| (0..MAP_WIDTH).map(move |x| (x, y)))
         .filter(|&(x, y)| {
-            if grid[y][x] == Terrain::Sea || (x, y) == spawn_position {
+            if grid[y][x] == Terrain::Sea || protected.contains(&(x, y)) {
                 return false;
             }
             // 全隣接が陸地（= 内陸部）
@@ -301,12 +302,12 @@ fn place_lakes(
             let idx = rng.gen_range(0..frontier.len());
             let (cx, cy) = frontier[idx];
 
-            if grid[cy][cx] != Terrain::Sea && (cx, cy) != spawn_position {
+            if grid[cy][cx] != Terrain::Sea && !protected.contains(&(cx, cy)) {
                 grid[cy][cx] = Terrain::Sea;
                 placed += 1;
 
                 for (nx, ny) in orthogonal_neighbors(cx, cy) {
-                    if grid[ny][nx] != Terrain::Sea && (nx, ny) != spawn_position {
+                    if grid[ny][nx] != Terrain::Sea && !protected.contains(&(nx, ny)) {
                         frontier.push((nx, ny));
                     }
                 }
@@ -322,7 +323,7 @@ fn place_lakes(
 /// spawn_position を含む島は保護する。
 fn remove_tiny_islands(
     grid: &mut Vec<Vec<Terrain>>,
-    spawn_position: (usize, usize),
+    protected: &[(usize, usize)],
 ) {
     const MIN_ISLAND_SIZE: usize = 8;
 
@@ -332,8 +333,8 @@ fn remove_tiny_islands(
         if island.len() >= MIN_ISLAND_SIZE {
             continue;
         }
-        // spawn_position を含む島は除去しない
-        if island.iter().any(|&(x, y)| (x, y) == spawn_position) {
+        // 保護タイルを含む島は除去しない
+        if island.iter().any(|&pos| protected.contains(&pos)) {
             continue;
         }
         for &(x, y) in island {
@@ -583,14 +584,20 @@ pub fn generate_map(rng: &mut impl Rng) -> MapData {
     // spawn_position が Plains であることを保証
     grid[spawn_position.1][spawn_position.0] = Terrain::Plains;
 
+    // 保護するタイル（spawn_position + ボス大陸中心）
+    let mut protected = vec![spawn_position];
+    if let Some(&boss_center) = centers.get(4) {
+        protected.push(boss_center);
+    }
+
     // Phase 2.5a: 海岸線侵食（入り江・湾の生成）
-    erode_coastline(&mut grid, spawn_position, rng);
+    erode_coastline(&mut grid, &protected, rng);
 
     // Phase 2.5b: 内陸湖の配置
-    place_lakes(&mut grid, spawn_position, rng);
+    place_lakes(&mut grid, &protected, rng);
 
     // Phase 2.5c: 極小の島を除去
-    remove_tiny_islands(&mut grid, spawn_position);
+    remove_tiny_islands(&mut grid, &protected);
 
     // spawn_position が Plains であることを再保証
     grid[spawn_position.1][spawn_position.0] = Terrain::Plains;
@@ -607,9 +614,18 @@ pub fn generate_map(rng: &mut impl Rng) -> MapData {
         grid[town.y][town.x] = Terrain::Town;
     }
 
-    let cave_spawns = calculate_cave_spawns(&grid, rng);
+    // 5番目の大陸(centers[4])をボス大陸として扱い、通常洞窟を配置しない
+    let boss_continent_center = centers.get(4).copied();
+    let cave_spawns = calculate_cave_spawns(&grid, rng, boss_continent_center);
     for cave in &cave_spawns {
         grid[cave.y][cave.x] = Terrain::Cave;
+    }
+
+    // ボス洞窟を5番目の大陸に配置
+    let boss_cave_position = boss_continent_center
+        .and_then(|center| calculate_boss_cave_spawn(&grid, rng, center));
+    if let Some((bx, by)) = boss_cave_position {
+        grid[by][bx] = Terrain::BossCave;
     }
 
     let hokora_spawns = calculate_hokora_spawns(&grid, rng, &centers, spawn_position);
@@ -624,8 +640,22 @@ pub fn generate_map(rng: &mut impl Rng) -> MapData {
     // spawn_position が Plains であることを最終保証
     grid[spawn_position.1][spawn_position.0] = Terrain::Plains;
 
-    // Phase 4.5: 特殊タイルの周囲2マスを歩行可能にする
+    // Phase 4.5a: 特殊タイルの周囲2マスを歩行可能にする
     clear_around_special_tiles(&mut grid);
+
+    // Phase 4.5b: ボス大陸（5番目の大陸）の平地・森を暗いバリアントに置換
+    if let Some(&boss_center) = centers.get(4) {
+        let islands = detect_islands(&grid);
+        if let Some(boss_island) = islands.iter().find(|island| island.contains(&boss_center)) {
+            for &(x, y) in boss_island {
+                match grid[y][x] {
+                    Terrain::Plains => grid[y][x] = Terrain::DarkPlains,
+                    Terrain::Forest => grid[y][x] = Terrain::DarkForest,
+                    _ => {}
+                }
+            }
+        }
+    }
 
     // Phase 5: 歩行可能タイルの連結性を保証（山で道が塞がれないようにする）
     ensure_walkable_connectivity(&mut grid);
@@ -634,6 +664,7 @@ pub fn generate_map(rng: &mut impl Rng) -> MapData {
         grid,
         spawn_position,
         hokora_spawns: hokora_spawn_data,
+        boss_cave_position,
     }
 }
 

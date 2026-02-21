@@ -1,6 +1,9 @@
 mod boat;
+mod boss_cave;
 mod cave;
 mod coast;
+mod dark_forest;
+mod dark_plains;
 mod forest;
 mod hokora;
 mod mountain;
@@ -9,8 +12,11 @@ mod sea;
 mod town;
 
 pub use boat::generate_boat;
+pub use boss_cave::generate_boss_cave;
 pub use cave::generate_cave;
 pub use coast::generate_coast_tiles;
+pub use dark_forest::generate_dark_forest;
+pub use dark_plains::generate_dark_plains;
 pub use forest::generate_forest;
 pub use hokora::generate_hokora;
 pub use mountain::generate_mountain;

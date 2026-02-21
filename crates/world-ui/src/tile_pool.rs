@@ -96,6 +96,11 @@ fn get_terrain_texture(terrain: Terrain, textures: &TileTextures) -> Handle<Imag
         Terrain::WarpZone => textures.warp_zone.clone(),
         Terrain::Ladder => textures.ladder.clone(),
         Terrain::Hokora => textures.hokora.clone(),
+        Terrain::BossCave => textures.boss_cave.clone(),
+        Terrain::BossCaveWall => textures.boss_cave_wall.clone(),
+        Terrain::BossCaveFloor => textures.boss_cave_floor.clone(),
+        Terrain::DarkPlains => textures.dark_plains.clone(),
+        Terrain::DarkForest => textures.dark_forest.clone(),
     }
 }
 

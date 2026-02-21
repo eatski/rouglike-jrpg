@@ -34,6 +34,10 @@ pub fn check_tile_action_system(
                 next_state.set(SceneState::Cave);
                 return;
             }
+            TileAction::EnterBossCave => {
+                next_state.set(SceneState::BossCave);
+                return;
+            }
             TileAction::EnterHokora => {
                 next_state.set(SceneState::Hokora);
                 return;

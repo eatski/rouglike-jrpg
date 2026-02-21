@@ -153,6 +153,95 @@ pub fn generate_cave_map(rng: &mut impl Rng, guaranteed_items: &[TreasureContent
     }
 }
 
+pub struct BossCaveMapData {
+    pub grid: Vec<Vec<Terrain>>,
+    pub width: usize,
+    pub height: usize,
+    pub spawn_position: (usize, usize),
+    pub boss_position: (usize, usize),
+}
+
+const BOSS_CAVE_WALK_STEPS: usize = 600;
+
+pub fn generate_boss_cave_map(rng: &mut impl Rng) -> BossCaveMapData {
+    let mut grid = vec![vec![Terrain::BossCaveWall; CAVE_WIDTH]; CAVE_HEIGHT];
+
+    // ランダムウォークで通路を掘る（ステップ数が多いのでより広い洞窟）
+    let mut x = CAVE_WIDTH / 2;
+    let mut y = CAVE_HEIGHT / 2;
+    grid[y][x] = Terrain::BossCaveFloor;
+
+    let directions: [(i32, i32); 4] = [(0, -1), (0, 1), (-1, 0), (1, 0)];
+
+    for _ in 0..BOSS_CAVE_WALK_STEPS {
+        let (dx, dy) = directions[rng.gen_range(0..4)];
+        let nx = x as i32 + dx;
+        let ny = y as i32 + dy;
+
+        if nx >= 1 && nx < (CAVE_WIDTH as i32 - 1) && ny >= 1 && ny < (CAVE_HEIGHT as i32 - 1) {
+            x = nx as usize;
+            y = ny as usize;
+            grid[y][x] = Terrain::BossCaveFloor;
+        }
+    }
+
+    let spawn_position = (CAVE_WIDTH / 2, CAVE_HEIGHT / 2);
+
+    // スポーン地点に梯子を配置
+    grid[spawn_position.1][spawn_position.0] = Terrain::Ladder;
+
+    // ボス位置: スポーンから最も遠い床タイル
+    let boss_position = find_boss_position(&grid, spawn_position);
+
+    BossCaveMapData {
+        grid,
+        width: CAVE_WIDTH,
+        height: CAVE_HEIGHT,
+        spawn_position,
+        boss_position,
+    }
+}
+
+/// スポーンから最も遠い床タイルをボス位置とする（BFS距離）
+fn find_boss_position(grid: &[Vec<Terrain>], spawn: (usize, usize)) -> (usize, usize) {
+    use std::collections::VecDeque;
+
+    let mut dist = vec![vec![u32::MAX; CAVE_WIDTH]; CAVE_HEIGHT];
+    let mut queue = VecDeque::new();
+
+    dist[spawn.1][spawn.0] = 0;
+    queue.push_back(spawn);
+
+    let mut farthest = spawn;
+    let mut max_dist = 0u32;
+
+    while let Some((cx, cy)) = queue.pop_front() {
+        let d = dist[cy][cx];
+        for &(dx, dy) in &[(0i32, -1i32), (0, 1), (-1, 0), (1, 0)] {
+            let nx = cx as i32 + dx;
+            let ny = cy as i32 + dy;
+            if nx < 0 || nx >= CAVE_WIDTH as i32 || ny < 0 || ny >= CAVE_HEIGHT as i32 {
+                continue;
+            }
+            let (ux, uy) = (nx as usize, ny as usize);
+            if dist[uy][ux] != u32::MAX {
+                continue;
+            }
+            if !grid[uy][ux].is_walkable() {
+                continue;
+            }
+            dist[uy][ux] = d + 1;
+            if d + 1 > max_dist {
+                max_dist = d + 1;
+                farthest = (ux, uy);
+            }
+            queue.push_back((ux, uy));
+        }
+    }
+
+    farthest
+}
+
 fn random_treasure_content(rng: &mut impl Rng) -> TreasureContent {
     // (中身, 重み)
     let table: &[(TreasureContent, u32)] = &[

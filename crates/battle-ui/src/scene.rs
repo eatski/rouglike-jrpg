@@ -1,10 +1,10 @@
 use bevy::prelude::*;
 
-use battle::{generate_enemy_group, BattleAction, BattleState, EnemyKind, ItemKind, SpellKind};
+use battle::{generate_enemy_group, BattleAction, BattleState, Enemy, EnemyKind, ItemKind, SpellKind};
 
 use movement_ui::{Bounce, MovementLocked, PendingMove, Player};
-use app_state::PartyState;
-use movement_ui::MovementState;
+use app_state::{BossBattlePending, PartyState};
+use movement_ui::{ActiveMap, MovementState};
 
 use super::display::{
     CommandCursor, EnemyNameLabel, MessageText, PartyMemberHpBarFill, PartyMemberHpText,
@@ -250,8 +250,18 @@ pub fn setup_battle_scene(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     party_state: Res<PartyState>,
+    boss_battle: Option<Res<BossBattlePending>>,
 ) {
-    setup_battle_scene_inner(&mut commands, &asset_server, &party_state, BattleSceneConfig::random());
+    let config = if boss_battle.is_some() {
+        commands.remove_resource::<BossBattlePending>();
+        BattleSceneConfig {
+            enemies: vec![Enemy::dark_lord()],
+            initial_phase: None,
+        }
+    } else {
+        BattleSceneConfig::random()
+    };
+    setup_battle_scene_inner(&mut commands, &asset_server, &party_state, config);
 }
 
 /// BattleSceneConfigリソースから設定を読んでシーンを構築するシステム
@@ -628,6 +638,8 @@ pub fn cleanup_battle_scene(
     mut move_state: ResMut<MovementState>,
     game_state: Res<BattleGameState>,
     mut party_state: ResMut<PartyState>,
+    _active_map: Res<ActiveMap>,
+    boss_cave_state: Option<Res<cave_ui::BossCaveState>>,
 ) {
     // 戦闘結果を永続状態に書き戻す
     for (i, member) in game_state.state.party.iter().enumerate() {
@@ -638,6 +650,11 @@ pub fn cleanup_battle_scene(
                 persistent.stats.hp = 1;
             }
         }
+    }
+
+    // ボス洞窟で戦闘勝利した場合、ボス撃破フラグを設定
+    if boss_cave_state.is_some() && game_state.state.enemies.iter().all(|e| e.stats.hp <= 0) {
+        commands.insert_resource(app_state::BossDefeated);
     }
 
     for entity in &query {

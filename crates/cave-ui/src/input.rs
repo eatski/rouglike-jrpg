@@ -3,7 +3,7 @@ use bevy::prelude::*;
 use cave::{try_cave_move, CaveMoveResult, TreasureContent};
 use terrain::Terrain;
 
-use app_state::{OpenedChests, PartyState, SceneState};
+use app_state::{BossBattlePending, OpenedChests, PartyState, SceneState};
 use movement_ui::{
     MovementBlockedEvent, MovementLocked, PendingMove, Player, PlayerArrivedEvent,
     PlayerMovedEvent, SmoothMove, TileEnteredEvent, TilePosition,
@@ -13,7 +13,7 @@ use movement_ui::{ActiveMap, MovementState, TILE_SIZE};
 
 use world_ui::{MapModeState, TileTextures};
 
-use crate::scene::{CaveMessageState, CaveMessageUI, CaveTreasures, ChestEntity};
+use crate::scene::{BossCaveState, BossEntity, CaveMessageState, CaveMessageUI, CaveTreasures, ChestEntity};
 
 const MOVE_DURATION: f32 = 0.15;
 
@@ -455,6 +455,35 @@ pub fn cave_message_display_system(
         None => {
             for entity in &existing_ui {
                 commands.entity(entity).despawn();
+            }
+        }
+    }
+}
+
+/// ボスに隣接したら戦闘を開始するシステム
+pub fn check_boss_proximity_system(
+    mut commands: Commands,
+    mut events: MessageReader<TileEnteredEvent>,
+    player_query: Query<&TilePosition, With<Player>>,
+    boss_query: Query<&BossEntity>,
+    _boss_cave_state: Option<Res<BossCaveState>>,
+    mut next_battle_state: ResMut<NextState<app_state::BattleState>>,
+) {
+    for _event in events.read() {
+        let Ok(tile_pos) = player_query.single() else {
+            continue;
+        };
+
+        for boss in boss_query.iter() {
+            let dx = (tile_pos.x as i32 - boss.tile_x as i32).abs();
+            let dy = (tile_pos.y as i32 - boss.tile_y as i32).abs();
+
+            // 隣接（上下左右）チェック
+            if (dx == 1 && dy == 0) || (dx == 0 && dy == 1) {
+                // ボス戦闘トリガーを挿入
+                commands.insert_resource(BossBattlePending);
+                next_battle_state.set(app_state::BattleState::Active);
+                return;
             }
         }
     }

@@ -5,6 +5,7 @@ pub const MAP_HEIGHT: usize = 150;
 pub enum TileAction {
     EnterTown,
     EnterCave,
+    EnterBossCave,
     EnterHokora,
     None,
 }
@@ -22,6 +23,11 @@ pub enum Terrain {
     WarpZone,
     Ladder,
     Hokora,
+    BossCave,
+    BossCaveWall,
+    BossCaveFloor,
+    DarkPlains,
+    DarkForest,
 }
 
 impl Terrain {
@@ -31,6 +37,7 @@ impl Terrain {
         match self {
             Terrain::Town => TileAction::EnterTown,
             Terrain::Cave => TileAction::EnterCave,
+            Terrain::BossCave => TileAction::EnterBossCave,
             Terrain::Hokora => TileAction::EnterHokora,
             _ => TileAction::None,
         }
@@ -40,19 +47,20 @@ impl Terrain {
     #[inline]
     pub fn encounter_rate(self) -> f32 {
         match self {
-            Terrain::Plains => 0.02,
-            Terrain::Forest => 0.03,
+            Terrain::Plains | Terrain::DarkPlains => 0.02,
+            Terrain::Forest | Terrain::DarkForest => 0.03,
             Terrain::Mountain => 0.08,
             Terrain::Sea => 0.10,
             Terrain::CaveFloor => 0.05,
-            Terrain::Town | Terrain::Cave | Terrain::CaveWall | Terrain::WarpZone | Terrain::Ladder | Terrain::Hokora => 0.0,
+            Terrain::Town | Terrain::Cave | Terrain::CaveWall | Terrain::WarpZone | Terrain::Ladder | Terrain::Hokora
+            | Terrain::BossCave | Terrain::BossCaveWall | Terrain::BossCaveFloor => 0.0,
         }
     }
 
     /// 徒歩で通行可能かどうかを判定
     #[inline]
     pub fn is_walkable(self) -> bool {
-        !matches!(self, Terrain::Sea | Terrain::Mountain | Terrain::CaveWall)
+        !matches!(self, Terrain::Sea | Terrain::Mountain | Terrain::CaveWall | Terrain::BossCaveWall)
     }
 
     /// 船で航行可能かどうかを判定
