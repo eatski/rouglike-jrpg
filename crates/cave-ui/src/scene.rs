@@ -8,7 +8,7 @@ use cave::{generate_boss_cave_map, generate_cave_map, TreasureChest, TreasureCon
 use party::ItemKind;
 use terrain::Terrain;
 
-use app_state::{BossDefeated, Continent1CavePositions, OpenedChests};
+use app_state::{BossDefeated, ContinentCavePositions, OpenedChests};
 use movement_ui::{
     Boat, Bounce, MapTile, MovementLocked, PendingMove, Player, SmoothMove, TilePosition,
 };
@@ -84,7 +84,7 @@ pub fn setup_cave_scene(
     opened_chests: Res<OpenedChests>,
     mut boat_spawns: ResMut<BoatSpawnsResource>,
     mut map_mode_state: ResMut<MapModeState>,
-    continent1_caves: Res<Continent1CavePositions>,
+    continent_caves: Res<ContinentCavePositions>,
 ) {
     // ワールドでマップモードがONのまま洞窟に入った場合にリセット
     map_mode_state.enabled = false;
@@ -119,8 +119,13 @@ pub fn setup_cave_scene(
     let seed = tile_pos.x as u64 * 10007 + tile_pos.y as u64;
     let mut rng = ChaCha8Rng::seed_from_u64(seed);
     let guaranteed_items: Vec<TreasureContent> =
-        if continent1_caves.positions.contains(&cave_world_pos) {
+        if continent_caves
+            .caves_by_continent
+            .iter()
+            .any(|caves| caves.contains(&cave_world_pos))
+        {
             vec![
+                TreasureContent::Item(ItemKind::MoonFragment),
                 TreasureContent::Item(ItemKind::MoonFragment),
                 TreasureContent::Item(ItemKind::MoonFragment),
             ]

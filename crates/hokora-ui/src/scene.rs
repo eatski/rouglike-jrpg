@@ -26,6 +26,8 @@ pub struct HokoraResource {
     pub phase: HokoraMenuPhase,
     /// ワープ先の座標（もう一方の祠）
     pub warp_destination: Option<(usize, usize)>,
+    /// 最寄り祠のインデックス（0始まり、必要月のかけら数の算出に使用）
+    pub hokora_index: usize,
     /// ワープ済みフラグ（メッセージ後にフィールドへ遷移するため）
     pub warped: bool,
 }
@@ -53,9 +55,9 @@ pub fn setup_hokora_scene(
     hokora_positions: Res<HokoraPositions>,
     player_query: Query<&TilePosition, With<Player>>,
 ) {
-    // 最寄りの祠を特定し、対応するワープ先を取得
-    let warp_destination = if let Ok(pos) = player_query.single() {
-        hokora_positions
+    // 最寄りの祠を特定し、対応するワープ先とインデックスを取得
+    let (warp_destination, hokora_index) = if let Ok(pos) = player_query.single() {
+        let nearest = hokora_positions
             .positions
             .iter()
             .enumerate()
@@ -64,16 +66,18 @@ pub fn setup_hokora_scene(
                 let dy = pos.y as isize - hy as isize;
                 dx * dx + dy * dy
             })
-            .map(|(i, _)| i)
-            .and_then(|i| hokora_positions.warp_destinations.get(i).copied())
+            .map(|(i, _)| i);
+        let dest = nearest.and_then(|i| hokora_positions.warp_destinations.get(i).copied());
+        (dest, nearest.unwrap_or(0))
     } else {
-        None
+        (None, 0)
     };
 
     commands.insert_resource(HokoraResource {
         selected_item: 0,
         phase: HokoraMenuPhase::MenuSelect,
         warp_destination,
+        hokora_index,
         warped: false,
     });
 

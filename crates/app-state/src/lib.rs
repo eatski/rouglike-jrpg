@@ -3,7 +3,7 @@ mod resources;
 use bevy::prelude::*;
 
 pub use resources::{
-    BossBattlePending, BossDefeated, Continent1CavePositions, FieldMenuOpen, HokoraPositions,
+    BossBattlePending, BossDefeated, ContinentCavePositions, FieldMenuOpen, HokoraPositions,
     OpenedChests, PartyState, RecruitmentMap,
 };
 
