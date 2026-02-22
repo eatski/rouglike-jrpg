@@ -10,7 +10,10 @@ pub use components::{Boat, MapTile, MovementLocked, OnBoat, PendingMove, Player,
 pub use constants::*;
 pub use events::{MovementBlockedEvent, PlayerArrivedEvent, PlayerMovedEvent, TileEnteredEvent};
 pub use resources::{ActiveMap, MovementState, WorldMapData};
-pub use smooth_move::{ease_out_quad, SmoothMove};
+pub use smooth_move::{
+    ease_out_quad, start_smooth_move, update_smooth_move, SmoothMove, SmoothMoveFinishedEvent,
+    MOVE_DURATION,
+};
 
 use bevy::prelude::*;
 
@@ -22,6 +25,7 @@ impl Plugin for MovementPlugin {
             .add_message::<PlayerMovedEvent>()
             .add_message::<PlayerArrivedEvent>()
             .add_message::<TileEnteredEvent>()
+            .add_message::<SmoothMoveFinishedEvent>()
             .init_resource::<MovementState>()
             .add_systems(PostUpdate, sync_tile_to_transform);
     }
