@@ -3,13 +3,13 @@ mod scene;
 
 use bevy::prelude::*;
 use app_state::{BattleState, SceneState};
-use movement_ui::{start_bounce, update_bounce};
+use movement_ui::{start_bounce, start_smooth_move, update_bounce, update_smooth_move};
 use world_ui::{camera_follow, check_encounter_system, reset_map_mode_system, toggle_map_mode_system};
 
 pub use input::{
     cave_message_display_system, cave_message_input_system, cave_player_movement,
-    check_boss_proximity_system, check_chest_system, check_ladder_system, start_cave_smooth_move,
-    update_cave_smooth_move,
+    check_boss_proximity_system, check_chest_system, check_ladder_system,
+    handle_cave_move_completed,
 };
 pub use scene::{
     despawn_cave_entities, restore_field_from_cave, setup_boss_cave_scene, setup_cave_scene,
@@ -33,9 +33,10 @@ impl Plugin for CavePlugin {
             (
                 toggle_map_mode_system,
                 cave_player_movement,
-                start_cave_smooth_move,
+                start_smooth_move,
                 ApplyDeferred,
-                update_cave_smooth_move,
+                update_smooth_move,
+                handle_cave_move_completed,
                 start_bounce,
                 update_bounce,
                 update_cave_tiles,

@@ -6,16 +6,14 @@ use terrain::Terrain;
 use app_state::{BossBattlePending, OpenedChests, PartyState, SceneState};
 use movement_ui::{
     MovementBlockedEvent, MovementLocked, PendingMove, Player, PlayerArrivedEvent,
-    PlayerMovedEvent, SmoothMove, TileEnteredEvent, TilePosition,
+    PlayerMovedEvent, SmoothMoveFinishedEvent, TileEnteredEvent, TilePosition,
 };
 use app_state::FieldMenuOpen;
-use movement_ui::{ActiveMap, MovementState, TILE_SIZE};
+use movement_ui::{ActiveMap, MovementState};
 
 use world_ui::{MapModeState, TileTextures};
 
 use crate::scene::{BossCaveState, BossEntity, CaveMessageState, CaveMessageUI, CaveTreasures, ChestEntity};
-
-const MOVE_DURATION: f32 = 0.15;
 
 /// 洞窟内のプレイヤー移動入力を処理
 #[allow(clippy::too_many_arguments)]
@@ -161,45 +159,17 @@ pub fn cave_player_movement(
     }
 }
 
-/// 洞窟用スムーズ移動開始（トーラスラップなし）
-pub fn start_cave_smooth_move(
-    mut commands: Commands,
-    mut events: MessageReader<PlayerMovedEvent>,
-    query: Query<&Transform, With<Player>>,
-) {
-    for event in events.read() {
-        let Ok(transform) = query.get(event.entity) else {
-            continue;
-        };
-
-        let (dx, dy) = event.direction;
-        let current_pos = Vec2::new(transform.translation.x, transform.translation.y);
-        let target_pos = current_pos + Vec2::new(dx as f32 * TILE_SIZE, dy as f32 * TILE_SIZE);
-
-        // 洞窟ではラップしない: final_pos == target_pos
-        commands.entity(event.entity).insert((
-            SmoothMove {
-                from: current_pos,
-                to: target_pos,
-                final_pos: target_pos,
-                timer: Timer::from_seconds(MOVE_DURATION, TimerMode::Once),
-            },
-            MovementLocked,
-        ));
-    }
-}
-
-/// 洞窟用スムーズ移動更新
+/// 洞窟でのSmoothMove完了後の処理
+///
+/// PendingMoveがあれば2回目の移動を試行し、なければロック解除＋到着判定。
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
-pub fn update_cave_smooth_move(
+pub fn handle_cave_move_completed(
     mut commands: Commands,
-    time: Res<Time>,
+    mut events: MessageReader<SmoothMoveFinishedEvent>,
     active_map: Res<ActiveMap>,
     mut query: Query<
         (
             Entity,
-            &mut SmoothMove,
-            &mut Transform,
             &mut TilePosition,
             Option<&PendingMove>,
         ),
@@ -210,19 +180,10 @@ pub fn update_cave_smooth_move(
     mut arrived_events: MessageWriter<PlayerArrivedEvent>,
     mut tile_entered_events: MessageWriter<TileEnteredEvent>,
 ) {
-    let Ok((entity, mut smooth_move, mut transform, mut tile_pos, pending_move)) =
-        query.single_mut()
-    else {
-        return;
-    };
-
-    smooth_move.timer.tick(time.delta());
-
-    if smooth_move.timer.just_finished() {
-        transform.translation.x = smooth_move.final_pos.x;
-        transform.translation.y = smooth_move.final_pos.y;
-
-        commands.entity(entity).remove::<SmoothMove>();
+    for _event in events.read() {
+        let Ok((entity, mut tile_pos, pending_move)) = query.single_mut() else {
+            return;
+        };
 
         if let Some(pending) = pending_move {
             let (dx, dy) = pending.direction;
@@ -265,12 +226,6 @@ pub fn update_cave_smooth_move(
                 tile_entered_events.write(TileEnteredEvent { entity });
             }
         }
-    } else {
-        let progress = smooth_move.timer.fraction();
-        let eased = 1.0 - (1.0 - progress) * (1.0 - progress);
-        let current_pos = smooth_move.from.lerp(smooth_move.to, eased);
-        transform.translation.x = current_pos.x;
-        transform.translation.y = current_pos.y;
     }
 }
 
