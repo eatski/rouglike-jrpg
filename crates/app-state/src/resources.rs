@@ -46,10 +46,10 @@ pub struct HokoraPositions {
     pub warp_destinations: Vec<(usize, usize)>,
 }
 
-/// 大陸1にある洞窟のワールドマップ座標
+/// 各大陸にある洞窟のワールドマップ座標（インデックス0=大陸1, 1=大陸2, 2=大陸3）
 #[derive(Resource, Default)]
-pub struct Continent1CavePositions {
-    pub positions: Vec<(usize, usize)>,
+pub struct ContinentCavePositions {
+    pub caves_by_continent: Vec<Vec<(usize, usize)>>,
 }
 
 /// ボス撃破フラグ（存在=撃破済み）

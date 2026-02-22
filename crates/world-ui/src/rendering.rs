@@ -9,7 +9,7 @@ use world::map::{
 
 use movement_ui::{Boat, Player, TilePosition};
 use party::default_candidates;
-use app_state::{Continent1CavePositions, HokoraPositions, RecruitmentMap};
+use app_state::{ContinentCavePositions, HokoraPositions, RecruitmentMap};
 use movement_ui::{ActiveMap, TILE_SIZE};
 use terrain::Terrain;
 
@@ -127,18 +127,14 @@ pub fn spawn_field_map_with_rng(
     // スポーン大陸の座標を収集
     let islands = detect_islands(&map_data.grid);
     let spawn_island: Vec<(usize, usize)> = islands
-        .into_iter()
+        .iter()
         .find(|island| island.contains(&map_data.spawn_position))
+        .cloned()
         .unwrap_or_default();
     let spawn_island_towns: Vec<(usize, usize)> = spawn_island
         .iter()
         .copied()
         .filter(|&(x, y)| map_data.grid[y][x] == Terrain::Town)
-        .collect();
-    let continent1_caves: Vec<(usize, usize)> = spawn_island
-        .iter()
-        .copied()
-        .filter(|&(x, y)| map_data.grid[y][x] == Terrain::Cave)
         .collect();
 
     // 仲間候補を街に割り当て
@@ -166,12 +162,28 @@ pub fn spawn_field_map_with_rng(
     let (hokora_positions, warp_destinations): (Vec<_>, Vec<_>) =
         map_data.hokora_spawns.iter().copied().unzip();
     commands.insert_resource(HokoraPositions {
-        positions: hokora_positions,
+        positions: hokora_positions.clone(),
         warp_destinations,
     });
-    commands.insert_resource(Continent1CavePositions {
-        positions: continent1_caves,
-    });
+
+    // 各祠が所属する大陸の洞窟座標を収集
+    let caves_by_continent: Vec<Vec<(usize, usize)>> = hokora_positions
+        .iter()
+        .map(|hokora_pos| {
+            islands
+                .iter()
+                .find(|island| island.contains(hokora_pos))
+                .map(|island| {
+                    island
+                        .iter()
+                        .copied()
+                        .filter(|&(x, y)| map_data.grid[y][x] == Terrain::Cave)
+                        .collect()
+                })
+                .unwrap_or_default()
+        })
+        .collect();
+    commands.insert_resource(ContinentCavePositions { caves_by_continent });
 
     // ボス洞窟座標を保存
     commands.insert_resource(BossCaveWorldPos {

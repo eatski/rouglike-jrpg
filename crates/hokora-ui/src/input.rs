@@ -69,22 +69,24 @@ pub fn hokora_input_system(
     }
 }
 
-const MOON_FRAGMENT_REQUIRED: u32 = 3;
-
 fn handle_open_door(
     hokora_res: &mut HokoraResource,
     party_state: &PartyState,
     player_query: &mut Query<&mut TilePosition, With<Player>>,
 ) {
+    let required = ((hokora_res.hokora_index + 1) * 3) as u32;
     let total_fragments: u32 = party_state
         .members
         .iter()
         .map(|m| m.inventory.count(ItemKind::MoonFragment))
         .sum();
 
-    if total_fragments < MOON_FRAGMENT_REQUIRED {
+    if total_fragments < required {
         hokora_res.phase = HokoraMenuPhase::ShowMessage {
-            message: "とびらには ふしぎな ちからが\nつきのかけらが 3こ ひつようだ。".to_string(),
+            message: format!(
+                "とびらには ふしぎな ちからが\nつきのかけらが {}こ ひつようだ。",
+                required
+            ),
         };
         return;
     }
