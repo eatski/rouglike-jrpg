@@ -1,5 +1,5 @@
-pub const MAP_WIDTH: usize = 150;
-pub const MAP_HEIGHT: usize = 150;
+pub const MAP_WIDTH: usize = 200;
+pub const MAP_HEIGHT: usize = 200;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TileAction {
