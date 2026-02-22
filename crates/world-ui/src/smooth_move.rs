@@ -2,9 +2,9 @@ use bevy::prelude::*;
 
 use movement_ui::{
     Boat, MovementBlockedEvent, MovementLocked, OnBoat, PendingMove, Player, PlayerMovedEvent,
-    SmoothMoveFinishedEvent, TileEnteredEvent, TilePosition,
+    TileEnteredEvent, TilePosition,
 };
-use movement_ui::ActiveMap;
+use movement_ui::{ActiveMap, MovementState};
 
 use crate::movement_helpers::{execute_boat_move, execute_walk_move, ExecuteMoveResult};
 
@@ -14,7 +14,7 @@ use crate::movement_helpers::{execute_boat_move, execute_walk_move, ExecuteMoveR
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn handle_field_move_completed(
     mut commands: Commands,
-    mut events: MessageReader<SmoothMoveFinishedEvent>,
+    mut move_state: ResMut<MovementState>,
     active_map: Res<ActiveMap>,
     mut query: Query<
         (
@@ -30,7 +30,7 @@ pub fn handle_field_move_completed(
     mut blocked_events: MessageWriter<MovementBlockedEvent>,
     mut tile_entered_events: MessageWriter<TileEnteredEvent>,
 ) {
-    for _event in events.read() {
+    if let Some(_entity) = move_state.move_just_completed.take() {
         let Ok((entity, mut tile_pos, pending_move, on_boat)) = query.single_mut() else {
             return;
         };

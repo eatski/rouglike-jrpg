@@ -110,9 +110,7 @@ fn setup_test_app_with_map(grid: Vec<Vec<Terrain>>, spawn_x: usize, spawn_y: usi
     // イベントを登録
     app.add_message::<PlayerMovedEvent>();
     app.add_message::<MovementBlockedEvent>();
-    app.add_message::<movement_ui::PlayerArrivedEvent>();
     app.add_message::<movement_ui::TileEnteredEvent>();
-    app.add_message::<movement_ui::SmoothMoveFinishedEvent>();
 
     // 本番と同じシステム登録（移動コアのみ、エンカウント除外）
     world_ui::register_exploring_movement_systems(&mut app);

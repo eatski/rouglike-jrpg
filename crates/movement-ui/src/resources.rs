@@ -12,6 +12,8 @@ pub struct MovementState {
     pub last_direction: (i32, i32),
     /// 先に押された軸（Some(true)=X軸、Some(false)=Y軸、None=なし）
     pub first_axis: Option<bool>,
+    /// SmoothMoveアニメーション完了時にセットされるフラグ（完了したEntity）
+    pub move_just_completed: Option<Entity>,
 }
 
 impl Default for MovementState {
@@ -22,6 +24,7 @@ impl Default for MovementState {
             is_repeating: false,
             last_direction: (0, 0),
             first_axis: None,
+            move_just_completed: None,
         }
     }
 }

@@ -8,10 +8,10 @@ mod smooth_move;
 pub use bounce::{start_bounce, update_bounce, Bounce};
 pub use components::{Boat, MapTile, MovementLocked, OnBoat, PendingMove, Player, TilePosition};
 pub use constants::*;
-pub use events::{MovementBlockedEvent, PlayerArrivedEvent, PlayerMovedEvent, TileEnteredEvent};
+pub use events::{MovementBlockedEvent, PlayerMovedEvent, TileEnteredEvent};
 pub use resources::{ActiveMap, MovementState, WorldMapData};
 pub use smooth_move::{
-    ease_out_quad, start_smooth_move, update_smooth_move, SmoothMove, SmoothMoveFinishedEvent,
+    ease_out_quad, start_smooth_move, update_smooth_move, SmoothMove,
     MOVE_DURATION,
 };
 
@@ -23,9 +23,7 @@ impl Plugin for MovementPlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<MovementBlockedEvent>()
             .add_message::<PlayerMovedEvent>()
-            .add_message::<PlayerArrivedEvent>()
             .add_message::<TileEnteredEvent>()
-            .add_message::<SmoothMoveFinishedEvent>()
             .init_resource::<MovementState>()
             .add_systems(PostUpdate, sync_tile_to_transform);
     }

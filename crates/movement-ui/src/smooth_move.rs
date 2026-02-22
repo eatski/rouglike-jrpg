@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::{ActiveMap, MovementLocked, Player, PlayerMovedEvent, TilePosition, TILE_SIZE};
+use crate::{ActiveMap, MovementLocked, MovementState, Player, PlayerMovedEvent, TilePosition, TILE_SIZE};
 
 /// 移動アニメーションの持続時間（秒）
 pub const MOVE_DURATION: f32 = 0.15;
@@ -14,12 +14,6 @@ pub struct SmoothMove {
     pub to: Vec2,
     /// アニメーションタイマー
     pub timer: Timer,
-}
-
-/// SmoothMoveアニメーション完了時に発行されるメッセージ
-#[derive(Message)]
-pub struct SmoothMoveFinishedEvent {
-    pub entity: Entity,
 }
 
 /// Ease-out quadratic イージング関数
@@ -66,7 +60,7 @@ pub fn update_smooth_move(
         (Entity, &mut SmoothMove, &mut Transform, &TilePosition),
         With<Player>,
     >,
-    mut finished_events: MessageWriter<SmoothMoveFinishedEvent>,
+    mut move_state: ResMut<MovementState>,
 ) {
     let Ok((entity, mut smooth_move, mut transform, tile_pos)) = query.single_mut() else {
         return;
@@ -81,7 +75,7 @@ pub fn update_smooth_move(
         transform.translation.y = world_y;
 
         commands.entity(entity).remove::<SmoothMove>();
-        finished_events.write(SmoothMoveFinishedEvent { entity });
+        move_state.move_just_completed = Some(entity);
     } else {
         let progress = smooth_move.timer.fraction();
         let eased_progress = ease_out_quad(progress);

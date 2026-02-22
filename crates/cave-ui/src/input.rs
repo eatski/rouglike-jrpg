@@ -5,8 +5,8 @@ use terrain::Terrain;
 
 use app_state::{BossBattlePending, OpenedChests, PartyState, SceneState};
 use movement_ui::{
-    MovementBlockedEvent, MovementLocked, PendingMove, Player, PlayerArrivedEvent,
-    PlayerMovedEvent, SmoothMoveFinishedEvent, TileEnteredEvent, TilePosition,
+    MovementBlockedEvent, MovementLocked, PendingMove, Player,
+    PlayerMovedEvent, TileEnteredEvent, TilePosition,
 };
 use app_state::FieldMenuOpen;
 use movement_ui::{ActiveMap, MovementState};
@@ -162,10 +162,11 @@ pub fn cave_player_movement(
 /// 洞窟でのSmoothMove完了後の処理
 ///
 /// PendingMoveがあれば2回目の移動を試行し、なければロック解除＋到着判定。
+/// 梯子タイル上にいればフィールドに戻る。
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn handle_cave_move_completed(
     mut commands: Commands,
-    mut events: MessageReader<SmoothMoveFinishedEvent>,
+    mut move_state: ResMut<MovementState>,
     active_map: Res<ActiveMap>,
     mut query: Query<
         (
@@ -177,10 +178,10 @@ pub fn handle_cave_move_completed(
     >,
     mut moved_events: MessageWriter<PlayerMovedEvent>,
     mut blocked_events: MessageWriter<MovementBlockedEvent>,
-    mut arrived_events: MessageWriter<PlayerArrivedEvent>,
     mut tile_entered_events: MessageWriter<TileEnteredEvent>,
+    mut next_state: ResMut<NextState<SceneState>>,
 ) {
-    for _event in events.read() {
+    if let Some(_entity) = move_state.move_just_completed.take() {
         let Ok((entity, mut tile_pos, pending_move)) = query.single_mut() else {
             return;
         };
@@ -212,19 +213,23 @@ pub fn handle_cave_move_completed(
                         direction: (dx, dy),
                     });
                     // ワープゾーン上でPendingMoveがブロックされた場合にも
-                    // 到着判定を発火させる（MovementLockedはバウンスが解除）
-                    arrived_events.write(PlayerArrivedEvent { entity });
+                    // 梯子判定を行う（MovementLockedはバウンスが解除）
+                    if tile_pos.x < active_map.width && tile_pos.y < active_map.height
+                        && active_map.terrain_at(tile_pos.x, tile_pos.y) == Terrain::Ladder
+                    {
+                        next_state.set(SceneState::Exploring);
+                    }
                 }
             }
         } else {
             commands.entity(entity).remove::<MovementLocked>();
-            // ワープゾーンは「タイルに入った」ではなく遷移なのでArrivedを使う
             let terrain = active_map.terrain_at(tile_pos.x, tile_pos.y);
             if terrain == Terrain::Ladder {
-                arrived_events.write(PlayerArrivedEvent { entity });
-            } else {
-                tile_entered_events.write(TileEnteredEvent { entity });
+                // 梯子タイル上 → フィールドに戻る
+                next_state.set(SceneState::Exploring);
+                return;
             }
+            tile_entered_events.write(TileEnteredEvent { entity });
         }
     }
 }
@@ -444,24 +449,3 @@ pub fn check_boss_proximity_system(
     }
 }
 
-/// 梯子に到着したらフィールドに戻る
-pub fn check_ladder_system(
-    mut events: MessageReader<PlayerArrivedEvent>,
-    player_query: Query<&TilePosition, With<Player>>,
-    active_map: Res<ActiveMap>,
-    mut next_state: ResMut<NextState<SceneState>>,
-) {
-    for _event in events.read() {
-        let Ok(tile_pos) = player_query.single() else {
-            continue;
-        };
-
-        if tile_pos.x < active_map.width && tile_pos.y < active_map.height {
-            let terrain = active_map.terrain_at(tile_pos.x, tile_pos.y);
-            if terrain == Terrain::Ladder {
-                next_state.set(SceneState::Exploring);
-                return;
-            }
-        }
-    }
-}

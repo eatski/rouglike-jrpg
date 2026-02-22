@@ -8,7 +8,7 @@ use world_ui::{camera_follow, check_encounter_system, reset_map_mode_system, tog
 
 pub use input::{
     cave_message_display_system, cave_message_input_system, cave_player_movement,
-    check_boss_proximity_system, check_chest_system, check_ladder_system,
+    check_boss_proximity_system, check_chest_system,
     handle_cave_move_completed,
 };
 pub use scene::{
@@ -44,7 +44,6 @@ impl Plugin for CavePlugin {
                 check_chest_system,
                 cave_message_input_system,
                 cave_message_display_system,
-                check_ladder_system,
                 check_encounter_system,
                 check_boss_proximity_system,
             )
