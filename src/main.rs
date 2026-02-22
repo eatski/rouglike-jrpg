@@ -1,5 +1,8 @@
+use std::time::Duration;
+
 use bevy::prelude::*;
 use bevy::window::{Window, WindowResolution};
+use bevy::winit::{UpdateMode, WinitSettings};
 use movement_ui::WINDOW_SIZE;
 
 fn main() {
@@ -9,6 +12,10 @@ fn main() {
         .unwrap_or_else(|| "Roguelike JRPG".to_string());
 
     App::new()
+        .insert_resource(WinitSettings {
+            focused_mode: UpdateMode::reactive(Duration::from_millis(16)),
+            unfocused_mode: UpdateMode::reactive_low_power(Duration::from_millis(100)),
+        })
         .add_plugins(
             DefaultPlugins
                 .set(ImagePlugin::default_nearest())
