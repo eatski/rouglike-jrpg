@@ -335,14 +335,15 @@ pub fn calculate_boss_cave_spawn(
     candidates.first().copied()
 }
 
-/// 大陸1と大陸2に祠を1つずつ配置する
+/// 大陸1〜3に祠を1つずつ配置する（一方向チェーン）
 ///
 /// 各大陸中心を含む島から Plains タイルを選んで祠を配置する。
 /// `spawn_position` は除外する。
 ///
-/// ワープ先:
-/// - 大陸1の祠 → 大陸2のPlainsタイル（何もない場所）
-/// - 大陸2の祠 → 大陸1の祠の座標
+/// ワープ先（一方向チェーン）:
+/// - 大陸1(centers[0])の祠 → 大陸2(centers[1])のPlainsタイル
+/// - 大陸2(centers[1])の祠 → 大陸3(centers[2])のPlainsタイル
+/// - 大陸3(centers[2])の祠 → ボス大陸(centers[4])のPlainsタイル
 pub fn calculate_hokora_spawns(
     grid: &[Vec<Terrain>],
     rng: &mut impl Rng,
@@ -351,56 +352,55 @@ pub fn calculate_hokora_spawns(
 ) -> Vec<HokoraSpawn> {
     let islands = detect_islands(grid);
 
-    // まず各大陸の祠位置を決定
+    // まず各大陸の祠位置を決定（大陸1〜3）
     let mut hokora_positions: Vec<(usize, usize)> = Vec::new();
-    // 大陸2のPlainsタイル候補（ワープ先用）
-    let mut continent2_plains: Vec<(usize, usize)> = Vec::new();
 
-    for (idx, &center) in continent_centers.iter().take(2).enumerate() {
-        let island = islands.iter().find(|island| island.contains(&center));
-        if let Some(island) = island {
-            let mut candidates: Vec<(usize, usize)> = island
-                .iter()
-                .filter(|&&(x, y)| {
-                    grid[y][x] == Terrain::Plains && (x, y) != spawn_position
-                })
-                .copied()
-                .collect();
-            candidates.shuffle(rng);
-            if let Some(&pos) = candidates.first() {
-                hokora_positions.push(pos);
-            }
-            // 大陸2のPlains候補を保存
-            if idx == 1 {
-                continent2_plains = candidates;
-            }
-        }
-    }
-
-    if hokora_positions.len() < 2 {
-        // 2つの大陸に配置できなかった場合はフォールバック
-        return hokora_positions
-            .into_iter()
-            .map(|(x, y)| HokoraSpawn {
-                x,
-                y,
-                warp_destination: (x, y),
+    for (idx, &center) in continent_centers.iter().take(3).enumerate() {
+        let island = islands.iter().find(|island| island.contains(&center))
+            .unwrap_or_else(|| panic!("[hokora] 大陸{}の島が見つかりません center={:?}", idx + 1, center));
+        let mut candidates: Vec<(usize, usize)> = island
+            .iter()
+            .filter(|&&(x, y)| {
+                grid[y][x] == Terrain::Plains && (x, y) != spawn_position
             })
+            .copied()
             .collect();
+        candidates.shuffle(rng);
+        let &pos = candidates.first()
+            .unwrap_or_else(|| panic!("[hokora] 大陸{}にPlainsタイルがありません center={:?}", idx + 1, center));
+        hokora_positions.push(pos);
     }
 
     let hokora0 = hokora_positions[0]; // 大陸1の祠
     let hokora1 = hokora_positions[1]; // 大陸2の祠
+    let hokora2 = hokora_positions[2]; // 大陸3の祠
 
-    // 大陸1の祠のワープ先: 大陸2のPlainsタイル（祠自体は除外）
-    let warp_dest_0 = continent2_plains
-        .iter()
-        .find(|&&pos| pos != hokora1)
-        .copied()
-        .unwrap_or(hokora1); // フォールバック: 大陸2の祠
+    // ワープ先候補を各ワープ先大陸の歩行可能タイルから取得（祠位置を除外）
+    let mut find_warp_dest = |center: (usize, usize), exclude: (usize, usize), label: &str| -> (usize, usize) {
+        let island = islands.iter().find(|island| island.contains(&center))
+            .unwrap_or_else(|| panic!("[hokora] {}の島が見つかりません center={:?}", label, center));
+        let mut candidates: Vec<(usize, usize)> = island
+            .iter()
+            .filter(|&&(x, y)| {
+                grid[y][x].is_walkable() && (x, y) != spawn_position && (x, y) != exclude
+            })
+            .copied()
+            .collect();
+        candidates.shuffle(rng);
+        *candidates.first()
+            .unwrap_or_else(|| panic!("[hokora] {}に歩行可能なワープ先がありません center={:?}", label, center))
+    };
 
-    // 大陸2の祠のワープ先: 大陸1の祠
-    let warp_dest_1 = hokora0;
+    // 大陸1の祠のワープ先: 大陸2の歩行可能タイル（大陸2の祠は除外）
+    let warp_dest_0 = find_warp_dest(continent_centers[1], hokora1, "大陸2");
+
+    // 大陸2の祠のワープ先: 大陸3の歩行可能タイル（大陸3の祠は除外）
+    let warp_dest_1 = find_warp_dest(continent_centers[2], hokora2, "大陸3");
+
+    // 大陸3の祠のワープ先: ボス大陸の歩行可能タイル
+    let &boss_center = continent_centers.get(4)
+        .expect("[hokora] ボス大陸(centers[4])が存在しません");
+    let boss_warp_dest = find_warp_dest(boss_center, (usize::MAX, usize::MAX), "ボス大陸");
 
     vec![
         HokoraSpawn {
@@ -412,6 +412,11 @@ pub fn calculate_hokora_spawns(
             x: hokora1.0,
             y: hokora1.1,
             warp_destination: warp_dest_1,
+        },
+        HokoraSpawn {
+            x: hokora2.0,
+            y: hokora2.1,
+            warp_destination: boss_warp_dest,
         },
     ]
 }

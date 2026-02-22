@@ -38,7 +38,7 @@ const MOUNTAIN_CLUSTER_MAX: usize = 50;
 pub struct MapData {
     pub grid: Vec<Vec<Terrain>>,
     pub spawn_position: (usize, usize),
-    /// 祠の位置とワープ先（配置順: [大陸1, 大陸2]）
+    /// 祠の位置とワープ先（配置順: [大陸1, 大陸2, 大陸3]、一方向チェーン）
     pub hokora_spawns: Vec<((usize, usize), (usize, usize))>,
     pub boss_cave_position: Option<(usize, usize)>,
 }
@@ -584,8 +584,11 @@ pub fn generate_map(rng: &mut impl Rng) -> MapData {
     // spawn_position が Plains であることを保証
     grid[spawn_position.1][spawn_position.0] = Terrain::Plains;
 
-    // 保護するタイル（spawn_position + ボス大陸中心）
+    // 保護するタイル（spawn_position + 祠配置大陸の中心 + ボス大陸中心）
     let mut protected = vec![spawn_position];
+    for &center in centers.iter().skip(1).take(2) {
+        protected.push(center);
+    }
     if let Some(&boss_center) = centers.get(4) {
         protected.push(boss_center);
     }
