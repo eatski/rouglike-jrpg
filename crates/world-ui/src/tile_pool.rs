@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::coast_lookup;
 use terrain::{Terrain, MAP_HEIGHT, MAP_WIDTH};
@@ -165,12 +165,12 @@ pub fn update_visible_tiles(
     let half_width = TILE_POOL_WIDTH / 2;
 
     // 新しい表示範囲を計算
-    let mut needed_tiles: Vec<(i32, i32)> = Vec::with_capacity(TILE_POOL_SIZE);
+    let mut needed_tiles: HashSet<(i32, i32)> = HashSet::with_capacity(TILE_POOL_SIZE);
     for dy in -half_width..=half_width {
         for dx in -half_width..=half_width {
             let logical_x = player_tile.0 + dx;
             let logical_y = player_tile.1 + dy;
-            needed_tiles.push((logical_x, logical_y));
+            needed_tiles.insert((logical_x, logical_y));
         }
     }
 
@@ -193,7 +193,7 @@ pub fn update_visible_tiles(
     }
 
     // 新しく必要なタイルを配置
-    for (logical_x, logical_y) in needed_tiles {
+    for &(logical_x, logical_y) in &needed_tiles {
         if tile_pool.active_tiles.contains_key(&(logical_x, logical_y)) {
             continue; // 既に表示中
         }
