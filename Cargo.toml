@@ -16,16 +16,20 @@ terrain = { path = "crates/terrain" }
 town-ui = { path = "crates/town-ui" }
 world = { path = "crates/world" }
 world-ui = { path = "crates/world-ui" }
+field-walk-ui = { path = "crates/field-walk-ui" }
 
 [dev-dependencies]
 rand_chacha = "0.3"
 party = { path = "crates/party" }
 cave = { path = "crates/cave" }
 town = { path = "crates/town" }
+field-walk = { path = "crates/field-walk" }
 
 [workspace]
 members = [
     "crates/terrain",
+    "crates/field-walk",
+    "crates/field-walk-ui",
     "crates/world-gen",
     "crates/party",
     "crates/world",

@@ -12,7 +12,7 @@ use movement_ui::{
 use app_state::FieldMenuOpen;
 use movement_ui::{ActiveMap, MoveResult, MovementState};
 
-use world_ui::{MapModeState, TileTextures};
+use field_walk_ui::{MapModeState, TileTextures};
 
 use crate::scene::{BossCaveState, BossEntity, CaveMessageState, CaveMessageUI, CaveTreasures, ChestEntity};
 

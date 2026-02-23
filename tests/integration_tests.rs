@@ -22,7 +22,8 @@ use movement_ui::{
 };
 use app_state::PartyState;
 use movement_ui::{ActiveMap, MovementState, TILE_SIZE};
-use world_ui::{MapModeState, SpawnPosition};
+use field_walk_ui::MapModeState;
+use world_ui::SpawnPosition;
 
 const SPAWN_X: usize = 50;
 const SPAWN_Y: usize = 50;
@@ -1870,7 +1871,7 @@ fn level_up_applies_correct_stat_growth_per_class() {
 
 #[test]
 fn exploration_map_tracks_movement_correctly() {
-    use world::exploration::{ExplorationMap, TileVisibility, VIEW_RADIUS};
+    use field_walk::exploration::{ExplorationMap, TileVisibility, VIEW_RADIUS};
 
     let mut map = ExplorationMap::new(150, 150);
 

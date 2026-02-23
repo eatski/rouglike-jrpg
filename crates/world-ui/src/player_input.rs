@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use world::wrap_position;
+use terrain::coordinates::wrap_position;
 
 use movement_ui::{
     execute_move, process_movement_input, Boat, ExecuteMoveResult, MovementBlockedEvent,
@@ -9,7 +9,7 @@ use movement_ui::{
 use app_state::FieldMenuOpen;
 use movement_ui::{ActiveMap, MovementState};
 
-use crate::map_mode::MapModeState;
+use field_walk_ui::MapModeState;
 
 /// プレイヤーの移動入力を処理するシステム
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]

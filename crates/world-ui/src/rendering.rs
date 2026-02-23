@@ -7,103 +7,14 @@ use world::map::{
     place_extra_towns,
 };
 
-use movement_ui::{Boat, Player, TilePosition};
+use movement_ui::{Player, TilePosition};
 use party::default_candidates;
 use app_state::{ContinentCavePositions, HokoraPositions, RecruitmentMap};
 use movement_ui::{ActiveMap, TILE_SIZE};
 use terrain::Terrain;
 
 use crate::resources::SpawnPosition;
-
-/// 船のスポーン位置を保存するリソース（洞窟脱出後の復元に使用）
-#[derive(Resource)]
-pub struct BoatSpawnsResource {
-    pub positions: Vec<(usize, usize)>,
-}
-
-/// ボス洞窟のワールドマップ座標を保持するリソース
-#[derive(Resource)]
-pub struct BossCaveWorldPos {
-    pub position: Option<(usize, usize)>,
-}
-
-/// 保存された位置に船エンティティをスポーンする
-pub fn spawn_boat_entities(
-    commands: &mut Commands,
-    boat_spawns: &BoatSpawnsResource,
-    tile_textures: &TileTextures,
-    active_map: &ActiveMap,
-) {
-    let scale = TILE_SIZE / 16.0;
-    for &(x, y) in &boat_spawns.positions {
-        let (world_x, world_y) = active_map.to_world(x, y);
-        commands.spawn((
-            Boat,
-            TilePosition { x, y },
-            Sprite::from_image(tile_textures.boat.clone()),
-            Transform::from_xyz(world_x, world_y, 0.5).with_scale(Vec3::splat(scale)),
-        ));
-    }
-}
-
-#[derive(Resource)]
-pub struct TileTextures {
-    pub sea: Handle<Image>,
-    pub plains: Handle<Image>,
-    pub forest: Handle<Image>,
-    pub mountain: Handle<Image>,
-    pub boat: Handle<Image>,
-    pub town: Handle<Image>,
-    pub cave: Handle<Image>,
-    pub hokora: Handle<Image>,
-    pub cave_wall: Handle<Image>,
-    pub cave_floor: Handle<Image>,
-    pub warp_zone: Handle<Image>,
-    pub ladder: Handle<Image>,
-    pub chest: Handle<Image>,
-    pub chest_open: Handle<Image>,
-    pub boss_cave: Handle<Image>,
-    pub boss_cave_wall: Handle<Image>,
-    pub boss_cave_floor: Handle<Image>,
-    pub dark_plains: Handle<Image>,
-    pub dark_forest: Handle<Image>,
-    pub dark_lord: Handle<Image>,
-    pub coast_tiles: Vec<Handle<Image>>,
-    pub coast_lookup: [u8; 256],
-}
-
-/// タイルテクスチャをロードする
-pub fn load_tile_textures(asset_server: &AssetServer) -> TileTextures {
-    let (coast_lookup, coast_count) = crate::coast_lookup::build_lookup_table();
-    let coast_tiles: Vec<Handle<Image>> = (0..coast_count)
-        .map(|i| asset_server.load(format!("tiles/coast_{:03}.png", i)))
-        .collect();
-
-    TileTextures {
-        sea: asset_server.load("tiles/sea.png"),
-        plains: asset_server.load("tiles/plains.png"),
-        forest: asset_server.load("tiles/forest.png"),
-        mountain: asset_server.load("tiles/mountain.png"),
-        boat: asset_server.load("tiles/boat.png"),
-        town: asset_server.load("tiles/town.png"),
-        cave: asset_server.load("tiles/cave.png"),
-        hokora: asset_server.load("tiles/hokora.png"),
-        cave_wall: asset_server.load("tiles/cave_wall.png"),
-        cave_floor: asset_server.load("tiles/cave_floor.png"),
-        warp_zone: asset_server.load("tiles/warp_zone.png"),
-        ladder: asset_server.load("tiles/ladder.png"),
-        chest: asset_server.load("tiles/chest.png"),
-        chest_open: asset_server.load("tiles/chest_open.png"),
-        boss_cave: asset_server.load("tiles/boss_cave.png"),
-        boss_cave_wall: asset_server.load("tiles/boss_cave_wall.png"),
-        boss_cave_floor: asset_server.load("tiles/boss_cave_floor.png"),
-        dark_plains: asset_server.load("tiles/dark_plains.png"),
-        dark_forest: asset_server.load("tiles/dark_forest.png"),
-        dark_lord: asset_server.load("enemies/dark_lord.png"),
-        coast_tiles,
-        coast_lookup,
-    }
-}
+use field_walk_ui::{load_tile_textures, spawn_boat_entities, BoatSpawnsResource, BossCaveWorldPos};
 
 /// Rng注入可能なフィールドマップ生成
 pub fn spawn_field_map_with_rng(

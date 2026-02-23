@@ -2,12 +2,13 @@ use bevy::prelude::*;
 use bevy::asset::RenderAssetUsages;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 
-use world::exploration::TileVisibility;
+use field_walk::exploration::TileVisibility;
 use terrain::{Terrain, MAP_HEIGHT, MAP_WIDTH};
 
 use movement_ui::{ActiveMap, MAP_PIXEL_WIDTH};
 
-use crate::map_mode::{ExplorationData, MapModeState};
+use field_walk_ui::MapModeState;
+use crate::map_mode::ExplorationData;
 
 /// ミニマップスプライトを識別するコンポーネント
 #[derive(Component)]

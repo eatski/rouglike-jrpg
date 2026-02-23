@@ -9,7 +9,7 @@ use cave::{generate_cave_map, CAVE_HEIGHT, CAVE_WIDTH};
 use cave_ui::{update_cave_tiles, CaveTilePool};
 use movement_ui::{ActiveMap, Player, TilePosition, TILE_SIZE};
 use screenshot_common::screenshot_app;
-use world_ui::{camera_follow, load_tile_textures, setup_camera};
+use field_walk_ui::{camera_follow, load_tile_textures, setup_camera};
 
 /// 洞窟マップを直接構築してActiveMapとして注入するシステム
 fn setup_cave_direct(mut commands: Commands, asset_server: Res<AssetServer>) {

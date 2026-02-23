@@ -14,8 +14,8 @@ use movement_ui::{
 };
 use movement_ui::{ActiveMap, MovementState, WorldMapData, TILE_SIZE};
 
-use world_ui::{spawn_boat_entities, BoatSpawnsResource, BossCaveWorldPos, MapModeState, TileTextures};
-use world_ui::{create_tile_pool, PooledTile, TilePool};
+use field_walk_ui::{spawn_boat_entities, BoatSpawnsResource, BossCaveWorldPos, MapModeState, TileTextures};
+use field_walk_ui::{create_tile_pool, PooledTile, TilePool};
 
 /// 洞窟進入前のフィールド座標を保存
 #[derive(Resource)]

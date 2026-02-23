@@ -4,7 +4,7 @@ mod scene;
 use bevy::prelude::*;
 use app_state::{BattleState, SceneState};
 use movement_ui::{start_bounce, start_smooth_move, update_bounce, update_smooth_move};
-use world_ui::{camera_follow, check_encounter_system, reset_map_mode_system, toggle_map_mode_system};
+use field_walk_ui::{camera_follow, check_encounter_system, reset_map_mode_system, toggle_map_mode_system};
 
 pub use input::{
     cave_message_display_system, cave_message_input_system, cave_player_movement,

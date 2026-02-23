@@ -1,6 +1,3 @@
-mod camera;
-mod coast_lookup;
-mod encounter;
 mod hud;
 pub mod map_mode;
 mod minimap;
@@ -9,24 +6,28 @@ pub mod rendering;
 pub mod resources;
 pub mod smooth_move;
 pub mod tile_action;
-pub mod tile_pool;
 
 use bevy::prelude::*;
 use app_state::{BattleState, InField, SceneState};
 use movement_ui::{start_bounce, start_smooth_move, update_bounce, update_smooth_move};
 
-pub use camera::{camera_follow, setup_camera};
-pub use encounter::check_encounter_system;
+// field-walk-ui からの再エクスポート
+pub use field_walk_ui::{
+    camera_follow, check_encounter_system, setup_camera,
+    reset_map_mode_system, toggle_map_mode_system, MapModeState, NORMAL_ZOOM,
+    load_tile_textures, spawn_boat_entities, BoatSpawnsResource, BossCaveWorldPos, TileTextures,
+    create_tile_pool, init_tile_pool, update_visible_tiles, PooledTile, TilePool,
+};
+
 pub use hud::{cleanup_hud, setup_hud, toggle_hud_visibility, update_hud};
 pub use map_mode::{
-    init_exploration_system, reset_map_mode_system, toggle_map_mode_system,
-    update_exploration_system, ExplorationData, MapModeState,
+    init_exploration_system,
+    update_exploration_system, ExplorationData,
 };
 pub use minimap::{init_minimap_system, toggle_minimap_visibility_system, update_minimap_texture_system};
 pub use player_input::{player_movement, sync_boat_with_player};
-pub use rendering::{load_tile_textures, spawn_boat_entities, spawn_field_map, spawn_field_map_with_rng, spawn_player, BoatSpawnsResource, BossCaveWorldPos, TileTextures};
+pub use rendering::{spawn_field_map, spawn_field_map_with_rng, spawn_player};
 pub use smooth_move::handle_field_move_completed;
-pub use tile_pool::{create_tile_pool, init_tile_pool, update_visible_tiles, PooledTile, TilePool};
 pub use tile_action::check_tile_action_system;
 pub use resources::SpawnPosition;
 

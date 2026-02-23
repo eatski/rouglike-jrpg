@@ -36,8 +36,8 @@ pub fn calculate_visible_tiles(
     for dy in -radius..=radius {
         for dx in -radius..=radius {
             // トーラスマップのラップアラウンド処理
-            let x = crate::coordinates::wrap_coordinate(center_x, dx as i32, map_width);
-            let y = crate::coordinates::wrap_coordinate(center_y, dy as i32, map_height);
+            let x = terrain::coordinates::wrap_coordinate(center_x, dx as i32, map_width);
+            let y = terrain::coordinates::wrap_coordinate(center_y, dy as i32, map_height);
 
             visible_tiles.push((x, y));
         }

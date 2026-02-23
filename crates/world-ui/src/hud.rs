@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use app_state::PartyState;
 
-use crate::map_mode::MapModeState;
+use field_walk_ui::MapModeState;
 
 /// HUDルートエンティティのマーカー
 #[derive(Component)]

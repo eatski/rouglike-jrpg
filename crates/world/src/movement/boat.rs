@@ -1,6 +1,6 @@
 //! 船移動ロジック
 
-use crate::coordinates::{is_diagonal_movement, orthogonal_neighbors, wrap_position, ORTHOGONAL_DIRECTIONS};
+use terrain::coordinates::{is_diagonal_movement, orthogonal_neighbors, wrap_position, ORTHOGONAL_DIRECTIONS};
 use crate::map::Terrain;
 
 use super::player::MoveResult;

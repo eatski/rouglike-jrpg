@@ -16,4 +16,4 @@ app-state = { path = "../../crates/app-state" }
 cave = { path = "../../crates/cave" }
 cave-ui = { path = "../../crates/cave-ui" }
 movement-ui = { path = "../../crates/movement-ui" }
-world-ui = { path = "../../crates/world-ui" }
+field-walk-ui = { path = "../../crates/field-walk-ui" }
