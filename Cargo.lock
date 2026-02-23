@@ -5972,6 +5972,16 @@ dependencies = [
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "terrain",
+ "world-gen",
+]
+
+[[package]]
+name = "world-gen"
+version = "0.1.0"
+dependencies = [
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
+ "terrain",
 ]
 
 [[package]]

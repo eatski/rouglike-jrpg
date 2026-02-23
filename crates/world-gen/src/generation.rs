@@ -1,11 +1,10 @@
 use rand::Rng;
 
-use terrain::{Terrain, MAP_HEIGHT, MAP_WIDTH};
+use terrain::{orthogonal_neighbors, wrap_position, Terrain, MAP_HEIGHT, MAP_WIDTH};
 
 use std::collections::{HashSet, VecDeque};
 
-use crate::coordinates::{orthogonal_neighbors, wrap_position};
-use crate::map::islands::{
+use crate::islands::{
     calculate_boss_cave_spawn, calculate_cave_spawns, calculate_hokora_spawns,
     calculate_town_spawns, detect_islands, validate_connectivity,
 };
@@ -832,7 +831,7 @@ mod tests {
 
     #[test]
     fn generate_connected_map_produces_valid_map() {
-        use crate::map::islands::validate_connectivity;
+        use crate::islands::validate_connectivity;
 
         // 複数シードで接続性を満たすことを確認
         for seed in [42, 123, 456, 789, 9999] {
@@ -849,7 +848,7 @@ mod tests {
 
     #[test]
     fn map_stats_island_sizes_and_towns() {
-        use crate::map::islands::detect_islands;
+        use crate::islands::detect_islands;
 
         for seed in [42, 123, 456] {
             let mut rng = create_rng(seed);

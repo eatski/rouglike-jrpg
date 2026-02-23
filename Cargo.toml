@@ -26,6 +26,7 @@ town = { path = "crates/town" }
 [workspace]
 members = [
     "crates/terrain",
+    "crates/world-gen",
     "crates/party",
     "crates/world",
     "crates/town",

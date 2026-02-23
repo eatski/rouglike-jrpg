@@ -1,10 +1,9 @@
 //! 島検出と船スポーン位置の計算
 
-use super::Terrain;
-use crate::coordinates::orthogonal_neighbors;
+use terrain::{orthogonal_neighbors, Terrain, MAP_HEIGHT, MAP_WIDTH};
+
 use rand::prelude::SliceRandom;
 use rand::Rng;
-use terrain::{MAP_HEIGHT, MAP_WIDTH};
 
 /// 町のスポーン情報
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -519,7 +518,7 @@ pub fn assign_candidates_to_towns(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_utils::create_test_grid;
+    use terrain::test_utils::create_test_grid;
     use rand::SeedableRng;
     use rand_chacha::ChaCha8Rng;
 

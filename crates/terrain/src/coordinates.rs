@@ -45,6 +45,29 @@ pub fn is_diagonal_movement(dx: i32, dy: i32) -> bool {
     dx != 0 && dy != 0
 }
 
+/// 2D座標をトーラスマップ上でラップする
+///
+/// `wrap_coordinate` を X/Y 両軸に適用し、マップサイズでラップした座標を返す。
+#[inline]
+pub fn wrap_position(x: usize, y: usize, dx: i32, dy: i32) -> (usize, usize) {
+    (
+        wrap_coordinate(x, dx, super::terrain::MAP_WIDTH),
+        wrap_coordinate(y, dy, super::terrain::MAP_HEIGHT),
+    )
+}
+
+/// 指定座標の4近傍（上下左右）の座標を取得する
+///
+/// トーラスマップのラップアラウンドを考慮。
+pub fn orthogonal_neighbors(x: usize, y: usize) -> [(usize, usize); 4] {
+    [
+        wrap_position(x, y, 0, -1), // 上
+        wrap_position(x, y, 0, 1),  // 下
+        wrap_position(x, y, -1, 0), // 左
+        wrap_position(x, y, 1, 0),  // 右
+    ]
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -80,5 +103,32 @@ mod tests {
         assert!(!is_diagonal_movement(0, 1));
         assert!(!is_diagonal_movement(0, -1));
         assert!(!is_diagonal_movement(0, 0));
+    }
+
+    #[test]
+    fn wrap_position_wraps_both_axes() {
+        use crate::terrain::{MAP_HEIGHT, MAP_WIDTH};
+        let (x, y) = wrap_position(MAP_WIDTH - 1, MAP_HEIGHT - 1, 1, 1);
+        assert_eq!(x, 0);
+        assert_eq!(y, 0);
+    }
+
+    #[test]
+    fn orthogonal_neighbors_at_center() {
+        let neighbors = orthogonal_neighbors(5, 5);
+        assert!(neighbors.contains(&(5, 4))); // 上
+        assert!(neighbors.contains(&(5, 6))); // 下
+        assert!(neighbors.contains(&(4, 5))); // 左
+        assert!(neighbors.contains(&(6, 5))); // 右
+    }
+
+    #[test]
+    fn orthogonal_neighbors_at_corner() {
+        use crate::terrain::{MAP_HEIGHT, MAP_WIDTH};
+        let neighbors = orthogonal_neighbors(0, 0);
+        assert!(neighbors.contains(&(0, MAP_HEIGHT - 1))); // 上（ラップ）
+        assert!(neighbors.contains(&(0, 1))); // 下
+        assert!(neighbors.contains(&(MAP_WIDTH - 1, 0))); // 左（ラップ）
+        assert!(neighbors.contains(&(1, 0))); // 右
     }
 }
