@@ -9,9 +9,9 @@ use crate::islands::{
     calculate_town_spawns, detect_islands, validate_connectivity,
 };
 
-/// 大大陸の目標タイル数（大陸1,2用。侵食・湖で減るため多めに生成）
+/// 大大陸の目標タイル数（大陸1,2,3用。侵食・湖で減るため多めに生成）
 const LARGE_CONTINENT_TARGET: usize = 3500;
-/// 小大陸の目標タイル数（大陸3,4,5用。侵食・湖で減るため多めに生成）
+/// 小大陸の目標タイル数（大陸4,5,6,ボス大陸用。侵食・湖で減るため多めに生成）
 const SMALL_CONTINENT_TARGET: usize = 2000;
 /// 大陸間の最小トーラス距離
 const MIN_CONTINENT_DISTANCE: f64 = 30.0;
@@ -20,7 +20,7 @@ const SPREAD_CHANCE: f64 = 0.65;
 /// 大陸間の境界バッファ（この距離差以内は海のまま残す）
 const CONTINENT_BORDER_GAP: f64 = 4.0;
 /// 大陸数
-const NUM_CONTINENTS: usize = 5;
+const NUM_CONTINENTS: usize = 7;
 /// 森林クラスタ数
 const FOREST_CLUSTERS: usize = 45;
 /// 山岳クラスタ数
@@ -91,7 +91,7 @@ fn place_continent_centers(rng: &mut impl Rng) -> Vec<(usize, usize)> {
     };
     centers.push((main_x, main_y));
 
-    // 残り4大陸
+    // 残り6大陸
     let mut min_distance = MIN_CONTINENT_DISTANCE;
     for _ in 1..NUM_CONTINENTS {
         let mut placed = false;
@@ -133,6 +133,8 @@ fn grow_continents(
     let targets = [
         LARGE_CONTINENT_TARGET,
         LARGE_CONTINENT_TARGET,
+        LARGE_CONTINENT_TARGET,
+        SMALL_CONTINENT_TARGET,
         SMALL_CONTINENT_TARGET,
         SMALL_CONTINENT_TARGET,
         SMALL_CONTINENT_TARGET,
@@ -628,14 +630,14 @@ pub fn generate_map(rng: &mut impl Rng) -> MapData {
         grid[town.y][town.x] = Terrain::Town;
     }
 
-    // 5番目の大陸(centers[4])をボス大陸として扱い、通常洞窟を配置しない
-    let boss_continent_center = centers.get(4).copied();
+    // 7番目の大陸(centers[6])をボス大陸として扱い、通常洞窟を配置しない
+    let boss_continent_center = centers.get(6).copied();
     let cave_spawns = calculate_cave_spawns(&grid, rng, boss_continent_center);
     for cave in &cave_spawns {
         grid[cave.y][cave.x] = Terrain::Cave;
     }
 
-    // ボス洞窟を5番目の大陸に配置
+    // ボス洞窟を7番目の大陸に配置
     let boss_cave_position = boss_continent_center
         .and_then(|center| calculate_boss_cave_spawn(&grid, rng, center));
     if let Some((bx, by)) = boss_cave_position {
@@ -657,8 +659,8 @@ pub fn generate_map(rng: &mut impl Rng) -> MapData {
     // Phase 4.5a: 特殊タイルの周囲2マスを歩行可能にする
     clear_around_special_tiles(&mut grid);
 
-    // Phase 4.5b: ボス大陸（5番目の大陸）の平地・森を暗いバリアントに置換
-    if let Some(&boss_center) = centers.get(4) {
+    // Phase 4.5b: ボス大陸（7番目の大陸）の平地・森を暗いバリアントに置換
+    if let Some(&boss_center) = centers.get(6) {
         let islands = detect_islands(&grid);
         if let Some(boss_island) = islands.iter().find(|island| island.contains(&boss_center)) {
             for &(x, y) in boss_island {

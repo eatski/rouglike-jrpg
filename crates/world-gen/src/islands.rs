@@ -196,9 +196,9 @@ pub fn calculate_boat_spawns(grid: &[Vec<Terrain>], rng: &mut impl Rng) -> Vec<B
     spawns
 }
 
-/// 大きい島（大陸1,2）の街の数
+/// 大きい島（大陸1,2,3）の街の数
 const TOWNS_LARGE_ISLAND: usize = 5;
-/// 小さい島（大陸3,4,5）の街の数
+/// 小さい島（大陸4,5,6,ボス大陸）の街の数
 const TOWNS_SMALL_ISLAND: usize = 3;
 /// 大きい島とみなすタイル数の閾値
 const LARGE_ISLAND_THRESHOLD: usize = 2500;
@@ -342,7 +342,7 @@ pub fn calculate_boss_cave_spawn(
 /// ワープ先（一方向チェーン）:
 /// - 大陸1(centers[0])の祠 → 大陸2(centers[1])のPlainsタイル
 /// - 大陸2(centers[1])の祠 → 大陸3(centers[2])のPlainsタイル
-/// - 大陸3(centers[2])の祠 → ボス大陸(centers[4])のPlainsタイル
+/// - 大陸3(centers[2])の祠 → ボス大陸(centers[6])のPlainsタイル
 pub fn calculate_hokora_spawns(
     grid: &[Vec<Terrain>],
     rng: &mut impl Rng,
@@ -397,8 +397,8 @@ pub fn calculate_hokora_spawns(
     let warp_dest_1 = find_warp_dest(continent_centers[2], hokora2, "大陸3");
 
     // 大陸3の祠のワープ先: ボス大陸の歩行可能タイル
-    let &boss_center = continent_centers.get(4)
-        .expect("[hokora] ボス大陸(centers[4])が存在しません");
+    let &boss_center = continent_centers.get(6)
+        .expect("[hokora] ボス大陸(centers[6])が存在しません");
     let boss_warp_dest = find_warp_dest(boss_center, (usize::MAX, usize::MAX), "ボス大陸");
 
     vec![
