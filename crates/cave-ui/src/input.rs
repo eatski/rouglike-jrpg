@@ -1,15 +1,16 @@
 use bevy::prelude::*;
 
-use cave::{try_cave_move, CaveMoveResult, TreasureContent};
+use cave::TreasureContent;
 use terrain::Terrain;
 
 use app_state::{BossBattlePending, OpenedChests, PartyState, SceneState};
 use movement_ui::{
+    process_movement_input,
     MovementBlockedEvent, MovementLocked, PendingMove, Player,
     PlayerMovedEvent, TileEnteredEvent, TilePosition,
 };
 use app_state::FieldMenuOpen;
-use movement_ui::{ActiveMap, MovementState};
+use movement_ui::{ActiveMap, MoveResult, MovementState};
 
 use world_ui::{MapModeState, TileTextures};
 
@@ -37,123 +38,43 @@ pub fn cave_player_movement(
         return;
     };
 
+    // ガード条件
     if locked.is_some() {
         return;
     }
-
-    // マップモード中は移動を無効化
     if map_mode_state.enabled {
         return;
     }
-
-    // フィールド呪文メニュー中は移動を無効化
     if field_menu_open.is_some() {
         return;
     }
-
-    // メッセージ表示中は移動を無効化
     if cave_message.is_some_and(|m| m.message.is_some()) {
         return;
     }
 
-    let mut dx: i32 = 0;
-    let mut dy: i32 = 0;
-
-    let x_pressed = input_ui::is_x_pressed(&keyboard);
-    let y_pressed = input_ui::is_y_pressed(&keyboard);
-    let x_just_pressed = input_ui::is_x_just_pressed(&keyboard);
-    let y_just_pressed = input_ui::is_y_just_pressed(&keyboard);
-
-    if x_just_pressed && !y_pressed {
-        move_state.first_axis = Some(true);
-    } else if y_just_pressed && !x_pressed {
-        move_state.first_axis = Some(false);
-    } else if !x_pressed && !y_pressed {
-        move_state.first_axis = None;
-    }
-
-    if input_ui::is_up_pressed(&keyboard) {
-        dy = 1;
-    }
-    if input_ui::is_down_pressed(&keyboard) {
-        dy = -1;
-    }
-    if input_ui::is_left_pressed(&keyboard) {
-        dx = -1;
-    }
-    if input_ui::is_right_pressed(&keyboard) {
-        dx = 1;
-    }
-
-    if dx == 0 && dy == 0 {
-        move_state.is_repeating = false;
-        move_state.initial_delay.reset();
-        move_state.timer.reset();
-        move_state.last_direction = (0, 0);
+    let Some(input) = process_movement_input(&keyboard, &time, &mut move_state) else {
         return;
-    }
-
-    let (first_dx, first_dy, pending_direction) = if dx != 0 && dy != 0 {
-        match move_state.first_axis {
-            Some(true) => (dx, 0, Some((0, dy))),
-            Some(false) => (0, dy, Some((dx, 0))),
-            None => (dx, 0, Some((0, dy))),
-        }
-    } else {
-        (dx, dy, None)
     };
 
-    let current_direction = (first_dx, first_dy);
-    let direction_changed = current_direction != move_state.last_direction;
-
-    let should_move = if direction_changed {
-        move_state.is_repeating = false;
-        move_state.initial_delay.reset();
-        move_state.timer.reset();
-        move_state.last_direction = current_direction;
-        true
-    } else if move_state.is_repeating {
-        move_state.timer.tick(time.delta());
-        move_state.timer.just_finished()
-    } else {
-        move_state.initial_delay.tick(time.delta());
-        if move_state.initial_delay.just_finished() {
-            move_state.is_repeating = true;
-            move_state.timer.reset();
-            true
-        } else {
-            false
-        }
-    };
-
-    if !should_move {
-        return;
-    }
-
-    match try_cave_move(
-        tile_pos.x,
-        tile_pos.y,
-        first_dx,
-        first_dy,
-        &active_map.grid,
-        active_map.width,
-        active_map.height,
-    ) {
-        CaveMoveResult::Moved { new_x, new_y } => {
+    // 洞窟では船なし: execute_moveに直接委譲
+    // boat_queryはダミー（洞窟に船はない）
+    // on_boat=Noneなのでboat_queryは使われない
+    match active_map.try_move(tile_pos.x, tile_pos.y, input.first_dx, input.first_dy) {
+        MoveResult::Moved { new_x, new_y } => {
             tile_pos.x = new_x;
             tile_pos.y = new_y;
             moved_events.write(PlayerMovedEvent {
                 entity,
-                direction: (first_dx, first_dy),
+                direction: (input.first_dx, input.first_dy),
             });
-            if let Some(dir) = pending_direction {
+            if let Some(dir) = input.pending_direction {
                 commands.entity(entity).insert(PendingMove { direction: dir });
             }
         }
-        CaveMoveResult::Blocked => {
+        MoveResult::Blocked => {
             blocked_events.write(MovementBlockedEvent {
                 entity,
-                direction: (first_dx, first_dy),
+                direction: (input.first_dx, input.first_dy),
             });
         }
     }
@@ -190,16 +111,8 @@ pub fn handle_cave_move_completed(
             let (dx, dy) = pending.direction;
             commands.entity(entity).remove::<PendingMove>();
 
-            match try_cave_move(
-                tile_pos.x,
-                tile_pos.y,
-                dx,
-                dy,
-                &active_map.grid,
-                active_map.width,
-                active_map.height,
-            ) {
-                CaveMoveResult::Moved { new_x, new_y } => {
+            match active_map.try_move(tile_pos.x, tile_pos.y, dx, dy) {
+                MoveResult::Moved { new_x, new_y } => {
                     tile_pos.x = new_x;
                     tile_pos.y = new_y;
                     moved_events.write(PlayerMovedEvent {
@@ -207,7 +120,7 @@ pub fn handle_cave_move_completed(
                         direction: (dx, dy),
                     });
                 }
-                CaveMoveResult::Blocked => {
+                MoveResult::Blocked => {
                     blocked_events.write(MovementBlockedEvent {
                         entity,
                         direction: (dx, dy),
@@ -448,4 +361,3 @@ pub fn check_boss_proximity_system(
         }
     }
 }
-

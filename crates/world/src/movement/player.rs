@@ -1,14 +1,6 @@
-use crate::coordinates::{is_diagonal_movement, wrap_position};
-use crate::map::Terrain;
+use crate::map::{Terrain, MAP_HEIGHT, MAP_WIDTH};
 
-/// 移動試行の結果
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum MoveResult {
-    /// 移動成功: 新しい位置
-    Moved { new_x: usize, new_y: usize },
-    /// 移動失敗: 海に阻まれた
-    Blocked,
-}
+pub use terrain::MoveResult;
 
 /// 移動を試みる（純粋関数）
 ///
@@ -22,18 +14,7 @@ pub fn try_move(
     dy: i32,
     grid: &[Vec<Terrain>],
 ) -> MoveResult {
-    // 斜め移動は禁止
-    if is_diagonal_movement(dx, dy) {
-        return MoveResult::Blocked;
-    }
-
-    let (new_x, new_y) = wrap_position(current_x, current_y, dx, dy);
-
-    if grid[new_y][new_x].is_walkable() {
-        MoveResult::Moved { new_x, new_y }
-    } else {
-        MoveResult::Blocked
-    }
+    terrain::try_grid_move(current_x, current_y, dx, dy, grid, MAP_WIDTH, MAP_HEIGHT, true, Terrain::is_walkable)
 }
 
 #[cfg(test)]

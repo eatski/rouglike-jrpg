@@ -3299,6 +3299,7 @@ name = "movement-ui"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "input-ui",
  "terrain",
 ]
 

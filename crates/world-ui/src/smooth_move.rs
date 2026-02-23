@@ -1,12 +1,10 @@
 use bevy::prelude::*;
 
 use movement_ui::{
-    Boat, MovementBlockedEvent, MovementLocked, OnBoat, PendingMove, Player, PlayerMovedEvent,
-    TileEnteredEvent, TilePosition,
+    execute_move, Boat, ExecuteMoveResult, MovementBlockedEvent, MovementLocked, OnBoat,
+    PendingMove, Player, PlayerMovedEvent, TileEnteredEvent, TilePosition,
 };
 use movement_ui::{ActiveMap, MovementState};
-
-use crate::movement_helpers::{execute_boat_move, execute_walk_move, ExecuteMoveResult};
 
 /// フィールドでのSmoothMove完了後の処理
 ///
@@ -39,40 +37,22 @@ pub fn handle_field_move_completed(
             let (dx, dy) = pending.direction;
             commands.entity(entity).remove::<PendingMove>();
 
-            let move_success = if let Some(on_boat) = on_boat {
-                matches!(
-                    execute_boat_move(
-                        &mut commands,
-                        entity,
-                        &mut tile_pos,
-                        dx,
-                        dy,
-                        &active_map.grid,
-                        on_boat,
-                        &mut boat_query,
-                        &mut moved_events,
-                        &mut blocked_events,
-                    ),
-                    ExecuteMoveResult::Success
-                )
-            } else {
-                matches!(
-                    execute_walk_move(
-                        &mut tile_pos,
-                        entity,
-                        dx,
-                        dy,
-                        &active_map.grid,
-                        &mut moved_events,
-                        &mut blocked_events,
-                    ),
-                    ExecuteMoveResult::Success
-                )
-            };
-
-            if !move_success {
-                // バウンスが始まるのでロック維持（バウンス終了時に解除）
-            }
+            let _move_success = matches!(
+                execute_move(
+                    &mut commands,
+                    entity,
+                    &mut tile_pos,
+                    dx,
+                    dy,
+                    &active_map,
+                    on_boat,
+                    &mut boat_query,
+                    &mut moved_events,
+                    &mut blocked_events,
+                ),
+                ExecuteMoveResult::Success
+            );
+            // ブロック時はバウンスが始まるのでロック維持（バウンス終了時に解除）
         } else {
             // PendingMoveがなければロック解除＋到着イベント発火
             commands.entity(entity).remove::<MovementLocked>();

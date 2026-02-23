@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use crate::constants::{MOVEMENT_INITIAL_DELAY, MOVEMENT_REPEAT_INTERVAL, TILE_SIZE};
-use terrain::Terrain;
+use terrain::{try_grid_move, MoveResult, Terrain};
 
 /// 移動状態を管理するリソース
 #[derive(Resource)]
@@ -37,10 +37,11 @@ pub struct ActiveMap {
     pub height: usize,
     pub origin_x: f32,
     pub origin_y: f32,
+    pub wraps: bool,
 }
 
 impl ActiveMap {
-    /// グリッドからActiveMapを構築
+    /// グリッドからActiveMapを構築（フィールド用: wraps=true）
     pub fn from_grid(grid: Vec<Vec<Terrain>>) -> Self {
         let width = grid[0].len();
         let height = grid.len();
@@ -52,7 +53,18 @@ impl ActiveMap {
             height,
             origin_x,
             origin_y,
+            wraps: true,
         }
+    }
+
+    /// 徒歩移動（is_walkable）
+    pub fn try_move(&self, x: usize, y: usize, dx: i32, dy: i32) -> MoveResult {
+        try_grid_move(x, y, dx, dy, &self.grid, self.width, self.height, self.wraps, Terrain::is_walkable)
+    }
+
+    /// 任意の通行判定で移動試行
+    pub fn try_move_with(&self, x: usize, y: usize, dx: i32, dy: i32, passable: impl Fn(Terrain) -> bool) -> MoveResult {
+        try_grid_move(x, y, dx, dy, &self.grid, self.width, self.height, self.wraps, passable)
     }
 
     /// タイル座標の地形を取得

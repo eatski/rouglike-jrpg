@@ -42,43 +42,6 @@ pub struct CaveMapData {
     pub treasures: Vec<TreasureChest>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CaveMoveResult {
-    Moved { new_x: usize, new_y: usize },
-    Blocked,
-}
-
-pub fn try_cave_move(
-    current_x: usize,
-    current_y: usize,
-    dx: i32,
-    dy: i32,
-    grid: &[Vec<Terrain>],
-    width: usize,
-    height: usize,
-) -> CaveMoveResult {
-    // 斜め移動は禁止
-    if dx != 0 && dy != 0 {
-        return CaveMoveResult::Blocked;
-    }
-
-    let new_x = current_x as i32 + dx;
-    let new_y = current_y as i32 + dy;
-
-    if new_x < 0 || new_x >= width as i32 || new_y < 0 || new_y >= height as i32 {
-        return CaveMoveResult::Blocked;
-    }
-
-    let new_x = new_x as usize;
-    let new_y = new_y as usize;
-
-    if grid[new_y][new_x].is_walkable() {
-        CaveMoveResult::Moved { new_x, new_y }
-    } else {
-        CaveMoveResult::Blocked
-    }
-}
-
 pub fn generate_cave_map(rng: &mut impl Rng, guaranteed_items: &[TreasureContent]) -> CaveMapData {
     let mut grid = vec![vec![Terrain::CaveWall; CAVE_WIDTH]; CAVE_HEIGHT];
 
@@ -348,51 +311,6 @@ mod tests {
         let map2 = generate_cave_map(&mut rng2, &[]);
         assert_eq!(map1.spawn_position, map2.spawn_position);
         assert_eq!(map1.grid, map2.grid);
-    }
-
-    #[test]
-    fn try_cave_move_normal() {
-        let mut grid = vec![vec![Terrain::CaveWall; 5]; 5];
-        grid[2][2] = Terrain::CaveFloor;
-        grid[2][3] = Terrain::CaveFloor;
-
-        let result = try_cave_move(2, 2, 1, 0, &grid, 5, 5);
-        assert_eq!(result, CaveMoveResult::Moved { new_x: 3, new_y: 2 });
-    }
-
-    #[test]
-    fn try_cave_move_blocked_by_wall() {
-        let mut grid = vec![vec![Terrain::CaveWall; 5]; 5];
-        grid[2][2] = Terrain::CaveFloor;
-
-        let result = try_cave_move(2, 2, 1, 0, &grid, 5, 5);
-        assert_eq!(result, CaveMoveResult::Blocked);
-    }
-
-    #[test]
-    fn try_cave_move_blocked_by_boundary() {
-        let grid = vec![vec![Terrain::CaveFloor; 5]; 5];
-
-        let result = try_cave_move(0, 0, -1, 0, &grid, 5, 5);
-        assert_eq!(result, CaveMoveResult::Blocked);
-    }
-
-    #[test]
-    fn try_cave_move_diagonal_blocked() {
-        let grid = vec![vec![Terrain::CaveFloor; 5]; 5];
-
-        let result = try_cave_move(2, 2, 1, 1, &grid, 5, 5);
-        assert_eq!(result, CaveMoveResult::Blocked);
-    }
-
-    #[test]
-    fn try_cave_move_to_ladder() {
-        let mut grid = vec![vec![Terrain::CaveWall; 5]; 5];
-        grid[2][2] = Terrain::CaveFloor;
-        grid[2][3] = Terrain::Ladder;
-
-        let result = try_cave_move(2, 2, 1, 0, &grid, 5, 5);
-        assert_eq!(result, CaveMoveResult::Moved { new_x: 3, new_y: 2 });
     }
 
 }

@@ -4,7 +4,6 @@ mod encounter;
 mod hud;
 pub mod map_mode;
 mod minimap;
-mod movement_helpers;
 mod player_input;
 pub mod rendering;
 pub mod resources;

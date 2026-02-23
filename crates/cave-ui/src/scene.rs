@@ -145,6 +145,7 @@ pub fn setup_cave_scene(
         height: cave_data.height,
         origin_x: cave_origin_x,
         origin_y: cave_origin_y,
+        wraps: false,
     };
 
     // 宝箱エンティティをspawn（取得済みは開いた見た目で表示）
@@ -248,6 +249,7 @@ pub fn setup_boss_cave_scene(
         height: cave_data.height,
         origin_x: cave_origin_x,
         origin_y: cave_origin_y,
+        wraps: false,
     };
 
     // ボス洞窟状態リソース

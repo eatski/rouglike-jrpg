@@ -2,6 +2,8 @@ mod bounce;
 mod components;
 pub mod constants;
 mod events;
+mod execute;
+mod input;
 mod resources;
 mod smooth_move;
 
@@ -9,7 +11,10 @@ pub use bounce::{start_bounce, update_bounce, Bounce};
 pub use components::{Boat, MapTile, MovementLocked, OnBoat, PendingMove, Player, TilePosition};
 pub use constants::*;
 pub use events::{MovementBlockedEvent, PlayerMovedEvent, TileEnteredEvent};
+pub use execute::{execute_move, ExecuteMoveResult};
+pub use input::{process_movement_input, MovementInput};
 pub use resources::{ActiveMap, MovementState, WorldMapData};
+pub use terrain::MoveResult;
 pub use smooth_move::{
     ease_out_quad, start_smooth_move, update_smooth_move, SmoothMove,
     MOVE_DURATION,

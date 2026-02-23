@@ -96,6 +96,7 @@ fn setup_test_app_with_map(grid: Vec<Vec<Terrain>>, spawn_x: usize, spawn_y: usi
         height,
         origin_x,
         origin_y,
+        wraps: true,
     });
     app.insert_resource(SpawnPosition {
         x: spawn_x,
@@ -724,6 +725,7 @@ fn setup_battle_test_app() -> App {
         height: 1,
         origin_x: 0.0,
         origin_y: 0.0,
+        wraps: true,
     });
 
     // 本番と同じシステム登録（ロジックのみ）
@@ -1427,7 +1429,8 @@ fn full_recruitment_flow_undiscovered_to_recruited() {
 
 #[test]
 fn cave_exploration_scenario() {
-    use cave::{generate_cave_map, try_cave_move, CaveMoveResult, CAVE_WIDTH, CAVE_HEIGHT};
+    use cave::{generate_cave_map, CAVE_WIDTH, CAVE_HEIGHT};
+    use terrain::{try_grid_move, MoveResult};
     use rand::SeedableRng;
     use rand_chacha::ChaCha8Rng;
 
@@ -1441,8 +1444,8 @@ fn cave_exploration_scenario() {
     // スポーン地点から歩行可能な隣接タイルを探す
     let mut can_move = false;
     for (dx, dy) in [(0, -1), (0, 1), (-1, 0), (1, 0)] {
-        let result = try_cave_move(sx, sy, dx, dy, &cave.grid, CAVE_WIDTH, CAVE_HEIGHT);
-        if let CaveMoveResult::Moved { .. } = result {
+        let result = try_grid_move(sx, sy, dx, dy, &cave.grid, CAVE_WIDTH, CAVE_HEIGHT, false, Terrain::is_walkable);
+        if let MoveResult::Moved { .. } = result {
             can_move = true;
             break;
         }
@@ -1495,7 +1498,8 @@ fn cave_generation_is_deterministic() {
 
 #[test]
 fn cave_diagonal_movement_is_always_blocked() {
-    use cave::{generate_cave_map, try_cave_move, CaveMoveResult, CAVE_WIDTH, CAVE_HEIGHT};
+    use cave::{generate_cave_map, CAVE_WIDTH, CAVE_HEIGHT};
+    use terrain::{try_grid_move, MoveResult};
     use rand::SeedableRng;
     use rand_chacha::ChaCha8Rng;
 
@@ -1505,8 +1509,8 @@ fn cave_diagonal_movement_is_always_blocked() {
 
     // 斜め移動は常にブロックされる
     for (dx, dy) in [(1, 1), (1, -1), (-1, 1), (-1, -1)] {
-        let result = try_cave_move(sx, sy, dx, dy, &cave.grid, CAVE_WIDTH, CAVE_HEIGHT);
-        assert_eq!(result, CaveMoveResult::Blocked, "Diagonal move ({},{}) should be blocked", dx, dy);
+        let result = try_grid_move(sx, sy, dx, dy, &cave.grid, CAVE_WIDTH, CAVE_HEIGHT, false, Terrain::is_walkable);
+        assert_eq!(result, MoveResult::Blocked, "Diagonal move ({},{}) should be blocked", dx, dy);
     }
 }
 

@@ -30,6 +30,7 @@ fn setup_cave_direct(mut commands: Commands, asset_server: Res<AssetServer>) {
         height: cave_data.height,
         origin_x: cave_origin_x,
         origin_y: cave_origin_y,
+        wraps: false,
     };
 
     // プレイヤーをスポーン
