@@ -50,7 +50,7 @@ impl PendingCommands {
     pub fn to_commands(&self) -> Vec<BattleAction> {
         self.slots
             .iter()
-            .map(|opt| (*opt).expect("コマンド未設定のメンバーがいる"))
+            .map(|opt| opt.unwrap_or(BattleAction::Flee))
             .collect()
     }
 }
@@ -81,8 +81,8 @@ pub struct BattleGameState {
 pub struct BattleUIState {
     /// 現在選択中のコマンドインデックス (0=たたかう, 1=じゅもん, 2=にげる)
     pub selected_command: usize,
-    /// ターゲット選択中の敵インデックス
-    pub selected_target: usize,
+    /// ターゲット選択中の生存敵リスト内オフセット
+    pub target_offset: usize,
     /// パーティ全員分のコマンド蓄積
     pub pending_commands: PendingCommands,
     /// 戦闘フェーズ
@@ -101,8 +101,8 @@ pub struct BattleUIState {
     pub selected_item: usize,
     /// 選択済みのアイテム（ターゲット選択へ渡す）
     pub pending_item: Option<ItemKind>,
-    /// 味方ターゲット選択中のカーソル位置
-    pub selected_ally_target: usize,
+    /// 味方ターゲット選択中の生存味方リスト内オフセット
+    pub ally_target_offset: usize,
     /// メッセージindex → 適用する視覚効果のリスト
     pub message_effects: Vec<(usize, MessageEffect)>,
     /// 画面シェイク用タイマー
@@ -156,7 +156,7 @@ pub(crate) fn enemy_display_names(enemies: &[battle::Enemy]) -> Vec<String> {
             let count = kind_counts[&e.kind];
             if count > 1 {
                 let idx = kind_indices.entry(e.kind).or_insert(0);
-                let suffix = suffixes[*idx];
+                let suffix = suffixes.get(*idx).copied().unwrap_or('?');
                 *idx += 1;
                 format!("{}{}", e.kind.name(), suffix)
             } else {
@@ -222,7 +222,7 @@ pub fn init_battle_resources(
     };
     let ui_state = BattleUIState {
         selected_command: 0,
-        selected_target: 0,
+        target_offset: 0,
         pending_commands: PendingCommands::new(party_size),
         phase,
         hidden_enemies: vec![false; enemy_count],
@@ -232,7 +232,7 @@ pub fn init_battle_resources(
         pending_spell: None,
         selected_item: 0,
         pending_item: None,
-        selected_ally_target: 0,
+        ally_target_offset: 0,
         message_effects: Vec::new(),
         shake_timer: None,
         blink_timer: None,

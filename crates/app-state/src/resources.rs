@@ -39,11 +39,47 @@ pub struct RecruitmentMap {
 pub struct FieldMenuOpen;
 
 /// 祠のワールドマップ座標を保持するリソース
-#[derive(Resource, Default)]
+#[derive(Resource)]
 pub struct HokoraPositions {
-    pub positions: Vec<(usize, usize)>,
-    /// 各祠のワープ先座標（positionsと同じ順序）
-    pub warp_destinations: Vec<(usize, usize)>,
+    positions: Vec<(usize, usize)>,
+    warp_destinations: Vec<(usize, usize)>,
+}
+
+impl HokoraPositions {
+    pub fn new(positions: Vec<(usize, usize)>, warp_destinations: Vec<(usize, usize)>) -> Self {
+        assert!(!positions.is_empty(), "ホコラは最低1つ必要");
+        assert_eq!(
+            positions.len(),
+            warp_destinations.len(),
+            "positionsとwarp_destinationsの長さが不一致"
+        );
+        Self {
+            positions,
+            warp_destinations,
+        }
+    }
+
+    /// 最寄りの祠インデックスを返す（コンストラクタで非空を保証済み）
+    pub fn nearest(&self, player_x: usize, player_y: usize) -> usize {
+        self.positions
+            .iter()
+            .enumerate()
+            .min_by_key(|&(_, &(hx, hy))| {
+                let dx = player_x as isize - hx as isize;
+                let dy = player_y as isize - hy as isize;
+                dx * dx + dy * dy
+            })
+            .map(|(i, _)| i)
+            .unwrap() // positions非空はコンストラクタで保証
+    }
+
+    pub fn warp_destination(&self, index: usize) -> Option<(usize, usize)> {
+        self.warp_destinations.get(index).copied()
+    }
+
+    pub fn positions(&self) -> &[(usize, usize)] {
+        &self.positions
+    }
 }
 
 /// 各大陸にある洞窟のワールドマップ座標（インデックス0=大陸1, 1=大陸2, 2=大陸3）

@@ -159,15 +159,12 @@ pub fn spawn_field_map_with_rng(
     });
 
     // 祠の位置とワープ先を生成データから直接取得
-    let (hokora_positions, warp_destinations): (Vec<_>, Vec<_>) =
+    let (hokora_pos_vec, warp_dest_vec): (Vec<_>, Vec<_>) =
         map_data.hokora_spawns.iter().copied().unzip();
-    commands.insert_resource(HokoraPositions {
-        positions: hokora_positions.clone(),
-        warp_destinations,
-    });
+    commands.insert_resource(HokoraPositions::new(hokora_pos_vec.clone(), warp_dest_vec));
 
     // 各祠が所属する大陸の洞窟座標を収集
-    let caves_by_continent: Vec<Vec<(usize, usize)>> = hokora_positions
+    let caves_by_continent: Vec<Vec<(usize, usize)>> = hokora_pos_vec
         .iter()
         .map(|hokora_pos| {
             islands

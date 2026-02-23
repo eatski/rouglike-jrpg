@@ -126,12 +126,13 @@ pub fn battle_display_system(
 
     // パーティ名前+レベル更新＆ハイライト（味方ターゲット選択時）
     let is_ally_target_select = matches!(ui_state.phase, BattlePhase::AllyTargetSelect { .. });
+    let alive_party = game_state.state.alive_party_indices();
     for (name_text, mut text, mut color) in &mut party_name_query {
         if name_text.index < game_state.state.party.len() {
             let member = &game_state.state.party[name_text.index];
             **text = format!("{} Lv.{}", member.kind.name(), member.level);
         }
-        if is_ally_target_select && name_text.index == ui_state.selected_ally_target {
+        if is_ally_target_select && alive_party.get(ui_state.ally_target_offset) == Some(&name_text.index) {
             *color = TextColor(COMMAND_COLOR_SELECTED); // 黄色ハイライト
         } else {
             *color = TextColor(Color::WHITE);
@@ -151,12 +152,9 @@ pub fn battle_display_system(
 
     // ターゲットカーソル更新
     let is_target_select = matches!(ui_state.phase, BattlePhase::TargetSelect { .. });
+    let alive_enemies = game_state.state.alive_enemy_indices();
     for (cursor, mut vis) in &mut target_cursor_query {
-        if is_target_select
-            && cursor.index < enemy_count
-            && game_state.state.enemies[cursor.index].stats.is_alive()
-            && cursor.index == ui_state.selected_target
-        {
+        if is_target_select && alive_enemies.get(ui_state.target_offset) == Some(&cursor.index) {
             *vis = Visibility::Inherited;
         } else {
             *vis = Visibility::Hidden;

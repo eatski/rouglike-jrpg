@@ -73,8 +73,7 @@ fn handle_command_select(
         match ui_state.selected_command {
             0 => {
                 // たたかう → ターゲット選択へ
-                let first_alive = game_state.state.alive_enemy_indices();
-                ui_state.selected_target = first_alive.first().copied().expect("生存敵がいない状態でターゲット選択に遷移");
+                ui_state.target_offset = 0;
                 ui_state.pending_spell = None;
                 ui_state.phase = BattlePhase::TargetSelect { member_index };
             }
@@ -147,13 +146,11 @@ fn handle_spell_select(
 
         if spell.is_offensive() {
             // 攻撃呪文 → 敵選択へ
-            let first_alive = game_state.state.alive_enemy_indices();
-            ui_state.selected_target = first_alive.first().copied().expect("生存敵がいない状態でターゲット選択に遷移");
+            ui_state.target_offset = 0;
             ui_state.phase = BattlePhase::TargetSelect { member_index };
         } else {
             // 回復呪文 → 味方選択へ
-            let first_alive = game_state.state.alive_party_indices();
-            ui_state.selected_ally_target = first_alive.first().copied().expect("生存味方がいない状態でターゲット選択に遷移");
+            ui_state.ally_target_offset = 0;
             ui_state.phase = BattlePhase::AllyTargetSelect { member_index };
         }
     }
@@ -198,8 +195,7 @@ fn handle_item_select(
         ui_state.pending_item = Some(item);
 
         // 回復アイテム → 味方選択へ
-        let first_alive = game_state.state.alive_party_indices();
-        ui_state.selected_ally_target = first_alive.first().copied().expect("生存味方がいない状態でターゲット選択に遷移");
+        ui_state.ally_target_offset = 0;
         ui_state.phase = BattlePhase::AllyTargetSelect { member_index };
     }
 }
@@ -217,20 +213,18 @@ fn handle_target_select(
 
     // 左右でターゲット切り替え
     if input_ui::is_left_just_pressed(keyboard) {
-        let current_pos = alive_enemies
-            .iter()
-            .position(|&i| i == ui_state.selected_target)
-            .expect("選択中のターゲットが生存リストにいない");
-        let new_pos = if current_pos > 0 { current_pos - 1 } else { alive_enemies.len() - 1 };
-        ui_state.selected_target = alive_enemies[new_pos];
+        ui_state.target_offset = if ui_state.target_offset > 0 {
+            ui_state.target_offset - 1
+        } else {
+            alive_enemies.len() - 1
+        };
     }
     if input_ui::is_right_just_pressed(keyboard) {
-        let current_pos = alive_enemies
-            .iter()
-            .position(|&i| i == ui_state.selected_target)
-            .expect("選択中のターゲットが生存リストにいない");
-        let new_pos = if current_pos < alive_enemies.len() - 1 { current_pos + 1 } else { 0 };
-        ui_state.selected_target = alive_enemies[new_pos];
+        ui_state.target_offset = if ui_state.target_offset < alive_enemies.len() - 1 {
+            ui_state.target_offset + 1
+        } else {
+            0
+        };
     }
 
     // キャンセル: pending_spellがあれば呪文選択に戻る、なければコマンド選択に戻る
@@ -246,7 +240,7 @@ fn handle_target_select(
 
     // 決定
     if input_ui::is_confirm_just_pressed(keyboard) {
-        let target = TargetId::Enemy(ui_state.selected_target);
+        let target = TargetId::Enemy(alive_enemies[ui_state.target_offset]);
 
         if let Some(spell) = ui_state.pending_spell.take() {
             // 呪文ターゲット決定
@@ -287,20 +281,18 @@ fn handle_ally_target_select(
 
     // 左右で味方ターゲット切り替え
     if input_ui::is_left_just_pressed(keyboard) {
-        let current_pos = alive_party
-            .iter()
-            .position(|&i| i == ui_state.selected_ally_target)
-            .expect("選択中のターゲットが生存リストにいない");
-        let new_pos = if current_pos > 0 { current_pos - 1 } else { alive_party.len() - 1 };
-        ui_state.selected_ally_target = alive_party[new_pos];
+        ui_state.ally_target_offset = if ui_state.ally_target_offset > 0 {
+            ui_state.ally_target_offset - 1
+        } else {
+            alive_party.len() - 1
+        };
     }
     if input_ui::is_right_just_pressed(keyboard) {
-        let current_pos = alive_party
-            .iter()
-            .position(|&i| i == ui_state.selected_ally_target)
-            .expect("選択中のターゲットが生存リストにいない");
-        let new_pos = if current_pos < alive_party.len() - 1 { current_pos + 1 } else { 0 };
-        ui_state.selected_ally_target = alive_party[new_pos];
+        ui_state.ally_target_offset = if ui_state.ally_target_offset < alive_party.len() - 1 {
+            ui_state.ally_target_offset + 1
+        } else {
+            0
+        };
     }
 
     // キャンセル: 呪文選択またはアイテム選択に戻る
@@ -317,7 +309,7 @@ fn handle_ally_target_select(
 
     // 決定
     if input_ui::is_confirm_just_pressed(keyboard) {
-        let target = TargetId::Party(ui_state.selected_ally_target);
+        let target = TargetId::Party(alive_party[ui_state.ally_target_offset]);
 
         if let Some(spell) = ui_state.pending_spell.take() {
             ui_state
