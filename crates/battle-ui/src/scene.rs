@@ -50,11 +50,7 @@ impl PendingCommands {
     pub fn to_commands(&self) -> Vec<BattleAction> {
         self.slots
             .iter()
-            .map(|opt| {
-                opt.unwrap_or(BattleAction::Attack {
-                    target: battle::TargetId::Enemy(0),
-                })
-            })
+            .map(|opt| (*opt).expect("コマンド未設定のメンバーがいる"))
             .collect()
     }
 }
@@ -160,7 +156,7 @@ pub(crate) fn enemy_display_names(enemies: &[battle::Enemy]) -> Vec<String> {
             let count = kind_counts[&e.kind];
             if count > 1 {
                 let idx = kind_indices.entry(e.kind).or_insert(0);
-                let suffix = suffixes.get(*idx).unwrap_or(&'?');
+                let suffix = suffixes[*idx];
                 *idx += 1;
                 format!("{}{}", e.kind.name(), suffix)
             } else {

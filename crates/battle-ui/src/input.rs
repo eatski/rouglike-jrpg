@@ -74,7 +74,7 @@ fn handle_command_select(
             0 => {
                 // たたかう → ターゲット選択へ
                 let first_alive = game_state.state.alive_enemy_indices();
-                ui_state.selected_target = first_alive.first().copied().unwrap_or(0);
+                ui_state.selected_target = first_alive.first().copied().expect("生存敵がいない状態でターゲット選択に遷移");
                 ui_state.pending_spell = None;
                 ui_state.phase = BattlePhase::TargetSelect { member_index };
             }
@@ -148,12 +148,12 @@ fn handle_spell_select(
         if spell.is_offensive() {
             // 攻撃呪文 → 敵選択へ
             let first_alive = game_state.state.alive_enemy_indices();
-            ui_state.selected_target = first_alive.first().copied().unwrap_or(0);
+            ui_state.selected_target = first_alive.first().copied().expect("生存敵がいない状態でターゲット選択に遷移");
             ui_state.phase = BattlePhase::TargetSelect { member_index };
         } else {
             // 回復呪文 → 味方選択へ
             let first_alive = game_state.state.alive_party_indices();
-            ui_state.selected_ally_target = first_alive.first().copied().unwrap_or(0);
+            ui_state.selected_ally_target = first_alive.first().copied().expect("生存味方がいない状態でターゲット選択に遷移");
             ui_state.phase = BattlePhase::AllyTargetSelect { member_index };
         }
     }
@@ -199,7 +199,7 @@ fn handle_item_select(
 
         // 回復アイテム → 味方選択へ
         let first_alive = game_state.state.alive_party_indices();
-        ui_state.selected_ally_target = first_alive.first().copied().unwrap_or(0);
+        ui_state.selected_ally_target = first_alive.first().copied().expect("生存味方がいない状態でターゲット選択に遷移");
         ui_state.phase = BattlePhase::AllyTargetSelect { member_index };
     }
 }
@@ -220,7 +220,7 @@ fn handle_target_select(
         let current_pos = alive_enemies
             .iter()
             .position(|&i| i == ui_state.selected_target)
-            .unwrap_or(0);
+            .expect("選択中のターゲットが生存リストにいない");
         let new_pos = if current_pos > 0 { current_pos - 1 } else { alive_enemies.len() - 1 };
         ui_state.selected_target = alive_enemies[new_pos];
     }
@@ -228,7 +228,7 @@ fn handle_target_select(
         let current_pos = alive_enemies
             .iter()
             .position(|&i| i == ui_state.selected_target)
-            .unwrap_or(0);
+            .expect("選択中のターゲットが生存リストにいない");
         let new_pos = if current_pos < alive_enemies.len() - 1 { current_pos + 1 } else { 0 };
         ui_state.selected_target = alive_enemies[new_pos];
     }
@@ -290,7 +290,7 @@ fn handle_ally_target_select(
         let current_pos = alive_party
             .iter()
             .position(|&i| i == ui_state.selected_ally_target)
-            .unwrap_or(0);
+            .expect("選択中のターゲットが生存リストにいない");
         let new_pos = if current_pos > 0 { current_pos - 1 } else { alive_party.len() - 1 };
         ui_state.selected_ally_target = alive_party[new_pos];
     }
@@ -298,7 +298,7 @@ fn handle_ally_target_select(
         let current_pos = alive_party
             .iter()
             .position(|&i| i == ui_state.selected_ally_target)
-            .unwrap_or(0);
+            .expect("選択中のターゲットが生存リストにいない");
         let new_pos = if current_pos < alive_party.len() - 1 { current_pos + 1 } else { 0 };
         ui_state.selected_ally_target = alive_party[new_pos];
     }
@@ -426,7 +426,7 @@ fn execute_turn(game_state: &mut BattleGameState, ui_state: &mut BattleUIState) 
         } else {
             let first_alive = game_state.state.alive_party_indices();
             ui_state.phase = BattlePhase::CommandSelect {
-                member_index: first_alive.first().copied().unwrap_or(0),
+                member_index: first_alive.first().copied().expect("戦闘継続中に生存味方がいない"),
             };
         }
         return;
@@ -436,7 +436,7 @@ fn execute_turn(game_state: &mut BattleGameState, ui_state: &mut BattleUIState) 
     process_message_effects(ui_state, 0);
 
     if game_state.state.is_over() {
-        let last_msg = messages.last().cloned().unwrap_or_default();
+        let last_msg = messages.last().cloned().expect("メッセージが空");
         if messages.len() == 1 {
             ui_state.phase = BattlePhase::BattleOver { message: last_msg };
         } else {
@@ -705,7 +705,7 @@ fn actor_name(
 ) -> String {
     match actor {
         ActorId::Party(i) => state.party[*i].kind.name().to_string(),
-        ActorId::Enemy(i) => enemy_names.get(*i).cloned().unwrap_or_default(),
+        ActorId::Enemy(i) => enemy_names[*i].clone(),
     }
 }
 
@@ -715,7 +715,7 @@ fn target_name_str(
     enemy_names: &[String],
 ) -> String {
     match target {
-        TargetId::Enemy(i) => enemy_names.get(*i).cloned().unwrap_or_default(),
+        TargetId::Enemy(i) => enemy_names[*i].clone(),
         TargetId::Party(i) => state.party[*i].kind.name().to_string(),
     }
 }
@@ -734,13 +734,13 @@ fn handle_show_message(
             sync_display_hp(&game_state.state, ui_state);
             if game_state.state.is_over() {
                 if let BattlePhase::ShowMessage { messages, .. } = &ui_state.phase {
-                    let last_msg = messages.last().cloned().unwrap_or_default();
+                    let last_msg = messages.last().cloned().expect("メッセージが空");
                     ui_state.phase = BattlePhase::BattleOver { message: last_msg };
                 }
             } else {
                 let first_alive = game_state.state.alive_party_indices();
                 ui_state.phase = BattlePhase::CommandSelect {
-                    member_index: first_alive.first().copied().unwrap_or(0),
+                    member_index: first_alive.first().copied().expect("戦闘継続中に生存味方がいない"),
                 };
             }
         } else {

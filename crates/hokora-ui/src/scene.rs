@@ -68,7 +68,7 @@ pub fn setup_hokora_scene(
             })
             .map(|(i, _)| i);
         let dest = nearest.and_then(|i| hokora_positions.warp_destinations.get(i).copied());
-        (dest, nearest.unwrap_or(0))
+        (dest, nearest.expect("ホコラが存在しない"))
     } else {
         (None, 0)
     };
