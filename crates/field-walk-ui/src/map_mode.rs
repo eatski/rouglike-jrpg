@@ -1,7 +1,7 @@
 use bevy::camera::Projection;
 use bevy::prelude::*;
 
-use movement_ui::{ActiveMap, TILE_SIZE, VISIBLE_SIZE};
+use field_core::{ActiveMap, TILE_SIZE, VISIBLE_SIZE};
 
 /// 通常時のズーム値
 pub const NORMAL_ZOOM: f32 = VISIBLE_SIZE;

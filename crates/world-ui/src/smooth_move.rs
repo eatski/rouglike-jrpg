@@ -1,10 +1,10 @@
 use bevy::prelude::*;
 
-use movement_ui::{
-    execute_move, Boat, ExecuteMoveResult, MovementBlockedEvent, MovementLocked, OnBoat,
-    PendingMove, Player, PlayerMovedEvent, TileEnteredEvent, TilePosition,
+use field_core::{ActiveMap, Boat, OnBoat, Player, TilePosition};
+use field_walk_ui::{
+    execute_move, ExecuteMoveResult, MovementBlockedEvent, MovementLocked, MovementState,
+    PendingMove, PlayerMovedEvent, TileEnteredEvent,
 };
-use movement_ui::{ActiveMap, MovementState};
 
 /// フィールドでのSmoothMove完了後の処理
 ///

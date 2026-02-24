@@ -1,8 +1,8 @@
 use bevy::prelude::*;
 
 use app_state::BattleState;
-use movement_ui::{OnBoat, Player, TileEnteredEvent, TilePosition};
-use movement_ui::ActiveMap;
+use field_core::{ActiveMap, OnBoat, Player, TilePosition};
+use crate::TileEnteredEvent;
 
 /// プレイヤーがタイルに到着した際にエンカウント判定を行うシステム
 pub fn check_encounter_system(

@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy::window::{Window, WindowResolution};
 use bevy::winit::{UpdateMode, WinitSettings};
 use app_state::InField;
-use movement_ui::WINDOW_SIZE;
+use field_core::WINDOW_SIZE;
 
 fn main() {
     let title = std::env::args()
@@ -32,13 +32,13 @@ fn main() {
         )
         .add_plugins((
             app_state::AppStatePlugin,
-            movement_ui::MovementPlugin,
+            field_walk_ui::MovementPlugin,
             world_ui::WorldPlugin,
             battle_ui::BattlePlugin,
             town_ui::TownPlugin,
             hokora_ui::HokoraPlugin,
             cave_ui::CavePlugin,
         ))
-        .add_systems(OnExit(InField), movement_ui::cleanup_player_movement)
+        .add_systems(OnExit(InField), field_walk_ui::cleanup_player_movement)
         .run();
 }

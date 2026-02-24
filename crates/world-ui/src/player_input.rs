@@ -2,12 +2,12 @@ use bevy::prelude::*;
 
 use terrain::coordinates::wrap_position;
 
-use movement_ui::{
-    execute_move, process_movement_input, Boat, ExecuteMoveResult, MovementBlockedEvent,
-    MovementLocked, OnBoat, PendingMove, Player, PlayerMovedEvent, TilePosition,
+use field_core::{ActiveMap, Boat, OnBoat, Player, TilePosition};
+use field_walk_ui::{
+    execute_move, process_movement_input, ExecuteMoveResult, MovementBlockedEvent,
+    MovementLocked, MovementState, PendingMove, PlayerMovedEvent,
 };
 use app_state::FieldMenuOpen;
-use movement_ui::{ActiveMap, MovementState};
 
 use field_walk_ui::MapModeState;
 

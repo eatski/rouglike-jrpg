@@ -7,10 +7,9 @@ use world::map::{
     place_extra_towns,
 };
 
-use movement_ui::{Player, TilePosition};
+use field_core::{ActiveMap, Player, TilePosition, TILE_SIZE};
 use party::default_candidates;
 use app_state::{ContinentCavePositions, HokoraPositions, RecruitmentMap};
-use movement_ui::{ActiveMap, TILE_SIZE};
 use terrain::Terrain;
 
 use crate::resources::SpawnPosition;

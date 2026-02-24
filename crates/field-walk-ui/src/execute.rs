@@ -2,9 +2,9 @@ use bevy::prelude::*;
 
 use terrain::{MoveResult, Terrain};
 
-use crate::{
-    ActiveMap, Boat, MovementBlockedEvent, OnBoat, Player, PlayerMovedEvent, TilePosition,
-};
+use field_core::{ActiveMap, Boat, OnBoat, Player, TilePosition};
+
+use crate::{MovementBlockedEvent, PlayerMovedEvent};
 
 /// 移動実行の結果
 pub enum ExecuteMoveResult {

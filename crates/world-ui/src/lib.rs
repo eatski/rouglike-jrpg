@@ -9,7 +9,7 @@ pub mod tile_action;
 
 use bevy::prelude::*;
 use app_state::{BattleState, InField, SceneState};
-use movement_ui::{start_bounce, start_smooth_move, update_bounce, update_smooth_move};
+use field_walk_ui::{start_bounce, start_smooth_move, update_bounce, update_smooth_move};
 
 // field-walk-ui からの再エクスポート
 pub use field_walk_ui::{

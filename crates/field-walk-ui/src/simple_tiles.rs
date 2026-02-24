@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use bevy::prelude::*;
 use terrain::Terrain;
 
-use movement_ui::{ActiveMap, MapTile, Player, SmoothMove, TILE_SIZE};
-use movement_ui::TilePosition;
+use field_core::{ActiveMap, MapTile, Player, TilePosition, TILE_SIZE};
+use crate::SmoothMove;
 
 use crate::{MapModeState, TileTextures};
 

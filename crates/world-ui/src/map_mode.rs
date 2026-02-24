@@ -3,7 +3,8 @@ use bevy::prelude::*;
 use field_walk::exploration::{ExplorationMap, VIEW_RADIUS};
 use terrain::{MAP_HEIGHT, MAP_WIDTH};
 
-use movement_ui::{Player, PlayerMovedEvent, TilePosition};
+use field_core::{Player, TilePosition};
+use field_walk_ui::PlayerMovedEvent;
 
 use crate::resources::SpawnPosition;
 

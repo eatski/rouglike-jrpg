@@ -16,12 +16,12 @@ use rand_chacha::ChaCha8Rng;
 use std::time::Duration;
 use app_state::{BattleState, SceneState};
 use battle_ui::{BattlePhase, BattleUIState};
-use movement_ui::{
-    Boat, MovementBlockedEvent, MovementLocked, OnBoat, Player,
-    PlayerMovedEvent, TilePosition,
+use field_core::{ActiveMap, Boat, OnBoat, Player, TilePosition, TILE_SIZE};
+use field_walk_ui::{
+    MovementBlockedEvent, MovementLocked, MovementState,
+    PlayerMovedEvent,
 };
 use app_state::PartyState;
-use movement_ui::{ActiveMap, MovementState, TILE_SIZE};
 use field_walk_ui::MapModeState;
 use world_ui::SpawnPosition;
 
@@ -112,7 +112,7 @@ fn setup_test_app_with_map(grid: Vec<Vec<Terrain>>, spawn_x: usize, spawn_y: usi
     // イベントを登録
     app.add_message::<PlayerMovedEvent>();
     app.add_message::<MovementBlockedEvent>();
-    app.add_message::<movement_ui::TileEnteredEvent>();
+    app.add_message::<field_walk_ui::TileEnteredEvent>();
 
     // 本番と同じシステム登録（移動コアのみ、エンカウント除外）
     world_ui::register_exploring_movement_systems(&mut app);
@@ -955,7 +955,7 @@ fn battle_cleanup_removes_movement_lock() {
     app.add_computed_state::<app_state::InField>();
     app.add_systems(
         OnExit(app_state::InField),
-        movement_ui::cleanup_player_movement,
+        field_walk_ui::cleanup_player_movement,
     );
 
     let player_entity = spawn_test_player(&mut app);

@@ -1,7 +1,6 @@
 use bevy::prelude::*;
 
-use movement_ui::{Boat, TilePosition};
-use movement_ui::{ActiveMap, TILE_SIZE};
+use field_core::{ActiveMap, Boat, TilePosition, TILE_SIZE};
 
 /// 船のスポーン位置を保存するリソース（洞窟脱出後の復元に使用）
 #[derive(Resource)]
