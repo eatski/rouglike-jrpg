@@ -4,7 +4,7 @@ use app_state::PartyState;
 use field_core::{ActiveMap, Player, TilePosition};
 use screenshot_common::{screenshot_app, ScreenshotRng};
 use terrain::Terrain;
-use world_ui::{
+use field_walk_ui::{
     camera_follow, init_exploration_system, init_minimap_system, init_tile_pool, setup_camera,
     setup_hud, spawn_field_map_with_rng, spawn_player, update_visible_tiles, MapModeState,
 };

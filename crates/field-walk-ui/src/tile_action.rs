@@ -4,7 +4,7 @@ use terrain::TileAction;
 
 use app_state::SceneState;
 use field_core::{ActiveMap, OnBoat, Player, TilePosition};
-use field_walk_ui::TileEnteredEvent;
+use crate::TileEnteredEvent;
 
 /// プレイヤーがフィールドのタイルに歩いて到着した際に、
 /// 地形に応じた状態遷移を行うシステム

@@ -3,7 +3,7 @@ use bevy::prelude::*;
 
 use screenshot_common::{ScreenshotAppBuilder, ScreenshotRng};
 use terrain::{Terrain, MAP_HEIGHT, MAP_WIDTH};
-use world::map::generate_connected_map;
+use field_walk::map::generate_connected_map;
 
 const TILE_SIZE: f32 = 4.0;
 

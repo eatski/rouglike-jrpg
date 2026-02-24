@@ -14,8 +14,7 @@ hokora-ui = { path = "crates/hokora-ui" }
 field-core = { path = "crates/field-core" }
 terrain = { path = "crates/terrain" }
 town-ui = { path = "crates/town-ui" }
-world = { path = "crates/world" }
-world-ui = { path = "crates/world-ui" }
+field-walk = { path = "crates/field-walk" }
 field-walk-ui = { path = "crates/field-walk-ui" }
 
 [dev-dependencies]
@@ -23,7 +22,6 @@ rand_chacha = "0.3"
 party = { path = "crates/party" }
 cave = { path = "crates/cave" }
 town = { path = "crates/town" }
-field-walk = { path = "crates/field-walk" }
 
 [workspace]
 members = [
@@ -33,7 +31,6 @@ members = [
     "crates/field-walk-ui",
     "crates/world-gen",
     "crates/party",
-    "crates/world",
     "crates/town",
     "crates/cave",
     "crates/battle",
@@ -41,7 +38,7 @@ members = [
     "crates/input-ui",
     "crates/battle-ui",
     "crates/town-ui",
-    "crates/world-ui",
+
     "crates/cave-ui",
     "crates/hokora-ui",
     "tools/generate_tiles",

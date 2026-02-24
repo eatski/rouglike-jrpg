@@ -80,7 +80,7 @@ crateは「複数から使われるかどうか」ではなく、「意味的に
 
 - 地形ごとのエンカウント率はTerrainの責務として内包
 
-**Bevy system**: `world_ui::check_encounter_system` / `cave-ui::check_encounter_system` - UI機能層に配置
+**Bevy system**: `field_walk_ui::check_encounter_system` / `cave-ui::check_encounter_system` - UI機能層に配置
 
 - TileEnteredEventをリッスン（フィールド/洞窟の両方で動作）
 - プレイヤー状態（座標、船乗車フラグ）をクエリ

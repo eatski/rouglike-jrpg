@@ -13,4 +13,4 @@ screenshot-common = { path = "../common" }
 app-state = { path = "../../crates/app-state" }
 field-core = { path = "../../crates/field-core" }
 terrain = { path = "../../crates/terrain" }
-world-ui = { path = "../../crates/world-ui" }
+field-walk-ui = { path = "../../crates/field-walk-ui" }
