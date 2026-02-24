@@ -65,13 +65,20 @@ pub fn all_spells() -> Vec<SpellKind> {
     ]
 }
 
-/// クラス別の呪文習得テーブル: (必要レベル, 呪文) のペア
+/// キャラ別の呪文習得テーブル: (必要レベル, 呪文) のペア
 pub fn spell_learn_table(kind: party::PartyMemberKind) -> &'static [(u32, SpellKind)] {
     use party::PartyMemberKind;
     match kind {
-        PartyMemberKind::Hero => &[(3, SpellKind::Heal)],
-        PartyMemberKind::Mage => &[(1, SpellKind::Fire), (5, SpellKind::Blaze)],
-        PartyMemberKind::Priest => &[(1, SpellKind::Heal), (4, SpellKind::FullHeal)],
+        PartyMemberKind::Laios => &[(3, SpellKind::Heal)],
+        PartyMemberKind::Marcille => &[(1, SpellKind::Fire), (5, SpellKind::Blaze)],
+        PartyMemberKind::Falin => &[(1, SpellKind::Heal), (4, SpellKind::FullHeal)],
+        PartyMemberKind::Izutsumi => &[(5, SpellKind::Fire)],
+        PartyMemberKind::Kabru => &[(4, SpellKind::Heal)],
+        PartyMemberKind::Rinsha => &[(1, SpellKind::Fire), (3, SpellKind::Heal)],
+        PartyMemberKind::Chilchuck
+        | PartyMemberKind::Senshi
+        | PartyMemberKind::Shuro
+        | PartyMemberKind::Namari => &[],
     }
 }
 
@@ -133,57 +140,57 @@ mod tests {
     }
 
     #[test]
-    fn hero_has_no_spells_before_level_3() {
-        assert!(available_spells(party::PartyMemberKind::Hero, 1).is_empty());
-        assert!(available_spells(party::PartyMemberKind::Hero, 2).is_empty());
+    fn laios_has_no_spells_before_level_3() {
+        assert!(available_spells(party::PartyMemberKind::Laios, 1).is_empty());
+        assert!(available_spells(party::PartyMemberKind::Laios, 2).is_empty());
     }
 
     #[test]
-    fn hero_learns_heal_at_level_3() {
-        let spells = available_spells(party::PartyMemberKind::Hero, 3);
+    fn laios_learns_heal_at_level_3() {
+        let spells = available_spells(party::PartyMemberKind::Laios, 3);
         assert_eq!(spells, vec![SpellKind::Heal]);
     }
 
     #[test]
-    fn mage_learns_fire_at_level_1() {
-        let spells = available_spells(party::PartyMemberKind::Mage, 1);
+    fn marcille_learns_fire_at_level_1() {
+        let spells = available_spells(party::PartyMemberKind::Marcille, 1);
         assert_eq!(spells, vec![SpellKind::Fire]);
     }
 
     #[test]
-    fn mage_learns_blaze_at_level_5() {
-        let spells = available_spells(party::PartyMemberKind::Mage, 5);
+    fn marcille_learns_blaze_at_level_5() {
+        let spells = available_spells(party::PartyMemberKind::Marcille, 5);
         assert_eq!(spells, vec![SpellKind::Fire, SpellKind::Blaze]);
     }
 
     #[test]
-    fn mage_no_blaze_at_level_4() {
-        let spells = available_spells(party::PartyMemberKind::Mage, 4);
+    fn marcille_no_blaze_at_level_4() {
+        let spells = available_spells(party::PartyMemberKind::Marcille, 4);
         assert_eq!(spells, vec![SpellKind::Fire]);
     }
 
     #[test]
-    fn priest_learns_heal_at_level_1() {
-        let spells = available_spells(party::PartyMemberKind::Priest, 1);
+    fn falin_learns_heal_at_level_1() {
+        let spells = available_spells(party::PartyMemberKind::Falin, 1);
         assert_eq!(spells, vec![SpellKind::Heal]);
     }
 
     #[test]
-    fn priest_learns_fullheal_at_level_4() {
-        let spells = available_spells(party::PartyMemberKind::Priest, 4);
+    fn falin_learns_fullheal_at_level_4() {
+        let spells = available_spells(party::PartyMemberKind::Falin, 4);
         assert_eq!(spells, vec![SpellKind::Heal, SpellKind::FullHeal]);
     }
 
     #[test]
     fn spells_learned_at_specific_level() {
         assert_eq!(
-            spells_learned_at_level(party::PartyMemberKind::Mage, 1),
+            spells_learned_at_level(party::PartyMemberKind::Marcille, 1),
             vec![SpellKind::Fire]
         );
         assert_eq!(
-            spells_learned_at_level(party::PartyMemberKind::Mage, 5),
+            spells_learned_at_level(party::PartyMemberKind::Marcille, 5),
             vec![SpellKind::Blaze]
         );
-        assert!(spells_learned_at_level(party::PartyMemberKind::Mage, 3).is_empty());
+        assert!(spells_learned_at_level(party::PartyMemberKind::Marcille, 3).is_empty());
     }
 }

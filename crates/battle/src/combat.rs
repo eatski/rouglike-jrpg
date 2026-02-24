@@ -448,7 +448,7 @@ mod tests {
     #[test]
     fn speed_ordering() {
         let party = default_party();
-        // Mage(SPD7) > Hero(SPD5) > Priest(SPD4) > Slime(SPD3)
+        // Marcille(SPD7) > Laios(SPD5) > Falin(SPD4) > Slime(SPD3)
         let enemies = vec![Enemy::slime()];
         let mut battle = BattleState::new(party, enemies);
 
@@ -466,7 +466,7 @@ mod tests {
         let randoms = make_random(vec![1.0; 4], 0.0);
         let results = battle.execute_turn(&commands, &randoms);
 
-        // 最初の攻撃は魔法使い(Party(1))のはず
+        // 最初の攻撃はマルシル(Party(1))のはず
         let first_attack = results.iter().find(|r| matches!(r, TurnResult::Attack { .. }));
         assert!(matches!(
             first_attack,
@@ -479,7 +479,7 @@ mod tests {
 
     #[test]
     fn retarget_when_enemy_already_defeated() {
-        let party = vec![PartyMember::hero(), PartyMember::mage()];
+        let party = vec![PartyMember::laios(), PartyMember::marcille()];
         let enemies = vec![Enemy::slime(), Enemy::slime()];
         let mut battle = BattleState::new(party, enemies);
 
@@ -497,7 +497,7 @@ mod tests {
         let randoms = make_random(vec![1.0; 3], 0.0);
         let results = battle.execute_turn(&commands, &randoms);
 
-        // 勇者の攻撃は敵1にリターゲットされているはず
+        // ライオスの攻撃は敵1にリターゲットされているはず
         for result in &results {
             if let TurnResult::Attack {
                 attacker: ActorId::Party(0),
@@ -639,7 +639,7 @@ mod tests {
         let enemies = vec![slime];
         let mut battle = BattleState::new(party, enemies);
 
-        // 勇者のHPを減らす
+        // ライオスのHPを減らす
         battle.party[0].stats.hp = 10;
 
         let commands = vec![
@@ -675,7 +675,7 @@ mod tests {
         let enemies = vec![Enemy::slime()];
         let mut battle = BattleState::new(party, enemies);
 
-        // 勇者を倒す
+        // ライオスを倒す
         battle.party[0].stats.hp = 0;
 
         let commands = vec![
@@ -700,8 +700,8 @@ mod tests {
 
     #[test]
     fn dead_hero_priest_still_attacks() {
-        // リグレッション防止: 勇者(index 0)が死亡した状態で、
-        // 魔法使い(index 1)と僧侶(index 2)のコマンドが正しく実行されることを検証
+        // リグレッション防止: ライオス(index 0)が死亡した状態で、
+        // マルシル(index 1)とファリン(index 2)のコマンドが正しく実行されることを検証
         let party = default_party();
         // 敵のHPを高くして戦闘が1ターンで終わらないようにする
         let mut slime = Enemy::slime();
@@ -710,24 +710,24 @@ mod tests {
         let enemies = vec![slime];
         let mut battle = BattleState::new(party, enemies);
 
-        // 勇者を倒す
+        // ライオスを倒す
         battle.party[0].stats.hp = 0;
 
         let commands = vec![
             BattleAction::Attack {
-                target: TargetId::Enemy(0), // 勇者のコマンド(実行されない)
+                target: TargetId::Enemy(0), // ライオスのコマンド(実行されない)
             },
             BattleAction::Attack {
-                target: TargetId::Enemy(0), // 魔法使いのコマンド
+                target: TargetId::Enemy(0), // マルシルのコマンド
             },
             BattleAction::Attack {
-                target: TargetId::Enemy(0), // 僧侶のコマンド
+                target: TargetId::Enemy(0), // ファリンのコマンド
             },
         ];
         let randoms = make_random(vec![1.0; 3], 0.0);
         let results = battle.execute_turn(&commands, &randoms);
 
-        // 魔法使い(Party(1))と僧侶(Party(2))が攻撃していることを確認
+        // マルシル(Party(1))とファリン(Party(2))が攻撃していることを確認
         let mage_attacks = results
             .iter()
             .filter(|r| {
@@ -753,10 +753,10 @@ mod tests {
             })
             .count();
 
-        assert_eq!(mage_attacks, 1, "魔法使いは1回攻撃するはず");
-        assert_eq!(priest_attacks, 1, "僧侶は1回攻撃するはず");
+        assert_eq!(mage_attacks, 1, "マルシルは1回攻撃するはず");
+        assert_eq!(priest_attacks, 1, "ファリンは1回攻撃するはず");
 
-        // 勇者は攻撃していないことを確認
+        // ライオスは攻撃していないことを確認
         let hero_attacks = results
             .iter()
             .filter(|r| {
@@ -769,6 +769,6 @@ mod tests {
                 )
             })
             .count();
-        assert_eq!(hero_attacks, 0, "死亡した勇者は攻撃しないはず");
+        assert_eq!(hero_attacks, 0, "死亡したライオスは攻撃しないはず");
     }
 }

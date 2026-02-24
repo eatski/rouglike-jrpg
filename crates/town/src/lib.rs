@@ -123,14 +123,76 @@ fn distance_modifier(distance: i32) -> &'static str {
 
 /// 仲間候補との初対面セリフ
 pub fn candidate_first_dialogue(kind: PartyMemberKind) -> String {
-    let name = kind.name();
-    format!("わたしは {name}。\nいっしょに たびを しませんか？\nつぎの まちで まっています。")
+    match kind {
+        PartyMemberKind::Chilchuck => {
+            "おれは チルチャック。わなの かいじょと\nかぎあけが とくいだ。\nつぎの まちで まっているぜ。".to_string()
+        }
+        PartyMemberKind::Marcille => {
+            "わたしは マルシル！\nまほうの ちからで たすけて あげる！\nつぎの まちで まっているわ。".to_string()
+        }
+        PartyMemberKind::Senshi => {
+            "わしは センシ。りょうりなら\nまかせておけ。\nつぎの まちで まっておる。".to_string()
+        }
+        PartyMemberKind::Falin => {
+            "わたしは ファリン。\nかいふくまほうで みんなを\nたすけたいの。つぎの まちで まってるね。".to_string()
+        }
+        PartyMemberKind::Izutsumi => {
+            "……イヅツミだ。\nべつに いっしょに いきたい\nわけじゃないけど。つぎの まちにいる。".to_string()
+        }
+        PartyMemberKind::Shuro => {
+            "シュローと もうす。\nこの けんで おやくに たてよう。\nつぎの まちで おまちしている。".to_string()
+        }
+        PartyMemberKind::Namari => {
+            "ナマリだ。ちからには じしんが ある。\nつぎの まちで まっている。".to_string()
+        }
+        PartyMemberKind::Kabru => {
+            "ぼくは カブルー。\nいろいろ かんがえるのが とくいさ。\nつぎの まちで まっているよ。".to_string()
+        }
+        PartyMemberKind::Rinsha => {
+            "リンシャよ。けんも まほうも\nつかえるわ。つぎの まちで まってる。".to_string()
+        }
+        PartyMemberKind::Laios => {
+            let name = kind.name();
+            format!("わたしは {name}。\nいっしょに たびを しませんか？\nつぎの まちで まっています。")
+        }
+    }
 }
 
 /// 仲間候補の加入セリフ
 pub fn candidate_join_dialogue(kind: PartyMemberKind) -> String {
-    let name = kind.name();
-    format!("{name}が なかまに くわわった！")
+    match kind {
+        PartyMemberKind::Chilchuck => {
+            "チルチャックが なかまに くわわった！\n「たのむから むちゃは するなよ」".to_string()
+        }
+        PartyMemberKind::Marcille => {
+            "マルシルが なかまに くわわった！\n「まかせて！ わたしの まほうで\nふっとばすから！」".to_string()
+        }
+        PartyMemberKind::Senshi => {
+            "センシが なかまに くわわった！\n「さて、きょうの しょくざいは\nなにが あるかな」".to_string()
+        }
+        PartyMemberKind::Falin => {
+            "ファリンが なかまに くわわった！\n「みんなの けがは わたしが\nなおすからね」".to_string()
+        }
+        PartyMemberKind::Izutsumi => {
+            "イヅツミが なかまに くわわった！\n「……かってに ついていくだけだ」".to_string()
+        }
+        PartyMemberKind::Shuro => {
+            "シュローが なかまに くわわった！\n「この けんに かけて、\nおまもりいたす」".to_string()
+        }
+        PartyMemberKind::Namari => {
+            "ナマリが なかまに くわわった！\n「よろしく たのむ」".to_string()
+        }
+        PartyMemberKind::Kabru => {
+            "カブルーが なかまに くわわった！\n「きみたちの パーティ、\nきょうみぶかいね」".to_string()
+        }
+        PartyMemberKind::Rinsha => {
+            "リンシャが なかまに くわわった！\n「ぜんりょくで サポートするわ」".to_string()
+        }
+        PartyMemberKind::Laios => {
+            let name = kind.name();
+            format!("{name}が なかまに くわわった！")
+        }
+    }
 }
 
 /// グリッド内で指定テラインへの最短方向を求める
@@ -373,7 +435,7 @@ mod tests {
     #[test]
     fn buy_weapon_success() {
         use party::WeaponKind;
-        let mut member = PartyMember::hero();
+        let mut member = PartyMember::laios();
         let result = buy_weapon(WeaponKind::WoodenSword, 100, &mut member);
         assert_eq!(
             result,
@@ -387,7 +449,7 @@ mod tests {
     #[test]
     fn buy_weapon_insufficient_gold() {
         use party::WeaponKind;
-        let mut member = PartyMember::hero();
+        let mut member = PartyMember::laios();
         let result = buy_weapon(WeaponKind::IronSword, 10, &mut member);
         assert_eq!(result, BuyWeaponResult::InsufficientGold);
         assert_eq!(member.equipment.weapon, None);
@@ -396,7 +458,7 @@ mod tests {
     #[test]
     fn buy_weapon_replaces_existing() {
         use party::WeaponKind;
-        let mut member = PartyMember::hero();
+        let mut member = PartyMember::laios();
         member.equipment.equip_weapon(WeaponKind::WoodenSword);
         let result = buy_weapon(WeaponKind::IronSword, 100, &mut member);
         assert_eq!(
