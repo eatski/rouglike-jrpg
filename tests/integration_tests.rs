@@ -1068,41 +1068,35 @@ fn battle_victory_grants_exp_and_levels_up_party() {
 }
 
 #[test]
-fn mage_learns_fire_at_level_1_and_blaze_at_level_5() {
+fn mage_learns_zola_at_level_1_and_zolaga_at_level_5() {
     use battle::SpellKind;
     use battle::spell::{available_spells, spells_learned_at_level};
     use party::PartyMemberKind;
 
-    // Lv1のマルシルはFireを知っている
+    // Lv1のマルシルはZolaを知っている
     let spells = available_spells(PartyMemberKind::Marcille, 1);
-    assert_eq!(spells, vec![SpellKind::Fire]);
+    assert_eq!(spells, vec![SpellKind::Zola]);
 
-    // Lv4まではBlazeは未習得
+    // Lv4まではZolagaは未習得
     let spells4 = available_spells(PartyMemberKind::Marcille, 4);
-    assert_eq!(spells4, vec![SpellKind::Fire]);
+    assert_eq!(spells4, vec![SpellKind::Zola, SpellKind::Neld]);
 
-    // Lv5でBlazeを習得
+    // Lv5でZolagaを習得
     let learned = spells_learned_at_level(PartyMemberKind::Marcille, 5);
-    assert_eq!(learned, vec![SpellKind::Blaze]);
+    assert_eq!(learned, vec![SpellKind::Zolaga]);
 
     let spells5 = available_spells(PartyMemberKind::Marcille, 5);
-    assert_eq!(spells5, vec![SpellKind::Fire, SpellKind::Blaze]);
+    assert_eq!(spells5, vec![SpellKind::Zola, SpellKind::Neld, SpellKind::Zolaga]);
 }
 
 #[test]
-fn hero_learns_heal_at_level_3() {
-    use battle::SpellKind;
-    use battle::spell::{available_spells, spells_learned_at_level};
+fn hero_has_all_16_spells_at_level_1() {
+    use battle::spell::available_spells;
     use party::PartyMemberKind;
 
-    assert!(available_spells(PartyMemberKind::Laios, 1).is_empty());
-    assert!(available_spells(PartyMemberKind::Laios, 2).is_empty());
-
-    let learned = spells_learned_at_level(PartyMemberKind::Laios, 3);
-    assert_eq!(learned, vec![SpellKind::Heal]);
-
-    let spells = available_spells(PartyMemberKind::Laios, 3);
-    assert_eq!(spells, vec![SpellKind::Heal]);
+    // ライオスはLv1で全16呪文を使える
+    let spells = available_spells(PartyMemberKind::Laios, 1);
+    assert_eq!(spells.len(), 16);
 }
 
 // ============================================
@@ -1733,7 +1727,7 @@ fn spell_fails_silently_when_mp_insufficient() {
     let mut battle = BattleDomainState::new(vec![mage], vec![slime]);
 
     let commands = vec![
-        BattleAction::Spell { spell: SpellKind::Fire, target: TargetId::Enemy(0) },
+        BattleAction::Spell { spell: SpellKind::Zola, target: TargetId::Enemy(0) },
     ];
     let randoms = TurnRandomFactors {
         damage_randoms: vec![1.0; 2],
@@ -2018,7 +2012,7 @@ fn spell_succeeds_when_mp_exactly_equals_cost() {
     use party::PartyMember;
 
     let mut mage = PartyMember::marcille();
-    mage.stats.mp = 3; // Fire のMP消費量ちょうど
+    mage.stats.mp = 3; // Zola のMP消費量ちょうど
 
     let mut slime = Enemy::slime();
     slime.stats.hp = 999;
@@ -2028,7 +2022,7 @@ fn spell_succeeds_when_mp_exactly_equals_cost() {
     let mut battle = BattleDomainState::new(vec![mage], vec![slime]);
 
     let commands = vec![
-        BattleAction::Spell { spell: SpellKind::Fire, target: TargetId::Enemy(0) },
+        BattleAction::Spell { spell: SpellKind::Zola, target: TargetId::Enemy(0) },
     ];
     let randoms = TurnRandomFactors {
         damage_randoms: vec![1.0; 2],
@@ -2052,7 +2046,7 @@ fn heal_spell_does_not_exceed_max_hp() {
     use party::PartyMember;
 
     // ファリンのHPをmax_hpの1だけ下に設定
-    // Heal power=15 → 回復量15。キャップなしなら max_hp+14 になる
+    // Luna power=15 → 回復量15。キャップなしなら max_hp+14 になる
     let mut priest = PartyMember::falin();
     priest.stats.hp = priest.stats.max_hp - 1;
 
@@ -2064,7 +2058,7 @@ fn heal_spell_does_not_exceed_max_hp() {
     let mut battle = BattleDomainState::new(vec![priest], vec![slime]);
 
     let commands = vec![
-        BattleAction::Spell { spell: battle::SpellKind::Heal, target: TargetId::Party(0) },
+        BattleAction::Spell { spell: battle::SpellKind::Luna, target: TargetId::Party(0) },
     ];
     let randoms = TurnRandomFactors {
         damage_randoms: vec![1.0; 2],
@@ -2180,17 +2174,17 @@ fn battle_victory_leveling_unlocks_new_spell() {
     use battle::spell::{available_spells, spells_learned_at_level};
     use party::{PartyMember, PartyMemberKind};
 
-    // ライオスLv1: Healは未習得（Lv3で習得）
-    let mut hero = PartyMember::laios();
-    assert!(available_spells(PartyMemberKind::Laios, hero.level).is_empty());
+    // マルシルLv1: Zolaのみ習得
+    let mut mage = PartyMember::marcille();
+    let spells_lv1 = available_spells(PartyMemberKind::Marcille, mage.level);
+    assert_eq!(spells_lv1, vec![SpellKind::Zola]);
 
     // 十分な経験値を得るために複数回戦闘
     // exp_to_next_level(1)=10, exp_to_next_level(2)=25 → Lv3到達に累計35必要
     // Ghost×4 = 10×4 = 40exp per battle
     let enemies = vec![Enemy::ghost(), Enemy::ghost(), Enemy::ghost(), Enemy::ghost()];
-    let mut battle = BattleDomainState::new(vec![hero.clone()], enemies);
+    let mut battle = BattleDomainState::new(vec![mage.clone()], enemies);
 
-    // 全敵を倒す
     for enemy in &mut battle.enemies {
         enemy.stats.hp = 0;
     }
@@ -2199,17 +2193,16 @@ fn battle_victory_leveling_unlocks_new_spell() {
     let total_exp = battle.total_exp_reward();
     assert_eq!(total_exp, 40);
 
-    // 経験値を得てレベルアップ
-    let level_ups = hero.gain_exp(total_exp);
+    let level_ups = mage.gain_exp(total_exp);
     assert!(level_ups >= 2, "Should level up at least twice with 40 exp, got {} level ups", level_ups);
-    assert!(hero.level >= 3, "Should reach at least level 3, got {}", hero.level);
+    assert!(mage.level >= 3, "Should reach at least level 3, got {}", mage.level);
 
-    // Lv3でライオスはHealを習得
-    let learned = spells_learned_at_level(PartyMemberKind::Laios, 3);
-    assert_eq!(learned, vec![SpellKind::Heal]);
+    // Lv3でマルシルはNeldを習得
+    let learned = spells_learned_at_level(PartyMemberKind::Marcille, 3);
+    assert_eq!(learned, vec![SpellKind::Neld]);
 
-    let spells = available_spells(PartyMemberKind::Laios, hero.level);
-    assert!(spells.contains(&SpellKind::Heal), "Laios at level {} should know Heal", hero.level);
+    let spells = available_spells(PartyMemberKind::Marcille, mage.level);
+    assert!(spells.contains(&SpellKind::Neld), "Marcille at level {} should know Neld", mage.level);
 }
 
 // ============================================
@@ -2768,4 +2761,257 @@ fn same_speed_party_acts_before_enemy() {
     assert_eq!(attack_order.len(), 2, "Both actors should attack");
     assert_eq!(attack_order[0], ActorId::Party(0), "Party should act first at same speed");
     assert_eq!(attack_order[1], ActorId::Enemy(0), "Enemy should act second at same speed");
+}
+
+// ============================================
+// AoE攻撃テスト
+// ============================================
+
+#[test]
+fn neld_aoe_damages_all_enemies_integration() {
+    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult, SpellKind};
+    use party::PartyMember;
+
+    // マルシルLv3以上でNeldを習得
+    let mut mage = PartyMember::marcille();
+    mage.level = 3;
+    let mage_max_mp = mage.stats.max_mp;
+
+    let enemies = vec![Enemy::slime(), Enemy::slime(), Enemy::slime()];
+    let mut battle = BattleDomainState::new(vec![mage], enemies);
+
+    let commands = vec![
+        BattleAction::Spell { spell: SpellKind::Neld, target: TargetId::Enemy(0) },
+    ];
+    let randoms = TurnRandomFactors {
+        damage_randoms: vec![1.0; 4],
+        flee_random: 1.0,
+    };
+    let results = battle.execute_turn(&commands, &randoms);
+
+    let spell_hits: Vec<_> = results.iter().filter(|r| matches!(r, TurnResult::SpellDamage { .. })).collect();
+    assert_eq!(spell_hits.len(), 3, "Neld should hit all 3 enemies");
+
+    // MP消費は1回分のみ
+    assert_eq!(battle.party[0].stats.mp, mage_max_mp - 5, "Neld costs 5 MP");
+}
+
+// ============================================
+// AoE回復テスト
+// ============================================
+
+#[test]
+fn panam_aoe_heals_all_allies_integration() {
+    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult, SpellKind};
+    use party::PartyMember;
+
+    let mut falin = PartyMember::falin();
+    falin.level = 3; // Panam習得
+    let mut laios = PartyMember::laios();
+    laios.stats.hp = 5;
+    let mut marcille = PartyMember::marcille();
+    marcille.stats.hp = 5;
+    falin.stats.hp = 5;
+
+    let mut slime = Enemy::slime();
+    slime.stats.hp = 999;
+    slime.stats.max_hp = 999;
+    slime.stats.attack = 0;
+
+    let mut battle = BattleDomainState::new(vec![laios, marcille, falin], vec![slime]);
+
+    let commands = vec![
+        BattleAction::Attack { target: TargetId::Enemy(0) },
+        BattleAction::Attack { target: TargetId::Enemy(0) },
+        BattleAction::Spell { spell: SpellKind::Panam, target: TargetId::Party(0) },
+    ];
+    let randoms = TurnRandomFactors {
+        damage_randoms: vec![1.0; 4],
+        flee_random: 1.0,
+    };
+    let results = battle.execute_turn(&commands, &randoms);
+
+    let heal_hits: Vec<_> = results.iter().filter(|r| matches!(r, TurnResult::Healed { .. })).collect();
+    assert_eq!(heal_hits.len(), 3, "Panam should heal all 3 allies");
+}
+
+// ============================================
+// バフ適用テスト
+// ============================================
+
+#[test]
+fn bolga_buff_increases_attack_integration() {
+    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult, SpellKind};
+    use party::PartyMember;
+
+    let mut rinsha = PartyMember::rinsha();
+    rinsha.level = 5; // Bolga習得
+    let laios = PartyMember::laios();
+
+    let mut slime = Enemy::slime();
+    slime.stats.hp = 999;
+    slime.stats.max_hp = 999;
+    slime.stats.attack = 0;
+
+    let mut battle = BattleDomainState::new(vec![laios, rinsha], vec![slime]);
+    let base_attack = battle.effective_attack_with_buff(0);
+
+    let commands = vec![
+        BattleAction::Attack { target: TargetId::Enemy(0) },
+        BattleAction::Spell { spell: SpellKind::Bolga, target: TargetId::Party(0) },
+    ];
+    let randoms = TurnRandomFactors {
+        damage_randoms: vec![1.0; 3],
+        flee_random: 1.0,
+    };
+    let results = battle.execute_turn(&commands, &randoms);
+
+    let buffed = results.iter().any(|r| matches!(r, TurnResult::Buffed { .. }));
+    assert!(buffed, "Buffed event should be emitted");
+    assert_eq!(battle.effective_attack_with_buff(0), base_attack + 3, "ATK should increase by 3");
+}
+
+// ============================================
+// DEFバフによる被ダメージ軽減テスト
+// ============================================
+
+#[test]
+fn garde_def_buff_reduces_damage_taken_integration() {
+    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, SpellKind, ActorId, TurnResult};
+    use party::PartyMember;
+
+    let mut senshi = PartyMember::senshi();
+    senshi.level = 4; // Garde習得
+    let laios = PartyMember::laios();
+
+    let mut wolf = Enemy::wolf();
+    wolf.stats.attack = 20;
+    wolf.stats.hp = 999;
+    wolf.stats.max_hp = 999;
+
+    // バフなしの被ダメージを計測
+    let mut battle_unbuffed = BattleDomainState::new(vec![laios.clone()], vec![wolf.clone()]);
+    let commands_unbuffed = vec![
+        BattleAction::Attack { target: TargetId::Enemy(0) },
+    ];
+    let randoms = TurnRandomFactors {
+        damage_randoms: vec![1.0; 2],
+        flee_random: 1.0,
+    };
+    let results_unbuffed = battle_unbuffed.execute_turn(&commands_unbuffed, &randoms);
+    let damage_unbuffed = results_unbuffed.iter().find_map(|r| {
+        if let TurnResult::Attack { attacker: ActorId::Enemy(0), damage, .. } = r { Some(*damage) } else { None }
+    }).unwrap();
+
+    // バフありの被ダメージを計測
+    let mut battle_buffed = BattleDomainState::new(vec![laios, senshi], vec![wolf]);
+    // まずGardeを付与
+    let commands_buff = vec![
+        BattleAction::Attack { target: TargetId::Enemy(0) },
+        BattleAction::Spell { spell: SpellKind::Garde, target: TargetId::Party(0) },
+    ];
+    let randoms_buff = TurnRandomFactors {
+        damage_randoms: vec![1.0; 3],
+        flee_random: 1.0,
+    };
+    battle_buffed.execute_turn(&commands_buff, &randoms_buff);
+
+    // 次のターンで敵の攻撃を受ける
+    let commands_next = vec![
+        BattleAction::Attack { target: TargetId::Enemy(0) },
+        BattleAction::Attack { target: TargetId::Enemy(0) },
+    ];
+    let randoms_next = TurnRandomFactors {
+        damage_randoms: vec![1.0; 3],
+        flee_random: 1.0,
+    };
+    let results_buffed = battle_buffed.execute_turn(&commands_next, &randoms_next);
+    let damage_buffed = results_buffed.iter().find_map(|r| {
+        if let TurnResult::Attack { attacker: ActorId::Enemy(0), damage, .. } = r { Some(*damage) } else { None }
+    }).unwrap();
+
+    assert!(damage_buffed < damage_unbuffed,
+        "DEF buff should reduce damage: buffed={} vs unbuffed={}", damage_buffed, damage_unbuffed);
+}
+
+// ============================================
+// バフ消失テスト
+// ============================================
+
+#[test]
+fn buff_expires_after_5_turns_integration() {
+    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, SpellKind};
+    use party::PartyMember;
+
+    let mut rinsha = PartyMember::rinsha();
+    rinsha.level = 5; // Bolga習得
+    rinsha.stats.mp = 99;
+    rinsha.stats.max_mp = 99;
+
+    let mut slime = Enemy::slime();
+    slime.stats.hp = 999;
+    slime.stats.max_hp = 999;
+    slime.stats.attack = 0;
+
+    let mut battle = BattleDomainState::new(vec![rinsha], vec![slime]);
+
+    // ターン1: バフ付与
+    let commands = vec![BattleAction::Spell { spell: SpellKind::Bolga, target: TargetId::Party(0) }];
+    let randoms = TurnRandomFactors { damage_randoms: vec![1.0; 2], flee_random: 1.0 };
+    battle.execute_turn(&commands, &randoms);
+    assert!(battle.party_buffs[0].attack_up.is_some(), "Buff should be active after cast");
+
+    // ターン2~5
+    for _ in 0..4 {
+        let commands = vec![BattleAction::Attack { target: TargetId::Enemy(0) }];
+        let randoms = TurnRandomFactors { damage_randoms: vec![1.0; 2], flee_random: 1.0 };
+        battle.execute_turn(&commands, &randoms);
+    }
+
+    assert!(battle.party_buffs[0].attack_up.is_none(), "Buff should expire after 5 turns");
+}
+
+// ============================================
+// バフ上書きテスト
+// ============================================
+
+#[test]
+fn buff_overwrite_resets_duration_integration() {
+    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, SpellKind};
+    use party::PartyMember;
+
+    let mut rinsha = PartyMember::rinsha();
+    rinsha.level = 7; // Bolgarda(ATK+6)も習得
+    rinsha.stats.mp = 99;
+    rinsha.stats.max_mp = 99;
+
+    let mut slime = Enemy::slime();
+    slime.stats.hp = 999;
+    slime.stats.max_hp = 999;
+    slime.stats.attack = 0;
+
+    let mut battle = BattleDomainState::new(vec![rinsha], vec![slime]);
+
+    // Bolga(ATK+3)付与
+    let commands = vec![BattleAction::Spell { spell: SpellKind::Bolga, target: TargetId::Party(0) }];
+    let randoms = TurnRandomFactors { damage_randoms: vec![1.0; 2], flee_random: 1.0 };
+    battle.execute_turn(&commands, &randoms);
+    assert_eq!(battle.party_buffs[0].attack_up.unwrap().amount, 3);
+
+    // 3ターン経過
+    for _ in 0..3 {
+        let commands = vec![BattleAction::Attack { target: TargetId::Enemy(0) }];
+        let randoms = TurnRandomFactors { damage_randoms: vec![1.0; 2], flee_random: 1.0 };
+        battle.execute_turn(&commands, &randoms);
+    }
+    assert!(battle.party_buffs[0].attack_up.is_some(), "Buff should still be active");
+
+    // Bolgarda(ATK+6)で上書き
+    let commands = vec![BattleAction::Spell { spell: SpellKind::Bolgarda, target: TargetId::Party(0) }];
+    let randoms = TurnRandomFactors { damage_randoms: vec![1.0; 2], flee_random: 1.0 };
+    battle.execute_turn(&commands, &randoms);
+
+    let buff = battle.party_buffs[0].attack_up.unwrap();
+    assert_eq!(buff.amount, 6, "Overwritten buff should have ATK+6");
+    assert_eq!(buff.remaining_turns, 4, "Overwritten buff should have 4 remaining turns (5 - 1 tick)");
 }

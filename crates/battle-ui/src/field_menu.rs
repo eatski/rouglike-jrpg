@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use battle::spell::{available_spells, calculate_heal_amount, SpellKind};
+use battle::spell::{available_spells, calculate_heal_amount, SpellKind, SpellTarget};
 use app_state::{FieldMenuOpen, PartyState};
 use party::{ItemEffect, ItemKind};
 
@@ -58,7 +58,7 @@ pub struct FieldMenuItem {
     index: usize,
 }
 
-const MAX_MENU_ITEMS: usize = 4;
+const MAX_MENU_ITEMS: usize = 16;
 const SELECTED_COLOR: Color = Color::srgb(1.0, 0.9, 0.2);
 const UNSELECTED_COLOR: Color = Color::srgb(0.8, 0.8, 0.8);
 const DISABLED_COLOR: Color = Color::srgb(0.4, 0.4, 0.4);
@@ -197,7 +197,7 @@ pub fn field_menu_input_system(
             handle_caster_select(&keyboard, &mut state, &party_state, candidates, cursor);
         }
         FieldMenuPhase::SpellSelect { caster, spells, cursor } => {
-            handle_spell_select(&keyboard, &mut state, &party_state, caster, spells, cursor);
+            handle_spell_select(&keyboard, &mut state, &mut party_state, caster, spells, cursor);
         }
         FieldMenuPhase::MemberSelect { candidates, cursor } => {
             handle_member_select(&keyboard, &mut state, &party_state, candidates, cursor);
@@ -297,7 +297,7 @@ fn handle_caster_select(
 fn handle_spell_select(
     keyboard: &ButtonInput<KeyCode>,
     state: &mut FieldMenuState,
-    party_state: &PartyState,
+    party_state: &mut PartyState,
     caster: usize,
     spells: Vec<SpellKind>,
     mut cursor: usize,
@@ -325,11 +325,15 @@ fn handle_spell_select(
             return;
         }
 
-        if spell.is_offensive() {
+        if !spell.is_usable_in_field() {
             state.phase = FieldMenuPhase::ShowMessage {
                 message: "フィールドでは つかえない".to_string(),
             };
+        } else if spell.target_type() == SpellTarget::AllAllies {
+            // 全体回復: ターゲット選択スキップ、全味方に一括実行
+            execute_aoe_heal(state, party_state, caster, spell);
         } else {
+            // 単体回復: ターゲット選択へ
             let target_candidates = alive_member_indices(party_state);
             state.phase = FieldMenuPhase::TargetSelect {
                 candidates: target_candidates,
@@ -433,6 +437,36 @@ fn handle_item_select(
             }
         }
     }
+}
+
+/// 全体回復呪文をフィールドで実行
+fn execute_aoe_heal(
+    state: &mut FieldMenuState,
+    party_state: &mut PartyState,
+    caster: usize,
+    spell: SpellKind,
+) {
+    let consumed = party_state.members[caster].stats.use_mp(spell.mp_cost());
+    if !consumed {
+        return;
+    }
+
+    let caster_name = party_state.members[caster].kind.name().to_string();
+    let alive = alive_member_indices(party_state);
+    let mut lines = vec![format!("{}は {}を となえた！", caster_name, spell.name())];
+
+    for &pi in &alive {
+        let random_factor = 0.8 + rand::random::<f32>() * 0.4;
+        let amount = calculate_heal_amount(spell.power(), random_factor);
+        let target = &mut party_state.members[pi];
+        target.stats.hp = (target.stats.hp + amount).min(target.stats.max_hp);
+        let target_name = party_state.members[pi].kind.name();
+        lines.push(format!("{}の HPが {}かいふく！", target_name, amount));
+    }
+
+    state.phase = FieldMenuPhase::ShowMessage {
+        message: lines.join("\n"),
+    };
 }
 
 fn handle_target_select(

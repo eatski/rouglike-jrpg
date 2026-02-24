@@ -581,46 +581,34 @@ fn build_bottom_area(
                 ..default()
             })
             .with_children(|cmd_area| {
-                cmd_area.spawn((
-                    CommandCursor { index: 0 },
-                    Text::new("> たたかう"),
-                    TextFont {
-                        font: font.clone(),
-                        font_size: 16.0,
-                        ..default()
-                    },
-                    TextColor(selected_color),
-                ));
-                cmd_area.spawn((
-                    CommandCursor { index: 1 },
-                    Text::new("  じゅもん"),
-                    TextFont {
-                        font: font.clone(),
-                        font_size: 16.0,
-                        ..default()
-                    },
-                    TextColor(unselected_color),
-                ));
-                cmd_area.spawn((
-                    CommandCursor { index: 2 },
-                    Text::new("  どうぐ"),
-                    TextFont {
-                        font: font.clone(),
-                        font_size: 16.0,
-                        ..default()
-                    },
-                    TextColor(unselected_color),
-                ));
-                cmd_area.spawn((
-                    CommandCursor { index: 3 },
-                    Text::new("  にげる"),
-                    TextFont {
-                        font: font.clone(),
-                        font_size: 16.0,
-                        ..default()
-                    },
-                    TextColor(unselected_color),
-                ));
+                let labels = ["> たたかう", "  じゅもん", "  どうぐ", "  にげる"];
+                for (i, label) in labels.iter().enumerate() {
+                    let color = if i == 0 { selected_color } else { unselected_color };
+                    cmd_area.spawn((
+                        CommandCursor { index: i },
+                        Text::new(*label),
+                        TextFont {
+                            font: font.clone(),
+                            font_size: 16.0,
+                            ..default()
+                        },
+                        TextColor(color),
+                    ));
+                }
+                // 呪文/アイテム選択用の追加スロット(最大16呪文対応)
+                for i in 4..16 {
+                    cmd_area.spawn((
+                        CommandCursor { index: i },
+                        Text::new(""),
+                        TextFont {
+                            font: font.clone(),
+                            font_size: 16.0,
+                            ..default()
+                        },
+                        TextColor(unselected_color),
+                        Visibility::Hidden,
+                    ));
+                }
             });
         });
 }

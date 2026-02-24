@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use battle::{ActorId, BattleAction, SpellKind, TargetId, TurnRandomFactors, TurnResult};
+use battle::{ActorId, BattleAction, BuffStat, SpellKind, SpellTarget, TargetId, TurnRandomFactors, TurnResult};
 use party::ItemEffect;
 
 use app_state::BattleState;
@@ -21,7 +21,7 @@ pub fn battle_input_system(
             handle_command_select(&keyboard, &mut game_state, &mut ui_state, member_index);
         }
         BattlePhase::SpellSelect { member_index } => {
-            handle_spell_select(&keyboard, &game_state, &mut ui_state, member_index);
+            handle_spell_select(&keyboard, &mut game_state, &mut ui_state, member_index);
         }
         BattlePhase::ItemSelect { member_index } => {
             handle_item_select(&keyboard, &game_state, &mut ui_state, member_index);
@@ -110,7 +110,7 @@ fn handle_command_select(
 
 fn handle_spell_select(
     keyboard: &ButtonInput<KeyCode>,
-    game_state: &BattleGameState,
+    game_state: &mut BattleGameState,
     ui_state: &mut BattleUIState,
     member_index: usize,
 ) {
@@ -144,15 +144,60 @@ fn handle_spell_select(
 
         ui_state.pending_spell = Some(spell);
 
-        if spell.is_offensive() {
-            // 攻撃呪文 → 敵選択へ
-            ui_state.target_offset = 0;
-            ui_state.phase = BattlePhase::TargetSelect { member_index };
-        } else {
-            // 回復呪文 → 味方選択へ
-            ui_state.ally_target_offset = 0;
-            ui_state.phase = BattlePhase::AllyTargetSelect { member_index };
+        match spell.target_type() {
+            SpellTarget::SingleEnemy => {
+                // 単体攻撃 → 敵選択へ
+                ui_state.target_offset = 0;
+                ui_state.phase = BattlePhase::TargetSelect { member_index };
+            }
+            SpellTarget::AllEnemies => {
+                // 全体攻撃 → ターゲット選択スキップ、ダミーtargetで即登録
+                ui_state.pending_spell = None;
+                ui_state.pending_commands.set(
+                    member_index,
+                    BattleAction::Spell {
+                        spell,
+                        target: TargetId::Enemy(0),
+                    },
+                );
+                advance_to_next_member(game_state, ui_state, member_index);
+            }
+            SpellTarget::SingleAlly => {
+                // 単体味方 → 味方選択へ
+                ui_state.ally_target_offset = 0;
+                ui_state.phase = BattlePhase::AllyTargetSelect { member_index };
+            }
+            SpellTarget::AllAllies => {
+                // 全体味方 → ターゲット選択スキップ、ダミーtargetで即登録
+                ui_state.pending_spell = None;
+                ui_state.pending_commands.set(
+                    member_index,
+                    BattleAction::Spell {
+                        spell,
+                        target: TargetId::Party(0),
+                    },
+                );
+                advance_to_next_member(game_state, ui_state, member_index);
+            }
         }
+    }
+}
+
+/// 次の生存メンバーに進む、全員入力済みならターン実行
+fn advance_to_next_member(
+    game_state: &mut BattleGameState,
+    ui_state: &mut BattleUIState,
+    current_member: usize,
+) {
+    let next = find_next_alive_member(game_state, current_member);
+    if let Some(next_idx) = next {
+        ui_state.selected_command = 0;
+        ui_state.phase = BattlePhase::CommandSelect {
+            member_index: next_idx,
+        };
+    } else {
+        // 全員入力完了 → ターン実行
+        execute_turn(game_state, ui_state);
     }
 }
 
@@ -446,9 +491,6 @@ fn execute_turn(game_state: &mut BattleGameState, ui_state: &mut BattleUIState) 
 }
 
 /// TurnResult列をメッセージ文字列列とMessageEffect列に変換
-///
-/// pre_party_hp/mp: ターン実行前のパーティHP/MPスナップショット。
-/// 各攻撃/呪文メッセージにパーティHP/MP変化のエフェクトを紐付ける。
 fn results_to_messages(
     results: &[TurnResult],
     state: &battle::BattleState,
@@ -463,6 +505,10 @@ fn results_to_messages(
     let mut running_party_hp: Vec<i32> = pre_party_hp.to_vec();
     let mut running_party_mp: Vec<i32> = pre_party_mp.to_vec();
 
+    // AoEメッセージ最適化: 同じキャスター+呪文の連続SpellDamage/Healed/Buffedの
+    // 2件目以降は詠唱メッセージを省略
+    let mut last_aoe_caster_spell: Option<(ActorId, SpellKind)> = None;
+
     for result in results {
         match result {
             TurnResult::Attack {
@@ -470,6 +516,7 @@ fn results_to_messages(
                 target,
                 damage,
             } => {
+                last_aoe_caster_spell = None;
                 let attacker_name = actor_name(attacker, state, &enemy_names);
                 let target_name = target_name_str(target, state, &enemy_names);
                 let msg_index = messages.len();
@@ -478,7 +525,6 @@ fn results_to_messages(
                     attacker_name, target_name, damage
                 ));
 
-                // ターゲットに応じたエフェクトを紐付け
                 match target {
                     TargetId::Enemy(i) => {
                         effects.push((
@@ -505,19 +551,28 @@ fn results_to_messages(
                 target,
                 damage,
             } => {
-                let caster_name = actor_name(caster, state, &enemy_names);
                 let target_name = target_name_str(target, state, &enemy_names);
                 let msg_index = messages.len();
-                messages.push(format!(
-                    "{}は {}を となえた！ {}に {}ダメージ！",
-                    caster_name,
-                    spell.name(),
-                    target_name,
-                    damage
-                ));
 
-                // キャスターのMP更新エフェクト
-                if let ActorId::Party(ci) = caster {
+                let is_continuation = last_aoe_caster_spell == Some((*caster, *spell));
+                if is_continuation {
+                    messages.push(format!("{}に {}ダメージ！", target_name, damage));
+                } else {
+                    let caster_name = actor_name(caster, state, &enemy_names);
+                    messages.push(format!(
+                        "{}は {}を となえた！ {}に {}ダメージ！",
+                        caster_name,
+                        spell.name(),
+                        target_name,
+                        damage
+                    ));
+                }
+                last_aoe_caster_spell = Some((*caster, *spell));
+
+                // キャスターのMP更新エフェクト（最初のヒットのみ）
+                if !is_continuation
+                    && let ActorId::Party(ci) = caster
+                {
                     running_party_mp[*ci] = (running_party_mp[*ci] - spell.mp_cost()).max(0);
                     effects.push((
                         msg_index,
@@ -537,21 +592,37 @@ fn results_to_messages(
             }
             TurnResult::Healed {
                 caster,
+                spell,
                 target,
                 amount,
             } => {
-                let caster_name = actor_name(caster, state, &enemy_names);
                 let target_name = target_name_str(target, state, &enemy_names);
                 let msg_index = messages.len();
-                messages.push(format!(
-                    "{}は ヒールを となえた！ {}の HPが {}かいふく！",
-                    caster_name, target_name, amount
-                ));
 
-                // キャスターのMP更新エフェクト
-                if let ActorId::Party(ci) = caster {
+                let is_continuation = last_aoe_caster_spell == Some((*caster, *spell));
+                if is_continuation {
+                    messages.push(format!(
+                        "{}の HPが {}かいふく！",
+                        target_name, amount
+                    ));
+                } else {
+                    let caster_name = actor_name(caster, state, &enemy_names);
+                    messages.push(format!(
+                        "{}は {}を となえた！ {}の HPが {}かいふく！",
+                        caster_name,
+                        spell.name(),
+                        target_name,
+                        amount
+                    ));
+                }
+                last_aoe_caster_spell = Some((*caster, *spell));
+
+                // キャスターのMP更新エフェクト（最初のヒットのみ）
+                if !is_continuation
+                    && let ActorId::Party(ci) = caster
+                {
                     running_party_mp[*ci] =
-                        (running_party_mp[*ci] - SpellKind::Heal.mp_cost()).max(0);
+                        (running_party_mp[*ci] - spell.mp_cost()).max(0);
                     effects.push((
                         msg_index,
                         MessageEffect::UpdatePartyMp {
@@ -574,12 +645,74 @@ fn results_to_messages(
                     ));
                 }
             }
+            TurnResult::Buffed {
+                caster,
+                spell,
+                target,
+                amount,
+            } => {
+                let target_name = target_name_str(target, state, &enemy_names);
+                let msg_index = messages.len();
+
+                let stat_name = match spell.effect() {
+                    battle::SpellEffect::AttackBuff => "こうげきりょく",
+                    battle::SpellEffect::DefenseBuff => "しゅびりょく",
+                    _ => "",
+                };
+
+                let is_continuation = last_aoe_caster_spell == Some((*caster, *spell));
+                if is_continuation {
+                    messages.push(format!(
+                        "{}の {}が {}あがった！",
+                        target_name, stat_name, amount
+                    ));
+                } else {
+                    let caster_name = actor_name(caster, state, &enemy_names);
+                    messages.push(format!(
+                        "{}は {}を となえた！ {}の {}が {}あがった！",
+                        caster_name,
+                        spell.name(),
+                        target_name,
+                        stat_name,
+                        amount
+                    ));
+                }
+                last_aoe_caster_spell = Some((*caster, *spell));
+
+                // キャスターのMP更新エフェクト（最初のヒットのみ）
+                if !is_continuation
+                    && let ActorId::Party(ci) = caster
+                {
+                    running_party_mp[*ci] =
+                        (running_party_mp[*ci] - spell.mp_cost()).max(0);
+                    effects.push((
+                        msg_index,
+                        MessageEffect::UpdatePartyMp {
+                            member_index: *ci,
+                            new_mp: running_party_mp[*ci],
+                        },
+                    ));
+                }
+            }
+            TurnResult::BuffExpired { target, stat } => {
+                last_aoe_caster_spell = None;
+                let target_name = target_name_str(target, state, &enemy_names);
+                let stat_name = match stat {
+                    BuffStat::Attack => "こうげきりょく",
+                    BuffStat::Defense => "しゅびりょく",
+                };
+                messages.push(format!(
+                    "{}の {}アップの こうかが きれた！",
+                    target_name, stat_name
+                ));
+            }
             TurnResult::ItemUsed {
                 user,
                 item,
                 target,
                 amount,
             } => {
+                last_aoe_caster_spell = None;
                 let user_name = actor_name(user, state, &enemy_names);
                 let target_name = target_name_str(target, state, &enemy_names);
                 let msg_index = messages.len();
@@ -591,7 +724,6 @@ fn results_to_messages(
                     amount
                 ));
 
-                // ターゲットのHP更新エフェクト
                 if let TargetId::Party(pi) = target {
                     let max_hp = state.party[*pi].stats.max_hp;
                     running_party_hp[*pi] = (running_party_hp[*pi] + amount).min(max_hp);
@@ -605,6 +737,7 @@ fn results_to_messages(
                 }
             }
             TurnResult::Defeated { target } => {
+                last_aoe_caster_spell = None;
                 let msg_index = messages.len();
                 let name = target_name_str(target, state, &enemy_names);
                 match target {
@@ -621,9 +754,11 @@ fn results_to_messages(
                 }
             }
             TurnResult::Fled => {
+                last_aoe_caster_spell = None;
                 messages.push("うまく にげきれた！".to_string());
             }
             TurnResult::FleeFailed => {
+                last_aoe_caster_spell = None;
                 messages.push("にげられなかった！".to_string());
             }
         }
@@ -634,7 +769,6 @@ fn results_to_messages(
 
 /// 指定メッセージindexに対応するエフェクトを処理し、表示状態を更新する
 fn process_message_effects(ui_state: &mut BattleUIState, message_index: usize) {
-    // message_effectsからcloneして取り出す（borrowの競合を避けるため）
     let effects: Vec<MessageEffect> = ui_state
         .message_effects
         .iter()

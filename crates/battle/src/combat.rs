@@ -1,5 +1,5 @@
 use crate::enemy::Enemy;
-use crate::spell::{calculate_heal_amount, calculate_spell_damage, SpellKind};
+use crate::spell::{calculate_heal_amount, calculate_spell_damage, SpellEffect, SpellKind, SpellTarget};
 use party::{CombatStats, ItemEffect, ItemKind, PartyMember};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -22,6 +22,22 @@ pub enum BattleAction {
     Flee,
 }
 
+/// バフ1種の状態
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct BuffState {
+    pub amount: i32,
+    pub remaining_turns: u32,
+}
+
+/// 1アクターのバフ群
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ActorBuffs {
+    pub attack_up: Option<BuffState>,
+    pub defense_up: Option<BuffState>,
+}
+
+pub const BUFF_DURATION: u32 = 5;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TurnResult {
     Attack {
@@ -37,8 +53,19 @@ pub enum TurnResult {
     },
     Healed {
         caster: ActorId,
+        spell: SpellKind,
         target: TargetId,
         amount: i32,
+    },
+    Buffed {
+        caster: ActorId,
+        spell: SpellKind,
+        target: TargetId,
+        amount: i32,
+    },
+    BuffExpired {
+        target: TargetId,
+        stat: BuffStat,
     },
     ItemUsed {
         user: ActorId,
@@ -51,6 +78,13 @@ pub enum TurnResult {
     },
     Fled,
     FleeFailed,
+}
+
+/// バフが適用されるステータスの種類
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BuffStat {
+    Attack,
+    Defense,
 }
 
 /// ターン実行に必要な乱数群
@@ -66,15 +100,38 @@ pub struct BattleState {
     pub party: Vec<PartyMember>,
     pub enemies: Vec<Enemy>,
     pub turn_log: Vec<TurnResult>,
+    pub party_buffs: Vec<ActorBuffs>,
 }
 
 impl BattleState {
     pub fn new(party: Vec<PartyMember>, enemies: Vec<Enemy>) -> Self {
+        let buff_count = party.len();
         Self {
             party,
             enemies,
             turn_log: Vec::new(),
+            party_buffs: vec![ActorBuffs::default(); buff_count],
         }
+    }
+
+    /// パーティメンバーの実効攻撃力（バフ込み）
+    pub fn effective_attack_with_buff(&self, party_idx: usize) -> i32 {
+        let base = self.party[party_idx].effective_attack();
+        let buff_amount = self.party_buffs[party_idx]
+            .attack_up
+            .map(|b| b.amount)
+            .unwrap_or(0);
+        base + buff_amount
+    }
+
+    /// パーティメンバーの実効防御力（バフ込み）
+    pub fn effective_defense_with_buff(&self, party_idx: usize) -> i32 {
+        let base = self.party[party_idx].stats.defense;
+        let buff_amount = self.party_buffs[party_idx]
+            .defense_up
+            .map(|b| b.amount)
+            .unwrap_or(0);
+        base + buff_amount
     }
 
     /// パーティ全員分のコマンドを受け取り、素早さ順で一括実行
@@ -154,6 +211,9 @@ impl BattleState {
             }
         }
 
+        // ターン終了時: バフのtick
+        results.extend(self.tick_buffs());
+
         self.turn_log.extend(results.clone());
         results
     }
@@ -221,37 +281,154 @@ impl BattleState {
             return results;
         }
 
-        if spell.is_offensive() {
-            // 攻撃呪文 → 敵ターゲット
-            let actual_target = self.retarget_enemy(target);
-            if let Some(TargetId::Enemy(ei)) = actual_target {
-                let damage =
-                    calculate_spell_damage(spell.power(), self.enemies[ei].stats.defense, random_factor);
-                self.enemies[ei].stats.take_damage(damage);
-                results.push(TurnResult::SpellDamage {
-                    caster: ActorId::Party(caster_idx),
-                    spell,
-                    target: TargetId::Enemy(ei),
-                    damage,
-                });
-                if !self.enemies[ei].stats.is_alive() {
-                    results.push(TurnResult::Defeated {
-                        target: TargetId::Enemy(ei),
-                    });
+        match spell.effect() {
+            SpellEffect::Damage => {
+                match spell.target_type() {
+                    SpellTarget::SingleEnemy => {
+                        let actual_target = self.retarget_enemy(target);
+                        if let Some(TargetId::Enemy(ei)) = actual_target {
+                            let damage = calculate_spell_damage(
+                                spell.power(),
+                                self.enemies[ei].stats.defense,
+                                random_factor,
+                            );
+                            self.enemies[ei].stats.take_damage(damage);
+                            results.push(TurnResult::SpellDamage {
+                                caster: ActorId::Party(caster_idx),
+                                spell,
+                                target: TargetId::Enemy(ei),
+                                damage,
+                            });
+                            if !self.enemies[ei].stats.is_alive() {
+                                results.push(TurnResult::Defeated {
+                                    target: TargetId::Enemy(ei),
+                                });
+                            }
+                        }
+                    }
+                    SpellTarget::AllEnemies => {
+                        for ei in self.alive_enemy_indices() {
+                            let damage = calculate_spell_damage(
+                                spell.power(),
+                                self.enemies[ei].stats.defense,
+                                random_factor,
+                            );
+                            self.enemies[ei].stats.take_damage(damage);
+                            results.push(TurnResult::SpellDamage {
+                                caster: ActorId::Party(caster_idx),
+                                spell,
+                                target: TargetId::Enemy(ei),
+                                damage,
+                            });
+                            if !self.enemies[ei].stats.is_alive() {
+                                results.push(TurnResult::Defeated {
+                                    target: TargetId::Enemy(ei),
+                                });
+                            }
+                        }
+                    }
+                    _ => {} // Damage spells don't target allies
                 }
             }
-        } else {
-            // 回復呪文 → 味方ターゲット
-            let actual_target = self.retarget_ally(target);
-            if let Some(TargetId::Party(pi)) = actual_target {
-                let amount = calculate_heal_amount(spell.power(), random_factor);
-                let member = &mut self.party[pi];
-                member.stats.hp = (member.stats.hp + amount).min(member.stats.max_hp);
-                results.push(TurnResult::Healed {
-                    caster: ActorId::Party(caster_idx),
-                    target: TargetId::Party(pi),
-                    amount,
-                });
+            SpellEffect::Heal => {
+                match spell.target_type() {
+                    SpellTarget::SingleAlly => {
+                        let actual_target = self.retarget_ally(target);
+                        if let Some(TargetId::Party(pi)) = actual_target {
+                            let amount = calculate_heal_amount(spell.power(), random_factor);
+                            let member = &mut self.party[pi];
+                            member.stats.hp = (member.stats.hp + amount).min(member.stats.max_hp);
+                            results.push(TurnResult::Healed {
+                                caster: ActorId::Party(caster_idx),
+                                spell,
+                                target: TargetId::Party(pi),
+                                amount,
+                            });
+                        }
+                    }
+                    SpellTarget::AllAllies => {
+                        for pi in self.alive_party_indices() {
+                            let amount = calculate_heal_amount(spell.power(), random_factor);
+                            let member = &mut self.party[pi];
+                            member.stats.hp = (member.stats.hp + amount).min(member.stats.max_hp);
+                            results.push(TurnResult::Healed {
+                                caster: ActorId::Party(caster_idx),
+                                spell,
+                                target: TargetId::Party(pi),
+                                amount,
+                            });
+                        }
+                    }
+                    _ => {} // Heal spells don't target enemies
+                }
+            }
+            SpellEffect::AttackBuff => {
+                match spell.target_type() {
+                    SpellTarget::SingleAlly => {
+                        let actual_target = self.retarget_ally(target);
+                        if let Some(TargetId::Party(pi)) = actual_target {
+                            self.party_buffs[pi].attack_up = Some(BuffState {
+                                amount: spell.power(),
+                                remaining_turns: BUFF_DURATION,
+                            });
+                            results.push(TurnResult::Buffed {
+                                caster: ActorId::Party(caster_idx),
+                                spell,
+                                target: TargetId::Party(pi),
+                                amount: spell.power(),
+                            });
+                        }
+                    }
+                    SpellTarget::AllAllies => {
+                        for pi in self.alive_party_indices() {
+                            self.party_buffs[pi].attack_up = Some(BuffState {
+                                amount: spell.power(),
+                                remaining_turns: BUFF_DURATION,
+                            });
+                            results.push(TurnResult::Buffed {
+                                caster: ActorId::Party(caster_idx),
+                                spell,
+                                target: TargetId::Party(pi),
+                                amount: spell.power(),
+                            });
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            SpellEffect::DefenseBuff => {
+                match spell.target_type() {
+                    SpellTarget::SingleAlly => {
+                        let actual_target = self.retarget_ally(target);
+                        if let Some(TargetId::Party(pi)) = actual_target {
+                            self.party_buffs[pi].defense_up = Some(BuffState {
+                                amount: spell.power(),
+                                remaining_turns: BUFF_DURATION,
+                            });
+                            results.push(TurnResult::Buffed {
+                                caster: ActorId::Party(caster_idx),
+                                spell,
+                                target: TargetId::Party(pi),
+                                amount: spell.power(),
+                            });
+                        }
+                    }
+                    SpellTarget::AllAllies => {
+                        for pi in self.alive_party_indices() {
+                            self.party_buffs[pi].defense_up = Some(BuffState {
+                                amount: spell.power(),
+                                remaining_turns: BUFF_DURATION,
+                            });
+                            results.push(TurnResult::Buffed {
+                                caster: ActorId::Party(caster_idx),
+                                spell,
+                                target: TargetId::Party(pi),
+                                amount: spell.power(),
+                            });
+                        }
+                    }
+                    _ => {}
+                }
             }
         }
 
@@ -318,7 +495,7 @@ impl BattleState {
         let mut results = Vec::new();
         if let TargetId::Enemy(ei) = target {
             let damage = CombatStats::calculate_damage(
-                self.party[party_idx].effective_attack(),
+                self.effective_attack_with_buff(party_idx),
                 self.enemies[ei].stats.defense,
                 random_factor,
             );
@@ -346,7 +523,7 @@ impl BattleState {
         let target_idx = alive_party[0];
         let damage = CombatStats::calculate_damage(
             self.enemies[enemy_idx].stats.attack,
-            self.party[target_idx].stats.defense,
+            self.effective_defense_with_buff(target_idx),
             random_factor,
         );
         self.party[target_idx].stats.take_damage(damage);
@@ -359,6 +536,36 @@ impl BattleState {
         if !self.party[target_idx].stats.is_alive() {
             results.push(TurnResult::Defeated { target });
         }
+        results
+    }
+
+    /// ターン終了時にバフの残りターンをデクリメント、0になったバフを除去
+    fn tick_buffs(&mut self) -> Vec<TurnResult> {
+        let mut results = Vec::new();
+
+        for pi in 0..self.party_buffs.len() {
+            if let Some(ref mut buff) = self.party_buffs[pi].attack_up {
+                buff.remaining_turns = buff.remaining_turns.saturating_sub(1);
+                if buff.remaining_turns == 0 {
+                    self.party_buffs[pi].attack_up = None;
+                    results.push(TurnResult::BuffExpired {
+                        target: TargetId::Party(pi),
+                        stat: BuffStat::Attack,
+                    });
+                }
+            }
+            if let Some(ref mut buff) = self.party_buffs[pi].defense_up {
+                buff.remaining_turns = buff.remaining_turns.saturating_sub(1);
+                if buff.remaining_turns == 0 {
+                    self.party_buffs[pi].defense_up = None;
+                    results.push(TurnResult::BuffExpired {
+                        target: TargetId::Party(pi),
+                        stat: BuffStat::Defense,
+                    });
+                }
+            }
+        }
+
         results
     }
 
@@ -597,7 +804,7 @@ mod tests {
     }
 
     #[test]
-    fn fire_spell_damages_enemy() {
+    fn zola_spell_damages_enemy() {
         let party = default_party();
         let enemies = vec![Enemy::slime()];
         let mut battle = BattleState::new(party, enemies);
@@ -608,7 +815,7 @@ mod tests {
                 target: TargetId::Enemy(0),
             },
             BattleAction::Spell {
-                spell: SpellKind::Fire,
+                spell: SpellKind::Zola,
                 target: TargetId::Enemy(0),
             },
             BattleAction::Attack {
@@ -630,7 +837,7 @@ mod tests {
     }
 
     #[test]
-    fn heal_spell_restores_hp() {
+    fn luna_spell_restores_hp() {
         let party = default_party();
         // HP999のスライムで戦闘が終わらないようにする
         let mut slime = Enemy::slime();
@@ -650,7 +857,7 @@ mod tests {
                 target: TargetId::Enemy(0),
             },
             BattleAction::Spell {
-                spell: SpellKind::Heal,
+                spell: SpellKind::Luna,
                 target: TargetId::Party(0),
             },
         ];
@@ -683,7 +890,7 @@ mod tests {
                 target: TargetId::Enemy(0),
             },
             BattleAction::Spell {
-                spell: SpellKind::Heal,
+                spell: SpellKind::Luna,
                 target: TargetId::Party(0), // 倒されている → リターゲット
             },
         ];
@@ -700,10 +907,7 @@ mod tests {
 
     #[test]
     fn dead_hero_priest_still_attacks() {
-        // リグレッション防止: ライオス(index 0)が死亡した状態で、
-        // マルシル(index 1)とファリン(index 2)のコマンドが正しく実行されることを検証
         let party = default_party();
-        // 敵のHPを高くして戦闘が1ターンで終わらないようにする
         let mut slime = Enemy::slime();
         slime.stats.hp = 999;
         slime.stats.max_hp = 999;
@@ -715,19 +919,18 @@ mod tests {
 
         let commands = vec![
             BattleAction::Attack {
-                target: TargetId::Enemy(0), // ライオスのコマンド(実行されない)
+                target: TargetId::Enemy(0),
             },
             BattleAction::Attack {
-                target: TargetId::Enemy(0), // マルシルのコマンド
+                target: TargetId::Enemy(0),
             },
             BattleAction::Attack {
-                target: TargetId::Enemy(0), // ファリンのコマンド
+                target: TargetId::Enemy(0),
             },
         ];
         let randoms = make_random(vec![1.0; 3], 0.0);
         let results = battle.execute_turn(&commands, &randoms);
 
-        // マルシル(Party(1))とファリン(Party(2))が攻撃していることを確認
         let mage_attacks = results
             .iter()
             .filter(|r| {
@@ -756,7 +959,6 @@ mod tests {
         assert_eq!(mage_attacks, 1, "マルシルは1回攻撃するはず");
         assert_eq!(priest_attacks, 1, "ファリンは1回攻撃するはず");
 
-        // ライオスは攻撃していないことを確認
         let hero_attacks = results
             .iter()
             .filter(|r| {
@@ -770,5 +972,227 @@ mod tests {
             })
             .count();
         assert_eq!(hero_attacks, 0, "死亡したライオスは攻撃しないはず");
+    }
+
+    #[test]
+    fn neld_aoe_damages_all_enemies() {
+        let party = vec![PartyMember::marcille()];
+        let enemies = vec![Enemy::slime(), Enemy::slime(), Enemy::slime()];
+        let mut battle = BattleState::new(party, enemies);
+
+        let commands = vec![BattleAction::Spell {
+            spell: SpellKind::Neld,
+            target: TargetId::Enemy(0), // AoEなのでダミー
+        }];
+        let randoms = make_random(vec![1.0; 4], 0.0);
+        let results = battle.execute_turn(&commands, &randoms);
+
+        let spell_hits: Vec<_> = results
+            .iter()
+            .filter(|r| matches!(r, TurnResult::SpellDamage { .. }))
+            .collect();
+        assert_eq!(spell_hits.len(), 3, "全3体の敵にヒットするはず");
+    }
+
+    #[test]
+    fn panam_aoe_heals_all_allies() {
+        // ファリンLv3以上でPanamを習得
+        let mut falin = PartyMember::falin();
+        falin.level = 3;
+        let mut laios = PartyMember::laios();
+        laios.stats.hp = 5;
+        let mut marcille = PartyMember::marcille();
+        marcille.stats.hp = 5;
+        falin.stats.hp = 5;
+
+        let party = vec![laios, marcille, falin];
+        let mut slime = Enemy::slime();
+        slime.stats.hp = 999;
+        slime.stats.max_hp = 999;
+        slime.stats.attack = 0;
+        let enemies = vec![slime];
+        let mut battle = BattleState::new(party, enemies);
+
+        let commands = vec![
+            BattleAction::Attack {
+                target: TargetId::Enemy(0),
+            },
+            BattleAction::Attack {
+                target: TargetId::Enemy(0),
+            },
+            BattleAction::Spell {
+                spell: SpellKind::Panam,
+                target: TargetId::Party(0), // AoEなのでダミー
+            },
+        ];
+        let randoms = make_random(vec![1.0; 4], 0.0);
+        let results = battle.execute_turn(&commands, &randoms);
+
+        let heal_hits: Vec<_> = results
+            .iter()
+            .filter(|r| matches!(r, TurnResult::Healed { .. }))
+            .collect();
+        assert_eq!(heal_hits.len(), 3, "全3人の味方が回復するはず");
+    }
+
+    #[test]
+    fn bolga_buff_increases_attack() {
+        let mut rinsha = PartyMember::rinsha();
+        rinsha.level = 5; // Bolga習得
+        let laios = PartyMember::laios();
+
+        let party = vec![laios, rinsha];
+        let mut slime = Enemy::slime();
+        slime.stats.hp = 999;
+        slime.stats.max_hp = 999;
+        slime.stats.attack = 0;
+        let enemies = vec![slime];
+        let mut battle = BattleState::new(party, enemies);
+
+        let base_attack = battle.effective_attack_with_buff(0);
+
+        let commands = vec![
+            BattleAction::Attack {
+                target: TargetId::Enemy(0),
+            },
+            BattleAction::Spell {
+                spell: SpellKind::Bolga,
+                target: TargetId::Party(0),
+            },
+        ];
+        let randoms = make_random(vec![1.0; 3], 0.0);
+        let results = battle.execute_turn(&commands, &randoms);
+
+        // Buffedイベントが発生
+        let buffed = results
+            .iter()
+            .any(|r| matches!(r, TurnResult::Buffed { .. }));
+        assert!(buffed, "Buffedイベントが発生するはず");
+
+        // 攻撃力が上昇
+        let buffed_attack = battle.effective_attack_with_buff(0);
+        assert_eq!(buffed_attack, base_attack + 3, "ATK+3のはず");
+    }
+
+    #[test]
+    fn garde_buff_reduces_damage_taken() {
+        let mut senshi = PartyMember::senshi();
+        senshi.level = 4; // Garde習得
+        let laios = PartyMember::laios();
+
+        let party = vec![laios, senshi];
+        let mut wolf = Enemy::wolf();
+        wolf.stats.attack = 20;
+        wolf.stats.hp = 999;
+        wolf.stats.max_hp = 999;
+        let enemies = vec![wolf];
+        let mut battle = BattleState::new(party, enemies);
+
+        let base_defense = battle.effective_defense_with_buff(0);
+
+        let commands = vec![
+            BattleAction::Attack {
+                target: TargetId::Enemy(0),
+            },
+            BattleAction::Spell {
+                spell: SpellKind::Garde,
+                target: TargetId::Party(0),
+            },
+        ];
+        let randoms = make_random(vec![1.0; 3], 0.0);
+        battle.execute_turn(&commands, &randoms);
+
+        let buffed_defense = battle.effective_defense_with_buff(0);
+        assert_eq!(buffed_defense, base_defense + 3, "DEF+3のはず");
+    }
+
+    #[test]
+    fn buff_expires_after_5_turns() {
+        let mut rinsha = PartyMember::rinsha();
+        rinsha.level = 5;
+        let party = vec![rinsha];
+        let mut slime = Enemy::slime();
+        slime.stats.hp = 999;
+        slime.stats.max_hp = 999;
+        slime.stats.attack = 0;
+        let enemies = vec![slime];
+        let mut battle = BattleState::new(party, enemies);
+
+        // ターン1: バフ付与
+        let commands = vec![BattleAction::Spell {
+            spell: SpellKind::Bolga,
+            target: TargetId::Party(0),
+        }];
+        let randoms = make_random(vec![1.0; 2], 0.0);
+        battle.execute_turn(&commands, &randoms);
+        assert!(battle.party_buffs[0].attack_up.is_some());
+
+        // ターン2~5: バフ持続
+        for _ in 0..4 {
+            let commands = vec![BattleAction::Attack {
+                target: TargetId::Enemy(0),
+            }];
+            let randoms = make_random(vec![1.0; 2], 0.0);
+            let results = battle.execute_turn(&commands, &randoms);
+            // 最後のターンでBuffExpiredが出る
+            if battle.party_buffs[0].attack_up.is_none() {
+                let expired = results
+                    .iter()
+                    .any(|r| matches!(r, TurnResult::BuffExpired { .. }));
+                assert!(expired, "BuffExpiredが発生するはず");
+            }
+        }
+
+        assert!(
+            battle.party_buffs[0].attack_up.is_none(),
+            "5ターン後にバフが消失するはず"
+        );
+    }
+
+    #[test]
+    fn buff_overwrite_resets_duration() {
+        let mut rinsha = PartyMember::rinsha();
+        rinsha.level = 7; // Bolgarda(ATK+6)も習得
+        rinsha.stats.mp = 99;
+        rinsha.stats.max_mp = 99;
+        let party = vec![rinsha];
+        let mut slime = Enemy::slime();
+        slime.stats.hp = 999;
+        slime.stats.max_hp = 999;
+        slime.stats.attack = 0;
+        let enemies = vec![slime];
+        let mut battle = BattleState::new(party, enemies);
+
+        // Bolga(ATK+3)を付与
+        let commands = vec![BattleAction::Spell {
+            spell: SpellKind::Bolga,
+            target: TargetId::Party(0),
+        }];
+        let randoms = make_random(vec![1.0; 2], 0.0);
+        battle.execute_turn(&commands, &randoms);
+        assert_eq!(battle.party_buffs[0].attack_up.unwrap().amount, 3);
+
+        // 3ターン経過
+        for _ in 0..3 {
+            let commands = vec![BattleAction::Attack {
+                target: TargetId::Enemy(0),
+            }];
+            let randoms = make_random(vec![1.0; 2], 0.0);
+            battle.execute_turn(&commands, &randoms);
+        }
+        // remaining_turns = 5 - 1(付与ターン) - 3 = 1
+        assert!(battle.party_buffs[0].attack_up.is_some());
+
+        // Bolgarda(ATK+6)で上書き → 持続5にリセット
+        let commands = vec![BattleAction::Spell {
+            spell: SpellKind::Bolgarda,
+            target: TargetId::Party(0),
+        }];
+        let randoms = make_random(vec![1.0; 2], 0.0);
+        battle.execute_turn(&commands, &randoms);
+        let buff = battle.party_buffs[0].attack_up.unwrap();
+        assert_eq!(buff.amount, 6, "上書き後はATK+6");
+        // tick_buffsで1減るので remaining_turns = 5 - 1 = 4
+        assert_eq!(buff.remaining_turns, 4, "上書き後の持続ターンは4(5-1tick)");
     }
 }
