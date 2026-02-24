@@ -103,3 +103,17 @@ pub struct BossBattlePending;
 pub struct OpenedChests {
     pub chests: HashMap<(usize, usize), HashSet<usize>>,
 }
+
+/// 居酒屋ヒントの種類
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum TavernHintKind {
+    Cave,
+    Hokora,
+}
+
+/// 居酒屋で聞いたヒントの既読管理リソース
+#[derive(Resource, Default)]
+pub struct HeardTavernHints {
+    /// key: 町座標, value: 聞いたヒント種類の集合
+    pub heard: HashMap<(usize, usize), HashSet<TavernHintKind>>,
+}

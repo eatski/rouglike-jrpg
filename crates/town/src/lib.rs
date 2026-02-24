@@ -1,6 +1,12 @@
 use party::{Inventory, ItemKind, PartyMember, PartyMemberKind, WeaponKind};
 use terrain::{Terrain, MAP_HEIGHT, MAP_WIDTH};
 
+/// 宿屋の宿泊料金
+pub const INN_PRICE: u32 = 20;
+
+/// 居酒屋の利用料金
+pub const TAVERN_PRICE: u32 = 10;
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum BuyResult {
     Success { remaining_gold: u32 },

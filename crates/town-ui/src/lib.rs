@@ -2,7 +2,7 @@ mod input;
 mod scene;
 
 use bevy::prelude::*;
-use app_state::SceneState;
+use app_state::{HeardTavernHints, SceneState};
 
 pub use input::town_input_system;
 pub use scene::{
@@ -14,7 +14,8 @@ pub struct TownPlugin;
 
 impl Plugin for TownPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(SceneState::Town), setup_town_scene)
+        app.init_resource::<HeardTavernHints>()
+            .add_systems(OnEnter(SceneState::Town), setup_town_scene)
             .add_systems(
                 Update,
                 (town_input_system, town_display_system)

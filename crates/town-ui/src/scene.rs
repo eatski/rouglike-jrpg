@@ -63,7 +63,7 @@ pub enum TownMenuPhase {
 /// 町の状態管理リソース
 #[derive(Resource)]
 pub struct TownResource {
-    /// 現在選択中のメニュー項目 (0=やどや, 1=よろず屋, 2=話を聞く, 3=街を出る)
+    /// 現在選択中のメニュー項目 (0=やどや, 1=よろず屋, 2=居酒屋, 3=街を出る)
     pub selected_item: usize,
     /// 現在のフェーズ
     pub phase: TownMenuPhase,
@@ -225,7 +225,7 @@ fn setup_town_scene_inner(
                     BorderColor::all(border_color),
                 ))
                 .with_children(|menu| {
-                    let items = ["> やどや", "  よろず屋", "  話を聞く", "  街を出る"];
+                    let items = ["> やどや", "  よろず屋", "  居酒屋", "  街を出る"];
                     for (i, label) in items.iter().enumerate() {
                         let color = if i == 0 {
                             SELECTED_COLOR
@@ -502,7 +502,7 @@ pub fn town_display_system(
     }
 
     // メインメニュー項目の更新
-    let labels = ["やどや", "よろず屋", "話を聞く", "街を出る"];
+    let labels = ["やどや", "よろず屋", "居酒屋", "街を出る"];
     for (item, mut text, mut color) in &mut menu_query {
         if item.index < labels.len() {
             let is_selected = item.index == town_res.selected_item;
