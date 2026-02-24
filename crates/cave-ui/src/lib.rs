@@ -4,7 +4,7 @@ mod scene;
 use bevy::prelude::*;
 use app_state::{BattleState, SceneState};
 use movement_ui::{start_bounce, start_smooth_move, update_bounce, update_smooth_move};
-use field_walk_ui::{camera_follow, check_encounter_system, reset_map_mode_system, toggle_map_mode_system};
+use field_walk_ui::{camera_follow, check_encounter_system, reset_map_mode_system, toggle_map_mode_system, update_simple_tiles};
 
 pub use input::{
     cave_message_display_system, cave_message_input_system, cave_player_movement,
@@ -13,7 +13,7 @@ pub use input::{
 };
 pub use scene::{
     despawn_cave_entities, restore_field_from_cave, setup_boss_cave_scene, setup_cave_scene,
-    update_cave_tiles, BossCaveState, CaveTilePool,
+    BossCaveState,
 };
 
 pub struct CavePlugin;
@@ -39,7 +39,7 @@ impl Plugin for CavePlugin {
                 handle_cave_move_completed,
                 start_bounce,
                 update_bounce,
-                update_cave_tiles,
+                update_simple_tiles,
                 camera_follow,
                 check_chest_system,
                 cave_message_input_system,
