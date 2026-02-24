@@ -4,17 +4,31 @@ use crate::stats::{CombatStats, StatGrowth};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PartyMemberKind {
-    Hero,
-    Mage,
-    Priest,
+    Laios,
+    Chilchuck,
+    Marcille,
+    Senshi,
+    Falin,
+    Izutsumi,
+    Shuro,
+    Namari,
+    Kabru,
+    Rinsha,
 }
 
 impl PartyMemberKind {
     pub fn name(self) -> &'static str {
         match self {
-            PartyMemberKind::Hero => "勇者",
-            PartyMemberKind::Mage => "魔法使い",
-            PartyMemberKind::Priest => "僧侶",
+            PartyMemberKind::Laios => "ライオス",
+            PartyMemberKind::Chilchuck => "チルチャック",
+            PartyMemberKind::Marcille => "マルシル",
+            PartyMemberKind::Senshi => "センシ",
+            PartyMemberKind::Falin => "ファリン",
+            PartyMemberKind::Izutsumi => "イヅツミ",
+            PartyMemberKind::Shuro => "シュロー",
+            PartyMemberKind::Namari => "ナマリ",
+            PartyMemberKind::Kabru => "カブルー",
+            PartyMemberKind::Rinsha => "リンシャ",
         }
     }
 }
@@ -64,9 +78,9 @@ impl PartyMember {
         level_ups
     }
 
-    pub fn hero() -> Self {
+    pub fn laios() -> Self {
         Self {
-            kind: PartyMemberKind::Hero,
+            kind: PartyMemberKind::Laios,
             level: 1,
             exp: 0,
             stats: CombatStats::new(30, 8, 3, 5, 5),
@@ -75,20 +89,42 @@ impl PartyMember {
         }
     }
 
-    pub fn mage() -> Self {
+    pub fn chilchuck() -> Self {
         Self {
-            kind: PartyMemberKind::Mage,
+            kind: PartyMemberKind::Chilchuck,
             level: 1,
             exp: 0,
-            stats: CombatStats::new(20, 10, 2, 7, 15),
+            stats: CombatStats::new(22, 6, 2, 9, 0),
             inventory: Inventory::new(),
             equipment: Equipment::new(),
         }
     }
 
-    pub fn priest() -> Self {
+    pub fn marcille() -> Self {
         Self {
-            kind: PartyMemberKind::Priest,
+            kind: PartyMemberKind::Marcille,
+            level: 1,
+            exp: 0,
+            stats: CombatStats::new(20, 2, 2, 7, 15),
+            inventory: Inventory::new(),
+            equipment: Equipment::new(),
+        }
+    }
+
+    pub fn senshi() -> Self {
+        Self {
+            kind: PartyMemberKind::Senshi,
+            level: 1,
+            exp: 0,
+            stats: CombatStats::new(40, 7, 6, 2, 3),
+            inventory: Inventory::new(),
+            equipment: Equipment::new(),
+        }
+    }
+
+    pub fn falin() -> Self {
+        Self {
+            kind: PartyMemberKind::Falin,
             level: 1,
             exp: 0,
             stats: CombatStats::new(25, 5, 4, 4, 12),
@@ -97,35 +133,146 @@ impl PartyMember {
         }
     }
 
+    pub fn izutsumi() -> Self {
+        Self {
+            kind: PartyMemberKind::Izutsumi,
+            level: 1,
+            exp: 0,
+            stats: CombatStats::new(20, 7, 1, 10, 3),
+            inventory: Inventory::new(),
+            equipment: Equipment::new(),
+        }
+    }
+
+    pub fn shuro() -> Self {
+        Self {
+            kind: PartyMemberKind::Shuro,
+            level: 1,
+            exp: 0,
+            stats: CombatStats::new(28, 10, 3, 7, 0),
+            inventory: Inventory::new(),
+            equipment: Equipment::new(),
+        }
+    }
+
+    pub fn namari() -> Self {
+        Self {
+            kind: PartyMemberKind::Namari,
+            level: 1,
+            exp: 0,
+            stats: CombatStats::new(35, 6, 5, 3, 0),
+            inventory: Inventory::new(),
+            equipment: Equipment::new(),
+        }
+    }
+
+    pub fn kabru() -> Self {
+        Self {
+            kind: PartyMemberKind::Kabru,
+            level: 1,
+            exp: 0,
+            stats: CombatStats::new(26, 7, 3, 6, 5),
+            inventory: Inventory::new(),
+            equipment: Equipment::new(),
+        }
+    }
+
+    pub fn rinsha() -> Self {
+        Self {
+            kind: PartyMemberKind::Rinsha,
+            level: 1,
+            exp: 0,
+            stats: CombatStats::new(24, 5, 3, 6, 8),
+            inventory: Inventory::new(),
+            equipment: Equipment::new(),
+        }
+    }
+
     pub fn from_kind(kind: PartyMemberKind) -> Self {
         match kind {
-            PartyMemberKind::Hero => Self::hero(),
-            PartyMemberKind::Mage => Self::mage(),
-            PartyMemberKind::Priest => Self::priest(),
+            PartyMemberKind::Laios => Self::laios(),
+            PartyMemberKind::Chilchuck => Self::chilchuck(),
+            PartyMemberKind::Marcille => Self::marcille(),
+            PartyMemberKind::Senshi => Self::senshi(),
+            PartyMemberKind::Falin => Self::falin(),
+            PartyMemberKind::Izutsumi => Self::izutsumi(),
+            PartyMemberKind::Shuro => Self::shuro(),
+            PartyMemberKind::Namari => Self::namari(),
+            PartyMemberKind::Kabru => Self::kabru(),
+            PartyMemberKind::Rinsha => Self::rinsha(),
         }
     }
 }
 
 impl PartyMemberKind {
-    /// クラス別のレベルアップ時ステータス成長値
+    /// キャラ別のレベルアップ時ステータス成長値
     pub fn stat_growth(self) -> StatGrowth {
         match self {
-            PartyMemberKind::Hero => StatGrowth {
+            PartyMemberKind::Laios => StatGrowth {
                 hp: 5,
                 mp: 1,
                 attack: 2,
                 defense: 1,
                 speed: 1,
             },
-            PartyMemberKind::Mage => StatGrowth {
+            PartyMemberKind::Chilchuck => StatGrowth {
+                hp: 3,
+                mp: 0,
+                attack: 2,
+                defense: 1,
+                speed: 2,
+            },
+            PartyMemberKind::Marcille => StatGrowth {
                 hp: 3,
                 mp: 3,
+                attack: 1,
+                defense: 1,
+                speed: 1,
+            },
+            PartyMemberKind::Senshi => StatGrowth {
+                hp: 6,
+                mp: 0,
+                attack: 2,
+                defense: 2,
+                speed: 0,
+            },
+            PartyMemberKind::Falin => StatGrowth {
+                hp: 4,
+                mp: 2,
+                attack: 1,
+                defense: 1,
+                speed: 1,
+            },
+            PartyMemberKind::Izutsumi => StatGrowth {
+                hp: 3,
+                mp: 1,
+                attack: 2,
+                defense: 0,
+                speed: 2,
+            },
+            PartyMemberKind::Shuro => StatGrowth {
+                hp: 4,
+                mp: 0,
+                attack: 3,
+                defense: 1,
+                speed: 1,
+            },
+            PartyMemberKind::Namari => StatGrowth {
+                hp: 5,
+                mp: 0,
+                attack: 2,
+                defense: 2,
+                speed: 0,
+            },
+            PartyMemberKind::Kabru => StatGrowth {
+                hp: 4,
+                mp: 1,
                 attack: 2,
                 defense: 1,
                 speed: 1,
             },
-            PartyMemberKind::Priest => StatGrowth {
-                hp: 4,
+            PartyMemberKind::Rinsha => StatGrowth {
+                hp: 3,
                 mp: 2,
                 attack: 1,
                 defense: 1,
@@ -137,15 +284,15 @@ impl PartyMemberKind {
 
 pub fn default_party() -> Vec<PartyMember> {
     vec![
-        PartyMember::hero(),
-        PartyMember::mage(),
-        PartyMember::priest(),
+        PartyMember::laios(),
+        PartyMember::marcille(),
+        PartyMember::falin(),
     ]
 }
 
-/// ゲーム開始時の初期パーティ（勇者のみ）
+/// ゲーム開始時の初期パーティ（ライオスのみ）
 pub fn initial_party() -> Vec<PartyMember> {
-    vec![PartyMember::hero()]
+    vec![PartyMember::laios()]
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -173,11 +320,18 @@ impl RecruitCandidate {
     }
 }
 
-/// 全仲間候補リストを返す（勇者以外）
+/// 全仲間候補リストを返す（ライオス以外）
 pub fn default_candidates() -> Vec<RecruitCandidate> {
     vec![
-        RecruitCandidate::new(PartyMemberKind::Mage),
-        RecruitCandidate::new(PartyMemberKind::Priest),
+        RecruitCandidate::new(PartyMemberKind::Chilchuck),
+        RecruitCandidate::new(PartyMemberKind::Marcille),
+        RecruitCandidate::new(PartyMemberKind::Senshi),
+        RecruitCandidate::new(PartyMemberKind::Falin),
+        RecruitCandidate::new(PartyMemberKind::Izutsumi),
+        RecruitCandidate::new(PartyMemberKind::Shuro),
+        RecruitCandidate::new(PartyMemberKind::Namari),
+        RecruitCandidate::new(PartyMemberKind::Kabru),
+        RecruitCandidate::new(PartyMemberKind::Rinsha),
     ]
 }
 
@@ -219,35 +373,35 @@ mod tests {
 
     #[test]
     fn gain_exp_levels_up() {
-        let mut hero = PartyMember::hero();
-        let level_ups = hero.gain_exp(10); // ちょうどLv2に
+        let mut laios = PartyMember::laios();
+        let level_ups = laios.gain_exp(10); // ちょうどLv2に
         assert_eq!(level_ups, 1);
-        assert_eq!(hero.level, 2);
-        assert_eq!(hero.exp, 10);
-        assert_eq!(hero.stats.max_hp, 35); // +5
-        assert_eq!(hero.stats.attack, 10); // +2
+        assert_eq!(laios.level, 2);
+        assert_eq!(laios.exp, 10);
+        assert_eq!(laios.stats.max_hp, 35); // +5
+        assert_eq!(laios.stats.attack, 10); // +2
     }
 
     #[test]
     fn gain_exp_multiple_level_ups() {
-        let mut hero = PartyMember::hero();
-        let level_ups = hero.gain_exp(60); // Lv1→2(10) → Lv2→3(30) → Lv3→4(60)
+        let mut laios = PartyMember::laios();
+        let level_ups = laios.gain_exp(60); // Lv1→2(10) → Lv2→3(30) → Lv3→4(60)
         assert_eq!(level_ups, 3);
-        assert_eq!(hero.level, 4);
+        assert_eq!(laios.level, 4);
     }
 
     #[test]
     fn gain_exp_no_level_up() {
-        let mut hero = PartyMember::hero();
-        let level_ups = hero.gain_exp(5);
+        let mut laios = PartyMember::laios();
+        let level_ups = laios.gain_exp(5);
         assert_eq!(level_ups, 0);
-        assert_eq!(hero.level, 1);
-        assert_eq!(hero.exp, 5);
+        assert_eq!(laios.level, 1);
+        assert_eq!(laios.exp, 5);
     }
 
     #[test]
     fn talk_to_candidate_transitions() {
-        let mut candidate = RecruitCandidate::new(PartyMemberKind::Mage);
+        let mut candidate = RecruitCandidate::new(PartyMemberKind::Marcille);
 
         let result = talk_to_candidate(&mut candidate);
         assert_eq!(result, TalkResult::BecameAcquaintance);
@@ -263,15 +417,15 @@ mod tests {
 
     #[test]
     fn effective_attack_without_weapon() {
-        let hero = PartyMember::hero();
-        assert_eq!(hero.effective_attack(), hero.stats.attack);
+        let laios = PartyMember::laios();
+        assert_eq!(laios.effective_attack(), laios.stats.attack);
     }
 
     #[test]
     fn effective_attack_with_weapon() {
         use crate::equipment::WeaponKind;
-        let mut hero = PartyMember::hero();
-        hero.equipment.equip_weapon(WeaponKind::IronSword);
-        assert_eq!(hero.effective_attack(), hero.stats.attack + 5);
+        let mut laios = PartyMember::laios();
+        laios.equipment.equip_weapon(WeaponKind::IronSword);
+        assert_eq!(laios.effective_attack(), laios.stats.attack + 5);
     }
 }
