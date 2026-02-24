@@ -1,13 +1,27 @@
 mod bat;
 mod dark_lord;
+mod demon;
+mod dragon;
 mod ghost;
 mod goblin;
+mod golem;
+mod lizardman;
+mod scorpion;
+mod skeleton;
 mod slime;
 mod wolf;
+mod wraith;
 
 pub use bat::generate_bat;
 pub use dark_lord::generate_dark_lord;
+pub use demon::generate_demon;
+pub use dragon::generate_dragon;
 pub use ghost::generate_ghost;
 pub use goblin::generate_goblin;
+pub use golem::generate_golem;
+pub use lizardman::generate_lizardman;
+pub use scorpion::generate_scorpion;
+pub use skeleton::generate_skeleton;
 pub use slime::generate_slime;
 pub use wolf::generate_wolf;
+pub use wraith::generate_wraith;

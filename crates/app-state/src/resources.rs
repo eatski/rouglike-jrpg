@@ -88,6 +88,30 @@ pub struct ContinentCavePositions {
     pub caves_by_continent: Vec<Vec<(usize, usize)>>,
 }
 
+/// 各タイルが属する大陸IDを保持するリソース（ワールドマップ用）
+#[derive(Resource)]
+pub struct ContinentMap {
+    map: Vec<Vec<Option<u8>>>,
+}
+
+impl ContinentMap {
+    pub fn new(map: Vec<Vec<Option<u8>>>) -> Self {
+        Self { map }
+    }
+
+    /// 指定座標の大陸IDを返す（海や範囲外は None）
+    pub fn get(&self, x: usize, y: usize) -> Option<u8> {
+        self.map.get(y).and_then(|row| row.get(x)).copied().flatten()
+    }
+}
+
+/// 現在のエンカウントゾーン（戦闘開始時にどの敵が出現するかを決定する）
+#[derive(Resource, Clone, Default)]
+pub struct EncounterZone {
+    pub continent_id: u8,
+    pub is_cave: bool,
+}
+
 /// ボス撃破フラグ（存在=撃破済み）
 #[derive(Resource)]
 pub struct BossDefeated;

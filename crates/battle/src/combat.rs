@@ -394,12 +394,12 @@ impl BattleState {
             .collect()
     }
 
-    /// 倒した敵の合計経験値を計算
+    /// 倒した敵の合計経験値を計算（段階補正込み）
     pub fn total_exp_reward(&self) -> u32 {
         self.enemies
             .iter()
             .filter(|e| !e.stats.is_alive())
-            .map(|e| e.kind.exp_reward())
+            .map(|e| e.exp_reward())
             .sum()
     }
 }

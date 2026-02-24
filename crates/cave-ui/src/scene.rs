@@ -7,7 +7,7 @@ use rand_chacha::ChaCha8Rng;
 use cave::{generate_boss_cave_map, generate_cave_map, TreasureChest, TreasureContent, CAVE_HEIGHT, CAVE_WIDTH};
 use party::ItemKind;
 
-use app_state::{BossDefeated, ContinentCavePositions, OpenedChests};
+use app_state::{BossDefeated, ContinentCavePositions, ContinentMap, EncounterZone, OpenedChests};
 use field_core::{ActiveMap, Boat, Player, TilePosition, WorldMapData, TILE_SIZE};
 use field_walk_ui::MovementState;
 
@@ -71,6 +71,7 @@ pub fn setup_cave_scene(
     mut boat_spawns: ResMut<BoatSpawnsResource>,
     mut map_mode_state: ResMut<MapModeState>,
     continent_caves: Res<ContinentCavePositions>,
+    continent_map: Option<Res<ContinentMap>>,
 ) {
     // ワールドでマップモードがONのまま洞窟に入った場合にリセット
     map_mode_state.enabled = false;
@@ -100,8 +101,18 @@ pub fn setup_cave_scene(
         commands.entity(entity).despawn();
     }
 
-    // 洞窟マップ生成（ワールドマップ座標からシードを決定し、同じ洞窟は常に同じ形にする）
+    // 洞窟のワールド座標を保存し、エンカウントゾーンを設定
     let cave_world_pos = (tile_pos.x, tile_pos.y);
+    let cave_continent_id = continent_map
+        .as_ref()
+        .and_then(|cm| cm.get(cave_world_pos.0, cave_world_pos.1))
+        .unwrap_or(0);
+    commands.insert_resource(EncounterZone {
+        continent_id: cave_continent_id,
+        is_cave: true,
+    });
+
+    // 洞窟マップ生成（ワールドマップ座標からシードを決定し、同じ洞窟は常に同じ形にする）
     let seed = tile_pos.x as u64 * 10007 + tile_pos.y as u64;
     let mut rng = ChaCha8Rng::seed_from_u64(seed);
     let guaranteed_items: Vec<TreasureContent> =

@@ -3,8 +3,8 @@ mod resources;
 use bevy::prelude::*;
 
 pub use resources::{
-    BossBattlePending, BossDefeated, ContinentCavePositions, FieldMenuOpen, HokoraPositions,
-    OpenedChests, PartyState, RecruitmentMap,
+    BossBattlePending, BossDefeated, ContinentCavePositions, ContinentMap, EncounterZone,
+    FieldMenuOpen, HokoraPositions, OpenedChests, PartyState, RecruitmentMap,
 };
 
 pub struct AppStatePlugin;

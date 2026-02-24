@@ -9,7 +9,7 @@ use world::map::{
 
 use field_core::{ActiveMap, Player, TilePosition, TILE_SIZE};
 use party::default_candidates;
-use app_state::{ContinentCavePositions, HokoraPositions, RecruitmentMap};
+use app_state::{ContinentCavePositions, ContinentMap, EncounterZone, HokoraPositions, RecruitmentMap};
 use terrain::Terrain;
 
 use crate::resources::SpawnPosition;
@@ -91,6 +91,10 @@ pub fn spawn_field_map_with_rng(
         })
         .collect();
     commands.insert_resource(ContinentCavePositions { caves_by_continent });
+
+    // 大陸マップをリソースとして保存
+    commands.insert_resource(ContinentMap::new(map_data.continent_map));
+    commands.insert_resource(EncounterZone::default());
 
     // ボス洞窟座標を保存
     commands.insert_resource(BossCaveWorldPos {

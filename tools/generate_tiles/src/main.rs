@@ -47,6 +47,13 @@ fn main() {
     generate_wolf(enemies_dir);
     generate_ghost(enemies_dir);
     generate_dark_lord(enemies_dir);
+    generate_scorpion(enemies_dir);
+    generate_skeleton(enemies_dir);
+    generate_lizardman(enemies_dir);
+    generate_golem(enemies_dir);
+    generate_demon(enemies_dir);
+    generate_dragon(enemies_dir);
+    generate_wraith(enemies_dir);
 
     println!("Assets generated in assets/");
 }

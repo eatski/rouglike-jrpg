@@ -28,7 +28,7 @@ pub use minimap::{init_minimap_system, toggle_minimap_visibility_system, update_
 pub use player_input::{player_movement, sync_boat_with_player};
 pub use rendering::{spawn_field_map, spawn_field_map_with_rng, spawn_player};
 pub use smooth_move::handle_field_move_completed;
-pub use tile_action::check_tile_action_system;
+pub use tile_action::{check_tile_action_system, update_encounter_zone_system};
 pub use resources::SpawnPosition;
 
 /// 移動コアシステム（エンカウント・タイルアクション除く）
@@ -58,7 +58,7 @@ pub fn register_exploring_movement_systems(app: &mut App) {
 pub fn register_exploring_event_systems(app: &mut App) {
     app.add_systems(
         Update,
-        (check_tile_action_system, check_encounter_system)
+        (update_encounter_zone_system, check_tile_action_system, check_encounter_system)
             .chain()
             .after(sync_boat_with_player)
             .run_if(in_state(SceneState::Exploring).and(in_state(BattleState::None))),
@@ -120,6 +120,7 @@ pub fn register_exploring_all_systems(app: &mut App) {
             update_minimap_texture_system,
             sync_boat_with_player,
             camera_follow,
+            update_encounter_zone_system,
             check_tile_action_system,
             check_encounter_system,
         )
