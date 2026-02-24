@@ -4443,7 +4443,6 @@ dependencies = [
  "app-state",
  "bevy",
  "cave",
- "cave-ui",
  "field-walk-ui",
  "movement-ui",
  "rand 0.8.5",

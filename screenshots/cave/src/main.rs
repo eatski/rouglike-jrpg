@@ -6,10 +6,9 @@ use rand_chacha::ChaCha8Rng;
 
 use app_state::OpenedChests;
 use cave::{generate_cave_map, CAVE_HEIGHT, CAVE_WIDTH};
-use cave_ui::{update_cave_tiles, CaveTilePool};
 use movement_ui::{ActiveMap, Player, TilePosition, TILE_SIZE};
 use screenshot_common::screenshot_app;
-use field_walk_ui::{camera_follow, load_tile_textures, setup_camera};
+use field_walk_ui::{camera_follow, load_tile_textures, setup_camera, update_simple_tiles, SimpleTileMap};
 
 /// 洞窟マップを直接構築してActiveMapとして注入するシステム
 fn setup_cave_direct(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -48,7 +47,7 @@ fn setup_cave_direct(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 
     // 洞窟タイルプールを初期化
-    commands.insert_resource(CaveTilePool {
+    commands.insert_resource(SimpleTileMap {
         active_tiles: HashMap::new(),
         last_player_pos: None,
     });
@@ -62,7 +61,7 @@ fn main() {
         .add_systems(Startup, (setup_cave_direct, setup_camera).chain())
         .add_systems(
             Update,
-            (update_cave_tiles, camera_follow).chain(),
+            (update_simple_tiles, camera_follow).chain(),
         )
         .run();
 }
