@@ -18,6 +18,12 @@ pub struct SmoothMove {
     pub timer: Timer,
 }
 
+/// SmoothMoveアニメーション中かどうかを判定する。
+/// 完了フレームはfalseを返す（更新を許可するため）。
+pub fn is_smooth_moving(query: &Query<&SmoothMove, With<Player>>) -> bool {
+    query.iter().any(|sm| !sm.timer.just_finished())
+}
+
 /// Ease-out quadratic イージング関数
 /// 移動開始時は速く、終了時はゆっくり
 pub fn ease_out_quad(t: f32) -> f32 {

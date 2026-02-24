@@ -2431,10 +2431,7 @@ dependencies = [
 name = "field-walk"
 version = "0.1.0"
 dependencies = [
- "rand 0.8.5",
- "rand_chacha 0.3.1",
  "terrain",
- "world-gen",
 ]
 
 [[package]]
@@ -2449,6 +2446,7 @@ dependencies = [
  "party",
  "rand 0.8.5",
  "terrain",
+ "world-gen",
 ]
 
 [[package]]
@@ -4336,6 +4334,7 @@ dependencies = [
  "terrain",
  "town",
  "town-ui",
+ "world-gen",
 ]
 
 [[package]]
@@ -4489,9 +4488,9 @@ name = "screenshot-world"
 version = "0.1.0"
 dependencies = [
  "bevy",
- "field-walk",
  "screenshot-common",
  "terrain",
+ "world-gen",
 ]
 
 [[package]]

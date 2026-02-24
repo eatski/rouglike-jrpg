@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use std::collections::HashMap;
 
-use field_walk::map::{
+use world_gen::{
     assign_candidates_to_towns, calculate_boat_spawns, detect_islands, generate_connected_map,
     place_extra_towns,
 };
@@ -12,8 +12,14 @@ use party::default_candidates;
 use app_state::{ContinentCavePositions, HokoraPositions, RecruitmentMap};
 use terrain::Terrain;
 
-use crate::field_resources::SpawnPosition;
 use crate::{load_tile_textures, spawn_boat_entities, BoatSpawnsResource, BossCaveWorldPos};
+
+/// プレイヤーのスポーン位置を保持するリソース
+#[derive(Resource)]
+pub struct SpawnPosition {
+    pub x: usize,
+    pub y: usize,
+}
 
 /// Rng注入可能なフィールドマップ生成
 pub fn spawn_field_map_with_rng(

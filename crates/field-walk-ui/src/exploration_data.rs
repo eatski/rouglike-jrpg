@@ -6,7 +6,7 @@ use terrain::{MAP_HEIGHT, MAP_WIDTH};
 use field_core::{Player, TilePosition};
 use crate::PlayerMovedEvent;
 
-use crate::field_resources::SpawnPosition;
+use crate::field_rendering::SpawnPosition;
 
 /// 探索データを管理するリソース
 #[derive(Resource)]

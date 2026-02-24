@@ -14,7 +14,6 @@ hokora-ui = { path = "crates/hokora-ui" }
 field-core = { path = "crates/field-core" }
 terrain = { path = "crates/terrain" }
 town-ui = { path = "crates/town-ui" }
-field-walk = { path = "crates/field-walk" }
 field-walk-ui = { path = "crates/field-walk-ui" }
 
 [dev-dependencies]
@@ -22,6 +21,8 @@ rand_chacha = "0.3"
 party = { path = "crates/party" }
 cave = { path = "crates/cave" }
 town = { path = "crates/town" }
+field-walk = { path = "crates/field-walk" }
+world-gen = { path = "crates/world-gen" }
 
 [workspace]
 members = [

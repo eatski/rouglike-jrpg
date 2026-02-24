@@ -21,7 +21,6 @@ mod hud;
 mod minimap;
 mod player_input;
 pub mod field_rendering;
-pub mod field_resources;
 mod tile_action;
 
 pub use bounce::{start_bounce, update_bounce, Bounce};
@@ -37,7 +36,7 @@ pub use rendering::{load_tile_textures, spawn_boat_entities, BoatSpawnsResource,
 pub use resources::MovementState;
 pub use simple_tiles::{update_simple_tiles, SimpleTile, SimpleTileMap};
 pub use smooth_move::{
-    ease_out_quad, start_smooth_move, update_smooth_move, SmoothMove,
+    ease_out_quad, is_smooth_moving, start_smooth_move, update_smooth_move, SmoothMove,
     MOVE_DURATION,
 };
 pub use terrain::MoveResult;
@@ -51,7 +50,7 @@ pub use player_input::{player_movement, sync_boat_with_player};
 pub use field_rendering::{spawn_field_map, spawn_field_map_with_rng, spawn_player};
 pub use field_smooth_move::handle_field_move_completed;
 pub use tile_action::check_tile_action_system;
-pub use field_resources::SpawnPosition;
+pub use field_rendering::SpawnPosition;
 
 use bevy::prelude::*;
 use app_state::{BattleState, InField, SceneState};

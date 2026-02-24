@@ -5,6 +5,7 @@ use terrain::Terrain;
 
 use field_core::{ActiveMap, MapTile, Player, TilePosition, TILE_SIZE};
 use crate::SmoothMove;
+use crate::smooth_move::is_smooth_moving;
 
 use crate::{MapModeState, TileTextures};
 
@@ -32,10 +33,8 @@ pub fn update_simple_tiles(
     map_mode_state: Res<MapModeState>,
 ) {
     // SmoothMove中はスキップ（完了フレーム以外）
-    for smooth_move in smooth_move_query.iter() {
-        if !smooth_move.timer.just_finished() {
-            return;
-        }
+    if is_smooth_moving(&smooth_move_query) {
+        return;
     }
 
     let Ok(player_pos) = player_query.single() else {
