@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use field_core::{ActiveMap, Boat, OnBoat, Player, TilePosition};
-use field_walk_ui::{
+use crate::{
     execute_move, ExecuteMoveResult, MovementBlockedEvent, MovementLocked, MovementState,
     PendingMove, PlayerMovedEvent, TileEnteredEvent,
 };

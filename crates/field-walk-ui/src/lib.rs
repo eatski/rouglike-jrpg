@@ -14,6 +14,16 @@ pub mod simple_tiles;
 mod smooth_move;
 pub mod tile_pool;
 
+// world-ui から統合されたモジュール
+mod field_smooth_move;
+pub mod exploration_data;
+mod hud;
+mod minimap;
+mod player_input;
+pub mod field_rendering;
+pub mod field_resources;
+mod tile_action;
+
 pub use bounce::{start_bounce, update_bounce, Bounce};
 pub use camera::{camera_follow, setup_camera};
 pub use components::{MovementLocked, PendingMove};
@@ -33,7 +43,18 @@ pub use smooth_move::{
 pub use terrain::MoveResult;
 pub use tile_pool::{create_tile_pool, init_tile_pool, update_visible_tiles, PooledTile, TilePool};
 
+// world-ui から統合された再エクスポート
+pub use hud::{cleanup_hud, setup_hud, toggle_hud_visibility, update_hud};
+pub use exploration_data::{init_exploration_system, update_exploration_system, ExplorationData};
+pub use minimap::{init_minimap_system, toggle_minimap_visibility_system, update_minimap_texture_system};
+pub use player_input::{player_movement, sync_boat_with_player};
+pub use field_rendering::{spawn_field_map, spawn_field_map_with_rng, spawn_player};
+pub use field_smooth_move::handle_field_move_completed;
+pub use tile_action::check_tile_action_system;
+pub use field_resources::SpawnPosition;
+
 use bevy::prelude::*;
+use app_state::{BattleState, InField, SceneState};
 use field_core::{ActiveMap, Player, TilePosition};
 
 /// フィールド離脱時にプレイヤーの移動関連コンポーネントと状態をクリーンアップする。
@@ -84,4 +105,101 @@ fn sync_tile_to_transform(
         transform.translation.x = world_x;
         transform.translation.y = world_y;
     }
+}
+
+/// 移動コアシステム（エンカウント・タイルアクション除く）
+///
+/// toggle_map_mode_systemはCamera2dをクエリするが、if let Ok(...) guardで
+/// MinimalPlugins環境でも安全にスキップされる。
+pub fn register_exploring_movement_systems(app: &mut App) {
+    app.add_systems(
+        Update,
+        (
+            toggle_map_mode_system,
+            player_movement,
+            start_bounce,
+            start_smooth_move,
+            ApplyDeferred,
+            update_smooth_move,
+            handle_field_move_completed,
+            update_bounce,
+            sync_boat_with_player,
+        )
+            .chain()
+            .run_if(in_state(SceneState::Exploring).and(in_state(BattleState::None))),
+    );
+}
+
+/// タイルアクション + エンカウント
+pub fn register_exploring_event_systems(app: &mut App) {
+    app.add_systems(
+        Update,
+        (check_tile_action_system, check_encounter_system)
+            .chain()
+            .after(sync_boat_with_player)
+            .run_if(in_state(SceneState::Exploring).and(in_state(BattleState::None))),
+    );
+}
+
+/// 全ロジックシステム（テスト用: レンダリング非依存のみ）
+pub fn register_exploring_logic_systems(app: &mut App) {
+    register_exploring_movement_systems(app);
+    register_exploring_event_systems(app);
+}
+
+pub struct WorldPlugin;
+
+impl Plugin for WorldPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<MapModeState>()
+            .add_systems(
+                Startup,
+                (
+                    spawn_field_map,
+                    setup_camera,
+                    spawn_player,
+                    init_tile_pool,
+                    init_exploration_system,
+                    init_minimap_system,
+                )
+                    .chain(),
+            )
+            .add_systems(OnEnter(InField), setup_hud)
+            .add_systems(
+                Update,
+                (toggle_hud_visibility, update_hud)
+                    .chain()
+                    .run_if(in_state(InField)),
+            )
+            .add_systems(OnExit(InField), cleanup_hud);
+
+        register_exploring_all_systems(app);
+    }
+}
+
+/// 全システム（本番用: レンダリング依存含む）
+pub fn register_exploring_all_systems(app: &mut App) {
+    app.add_systems(
+        Update,
+        (
+            toggle_map_mode_system,
+            toggle_minimap_visibility_system,
+            player_movement,
+            start_bounce,
+            start_smooth_move,
+            ApplyDeferred,
+            update_smooth_move,
+            handle_field_move_completed,
+            update_bounce,
+            update_visible_tiles,
+            update_exploration_system,
+            update_minimap_texture_system,
+            sync_boat_with_player,
+            camera_follow,
+            check_tile_action_system,
+            check_encounter_system,
+        )
+            .chain()
+            .run_if(in_state(SceneState::Exploring).and(in_state(BattleState::None))),
+    );
 }

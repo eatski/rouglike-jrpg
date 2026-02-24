@@ -7,8 +7,8 @@ use terrain::{Terrain, MAP_HEIGHT, MAP_WIDTH};
 
 use field_core::{ActiveMap, MAP_PIXEL_WIDTH};
 
-use field_walk_ui::MapModeState;
-use crate::map_mode::ExplorationData;
+use crate::map_mode::MapModeState;
+use crate::exploration_data::ExplorationData;
 
 /// ミニマップスプライトを識別するコンポーネント
 #[derive(Component)]

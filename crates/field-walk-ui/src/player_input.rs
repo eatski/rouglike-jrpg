@@ -3,13 +3,13 @@ use bevy::prelude::*;
 use terrain::coordinates::wrap_position;
 
 use field_core::{ActiveMap, Boat, OnBoat, Player, TilePosition};
-use field_walk_ui::{
+use crate::{
     execute_move, process_movement_input, ExecuteMoveResult, MovementBlockedEvent,
     MovementLocked, MovementState, PendingMove, PlayerMovedEvent,
 };
 use app_state::FieldMenuOpen;
 
-use field_walk_ui::MapModeState;
+use crate::map_mode::MapModeState;
 
 /// プレイヤーの移動入力を処理するシステム
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]

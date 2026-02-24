@@ -7,6 +7,8 @@ edition = "2024"
 bevy = "0.18"
 rand = "0.8"
 terrain = { path = "../terrain" }
+party = { path = "../party" }
 app-state = { path = "../app-state" }
 input-ui = { path = "../input-ui" }
 field-core = { path = "../field-core" }
+field-walk = { path = "../field-walk" }

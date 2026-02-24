@@ -33,7 +33,7 @@ fn main() {
         .add_plugins((
             app_state::AppStatePlugin,
             field_walk_ui::MovementPlugin,
-            world_ui::WorldPlugin,
+            field_walk_ui::WorldPlugin,
             battle_ui::BattlePlugin,
             town_ui::TownPlugin,
             hokora_ui::HokoraPlugin,

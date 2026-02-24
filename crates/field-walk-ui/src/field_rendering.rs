@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use std::collections::HashMap;
 
-use world::map::{
+use field_walk::map::{
     assign_candidates_to_towns, calculate_boat_spawns, detect_islands, generate_connected_map,
     place_extra_towns,
 };
@@ -12,8 +12,8 @@ use party::default_candidates;
 use app_state::{ContinentCavePositions, HokoraPositions, RecruitmentMap};
 use terrain::Terrain;
 
-use crate::resources::SpawnPosition;
-use field_walk_ui::{load_tile_textures, spawn_boat_entities, BoatSpawnsResource, BossCaveWorldPos};
+use crate::field_resources::SpawnPosition;
+use crate::{load_tile_textures, spawn_boat_entities, BoatSpawnsResource, BossCaveWorldPos};
 
 /// Rng注入可能なフィールドマップ生成
 pub fn spawn_field_map_with_rng(

@@ -10,7 +10,7 @@ use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
 use battle::{default_party, Enemy};
 use terrain::{Terrain, MAP_HEIGHT, MAP_WIDTH};
-use world::map::generate_map;
+use field_walk::map::generate_map;
 use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
 use std::time::Duration;
@@ -23,7 +23,7 @@ use field_walk_ui::{
 };
 use app_state::PartyState;
 use field_walk_ui::MapModeState;
-use world_ui::SpawnPosition;
+use field_walk_ui::SpawnPosition;
 
 const SPAWN_X: usize = 50;
 const SPAWN_Y: usize = 50;
@@ -115,7 +115,7 @@ fn setup_test_app_with_map(grid: Vec<Vec<Terrain>>, spawn_x: usize, spawn_y: usi
     app.add_message::<field_walk_ui::TileEnteredEvent>();
 
     // 本番と同じシステム登録（移動コアのみ、エンカウント除外）
-    world_ui::register_exploring_movement_systems(&mut app);
+    field_walk_ui::register_exploring_movement_systems(&mut app);
 
     // テスト専用イベントカウンタ（run_if外で常時実行）
     app.add_systems(Update, count_moved_events);
@@ -1553,7 +1553,7 @@ fn cave_treasure_adds_to_inventory() {
 
 #[test]
 fn cave_hint_dialogue_finds_nearest_cave_in_generated_map() {
-    use world::map::generate_map;
+    use field_walk::map::generate_map;
     use town::cave_hint_dialogue;
     use rand::SeedableRng;
     use rand_chacha::ChaCha8Rng;
@@ -1589,7 +1589,7 @@ fn cave_hint_dialogue_finds_nearest_cave_in_generated_map() {
 
 #[test]
 fn generated_map_has_towns_and_caves_on_walkable_tiles() {
-    use world::map::generate_connected_map;
+    use field_walk::map::generate_connected_map;
     use rand::SeedableRng;
     use rand_chacha::ChaCha8Rng;
 
@@ -1621,7 +1621,7 @@ fn generated_map_has_towns_and_caves_on_walkable_tiles() {
 
 #[test]
 fn generated_map_spawn_is_on_walkable_connected_island() {
-    use world::map::{generate_connected_map, detect_islands};
+    use field_walk::map::{generate_connected_map, detect_islands};
     use rand::SeedableRng;
     use rand_chacha::ChaCha8Rng;
 
