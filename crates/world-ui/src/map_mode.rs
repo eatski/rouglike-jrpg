@@ -4,7 +4,7 @@ use field_walk::exploration::{ExplorationMap, VIEW_RADIUS};
 use terrain::{MAP_HEIGHT, MAP_WIDTH};
 
 use field_core::{Player, TilePosition};
-use movement_ui::PlayerMovedEvent;
+use field_walk_ui::PlayerMovedEvent;
 
 use crate::resources::SpawnPosition;
 

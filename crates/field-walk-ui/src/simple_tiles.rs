@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use terrain::Terrain;
 
 use field_core::{ActiveMap, MapTile, Player, TilePosition, TILE_SIZE};
-use movement_ui::SmoothMove;
+use crate::SmoothMove;
 
 use crate::{MapModeState, TileTextures};
 

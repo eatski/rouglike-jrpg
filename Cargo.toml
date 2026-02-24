@@ -12,7 +12,6 @@ battle-ui = { path = "crates/battle-ui" }
 cave-ui = { path = "crates/cave-ui" }
 hokora-ui = { path = "crates/hokora-ui" }
 field-core = { path = "crates/field-core" }
-movement-ui = { path = "crates/movement-ui" }
 terrain = { path = "crates/terrain" }
 town-ui = { path = "crates/town-ui" }
 world = { path = "crates/world" }
@@ -40,7 +39,6 @@ members = [
     "crates/battle",
     "crates/app-state",
     "crates/input-ui",
-    "crates/movement-ui",
     "crates/battle-ui",
     "crates/town-ui",
     "crates/world-ui",

@@ -5,7 +5,7 @@ use terrain::Terrain;
 
 use app_state::{BossBattlePending, OpenedChests, PartyState, SceneState};
 use field_core::{ActiveMap, Player, TilePosition};
-use movement_ui::{
+use field_walk_ui::{
     process_movement_input,
     MovementBlockedEvent, MovementLocked, MoveResult, MovementState,
     PendingMove, PlayerMovedEvent, TileEnteredEvent,

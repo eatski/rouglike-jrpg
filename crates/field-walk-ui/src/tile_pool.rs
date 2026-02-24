@@ -5,7 +5,7 @@ use crate::coast_lookup;
 use terrain::{Terrain, MAP_HEIGHT, MAP_WIDTH};
 
 use field_core::{ActiveMap, MapTile, Player, TilePosition, TILE_SIZE, VISIBLE_CELLS};
-use movement_ui::SmoothMove;
+use crate::SmoothMove;
 
 use crate::rendering::TileTextures;
 

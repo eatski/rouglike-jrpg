@@ -9,7 +9,7 @@ use party::ItemKind;
 
 use app_state::{BossDefeated, ContinentCavePositions, OpenedChests};
 use field_core::{ActiveMap, Boat, Player, TilePosition, WorldMapData, TILE_SIZE};
-use movement_ui::MovementState;
+use field_walk_ui::MovementState;
 
 use field_walk_ui::{spawn_boat_entities, BoatSpawnsResource, BossCaveWorldPos, MapModeState, TileTextures};
 use field_walk_ui::{create_tile_pool, PooledTile, SimpleTile, SimpleTileMap, TilePool};
