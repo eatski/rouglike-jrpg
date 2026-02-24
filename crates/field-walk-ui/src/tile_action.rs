@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use terrain::TileAction;
 
-use app_state::SceneState;
+use app_state::{ContinentMap, EncounterZone, SceneState};
 use field_core::{ActiveMap, OnBoat, Player, TilePosition};
 use crate::TileEnteredEvent;
 
@@ -44,5 +44,23 @@ pub fn check_tile_action_system(
             }
             TileAction::None => {}
         }
+    }
+}
+
+/// プレイヤー位置に基づいてエンカウントゾーンを更新するシステム
+pub fn update_encounter_zone_system(
+    player_query: Query<&TilePosition, With<Player>>,
+    continent_map: Option<Res<ContinentMap>>,
+    mut encounter_zone: ResMut<EncounterZone>,
+) {
+    let Some(continent_map) = continent_map else {
+        return;
+    };
+    let Ok(pos) = player_query.single() else {
+        return;
+    };
+    if let Some(continent_id) = continent_map.get(pos.x, pos.y) {
+        encounter_zone.continent_id = continent_id;
+        encounter_zone.is_cave = false;
     }
 }

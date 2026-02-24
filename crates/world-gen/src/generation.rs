@@ -40,6 +40,8 @@ pub struct MapData {
     /// 祠の位置とワープ先（配置順: [大陸1, 大陸2, 大陸3]、一方向チェーン）
     pub hokora_spawns: Vec<((usize, usize), (usize, usize))>,
     pub boss_cave_position: Option<(usize, usize)>,
+    /// 各タイルが属する大陸のインデックス (0〜6)。海は None。
+    pub continent_map: Vec<Vec<Option<u8>>>,
 }
 
 /// トーラス距離を計算
@@ -676,11 +678,52 @@ pub fn generate_map(rng: &mut impl Rng) -> MapData {
     // Phase 5: 歩行可能タイルの連結性を保証（山で道が塞がれないようにする）
     ensure_walkable_connectivity(&mut grid);
 
+    // Phase 5.5: ボス大陸の海岸を山で囲む（船でアクセス不可にする）
+    if let Some(&boss_center) = centers.get(6) {
+        // ボス大陸への祠ワープ先を保護対象に含める
+        let boss_warp_dest = hokora_spawn_data.get(2).map(|&(_, dest)| dest);
+
+        let islands = detect_islands(&grid);
+        if let Some(boss_island) = islands.iter().find(|island| island.contains(&boss_center)) {
+            for &(x, y) in boss_island {
+                // 特殊タイル・ワープ先はスキップ
+                if matches!(
+                    grid[y][x],
+                    Terrain::BossCave | Terrain::Town | Terrain::Hokora | Terrain::Cave
+                ) {
+                    continue;
+                }
+                if boss_warp_dest == Some((x, y)) {
+                    continue;
+                }
+                // 海に隣接しているタイルを山に変換
+                let adjacent_to_sea = orthogonal_neighbors(x, y)
+                    .iter()
+                    .any(|&(nx, ny)| grid[ny][nx] == Terrain::Sea);
+                if adjacent_to_sea {
+                    grid[y][x] = Terrain::Mountain;
+                }
+            }
+        }
+    }
+
+    // 各タイルを最も近い大陸中心に基づいて大陸IDに割り当て
+    let mut continent_map: Vec<Vec<Option<u8>>> = vec![vec![None; MAP_WIDTH]; MAP_HEIGHT];
+    for y in 0..MAP_HEIGHT {
+        for x in 0..MAP_WIDTH {
+            if grid[y][x] != Terrain::Sea {
+                let idx = closest_center_index(x, y, &centers);
+                continent_map[y][x] = Some(idx as u8);
+            }
+        }
+    }
+
     MapData {
         grid,
         spawn_position,
         hokora_spawns: hokora_spawn_data,
         boss_cave_position,
+        continent_map,
     }
 }
 

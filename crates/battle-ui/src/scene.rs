@@ -1,8 +1,8 @@
 use bevy::prelude::*;
 
-use battle::{generate_enemy_group, BattleAction, BattleState, Enemy, EnemyKind, ItemKind, SpellKind};
+use battle::{generate_enemy_group, BattleAction, BattleState, Enemy, ItemKind, SpellKind};
 
-use app_state::{BossBattlePending, PartyState};
+use app_state::{BossBattlePending, EncounterZone, PartyState};
 
 use super::display::{
     CommandCursor, EnemyNameLabel, MessageText, PartyMemberHpBarFill, PartyMemberHpText,
@@ -135,30 +135,31 @@ pub struct EnemySprite {
     pub index: usize,
 }
 
-/// 同種の敵にサフィックスを付与した表示名を生成
+/// 同種・同段階の敵にサフィックスを付与した表示名を生成
 pub(crate) fn enemy_display_names(enemies: &[battle::Enemy]) -> Vec<String> {
-    // 同種の敵が複数いる場合のみサフィックス付与
-    let mut kind_counts: std::collections::HashMap<EnemyKind, usize> =
+    // 同じ表示名の敵が複数いる場合のみサフィックス付与
+    let mut name_counts: std::collections::HashMap<String, usize> =
         std::collections::HashMap::new();
     for e in enemies {
-        *kind_counts.entry(e.kind).or_insert(0) += 1;
+        *name_counts.entry(e.display_name()).or_insert(0) += 1;
     }
 
     let suffixes = ['A', 'B', 'C', 'D'];
-    let mut kind_indices: std::collections::HashMap<EnemyKind, usize> =
+    let mut name_indices: std::collections::HashMap<String, usize> =
         std::collections::HashMap::new();
 
     enemies
         .iter()
         .map(|e| {
-            let count = kind_counts[&e.kind];
+            let base = e.display_name();
+            let count = name_counts[&base];
             if count > 1 {
-                let idx = kind_indices.entry(e.kind).or_insert(0);
+                let idx = name_indices.entry(base.clone()).or_insert(0);
                 let suffix = suffixes.get(*idx).copied().unwrap_or('?');
                 *idx += 1;
-                format!("{}{}", e.kind.name(), suffix)
+                format!("{}{}", base, suffix)
             } else {
-                e.kind.name().to_string()
+                base
             }
         })
         .collect()
@@ -174,10 +175,15 @@ pub struct BattleSceneConfig {
 }
 
 impl BattleSceneConfig {
-    /// ランダムな敵グループでデフォルト設定を生成
-    pub fn random() -> Self {
+    /// エンカウントゾーンに基づいてランダムな敵グループを生成
+    pub fn from_zone(zone: &EncounterZone) -> Self {
         Self {
-            enemies: generate_enemy_group(rand::random::<f32>(), rand::random::<f32>()),
+            enemies: generate_enemy_group(
+                zone.continent_id,
+                zone.is_cave,
+                rand::random::<f32>(),
+                rand::random::<f32>(),
+            ),
             initial_phase: None,
         }
     }
@@ -198,7 +204,7 @@ pub fn init_battle_resources(
     } else {
         format!(
             "{}が {}匹 あらわれた！",
-            enemies[0].kind.name(),
+            enemies[0].display_name(),
             enemies.len()
         )
     };
@@ -245,6 +251,7 @@ pub fn setup_battle_scene(
     asset_server: Res<AssetServer>,
     party_state: Res<PartyState>,
     boss_battle: Option<Res<BossBattlePending>>,
+    encounter_zone: Option<Res<EncounterZone>>,
 ) {
     let config = if boss_battle.is_some() {
         commands.remove_resource::<BossBattlePending>();
@@ -253,7 +260,9 @@ pub fn setup_battle_scene(
             initial_phase: None,
         }
     } else {
-        BattleSceneConfig::random()
+        let default_zone = EncounterZone::default();
+        let zone = encounter_zone.as_deref().unwrap_or(&default_zone);
+        BattleSceneConfig::from_zone(zone)
     };
     setup_battle_scene_inner(&mut commands, &asset_server, &party_state, config);
 }

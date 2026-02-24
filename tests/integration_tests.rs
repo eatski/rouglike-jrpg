@@ -2599,7 +2599,7 @@ fn generated_enemy_group_battle_to_victory_and_exp() {
     use party::default_party;
 
     // ランダムな敵グループを生成
-    let enemies = generate_enemy_group(0.5, 0.3); // 2匹のグループ
+    let enemies = generate_enemy_group(0, false, 0.5, 0.3); // 大陸0フィールドで2匹のグループ
     assert!(!enemies.is_empty());
 
     let party = default_party();
