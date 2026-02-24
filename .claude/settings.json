@@ -31,6 +31,7 @@
       "WebFetch(domain:crates.io)"
     ],
     "deny": [
+      "Bash(git -C *)",
       "Bash(git * -C *)",
       "Edit(path:.worktrees/**)",
       "Write(path:.worktrees/**)",
