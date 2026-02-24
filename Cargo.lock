@@ -4950,6 +4950,7 @@ dependencies = [
  "field-core",
  "input-ui",
  "party",
+ "rand 0.8.5",
  "town",
 ]
 

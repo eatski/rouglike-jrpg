@@ -1,12 +1,13 @@
 use bevy::prelude::*;
+use rand::prelude::SliceRandom;
 
 use input_ui::{is_cancel_just_pressed, is_confirm_just_pressed, is_down_just_pressed, is_up_just_pressed};
 use party::{talk_to_candidate, PartyMember, TalkResult};
-use town::{buy_item, buy_weapon, candidate_first_dialogue, candidate_join_dialogue, cave_hint_dialogue, heal_party, hokora_hint_dialogue, sell_item, BuyResult, BuyWeaponResult, SellResult};
+use town::{buy_item, buy_weapon, candidate_first_dialogue, candidate_join_dialogue, cave_hint_dialogue, heal_party, hokora_hint_dialogue, sell_item, BuyResult, BuyWeaponResult, SellResult, INN_PRICE, TAVERN_PRICE};
 
 use app_state::SceneState;
 use field_core::{ActiveMap, Player, TilePosition};
-use app_state::{PartyState, RecruitmentMap};
+use app_state::{HeardTavernHints, PartyState, RecruitmentMap, TavernHintKind};
 
 use crate::scene::{shop_goods, ShopGoods, TownMenuPhase, TownResource};
 
@@ -19,6 +20,7 @@ pub fn town_input_system(
     mut recruitment_map: ResMut<RecruitmentMap>,
     active_map: Res<ActiveMap>,
     player_query: Query<&TilePosition, With<Player>>,
+    mut heard_hints: ResMut<HeardTavernHints>,
 ) {
     match town_res.phase.clone() {
         TownMenuPhase::MenuSelect => {
@@ -33,63 +35,102 @@ pub fn town_input_system(
             if is_confirm_just_pressed(&keyboard) {
                 match town_res.selected_item {
                     0 => {
-                        // やどや → HP/MPを全回復
-                        heal_party(&mut party_state.members);
-                        town_res.phase = TownMenuPhase::ShowMessage {
-                            message: "ゆっくり やすんだ。\nHP と MP が かいふくした！".to_string(),
-                        };
+                        // やどや → ゴールド消費してHP/MPを全回復
+                        if party_state.gold < INN_PRICE {
+                            town_res.phase = TownMenuPhase::ShowMessage {
+                                message: "おかねが たりない！".to_string(),
+                            };
+                        } else {
+                            party_state.gold -= INN_PRICE;
+                            heal_party(&mut party_state.members);
+                            town_res.phase = TownMenuPhase::ShowMessage {
+                                message: format!("{}G はらって ゆっくり やすんだ。\nHP と MP が かいふくした！", INN_PRICE),
+                            };
+                        }
                     }
                     1 => {
                         // よろず屋 → かう/うる選択へ
                         town_res.phase = TownMenuPhase::ShopModeSelect { selected: 0 };
                     }
                     2 => {
-                        // 話を聞く → 仲間候補がいればイベント、いなければ洞窟ヒント
+                        // 居酒屋 → 仲間候補がいればイベント、いなければヒント（ランダム1つ）
                         if let Ok(pos) = player_query.single() {
                             let town_pos = (pos.x, pos.y);
                             if let Some(&candidate_idx) =
                                 recruitment_map.town_to_candidate.get(&town_pos)
                             {
-                                let result =
-                                    talk_to_candidate(&mut party_state.candidates[candidate_idx]);
-                                let kind = party_state.candidates[candidate_idx].kind;
-                                match result {
-                                    TalkResult::BecameAcquaintance => {
-                                        let msg = candidate_first_dialogue(kind);
-                                        // 候補を次の街に移動
-                                        recruitment_map.town_to_candidate.remove(&town_pos);
-                                        if let Some(&second_town) =
-                                            recruitment_map.candidate_second_town.get(&candidate_idx)
-                                        {
-                                            recruitment_map
-                                                .town_to_candidate
-                                                .insert(second_town, candidate_idx);
+                                // 仲間候補がいる場合: ゴールド消費して会話
+                                if party_state.gold < TAVERN_PRICE {
+                                    town_res.phase = TownMenuPhase::ShowMessage {
+                                        message: "おかねが たりない！".to_string(),
+                                    };
+                                } else {
+                                    party_state.gold -= TAVERN_PRICE;
+                                    let result =
+                                        talk_to_candidate(&mut party_state.candidates[candidate_idx]);
+                                    let kind = party_state.candidates[candidate_idx].kind;
+                                    match result {
+                                        TalkResult::BecameAcquaintance => {
+                                            let msg = candidate_first_dialogue(kind);
+                                            recruitment_map.town_to_candidate.remove(&town_pos);
+                                            if let Some(&second_town) =
+                                                recruitment_map.candidate_second_town.get(&candidate_idx)
+                                            {
+                                                recruitment_map
+                                                    .town_to_candidate
+                                                    .insert(second_town, candidate_idx);
+                                            }
+                                            town_res.phase =
+                                                TownMenuPhase::RecruitMessage { message: msg };
                                         }
-                                        town_res.phase =
-                                            TownMenuPhase::RecruitMessage { message: msg };
+                                        TalkResult::Recruited => {
+                                            party_state.members.push(PartyMember::from_kind(kind));
+                                            recruitment_map.town_to_candidate.remove(&town_pos);
+                                            recruitment_map.candidate_second_town.remove(&candidate_idx);
+                                            let msg = candidate_join_dialogue(kind);
+                                            town_res.phase =
+                                                TownMenuPhase::RecruitMessage { message: msg };
+                                        }
+                                        TalkResult::AlreadyRecruited => {}
                                     }
-                                    TalkResult::Recruited => {
-                                        party_state.members.push(PartyMember::from_kind(kind));
-                                        recruitment_map.town_to_candidate.remove(&town_pos);
-                                        recruitment_map.candidate_second_town.remove(&candidate_idx);
-                                        let msg = candidate_join_dialogue(kind);
-                                        town_res.phase =
-                                            TownMenuPhase::RecruitMessage { message: msg };
-                                    }
-                                    TalkResult::AlreadyRecruited => {}
                                 }
                             } else {
-                                let cave = cave_hint_dialogue(&active_map.grid, pos.x, pos.y);
-                                let hokora = hokora_hint_dialogue(&active_map.grid, pos.x, pos.y);
-                                let dialogue = format!("{cave}\n\n{hokora}");
-                                town_res.phase =
-                                    TownMenuPhase::ShowMessage { message: dialogue };
+                                // ヒント: 未聞のものからランダムで1つ選んで表示
+                                let heard_set = heard_hints.heard.entry(town_pos).or_default();
+                                let mut unheard = Vec::new();
+                                if !heard_set.contains(&TavernHintKind::Cave) {
+                                    unheard.push(TavernHintKind::Cave);
+                                }
+                                if !heard_set.contains(&TavernHintKind::Hokora) {
+                                    unheard.push(TavernHintKind::Hokora);
+                                }
+
+                                if unheard.is_empty() {
+                                    // 全て既読 → ゴールド消費なし
+                                    town_res.phase = TownMenuPhase::ShowMessage {
+                                        message: "もう あたらしい はなしは ないな".to_string(),
+                                    };
+                                } else if party_state.gold < TAVERN_PRICE {
+                                    town_res.phase = TownMenuPhase::ShowMessage {
+                                        message: "おかねが たりない！".to_string(),
+                                    };
+                                } else {
+                                    party_state.gold -= TAVERN_PRICE;
+                                    let mut rng = rand::thread_rng();
+                                    let &chosen = unheard.choose(&mut rng).unwrap();
+                                    heard_set.insert(chosen);
+                                    let dialogue = match chosen {
+                                        TavernHintKind::Cave => {
+                                            cave_hint_dialogue(&active_map.grid, pos.x, pos.y)
+                                        }
+                                        TavernHintKind::Hokora => {
+                                            hokora_hint_dialogue(&active_map.grid, pos.x, pos.y)
+                                        }
+                                    };
+                                    town_res.phase =
+                                        TownMenuPhase::ShowMessage { message: dialogue };
+                                }
                             }
-                        } else {
-                            let cave = cave_hint_dialogue(&active_map.grid, 0, 0);
-                            let hokora = hokora_hint_dialogue(&active_map.grid, 0, 0);
-                            let dialogue = format!("{cave}\n\n{hokora}");
-                            town_res.phase = TownMenuPhase::ShowMessage { message: dialogue };
                         }
                     }
                     _ => {
