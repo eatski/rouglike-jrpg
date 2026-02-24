@@ -6,6 +6,7 @@ use terrain::{Terrain, MAP_HEIGHT, MAP_WIDTH};
 
 use field_core::{ActiveMap, MapTile, Player, TilePosition, TILE_SIZE, VISIBLE_CELLS};
 use crate::SmoothMove;
+use crate::smooth_move::is_smooth_moving;
 
 use crate::rendering::TileTextures;
 
@@ -144,10 +145,8 @@ pub fn update_visible_tiles(
 ) {
     // スムーズ移動のアニメーション中はタイル更新をスキップ
     // ただし完了フレームは更新する（マップ端ラップ時の暗転防止）
-    for smooth_move in smooth_move_query.iter() {
-        if !smooth_move.timer.just_finished() {
-            return;
-        }
+    if is_smooth_moving(&smooth_move_query) {
+        return;
     }
 
     let Ok(player_pos) = player_query.single() else {

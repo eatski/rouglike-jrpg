@@ -10,7 +10,7 @@ use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
 use battle::{default_party, Enemy};
 use terrain::{Terrain, MAP_HEIGHT, MAP_WIDTH};
-use field_walk::map::generate_map;
+use world_gen::generate_map;
 use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
 use std::time::Duration;
@@ -1553,7 +1553,7 @@ fn cave_treasure_adds_to_inventory() {
 
 #[test]
 fn cave_hint_dialogue_finds_nearest_cave_in_generated_map() {
-    use field_walk::map::generate_map;
+    use world_gen::generate_map;
     use town::cave_hint_dialogue;
     use rand::SeedableRng;
     use rand_chacha::ChaCha8Rng;
@@ -1589,7 +1589,7 @@ fn cave_hint_dialogue_finds_nearest_cave_in_generated_map() {
 
 #[test]
 fn generated_map_has_towns_and_caves_on_walkable_tiles() {
-    use field_walk::map::generate_connected_map;
+    use world_gen::generate_connected_map;
     use rand::SeedableRng;
     use rand_chacha::ChaCha8Rng;
 
@@ -1621,7 +1621,7 @@ fn generated_map_has_towns_and_caves_on_walkable_tiles() {
 
 #[test]
 fn generated_map_spawn_is_on_walkable_connected_island() {
-    use field_walk::map::{generate_connected_map, detect_islands};
+    use world_gen::{generate_connected_map, detect_islands};
     use rand::SeedableRng;
     use rand_chacha::ChaCha8Rng;
 
