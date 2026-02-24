@@ -1,44 +1,152 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SpellKind {
-    Fire,
-    Blaze,
+    // 単体攻撃
+    Zola,
+    Zolaga,
+    // 全体攻撃
+    Neld,
+    Neldora,
+    // 単体回復
+    Luna,
+    Lunarm,
+    // 全体回復
+    Panam,
+    Panamuda,
+    // 味方単体DEF↑
+    Garde,
+    Gardeon,
+    // 味方全体DEF↑
+    Felza,
+    Felzark,
+    // 味方単体ATK↑
+    Bolga,
+    Bolgarda,
+    // 味方全体ATK↑
+    Zekta,
+    Zektanam,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SpellTarget {
+    SingleEnemy,
+    AllEnemies,
+    SingleAlly,
+    AllAllies,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SpellEffect {
+    Damage,
     Heal,
-    FullHeal,
+    AttackBuff,
+    DefenseBuff,
 }
 
 impl SpellKind {
     pub fn name(self) -> &'static str {
         match self {
-            SpellKind::Fire => "ファイヤ",
-            SpellKind::Blaze => "ブレイズ",
-            SpellKind::Heal => "ヒール",
-            SpellKind::FullHeal => "フルヒール",
+            SpellKind::Zola => "ゾラ",
+            SpellKind::Zolaga => "ゾラーガ",
+            SpellKind::Neld => "ネルド",
+            SpellKind::Neldora => "ネルドーラ",
+            SpellKind::Luna => "ルナ",
+            SpellKind::Lunarm => "ルナーム",
+            SpellKind::Panam => "パナム",
+            SpellKind::Panamuda => "パナムーダ",
+            SpellKind::Garde => "ガルデ",
+            SpellKind::Gardeon => "ガルデオン",
+            SpellKind::Felza => "フェルザ",
+            SpellKind::Felzark => "フェルザーク",
+            SpellKind::Bolga => "ボルガ",
+            SpellKind::Bolgarda => "ボルガーダ",
+            SpellKind::Zekta => "ゼクタ",
+            SpellKind::Zektanam => "ゼクタナム",
         }
     }
 
     pub fn mp_cost(self) -> i32 {
         match self {
-            SpellKind::Fire => 3,
-            SpellKind::Blaze => 7,
-            SpellKind::Heal => 4,
-            SpellKind::FullHeal => 8,
+            SpellKind::Zola => 3,
+            SpellKind::Zolaga => 7,
+            SpellKind::Neld => 5,
+            SpellKind::Neldora => 10,
+            SpellKind::Luna => 3,
+            SpellKind::Lunarm => 7,
+            SpellKind::Panam => 6,
+            SpellKind::Panamuda => 12,
+            SpellKind::Garde => 3,
+            SpellKind::Gardeon => 6,
+            SpellKind::Felza => 6,
+            SpellKind::Felzark => 10,
+            SpellKind::Bolga => 3,
+            SpellKind::Bolgarda => 6,
+            SpellKind::Zekta => 6,
+            SpellKind::Zektanam => 10,
         }
     }
 
     pub fn power(self) -> i32 {
         match self {
-            SpellKind::Fire => 12,
-            SpellKind::Blaze => 25,
-            SpellKind::Heal => 15,
-            SpellKind::FullHeal => 40,
+            SpellKind::Zola => 12,
+            SpellKind::Zolaga => 25,
+            SpellKind::Neld => 8,
+            SpellKind::Neldora => 18,
+            SpellKind::Luna => 15,
+            SpellKind::Lunarm => 40,
+            SpellKind::Panam => 10,
+            SpellKind::Panamuda => 25,
+            SpellKind::Garde => 3,
+            SpellKind::Gardeon => 6,
+            SpellKind::Felza => 2,
+            SpellKind::Felzark => 4,
+            SpellKind::Bolga => 3,
+            SpellKind::Bolgarda => 6,
+            SpellKind::Zekta => 2,
+            SpellKind::Zektanam => 4,
         }
     }
 
-    pub fn is_offensive(self) -> bool {
+    pub fn target_type(self) -> SpellTarget {
         match self {
-            SpellKind::Fire | SpellKind::Blaze => true,
-            SpellKind::Heal | SpellKind::FullHeal => false,
+            SpellKind::Zola | SpellKind::Zolaga => SpellTarget::SingleEnemy,
+            SpellKind::Neld | SpellKind::Neldora => SpellTarget::AllEnemies,
+            SpellKind::Luna | SpellKind::Lunarm => SpellTarget::SingleAlly,
+            SpellKind::Panam | SpellKind::Panamuda => SpellTarget::AllAllies,
+            SpellKind::Garde | SpellKind::Gardeon => SpellTarget::SingleAlly,
+            SpellKind::Felza | SpellKind::Felzark => SpellTarget::AllAllies,
+            SpellKind::Bolga | SpellKind::Bolgarda => SpellTarget::SingleAlly,
+            SpellKind::Zekta | SpellKind::Zektanam => SpellTarget::AllAllies,
         }
+    }
+
+    pub fn effect(self) -> SpellEffect {
+        match self {
+            SpellKind::Zola | SpellKind::Zolaga | SpellKind::Neld | SpellKind::Neldora => {
+                SpellEffect::Damage
+            }
+            SpellKind::Luna | SpellKind::Lunarm | SpellKind::Panam | SpellKind::Panamuda => {
+                SpellEffect::Heal
+            }
+            SpellKind::Bolga | SpellKind::Bolgarda | SpellKind::Zekta | SpellKind::Zektanam => {
+                SpellEffect::AttackBuff
+            }
+            SpellKind::Garde | SpellKind::Gardeon | SpellKind::Felza | SpellKind::Felzark => {
+                SpellEffect::DefenseBuff
+            }
+        }
+    }
+
+    /// 後方互換: target_type()から導出
+    pub fn is_offensive(self) -> bool {
+        matches!(
+            self.target_type(),
+            SpellTarget::SingleEnemy | SpellTarget::AllEnemies
+        )
+    }
+
+    /// フィールドで使用可能か（回復呪文のみtrue）
+    pub fn is_usable_in_field(self) -> bool {
+        self.effect() == SpellEffect::Heal
     }
 }
 
@@ -58,10 +166,22 @@ pub fn calculate_heal_amount(power: i32, random_factor: f32) -> i32 {
 /// 全呪文リストを返す
 pub fn all_spells() -> Vec<SpellKind> {
     vec![
-        SpellKind::Fire,
-        SpellKind::Blaze,
-        SpellKind::Heal,
-        SpellKind::FullHeal,
+        SpellKind::Zola,
+        SpellKind::Zolaga,
+        SpellKind::Neld,
+        SpellKind::Neldora,
+        SpellKind::Luna,
+        SpellKind::Lunarm,
+        SpellKind::Panam,
+        SpellKind::Panamuda,
+        SpellKind::Garde,
+        SpellKind::Gardeon,
+        SpellKind::Felza,
+        SpellKind::Felzark,
+        SpellKind::Bolga,
+        SpellKind::Bolgarda,
+        SpellKind::Zekta,
+        SpellKind::Zektanam,
     ]
 }
 
@@ -69,14 +189,59 @@ pub fn all_spells() -> Vec<SpellKind> {
 pub fn spell_learn_table(kind: party::PartyMemberKind) -> &'static [(u32, SpellKind)] {
     use party::PartyMemberKind;
     match kind {
-        PartyMemberKind::Laios => &[(3, SpellKind::Heal)],
-        PartyMemberKind::Marcille => &[(1, SpellKind::Fire), (5, SpellKind::Blaze)],
-        PartyMemberKind::Falin => &[(1, SpellKind::Heal), (4, SpellKind::FullHeal)],
-        PartyMemberKind::Izutsumi => &[(5, SpellKind::Fire)],
-        PartyMemberKind::Kabru => &[(4, SpellKind::Heal)],
-        PartyMemberKind::Rinsha => &[(1, SpellKind::Fire), (3, SpellKind::Heal)],
+        PartyMemberKind::Marcille => &[
+            (1, SpellKind::Zola),
+            (3, SpellKind::Neld),
+            (5, SpellKind::Zolaga),
+            (7, SpellKind::Neldora),
+        ],
+        PartyMemberKind::Falin => &[
+            (1, SpellKind::Luna),
+            (3, SpellKind::Panam),
+            (5, SpellKind::Lunarm),
+            (7, SpellKind::Gardeon),
+            (9, SpellKind::Panamuda),
+            (10, SpellKind::Felzark),
+        ],
+        PartyMemberKind::Rinsha => &[
+            (1, SpellKind::Zola),
+            (3, SpellKind::Luna),
+            (5, SpellKind::Bolga),
+            (7, SpellKind::Bolgarda),
+            (9, SpellKind::Zektanam),
+        ],
+        PartyMemberKind::Kabru => &[
+            (3, SpellKind::Luna),
+            (5, SpellKind::Garde),
+            (7, SpellKind::Felza),
+            (9, SpellKind::Zekta),
+        ],
+        PartyMemberKind::Laios => &[
+            (1, SpellKind::Luna),
+            (1, SpellKind::Bolga),
+            (1, SpellKind::Zola),
+            (1, SpellKind::Zolaga),
+            (1, SpellKind::Neld),
+            (1, SpellKind::Neldora),
+            (1, SpellKind::Lunarm),
+            (1, SpellKind::Panam),
+            (1, SpellKind::Panamuda),
+            (1, SpellKind::Garde),
+            (1, SpellKind::Gardeon),
+            (1, SpellKind::Felza),
+            (1, SpellKind::Felzark),
+            (1, SpellKind::Bolgarda),
+            (1, SpellKind::Zekta),
+            (1, SpellKind::Zektanam),
+        ],
+        PartyMemberKind::Izutsumi => &[
+            (5, SpellKind::Zola),
+            (8, SpellKind::Bolga),
+        ],
+        PartyMemberKind::Senshi => &[
+            (4, SpellKind::Garde),
+        ],
         PartyMemberKind::Chilchuck
-        | PartyMemberKind::Senshi
         | PartyMemberKind::Shuro
         | PartyMemberKind::Namari => &[],
     }
@@ -140,57 +305,92 @@ mod tests {
     }
 
     #[test]
-    fn laios_has_no_spells_before_level_3() {
-        assert!(available_spells(party::PartyMemberKind::Laios, 1).is_empty());
-        assert!(available_spells(party::PartyMemberKind::Laios, 2).is_empty());
+    fn laios_has_all_16_spells_at_level_1() {
+        let spells = available_spells(party::PartyMemberKind::Laios, 1);
+        assert_eq!(spells.len(), 16);
     }
 
     #[test]
-    fn laios_learns_heal_at_level_3() {
-        let spells = available_spells(party::PartyMemberKind::Laios, 3);
-        assert_eq!(spells, vec![SpellKind::Heal]);
-    }
-
-    #[test]
-    fn marcille_learns_fire_at_level_1() {
+    fn marcille_learns_zola_at_level_1() {
         let spells = available_spells(party::PartyMemberKind::Marcille, 1);
-        assert_eq!(spells, vec![SpellKind::Fire]);
+        assert_eq!(spells, vec![SpellKind::Zola]);
     }
 
     #[test]
-    fn marcille_learns_blaze_at_level_5() {
+    fn marcille_learns_neld_at_level_3() {
+        let spells = available_spells(party::PartyMemberKind::Marcille, 3);
+        assert_eq!(spells, vec![SpellKind::Zola, SpellKind::Neld]);
+    }
+
+    #[test]
+    fn marcille_learns_zolaga_at_level_5() {
         let spells = available_spells(party::PartyMemberKind::Marcille, 5);
-        assert_eq!(spells, vec![SpellKind::Fire, SpellKind::Blaze]);
+        assert_eq!(
+            spells,
+            vec![SpellKind::Zola, SpellKind::Neld, SpellKind::Zolaga]
+        );
     }
 
     #[test]
-    fn marcille_no_blaze_at_level_4() {
-        let spells = available_spells(party::PartyMemberKind::Marcille, 4);
-        assert_eq!(spells, vec![SpellKind::Fire]);
-    }
-
-    #[test]
-    fn falin_learns_heal_at_level_1() {
+    fn falin_learns_luna_at_level_1() {
         let spells = available_spells(party::PartyMemberKind::Falin, 1);
-        assert_eq!(spells, vec![SpellKind::Heal]);
+        assert_eq!(spells, vec![SpellKind::Luna]);
     }
 
     #[test]
-    fn falin_learns_fullheal_at_level_4() {
-        let spells = available_spells(party::PartyMemberKind::Falin, 4);
-        assert_eq!(spells, vec![SpellKind::Heal, SpellKind::FullHeal]);
+    fn falin_max_spells() {
+        let spells = available_spells(party::PartyMemberKind::Falin, 10);
+        assert_eq!(spells.len(), 6);
     }
 
     #[test]
     fn spells_learned_at_specific_level() {
         assert_eq!(
             spells_learned_at_level(party::PartyMemberKind::Marcille, 1),
-            vec![SpellKind::Fire]
+            vec![SpellKind::Zola]
         );
         assert_eq!(
-            spells_learned_at_level(party::PartyMemberKind::Marcille, 5),
-            vec![SpellKind::Blaze]
+            spells_learned_at_level(party::PartyMemberKind::Marcille, 3),
+            vec![SpellKind::Neld]
         );
-        assert!(spells_learned_at_level(party::PartyMemberKind::Marcille, 3).is_empty());
+        assert!(spells_learned_at_level(party::PartyMemberKind::Marcille, 2).is_empty());
+    }
+
+    #[test]
+    fn all_spells_returns_16() {
+        assert_eq!(all_spells().len(), 16);
+    }
+
+    #[test]
+    fn target_type_and_effect_consistency() {
+        for spell in all_spells() {
+            match spell.effect() {
+                SpellEffect::Damage => {
+                    assert!(spell.is_offensive());
+                    assert!(!spell.is_usable_in_field());
+                }
+                SpellEffect::Heal => {
+                    assert!(!spell.is_offensive());
+                    assert!(spell.is_usable_in_field());
+                }
+                SpellEffect::AttackBuff | SpellEffect::DefenseBuff => {
+                    assert!(!spell.is_offensive());
+                    assert!(!spell.is_usable_in_field());
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn senshi_learns_garde_at_level_4() {
+        let spells = available_spells(party::PartyMemberKind::Senshi, 4);
+        assert_eq!(spells, vec![SpellKind::Garde]);
+    }
+
+    #[test]
+    fn no_spell_characters() {
+        assert!(available_spells(party::PartyMemberKind::Chilchuck, 99).is_empty());
+        assert!(available_spells(party::PartyMemberKind::Shuro, 99).is_empty());
+        assert!(available_spells(party::PartyMemberKind::Namari, 99).is_empty());
     }
 }
