@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use app_state::HokoraPositions;
-use movement_ui::{Player, TilePosition};
+use field_core::{Player, TilePosition};
 
 /// 祠シーンのルートUIエンティティを識別するマーカー
 #[derive(Component)]

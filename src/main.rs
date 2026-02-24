@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy::window::{Window, WindowResolution};
 use bevy::winit::{UpdateMode, WinitSettings};
 use app_state::InField;
-use movement_ui::WINDOW_SIZE;
+use field_core::WINDOW_SIZE;
 
 fn main() {
     let title = std::env::args()

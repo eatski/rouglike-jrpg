@@ -11,6 +11,6 @@ path = "src/main.rs"
 bevy = "0.18"
 screenshot-common = { path = "../common" }
 app-state = { path = "../../crates/app-state" }
-movement-ui = { path = "../../crates/movement-ui" }
+field-core = { path = "../../crates/field-core" }
 terrain = { path = "../../crates/terrain" }
 world-ui = { path = "../../crates/world-ui" }

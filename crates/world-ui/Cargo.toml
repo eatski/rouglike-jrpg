@@ -11,6 +11,7 @@ terrain = { path = "../terrain" }
 party = { path = "../party" }
 app-state = { path = "../app-state" }
 input-ui = { path = "../input-ui" }
+field-core = { path = "../field-core" }
 movement-ui = { path = "../movement-ui" }
 field-walk = { path = "../field-walk" }
 field-walk-ui = { path = "../field-walk-ui" }

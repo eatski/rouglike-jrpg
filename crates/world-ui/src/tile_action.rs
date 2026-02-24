@@ -3,8 +3,8 @@ use bevy::prelude::*;
 use terrain::TileAction;
 
 use app_state::SceneState;
-use movement_ui::{OnBoat, Player, TileEnteredEvent, TilePosition};
-use movement_ui::ActiveMap;
+use field_core::{ActiveMap, OnBoat, Player, TilePosition};
+use movement_ui::TileEnteredEvent;
 
 /// プレイヤーがフィールドのタイルに歩いて到着した際に、
 /// 地形に応じた状態遷移を行うシステム

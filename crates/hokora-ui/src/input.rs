@@ -4,7 +4,7 @@ use input_ui::{is_confirm_just_pressed, is_down_just_pressed, is_up_just_pressed
 use party::ItemKind;
 
 use app_state::{PartyState, SceneState};
-use movement_ui::{Player, TilePosition};
+use field_core::{Player, TilePosition};
 
 use crate::scene::{HokoraMenuPhase, HokoraResource};
 

@@ -16,12 +16,12 @@ use rand_chacha::ChaCha8Rng;
 use std::time::Duration;
 use app_state::{BattleState, SceneState};
 use battle_ui::{BattlePhase, BattleUIState};
+use field_core::{ActiveMap, Boat, OnBoat, Player, TilePosition, TILE_SIZE};
 use movement_ui::{
-    Boat, MovementBlockedEvent, MovementLocked, OnBoat, Player,
-    PlayerMovedEvent, TilePosition,
+    MovementBlockedEvent, MovementLocked, MovementState,
+    PlayerMovedEvent,
 };
 use app_state::PartyState;
-use movement_ui::{ActiveMap, MovementState, TILE_SIZE};
 use field_walk_ui::MapModeState;
 use world_ui::SpawnPosition;
 

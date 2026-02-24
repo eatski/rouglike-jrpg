@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use app_state::PartyState;
-use movement_ui::{ActiveMap, Player, TilePosition};
+use field_core::{ActiveMap, Player, TilePosition};
 use screenshot_common::{screenshot_app, ScreenshotRng};
 use terrain::Terrain;
 use world_ui::{

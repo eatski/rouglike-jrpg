@@ -14,5 +14,5 @@ rand_chacha = "0.3"
 screenshot-common = { path = "../common" }
 app-state = { path = "../../crates/app-state" }
 cave = { path = "../../crates/cave" }
-movement-ui = { path = "../../crates/movement-ui" }
+field-core = { path = "../../crates/field-core" }
 field-walk-ui = { path = "../../crates/field-walk-ui" }

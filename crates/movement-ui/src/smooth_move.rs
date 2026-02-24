@@ -1,6 +1,8 @@
 use bevy::prelude::*;
 
-use crate::{ActiveMap, MovementLocked, MovementState, Player, PlayerMovedEvent, TilePosition, TILE_SIZE};
+use field_core::{ActiveMap, Player, TilePosition, TILE_SIZE};
+
+use crate::{MovementLocked, MovementState, PlayerMovedEvent};
 
 /// 移動アニメーションの持続時間（秒）
 pub const MOVE_DURATION: f32 = 0.15;

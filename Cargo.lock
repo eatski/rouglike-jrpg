@@ -1786,6 +1786,7 @@ dependencies = [
  "app-state",
  "bevy",
  "cave",
+ "field-core",
  "field-walk-ui",
  "input-ui",
  "movement-ui",
@@ -2420,6 +2421,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "field-core"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "terrain",
+]
+
+[[package]]
 name = "field-walk"
 version = "0.1.0"
 dependencies = [
@@ -2432,6 +2441,7 @@ version = "0.1.0"
 dependencies = [
  "app-state",
  "bevy",
+ "field-core",
  "input-ui",
  "movement-ui",
  "rand 0.8.5",
@@ -2935,8 +2945,8 @@ version = "0.1.0"
 dependencies = [
  "app-state",
  "bevy",
+ "field-core",
  "input-ui",
- "movement-ui",
  "party",
 ]
 
@@ -3317,6 +3327,7 @@ name = "movement-ui"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "field-core",
  "input-ui",
  "terrain",
 ]
@@ -4322,6 +4333,7 @@ dependencies = [
  "bevy",
  "cave",
  "cave-ui",
+ "field-core",
  "field-walk",
  "field-walk-ui",
  "hokora-ui",
@@ -4443,8 +4455,8 @@ dependencies = [
  "app-state",
  "bevy",
  "cave",
+ "field-core",
  "field-walk-ui",
- "movement-ui",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "screenshot-common",
@@ -4465,7 +4477,7 @@ version = "0.1.0"
 dependencies = [
  "app-state",
  "bevy",
- "movement-ui",
+ "field-core",
  "screenshot-common",
  "terrain",
  "world-ui",
@@ -4946,8 +4958,8 @@ version = "0.1.0"
 dependencies = [
  "app-state",
  "bevy",
+ "field-core",
  "input-ui",
- "movement-ui",
  "party",
  "town",
 ]
@@ -6010,6 +6022,7 @@ version = "0.1.0"
 dependencies = [
  "app-state",
  "bevy",
+ "field-core",
  "field-walk",
  "field-walk-ui",
  "input-ui",

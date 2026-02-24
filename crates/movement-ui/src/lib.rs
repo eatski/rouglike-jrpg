@@ -8,12 +8,12 @@ mod resources;
 mod smooth_move;
 
 pub use bounce::{start_bounce, update_bounce, Bounce};
-pub use components::{Boat, MapTile, MovementLocked, OnBoat, PendingMove, Player, TilePosition};
+pub use components::{MovementLocked, PendingMove};
 pub use constants::*;
 pub use events::{MovementBlockedEvent, PlayerMovedEvent, TileEnteredEvent};
 pub use execute::{execute_move, ExecuteMoveResult};
 pub use input::{process_movement_input, MovementInput};
-pub use resources::{ActiveMap, MovementState, WorldMapData};
+pub use resources::MovementState;
 pub use terrain::MoveResult;
 pub use smooth_move::{
     ease_out_quad, start_smooth_move, update_smooth_move, SmoothMove,
@@ -21,6 +21,7 @@ pub use smooth_move::{
 };
 
 use bevy::prelude::*;
+use field_core::{ActiveMap, Player, TilePosition};
 
 /// フィールド離脱時にプレイヤーの移動関連コンポーネントと状態をクリーンアップする。
 /// OnExit(InField) で呼ばれ、戦闘開始・町入場・祠入場時のクリーンアップを一元化する。

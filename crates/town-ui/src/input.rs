@@ -5,9 +5,8 @@ use party::{talk_to_candidate, PartyMember, TalkResult};
 use town::{buy_item, buy_weapon, candidate_first_dialogue, candidate_join_dialogue, cave_hint_dialogue, heal_party, hokora_hint_dialogue, sell_item, BuyResult, BuyWeaponResult, SellResult};
 
 use app_state::SceneState;
-use movement_ui::{Player, TilePosition};
+use field_core::{ActiveMap, Player, TilePosition};
 use app_state::{PartyState, RecruitmentMap};
-use movement_ui::ActiveMap;
 
 use crate::scene::{shop_goods, ShopGoods, TownMenuPhase, TownResource};
 

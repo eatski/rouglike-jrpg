@@ -4,13 +4,13 @@ use cave::TreasureContent;
 use terrain::Terrain;
 
 use app_state::{BossBattlePending, OpenedChests, PartyState, SceneState};
+use field_core::{ActiveMap, Player, TilePosition};
 use movement_ui::{
     process_movement_input,
-    MovementBlockedEvent, MovementLocked, PendingMove, Player,
-    PlayerMovedEvent, TileEnteredEvent, TilePosition,
+    MovementBlockedEvent, MovementLocked, MoveResult, MovementState,
+    PendingMove, PlayerMovedEvent, TileEnteredEvent,
 };
 use app_state::FieldMenuOpen;
-use movement_ui::{ActiveMap, MoveResult, MovementState};
 
 use field_walk_ui::{MapModeState, TileTextures};
 

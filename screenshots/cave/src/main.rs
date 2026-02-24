@@ -6,7 +6,7 @@ use rand_chacha::ChaCha8Rng;
 
 use app_state::OpenedChests;
 use cave::{generate_cave_map, CAVE_HEIGHT, CAVE_WIDTH};
-use movement_ui::{ActiveMap, Player, TilePosition, TILE_SIZE};
+use field_core::{ActiveMap, Player, TilePosition, TILE_SIZE};
 use screenshot_common::screenshot_app;
 use field_walk_ui::{camera_follow, load_tile_textures, setup_camera, update_simple_tiles, SimpleTileMap};
 
