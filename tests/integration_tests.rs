@@ -951,10 +951,17 @@ fn battle_cleanup_removes_movement_lock() {
 
     let mut app = setup_test_app_with_map(grid, SPAWN_X, SPAWN_Y);
 
-    // cleanup_battle_sceneシステムを追加（OnExit(BattleState::Active)で実行される）
-    app.add_systems(OnExit(BattleState::Active), battle_ui::cleanup_battle_scene);
+    // InField ComputedStateを登録し、OnExit(InField)でクリーンアップを配線
+    app.add_computed_state::<app_state::InField>();
+    app.add_systems(
+        OnExit(app_state::InField),
+        movement_ui::cleanup_player_movement,
+    );
 
     let player_entity = spawn_test_player(&mut app);
+
+    // 初回updateでInField ComputedStateを確立
+    app.update();
 
     // プレイヤーに手動でMovementLockedを付与（戦闘開始前に移動中だった想定）
     app.world_mut()
@@ -966,29 +973,15 @@ fn battle_cleanup_removes_movement_lock() {
         "MovementLocked should be present before battle cleanup"
     );
 
-    // 戦闘に入る
+    // 戦闘に入る → InFieldからの離脱 → cleanup_player_movementが実行される
     app.world_mut()
         .resource_mut::<NextState<BattleState>>()
         .set(BattleState::Active);
     app.update();
 
-    // BattleResourceを挿入（戦闘シーンセットアップの代わり）
-    let party = default_party();
-    let enemies = vec![Enemy::slime()];
-    let (game_state, mut ui_state) = battle_ui::init_battle_resources(party, enemies, None);
-    ui_state.phase = BattlePhase::CommandSelect { member_index: 0 };
-    app.insert_resource(game_state);
-    app.insert_resource(ui_state);
-
-    // 戦闘終了（BattleState::Noneに戻る）→ cleanup_battle_sceneが実行される
-    app.world_mut()
-        .resource_mut::<NextState<BattleState>>()
-        .set(BattleState::None);
-    app.update();
-
     assert!(
         app.world().get::<MovementLocked>(player_entity).is_none(),
-        "MovementLocked should be removed after battle cleanup"
+        "MovementLocked should be removed after leaving InField"
     );
 }
 

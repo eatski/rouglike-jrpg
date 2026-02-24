@@ -1,9 +1,7 @@
 use bevy::prelude::*;
 
-use movement_ui::{Bounce, MovementLocked, PendingMove, Player, SmoothMove};
 use party::{shop_items, shop_weapons, ItemKind, WeaponKind, INVENTORY_CAPACITY};
 use app_state::PartyState;
-use movement_ui::MovementState;
 
 /// よろず屋の商品（アイテムと武器を統合）
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -389,25 +387,11 @@ fn setup_town_scene_inner(
 pub fn cleanup_town_scene(
     mut commands: Commands,
     query: Query<Entity, With<TownSceneRoot>>,
-    player_query: Query<Entity, With<Player>>,
-    mut move_state: ResMut<MovementState>,
 ) {
     for entity in &query {
         commands.entity(entity).despawn();
     }
     commands.remove_resource::<TownResource>();
-
-    // プレイヤーの移動関連コンポーネントをクリーンアップ
-    if let Ok(entity) = player_query.single() {
-        commands
-            .entity(entity)
-            .remove::<MovementLocked>()
-            .remove::<SmoothMove>()
-            .remove::<PendingMove>()
-            .remove::<Bounce>();
-    }
-
-    *move_state = MovementState::default();
 }
 
 /// パネルの表示/非表示を切り替える（Display::Noneでレイアウトからも除外）

@@ -338,7 +338,6 @@ dependencies = [
  "bevy",
  "cave-ui",
  "input-ui",
- "movement-ui",
  "party",
  "rand 0.8.5",
 ]

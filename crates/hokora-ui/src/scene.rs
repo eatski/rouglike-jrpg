@@ -1,8 +1,7 @@
 use bevy::prelude::*;
 
 use app_state::HokoraPositions;
-use movement_ui::{Bounce, MovementLocked, PendingMove, Player, SmoothMove, TilePosition};
-use movement_ui::MovementState;
+use movement_ui::{Player, TilePosition};
 
 /// 祠シーンのルートUIエンティティを識別するマーカー
 #[derive(Component)]
@@ -174,25 +173,11 @@ pub fn setup_hokora_scene(
 pub fn cleanup_hokora_scene(
     mut commands: Commands,
     query: Query<Entity, With<HokoraSceneRoot>>,
-    player_query: Query<Entity, With<Player>>,
-    mut move_state: ResMut<MovementState>,
 ) {
     for entity in &query {
         commands.entity(entity).despawn();
     }
     commands.remove_resource::<HokoraResource>();
-
-    // プレイヤーの移動関連コンポーネントをクリーンアップ
-    if let Ok(entity) = player_query.single() {
-        commands
-            .entity(entity)
-            .remove::<MovementLocked>()
-            .remove::<SmoothMove>()
-            .remove::<PendingMove>()
-            .remove::<Bounce>();
-    }
-
-    *move_state = MovementState::default();
 }
 
 /// 祠メニューの表示を更新するシステム

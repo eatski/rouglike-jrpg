@@ -3,6 +3,7 @@ use std::time::Duration;
 use bevy::prelude::*;
 use bevy::window::{Window, WindowResolution};
 use bevy::winit::{UpdateMode, WinitSettings};
+use app_state::InField;
 use movement_ui::WINDOW_SIZE;
 
 fn main() {
@@ -38,5 +39,6 @@ fn main() {
             hokora_ui::HokoraPlugin,
             cave_ui::CavePlugin,
         ))
+        .add_systems(OnExit(InField), movement_ui::cleanup_player_movement)
         .run();
 }

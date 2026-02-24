@@ -2,9 +2,7 @@ use bevy::prelude::*;
 
 use battle::{generate_enemy_group, BattleAction, BattleState, Enemy, EnemyKind, ItemKind, SpellKind};
 
-use movement_ui::{Bounce, MovementLocked, PendingMove, Player};
 use app_state::{BossBattlePending, PartyState};
-use movement_ui::{ActiveMap, MovementState};
 
 use super::display::{
     CommandCursor, EnemyNameLabel, MessageText, PartyMemberHpBarFill, PartyMemberHpText,
@@ -630,11 +628,8 @@ fn build_bottom_area(
 pub fn cleanup_battle_scene(
     mut commands: Commands,
     query: Query<Entity, With<BattleSceneRoot>>,
-    player_query: Query<Entity, With<Player>>,
-    mut move_state: ResMut<MovementState>,
     game_state: Res<BattleGameState>,
     mut party_state: ResMut<PartyState>,
-    _active_map: Res<ActiveMap>,
     boss_cave_state: Option<Res<cave_ui::BossCaveState>>,
 ) {
     // 戦闘結果を永続状態に書き戻す
@@ -658,17 +653,4 @@ pub fn cleanup_battle_scene(
     }
     commands.remove_resource::<BattleGameState>();
     commands.remove_resource::<BattleUIState>();
-
-    // プレイヤーの移動関連コンポーネントをクリーンアップ
-    if let Ok(entity) = player_query.single() {
-        commands
-            .entity(entity)
-            .remove::<MovementLocked>()
-            .remove::<movement_ui::SmoothMove>()
-            .remove::<PendingMove>()
-            .remove::<Bounce>();
-    }
-
-    // 移動状態をリセット
-    *move_state = MovementState::default();
 }

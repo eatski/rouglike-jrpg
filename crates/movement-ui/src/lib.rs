@@ -22,6 +22,24 @@ pub use smooth_move::{
 
 use bevy::prelude::*;
 
+/// フィールド離脱時にプレイヤーの移動関連コンポーネントと状態をクリーンアップする。
+/// OnExit(InField) で呼ばれ、戦闘開始・町入場・祠入場時のクリーンアップを一元化する。
+pub fn cleanup_player_movement(
+    mut commands: Commands,
+    player_query: Query<Entity, With<Player>>,
+    mut move_state: ResMut<MovementState>,
+) {
+    if let Ok(entity) = player_query.single() {
+        commands
+            .entity(entity)
+            .remove::<MovementLocked>()
+            .remove::<SmoothMove>()
+            .remove::<PendingMove>()
+            .remove::<Bounce>();
+    }
+    *move_state = MovementState::default();
+}
+
 pub struct MovementPlugin;
 
 impl Plugin for MovementPlugin {

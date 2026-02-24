@@ -9,9 +9,7 @@ use party::ItemKind;
 use terrain::Terrain;
 
 use app_state::{BossDefeated, ContinentCavePositions, OpenedChests};
-use movement_ui::{
-    Boat, Bounce, MapTile, MovementLocked, PendingMove, Player, SmoothMove, TilePosition,
-};
+use movement_ui::{Boat, MapTile, Player, SmoothMove, TilePosition};
 use movement_ui::{ActiveMap, MovementState, WorldMapData, TILE_SIZE};
 
 use field_walk_ui::{spawn_boat_entities, BoatSpawnsResource, BossCaveWorldPos, MapModeState, TileTextures};
@@ -435,29 +433,21 @@ pub fn despawn_cave_entities(
 
 pub fn restore_field_from_cave(
     mut commands: Commands,
-    mut player_query: Query<(Entity, &mut TilePosition, &mut Transform), With<Player>>,
+    mut player_query: Query<(&mut TilePosition, &mut Transform), With<Player>>,
     field_return: Res<FieldReturnState>,
     tile_textures: Res<TileTextures>,
     boat_spawns: Res<BoatSpawnsResource>,
-    mut move_state: ResMut<MovementState>,
     world_map: Res<WorldMapData>,
 ) {
     let restored_map = world_map.0.clone();
 
-    if let Ok((entity, mut tile_pos, mut transform)) = player_query.single_mut() {
+    if let Ok((mut tile_pos, mut transform)) = player_query.single_mut() {
         tile_pos.x = field_return.player_tile_x;
         tile_pos.y = field_return.player_tile_y;
         let (world_x, world_y) =
             restored_map.to_world(field_return.player_tile_x, field_return.player_tile_y);
         transform.translation.x = world_x;
         transform.translation.y = world_y;
-
-        commands
-            .entity(entity)
-            .remove::<MovementLocked>()
-            .remove::<SmoothMove>()
-            .remove::<PendingMove>()
-            .remove::<Bounce>();
     }
 
     commands.remove_resource::<FieldReturnState>();
@@ -467,5 +457,4 @@ pub fn restore_field_from_cave(
     spawn_boat_entities(&mut commands, &boat_spawns, &tile_textures, &restored_map);
 
     commands.insert_resource(restored_map);
-    *move_state = MovementState::default();
 }
