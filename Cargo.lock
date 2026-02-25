@@ -327,6 +327,7 @@ name = "battle"
 version = "0.1.0"
 dependencies = [
  "party",
+ "spell",
 ]
 
 [[package]]
@@ -340,6 +341,7 @@ dependencies = [
  "input-ui",
  "party",
  "rand 0.8.5",
+ "spell",
 ]
 
 [[package]]
@@ -4678,6 +4680,10 @@ checksum = "dd538fb6910ac1099850255cf94a94df6551fbdd602454387d0adb2d1ca6dead"
 dependencies = [
  "serde",
 ]
+
+[[package]]
+name = "spell"
+version = "0.1.0"
 
 [[package]]
 name = "spin"

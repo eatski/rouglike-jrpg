@@ -32,6 +32,7 @@ members = [
     "crates/field-walk-ui",
     "crates/world-gen",
     "crates/party",
+    "crates/spell",
     "crates/town",
     "crates/cave",
     "crates/battle",

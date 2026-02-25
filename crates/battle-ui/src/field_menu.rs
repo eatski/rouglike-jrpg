@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
-use battle::spell::{available_spells, calculate_heal_amount, SpellKind, SpellTarget};
+use battle::available_spells;
+use spell::{calculate_heal_amount, SpellKind, SpellTarget};
 use app_state::{FieldMenuOpen, PartyState};
 use party::{ItemEffect, ItemKind};
 
