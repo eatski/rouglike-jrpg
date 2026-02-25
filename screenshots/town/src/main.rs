@@ -44,8 +44,8 @@ fn main() {
         .init_resource::<PartyState>()
         .add_systems(
             Startup,
-            (setup_camera, setup_town_scene_with_config).chain(),
+            (setup_camera, setup_town_scene_with_config, hud_ui::setup_hud).chain(),
         )
-        .add_systems(Update, town_display_system)
+        .add_systems(Update, (town_display_system, hud_ui::update_hud))
         .run();
 }

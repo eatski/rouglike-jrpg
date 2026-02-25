@@ -2442,6 +2442,7 @@ dependencies = [
  "bevy",
  "field-core",
  "field-walk",
+ "hud-ui",
  "input-ui",
  "party",
  "rand 0.8.5",
@@ -2949,6 +2950,14 @@ dependencies = [
  "field-core",
  "input-ui",
  "party",
+]
+
+[[package]]
+name = "hud-ui"
+version = "0.1.0"
+dependencies = [
+ "app-state",
+ "bevy",
 ]
 
 [[package]]
@@ -4478,6 +4487,7 @@ version = "0.1.0"
 dependencies = [
  "app-state",
  "bevy",
+ "hud-ui",
  "party",
  "screenshot-common",
  "town-ui",
@@ -4948,6 +4958,7 @@ dependencies = [
  "app-state",
  "bevy",
  "field-core",
+ "hud-ui",
  "input-ui",
  "party",
  "rand 0.8.5",

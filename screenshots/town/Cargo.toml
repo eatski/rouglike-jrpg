@@ -13,3 +13,4 @@ screenshot-common = { path = "../common" }
 app-state = { path = "../../crates/app-state" }
 party = { path = "../../crates/party" }
 town-ui = { path = "../../crates/town-ui" }
+hud-ui = { path = "../../crates/hud-ui" }

@@ -43,7 +43,8 @@ pub use terrain::MoveResult;
 pub use tile_pool::{create_tile_pool, init_tile_pool, update_visible_tiles, PooledTile, TilePool};
 
 // world-ui から統合された再エクスポート
-pub use hud::{cleanup_hud, setup_hud, toggle_hud_visibility, update_hud};
+pub use hud::toggle_hud_visibility;
+pub use hud_ui::{cleanup_hud, setup_hud, update_hud};
 pub use exploration_data::{init_exploration_system, update_exploration_system, ExplorationData};
 pub use minimap::{init_minimap_system, toggle_minimap_visibility_system, update_minimap_texture_system};
 pub use player_input::{player_movement, sync_boat_with_player};
