@@ -1,3 +1,4 @@
+use crate::spell::SpellKind;
 use party::CombatStats;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -78,6 +79,18 @@ impl EnemyKind {
         self.base_exp_reward()
     }
 
+    /// 使用可能な呪文テーブル
+    pub fn spells(self) -> &'static [SpellKind] {
+        match self {
+            EnemyKind::Ghost => &[SpellKind::Fire1],
+            EnemyKind::Demon => &[SpellKind::Fire1, SpellKind::Blaze1],
+            EnemyKind::Wraith => &[SpellKind::Fire2, SpellKind::Blaze1],
+            EnemyKind::Dragon => &[SpellKind::Blaze2],
+            EnemyKind::DarkLord => &[SpellKind::Blaze2, SpellKind::Fire2, SpellKind::Heal2],
+            _ => &[],
+        }
+    }
+
     /// Tier 1 の基本ステータス (max_hp, attack, defense, speed, max_mp)
     fn base_stats(self) -> (i32, i32, i32, i32, i32) {
         match self {
@@ -87,12 +100,12 @@ impl EnemyKind {
             EnemyKind::Wolf => (12, 7, 1, 5, 0),
             EnemyKind::Scorpion => (14, 6, 3, 4, 0),
             EnemyKind::Skeleton => (18, 8, 4, 3, 0),
-            EnemyKind::Ghost => (20, 4, 3, 2, 0),
+            EnemyKind::Ghost => (20, 4, 3, 2, 8),
             EnemyKind::Lizardman => (22, 9, 5, 4, 0),
             EnemyKind::Golem => (35, 10, 8, 1, 0),
-            EnemyKind::Demon => (28, 12, 6, 5, 0),
-            EnemyKind::Dragon => (40, 15, 10, 3, 0),
-            EnemyKind::Wraith => (30, 11, 7, 6, 0),
+            EnemyKind::Demon => (28, 12, 6, 5, 15),
+            EnemyKind::Dragon => (40, 15, 10, 3, 20),
+            EnemyKind::Wraith => (30, 11, 7, 6, 18),
             EnemyKind::DarkLord => (200, 25, 15, 8, 50),
         }
     }

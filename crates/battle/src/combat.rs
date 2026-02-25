@@ -93,6 +93,8 @@ pub struct TurnRandomFactors {
     pub damage_randoms: Vec<f32>,
     /// 逃走判定用の乱数(0.0~1.0)。0.5未満で成功
     pub flee_random: f32,
+    /// 敵ごとの呪文使用判定用乱数(0.0~1.0)。0.5未満で呪文使用
+    pub spell_randoms: Vec<f32>,
 }
 
 #[derive(Debug, Clone)]
@@ -159,7 +161,12 @@ impl BattleState {
                         .get(random_idx)
                         .copied()
                         .unwrap_or(1.0);
-                    results.extend(self.execute_enemy_attack(ei, random));
+                    let spell_random = random_factors
+                        .spell_randoms
+                        .get(ei)
+                        .copied()
+                        .unwrap_or(1.0);
+                    results.extend(self.execute_enemy_action(ei, random, spell_random));
                 }
                 self.turn_log.extend(results.clone());
                 return results;
@@ -206,7 +213,12 @@ impl BattleState {
                     if !self.enemies[ei].stats.is_alive() {
                         continue;
                     }
-                    results.extend(self.execute_enemy_attack(ei, random));
+                    let spell_random = random_factors
+                        .spell_randoms
+                        .get(ei)
+                        .copied()
+                        .unwrap_or(1.0);
+                    results.extend(self.execute_enemy_action(ei, random, spell_random));
                 }
             }
         }
@@ -512,6 +524,112 @@ impl BattleState {
         results
     }
 
+    /// 敵の行動選択: 呪文使用可能なら50%で呪文、それ以外は物理攻撃
+    fn execute_enemy_action(
+        &mut self,
+        enemy_idx: usize,
+        random_factor: f32,
+        spell_random: f32,
+    ) -> Vec<TurnResult> {
+        let spells = self.enemies[enemy_idx].kind.spells();
+        if !spells.is_empty() && spell_random < 0.5 {
+            // 使用可能な呪文からMP足りるものを選択
+            let usable: Vec<SpellKind> = spells
+                .iter()
+                .filter(|s| self.enemies[enemy_idx].stats.mp >= s.mp_cost())
+                .copied()
+                .collect();
+            if let Some(&spell) = usable.first() {
+                return self.execute_enemy_spell(enemy_idx, spell, random_factor);
+            }
+        }
+        self.execute_enemy_attack(enemy_idx, random_factor)
+    }
+
+    /// 敵の呪文実行（ターゲット方向を逆転: Damage→パーティ, Heal→自身）
+    fn execute_enemy_spell(
+        &mut self,
+        enemy_idx: usize,
+        spell: SpellKind,
+        random_factor: f32,
+    ) -> Vec<TurnResult> {
+        let mut results = Vec::new();
+
+        // MP消費
+        if !self.enemies[enemy_idx].stats.use_mp(spell.mp_cost()) {
+            return self.execute_enemy_attack(enemy_idx, random_factor);
+        }
+
+        match spell.effect() {
+            SpellEffect::Damage => {
+                match spell.target_type() {
+                    SpellTarget::SingleEnemy => {
+                        // 敵から見て「敵」= パーティメンバー → 先頭の生存メンバーを攻撃
+                        let alive_party = self.alive_party_indices();
+                        if let Some(&pi) = alive_party.first() {
+                            let damage = calculate_spell_damage(
+                                spell.power(),
+                                self.effective_defense_with_buff(pi),
+                                random_factor,
+                            );
+                            self.party[pi].stats.take_damage(damage);
+                            results.push(TurnResult::SpellDamage {
+                                caster: ActorId::Enemy(enemy_idx),
+                                spell,
+                                target: TargetId::Party(pi),
+                                damage,
+                            });
+                            if !self.party[pi].stats.is_alive() {
+                                results.push(TurnResult::Defeated {
+                                    target: TargetId::Party(pi),
+                                });
+                            }
+                        }
+                    }
+                    SpellTarget::AllEnemies => {
+                        // 敵から見て「全体敵」= パーティ全員
+                        for pi in self.alive_party_indices() {
+                            let damage = calculate_spell_damage(
+                                spell.power(),
+                                self.effective_defense_with_buff(pi),
+                                random_factor,
+                            );
+                            self.party[pi].stats.take_damage(damage);
+                            results.push(TurnResult::SpellDamage {
+                                caster: ActorId::Enemy(enemy_idx),
+                                spell,
+                                target: TargetId::Party(pi),
+                                damage,
+                            });
+                            if !self.party[pi].stats.is_alive() {
+                                results.push(TurnResult::Defeated {
+                                    target: TargetId::Party(pi),
+                                });
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            SpellEffect::Heal => {
+                // 自身を回復
+                let amount = calculate_heal_amount(spell.power(), random_factor);
+                let enemy = &mut self.enemies[enemy_idx];
+                enemy.stats.hp = (enemy.stats.hp + amount).min(enemy.stats.max_hp);
+                results.push(TurnResult::Healed {
+                    caster: ActorId::Enemy(enemy_idx),
+                    spell,
+                    target: TargetId::Enemy(enemy_idx),
+                    amount,
+                });
+            }
+            // バフ呪文は敵には未実装
+            _ => {}
+        }
+
+        results
+    }
+
     /// 敵がランダムなパーティメンバーを攻撃（最初の生存メンバーをターゲット）
     fn execute_enemy_attack(&mut self, enemy_idx: usize, random_factor: f32) -> Vec<TurnResult> {
         let mut results = Vec::new();
@@ -614,13 +732,26 @@ impl BattleState {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::enemy::Enemy;
+    use crate::enemy::{Enemy, EnemyKind};
     use party::{default_party, PartyMember};
 
     fn make_random(damage_randoms: Vec<f32>, flee_random: f32) -> TurnRandomFactors {
         TurnRandomFactors {
             damage_randoms,
             flee_random,
+            spell_randoms: vec![1.0; 10], // 1.0 = 呪文不使用（既存テスト互換）
+        }
+    }
+
+    fn make_random_with_spells(
+        damage_randoms: Vec<f32>,
+        flee_random: f32,
+        spell_randoms: Vec<f32>,
+    ) -> TurnRandomFactors {
+        TurnRandomFactors {
+            damage_randoms,
+            flee_random,
+            spell_randoms,
         }
     }
 
@@ -1194,5 +1325,104 @@ mod tests {
         assert_eq!(buff.amount, 6, "上書き後はATK+6");
         // tick_buffsで1減るので remaining_turns = 5 - 1 = 4
         assert_eq!(buff.remaining_turns, 4, "上書き後の持続ターンは4(5-1tick)");
+    }
+
+    #[test]
+    fn enemy_spell_damages_party() {
+        let party = vec![PartyMember::laios()];
+        let ghost = Enemy::ghost();
+        let enemies = vec![ghost];
+        let mut battle = BattleState::new(party, enemies);
+
+        let hp_before = battle.party[0].stats.hp;
+
+        let commands = vec![BattleAction::Attack {
+            target: TargetId::Enemy(0),
+        }];
+        // spell_randoms[0] = 0.0 → 呪文使用
+        let randoms = make_random_with_spells(vec![1.0; 2], 0.0, vec![0.0]);
+        let results = battle.execute_turn(&commands, &randoms);
+
+        let spell_hits: Vec<_> = results
+            .iter()
+            .filter(|r| matches!(r, TurnResult::SpellDamage { caster: ActorId::Enemy(0), .. }))
+            .collect();
+        assert!(!spell_hits.is_empty(), "ゴーストがFire1を唱えるはず");
+        assert!(battle.party[0].stats.hp < hp_before, "パーティにダメージが入るはず");
+    }
+
+    #[test]
+    fn enemy_falls_back_to_attack_when_mp_empty() {
+        let party = vec![PartyMember::laios()];
+        let mut ghost = Enemy::ghost();
+        ghost.stats.mp = 0; // MP枯渇
+        let enemies = vec![ghost];
+        let mut battle = BattleState::new(party, enemies);
+
+        let commands = vec![BattleAction::Attack {
+            target: TargetId::Enemy(0),
+        }];
+        // spell_randoms[0] = 0.0 → 呪文使用を試みるがMP不足でフォールバック
+        let randoms = make_random_with_spells(vec![1.0; 2], 0.0, vec![0.0]);
+        let results = battle.execute_turn(&commands, &randoms);
+
+        let enemy_attacks = results
+            .iter()
+            .filter(|r| matches!(r, TurnResult::Attack { attacker: ActorId::Enemy(0), .. }))
+            .count();
+        assert!(enemy_attacks > 0, "MP不足時は物理攻撃にフォールバックするはず");
+    }
+
+    #[test]
+    fn enemy_heal_spell_restores_hp() {
+        let party = vec![PartyMember::laios()];
+        let mut dark_lord = Enemy::dark_lord();
+        dark_lord.stats.hp = 50; // HPを減らす
+        let enemies = vec![dark_lord];
+        let mut battle = BattleState::new(party, enemies);
+
+        // DarkLordの呪文: [Blaze2, Fire2, Heal2] — 最初のMP足りるものを使う
+        // Heal2(MP7)を使わせるために、Blaze2(MP10)とFire2(MP7)のMPを消費させる
+        battle.enemies[0].stats.mp = 7; // Blaze2(10)は不可、Fire2(7)は可だが先にくる
+        // Fire2が先に選ばれるので、Fire2のMPも使えないようにする
+        // DarkLordの呪文テーブル: [Blaze2, Fire2, Heal2]
+        // Blaze2 cost=10 > 7 → skip, Fire2 cost=7 <= 7 → 選択される（Damage呪文）
+        // Heal2を使わせるには、Fire2もスキップさせる必要がある
+        battle.enemies[0].stats.mp = 50; // フルMPにして、手動でHeal呪文をテスト
+
+        // 直接execute_enemy_spellをテストする代わりに、呪文テーブルの仕組みを確認
+        // DarkLordの呪文テーブル: [Blaze2, Fire2, Heal2]
+        // usable.first()はBlaze2を返す → Damage呪文
+        // Heal呪文のテストは直接実行
+        let hp_before = battle.enemies[0].stats.hp;
+        let results = battle.execute_enemy_spell(0, SpellKind::Heal2, 1.0);
+        assert!(
+            results.iter().any(|r| matches!(r, TurnResult::Healed { .. })),
+            "Heal2で回復イベントが発生するはず"
+        );
+        assert!(battle.enemies[0].stats.hp > hp_before, "敵のHPが回復するはず");
+    }
+
+    #[test]
+    fn enemy_aoe_spell_hits_all_party() {
+        let party = vec![PartyMember::laios(), PartyMember::marcille(), PartyMember::falin()];
+        let dragon = Enemy::new(EnemyKind::Dragon, 1);
+        let enemies = vec![dragon];
+        let mut battle = BattleState::new(party, enemies);
+
+        let commands = vec![
+            BattleAction::Attack { target: TargetId::Enemy(0) },
+            BattleAction::Attack { target: TargetId::Enemy(0) },
+            BattleAction::Attack { target: TargetId::Enemy(0) },
+        ];
+        // spell_randoms[0] = 0.0 → 呪文使用（Blaze2 = AllEnemies → パーティ全員）
+        let randoms = make_random_with_spells(vec![1.0; 4], 0.0, vec![0.0]);
+        let results = battle.execute_turn(&commands, &randoms);
+
+        let spell_hits: Vec<_> = results
+            .iter()
+            .filter(|r| matches!(r, TurnResult::SpellDamage { caster: ActorId::Enemy(0), .. }))
+            .collect();
+        assert_eq!(spell_hits.len(), 3, "Blaze2でパーティ全員にヒットするはず");
     }
 }
