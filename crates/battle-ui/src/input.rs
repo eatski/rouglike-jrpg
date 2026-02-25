@@ -403,9 +403,14 @@ fn execute_turn(game_state: &mut BattleGameState, ui_state: &mut BattleUIState) 
         .collect();
     let flee_random: f32 = rand::random();
 
+    let spell_randoms: Vec<f32> = (0..enemy_count)
+        .map(|_| rand::random::<f32>())
+        .collect();
+
     let random_factors = TurnRandomFactors {
         damage_randoms,
         flee_random,
+        spell_randoms,
     };
 
     // ターン実行前のパーティHP/MP状態をスナップショット
@@ -583,11 +588,24 @@ fn results_to_messages(
                     ));
                 }
 
-                if let TargetId::Enemy(i) = target {
-                    effects.push((
-                        msg_index,
-                        MessageEffect::BlinkEnemy { enemy_index: *i },
-                    ));
+                match target {
+                    TargetId::Enemy(i) => {
+                        effects.push((
+                            msg_index,
+                            MessageEffect::BlinkEnemy { enemy_index: *i },
+                        ));
+                    }
+                    TargetId::Party(i) => {
+                        effects.push((msg_index, MessageEffect::Shake));
+                        running_party_hp[*i] = (running_party_hp[*i] - damage).max(0);
+                        effects.push((
+                            msg_index,
+                            MessageEffect::UpdatePartyHp {
+                                member_index: *i,
+                                new_hp: running_party_hp[*i],
+                            },
+                        ));
+                    }
                 }
             }
             TurnResult::Healed {

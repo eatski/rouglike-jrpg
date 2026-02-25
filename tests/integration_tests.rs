@@ -1013,7 +1013,7 @@ fn battle_victory_grants_exp_and_levels_up_party() {
     ];
     let randoms = TurnRandomFactors {
         damage_randoms: vec![1.2; 4],
-        flee_random: 1.0,
+        flee_random: 1.0, spell_randoms: vec![1.0; 10],
     };
     let _results = battle.execute_turn(&commands, &randoms);
 
@@ -1047,7 +1047,7 @@ fn battle_victory_grants_exp_and_levels_up_party() {
     ];
     let randoms2 = TurnRandomFactors {
         damage_randoms: vec![1.2; 5],
-        flee_random: 1.0,
+        flee_random: 1.0, spell_randoms: vec![1.0; 10],
     };
     // 複数ターン回して倒す
     for _ in 0..10 {
@@ -1131,7 +1131,7 @@ fn equipped_weapon_increases_battle_damage() {
     let commands = vec![BattleAction::Attack { target: TargetId::Enemy(0) }];
     let randoms = TurnRandomFactors {
         damage_randoms: vec![1.0; 2],
-        flee_random: 1.0,
+        flee_random: 1.0, spell_randoms: vec![1.0; 10],
     };
 
     let results_unarmed = battle_unarmed.execute_turn(&commands, &randoms);
@@ -1175,7 +1175,7 @@ fn herb_heals_in_battle() {
     ];
     let randoms = TurnRandomFactors {
         damage_randoms: vec![1.0; 2],
-        flee_random: 1.0,
+        flee_random: 1.0, spell_randoms: vec![1.0; 10],
     };
 
     let results = battle.execute_turn(&commands, &randoms);
@@ -1212,7 +1212,7 @@ fn copper_key_is_not_usable_in_battle() {
     ];
     let randoms = TurnRandomFactors {
         damage_randoms: vec![1.0; 2],
-        flee_random: 1.0,
+        flee_random: 1.0, spell_randoms: vec![1.0; 10],
     };
 
     let results = battle.execute_turn(&commands, &randoms);
@@ -1265,7 +1265,7 @@ fn buy_herb_at_shop_then_use_in_battle() {
     ];
     let randoms = TurnRandomFactors {
         damage_randoms: vec![1.0; 2],
-        flee_random: 1.0,
+        flee_random: 1.0, spell_randoms: vec![1.0; 10],
     };
     battle.execute_turn(&commands, &randoms);
 
@@ -1307,7 +1307,7 @@ fn buy_weapon_at_shop_then_equip_affects_battle() {
     let commands = vec![BattleAction::Attack { target: TargetId::Enemy(0) }];
     let randoms = TurnRandomFactors {
         damage_randoms: vec![1.0; 2],
-        flee_random: 1.0,
+        flee_random: 1.0, spell_randoms: vec![1.0; 10],
     };
     let results = battle.execute_turn(&commands, &randoms);
 
@@ -1356,7 +1356,7 @@ fn inn_heals_party_before_battle() {
     ];
     let randoms = TurnRandomFactors {
         damage_randoms: vec![1.2; 4],
-        flee_random: 1.0,
+        flee_random: 1.0, spell_randoms: vec![1.0; 10],
     };
     battle.execute_turn(&commands, &randoms);
 
@@ -1663,7 +1663,7 @@ fn battle_action_order_respects_speed() {
     ];
     let randoms = TurnRandomFactors {
         damage_randoms: vec![1.0; 4],
-        flee_random: 1.0,
+        flee_random: 1.0, spell_randoms: vec![1.0; 10],
     };
     let results = battle.execute_turn(&commands, &randoms);
 
@@ -1731,7 +1731,7 @@ fn spell_fails_silently_when_mp_insufficient() {
     ];
     let randoms = TurnRandomFactors {
         damage_randoms: vec![1.0; 2],
-        flee_random: 1.0,
+        flee_random: 1.0, spell_randoms: vec![1.0; 10],
     };
     let results = battle.execute_turn(&commands, &randoms);
 
@@ -1766,7 +1766,7 @@ fn party_wipe_ends_battle_mid_turn() {
     ];
     let randoms = TurnRandomFactors {
         damage_randoms: vec![1.0; 3],
-        flee_random: 1.0,
+        flee_random: 1.0, spell_randoms: vec![1.0; 10],
     };
     let results = battle.execute_turn(&commands, &randoms);
 
@@ -1918,7 +1918,7 @@ fn flee_succeeds_when_random_below_threshold() {
     // flee_random = 0.3 < 0.5 → 逃走成功
     let randoms = TurnRandomFactors {
         damage_randoms: vec![1.0; 4],
-        flee_random: 0.3,
+        flee_random: 0.3, spell_randoms: vec![1.0; 10],
     };
     let results = battle.execute_turn(&commands, &randoms);
     assert_eq!(results, vec![TurnResult::Fled], "Should flee when random < 0.5");
@@ -1946,7 +1946,7 @@ fn flee_fails_when_random_above_threshold() {
     // flee_random = 0.7 >= 0.5 → 逃走失敗
     let randoms = TurnRandomFactors {
         damage_randoms: vec![1.0; 4],
-        flee_random: 0.7,
+        flee_random: 0.7, spell_randoms: vec![1.0; 10],
     };
     let results = battle.execute_turn(&commands, &randoms);
 
@@ -2026,7 +2026,7 @@ fn spell_succeeds_when_mp_exactly_equals_cost() {
     ];
     let randoms = TurnRandomFactors {
         damage_randoms: vec![1.0; 2],
-        flee_random: 1.0,
+        flee_random: 1.0, spell_randoms: vec![1.0; 10],
     };
     let results = battle.execute_turn(&commands, &randoms);
 
@@ -2062,7 +2062,7 @@ fn heal_spell_does_not_exceed_max_hp() {
     ];
     let randoms = TurnRandomFactors {
         damage_randoms: vec![1.0; 2],
-        flee_random: 1.0,
+        flee_random: 1.0, spell_randoms: vec![1.0; 10],
     };
     battle.execute_turn(&commands, &randoms);
 
@@ -2093,7 +2093,7 @@ fn item_heal_does_not_exceed_max_hp() {
     ];
     let randoms = TurnRandomFactors {
         damage_randoms: vec![1.0; 2],
-        flee_random: 1.0,
+        flee_random: 1.0, spell_randoms: vec![1.0; 10],
     };
     battle.execute_turn(&commands, &randoms);
 
@@ -2235,7 +2235,7 @@ fn sync_from_battle_reflects_battle_state() {
     ];
     let randoms = TurnRandomFactors {
         damage_randoms: vec![1.0; 2],
-        flee_random: 1.0,
+        flee_random: 1.0, spell_randoms: vec![1.0; 10],
     };
     battle.execute_turn(&commands, &randoms);
 
@@ -2333,7 +2333,7 @@ fn weapon_upgrade_replaces_old_and_changes_damage() {
     slime.stats.max_hp = 999;
     let mut battle1 = BattleDomainState::new(vec![hero.clone()], vec![slime.clone()]);
     let commands = vec![BattleAction::Attack { target: TargetId::Enemy(0) }];
-    let randoms = TurnRandomFactors { damage_randoms: vec![1.0; 2], flee_random: 1.0 };
+    let randoms = TurnRandomFactors { damage_randoms: vec![1.0; 2], flee_random: 1.0, spell_randoms: vec![1.0; 10] };
     let results1 = battle1.execute_turn(&commands, &randoms);
     let damage_iron = results1.iter().find_map(|r| {
         if let TurnResult::Attack { attacker: battle::ActorId::Party(0), damage, .. } = r { Some(*damage) } else { None }
@@ -2475,7 +2475,7 @@ fn recruit_party_then_battle_together() {
     ];
     let randoms = TurnRandomFactors {
         damage_randoms: vec![1.0; 3],
-        flee_random: 1.0,
+        flee_random: 1.0, spell_randoms: vec![1.0; 10],
     };
     let results = battle.execute_turn(&commands, &randoms);
 
@@ -2535,7 +2535,7 @@ fn high_herb_heals_more_than_regular_herb_in_battle() {
 
     let mut battle1 = BattleDomainState::new(vec![hero1], vec![slime1]);
     let commands = vec![BattleAction::UseItem { item: ItemKind::Herb, target: TargetId::Party(0) }];
-    let randoms = TurnRandomFactors { damage_randoms: vec![1.0; 2], flee_random: 1.0 };
+    let randoms = TurnRandomFactors { damage_randoms: vec![1.0; 2], flee_random: 1.0, spell_randoms: vec![1.0; 10] };
     let results1 = battle1.execute_turn(&commands, &randoms);
     let heal_herb = results1.iter().find_map(|r| {
         if let TurnResult::ItemUsed { amount, .. } = r { Some(*amount) } else { None }
@@ -2613,7 +2613,7 @@ fn generated_enemy_group_battle_to_victory_and_exp() {
     ];
     let randoms = TurnRandomFactors {
         damage_randoms: vec![1.2; 10],
-        flee_random: 1.0,
+        flee_random: 1.0, spell_randoms: vec![1.0; 10],
     };
 
     // 複数ターン実行して勝利
@@ -2660,7 +2660,7 @@ fn multi_turn_battle_accumulates_turn_log() {
     ];
     let randoms = TurnRandomFactors {
         damage_randoms: vec![1.0; 4],
-        flee_random: 1.0,
+        flee_random: 1.0, spell_randoms: vec![1.0; 10],
     };
 
     // 3ターン実行
@@ -2705,7 +2705,7 @@ fn full_town_equip_battle_levelup_flow() {
     let mut battle = BattleDomainState::new(vec![hero], enemies);
 
     let commands = vec![BattleAction::Attack { target: TargetId::Enemy(0) }];
-    let randoms = TurnRandomFactors { damage_randoms: vec![1.2; 4], flee_random: 1.0 };
+    let randoms = TurnRandomFactors { damage_randoms: vec![1.2; 4], flee_random: 1.0, spell_randoms: vec![1.0; 10] };
 
     for _ in 0..30 {
         if battle.is_over() { break; }
@@ -2750,7 +2750,7 @@ fn same_speed_party_acts_before_enemy() {
     ];
     let randoms = TurnRandomFactors {
         damage_randoms: vec![1.0; 2],
-        flee_random: 1.0,
+        flee_random: 1.0, spell_randoms: vec![1.0; 10],
     };
     let results = battle.execute_turn(&commands, &randoms);
 
@@ -2785,7 +2785,7 @@ fn neld_aoe_damages_all_enemies_integration() {
     ];
     let randoms = TurnRandomFactors {
         damage_randoms: vec![1.0; 4],
-        flee_random: 1.0,
+        flee_random: 1.0, spell_randoms: vec![1.0; 10],
     };
     let results = battle.execute_turn(&commands, &randoms);
 
@@ -2827,7 +2827,7 @@ fn panam_aoe_heals_all_allies_integration() {
     ];
     let randoms = TurnRandomFactors {
         damage_randoms: vec![1.0; 4],
-        flee_random: 1.0,
+        flee_random: 1.0, spell_randoms: vec![1.0; 10],
     };
     let results = battle.execute_turn(&commands, &randoms);
 
@@ -2862,7 +2862,7 @@ fn bolga_buff_increases_attack_integration() {
     ];
     let randoms = TurnRandomFactors {
         damage_randoms: vec![1.0; 3],
-        flee_random: 1.0,
+        flee_random: 1.0, spell_randoms: vec![1.0; 10],
     };
     let results = battle.execute_turn(&commands, &randoms);
 
@@ -2896,7 +2896,7 @@ fn garde_def_buff_reduces_damage_taken_integration() {
     ];
     let randoms = TurnRandomFactors {
         damage_randoms: vec![1.0; 2],
-        flee_random: 1.0,
+        flee_random: 1.0, spell_randoms: vec![1.0; 10],
     };
     let results_unbuffed = battle_unbuffed.execute_turn(&commands_unbuffed, &randoms);
     let damage_unbuffed = results_unbuffed.iter().find_map(|r| {
@@ -2912,7 +2912,7 @@ fn garde_def_buff_reduces_damage_taken_integration() {
     ];
     let randoms_buff = TurnRandomFactors {
         damage_randoms: vec![1.0; 3],
-        flee_random: 1.0,
+        flee_random: 1.0, spell_randoms: vec![1.0; 10],
     };
     battle_buffed.execute_turn(&commands_buff, &randoms_buff);
 
@@ -2923,7 +2923,7 @@ fn garde_def_buff_reduces_damage_taken_integration() {
     ];
     let randoms_next = TurnRandomFactors {
         damage_randoms: vec![1.0; 3],
-        flee_random: 1.0,
+        flee_random: 1.0, spell_randoms: vec![1.0; 10],
     };
     let results_buffed = battle_buffed.execute_turn(&commands_next, &randoms_next);
     let damage_buffed = results_buffed.iter().find_map(|r| {
@@ -2957,14 +2957,14 @@ fn buff_expires_after_5_turns_integration() {
 
     // ターン1: バフ付与
     let commands = vec![BattleAction::Spell { spell: SpellKind::Boost1, target: TargetId::Party(0) }];
-    let randoms = TurnRandomFactors { damage_randoms: vec![1.0; 2], flee_random: 1.0 };
+    let randoms = TurnRandomFactors { damage_randoms: vec![1.0; 2], flee_random: 1.0, spell_randoms: vec![1.0; 10] };
     battle.execute_turn(&commands, &randoms);
     assert!(battle.party_buffs[0].attack_up.is_some(), "Buff should be active after cast");
 
     // ターン2~5
     for _ in 0..4 {
         let commands = vec![BattleAction::Attack { target: TargetId::Enemy(0) }];
-        let randoms = TurnRandomFactors { damage_randoms: vec![1.0; 2], flee_random: 1.0 };
+        let randoms = TurnRandomFactors { damage_randoms: vec![1.0; 2], flee_random: 1.0, spell_randoms: vec![1.0; 10] };
         battle.execute_turn(&commands, &randoms);
     }
 
@@ -2994,21 +2994,21 @@ fn buff_overwrite_resets_duration_integration() {
 
     // Boost1(ATK+3)付与
     let commands = vec![BattleAction::Spell { spell: SpellKind::Boost1, target: TargetId::Party(0) }];
-    let randoms = TurnRandomFactors { damage_randoms: vec![1.0; 2], flee_random: 1.0 };
+    let randoms = TurnRandomFactors { damage_randoms: vec![1.0; 2], flee_random: 1.0, spell_randoms: vec![1.0; 10] };
     battle.execute_turn(&commands, &randoms);
     assert_eq!(battle.party_buffs[0].attack_up.unwrap().amount, 3);
 
     // 3ターン経過
     for _ in 0..3 {
         let commands = vec![BattleAction::Attack { target: TargetId::Enemy(0) }];
-        let randoms = TurnRandomFactors { damage_randoms: vec![1.0; 2], flee_random: 1.0 };
+        let randoms = TurnRandomFactors { damage_randoms: vec![1.0; 2], flee_random: 1.0, spell_randoms: vec![1.0; 10] };
         battle.execute_turn(&commands, &randoms);
     }
     assert!(battle.party_buffs[0].attack_up.is_some(), "Buff should still be active");
 
     // Boost2(ATK+6)で上書き
     let commands = vec![BattleAction::Spell { spell: SpellKind::Boost2, target: TargetId::Party(0) }];
-    let randoms = TurnRandomFactors { damage_randoms: vec![1.0; 2], flee_random: 1.0 };
+    let randoms = TurnRandomFactors { damage_randoms: vec![1.0; 2], flee_random: 1.0, spell_randoms: vec![1.0; 10] };
     battle.execute_turn(&commands, &randoms);
 
     let buff = battle.party_buffs[0].attack_up.unwrap();
