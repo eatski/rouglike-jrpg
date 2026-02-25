@@ -7,7 +7,7 @@ use town::{buy_item, buy_weapon, candidate_first_dialogue, candidate_join_dialog
 
 use app_state::SceneState;
 use field_core::{ActiveMap, Player, TilePosition};
-use app_state::{HeardTavernHints, PartyState, RecruitmentMap, TavernHintKind};
+use app_state::{ContinentMap, HeardTavernHints, PartyState, RecruitmentMap, TavernHintKind};
 
 use crate::scene::{shop_goods, ShopGoods, TownMenuPhase, TownResource};
 
@@ -21,6 +21,7 @@ pub fn town_input_system(
     active_map: Res<ActiveMap>,
     player_query: Query<&TilePosition, With<Player>>,
     mut heard_hints: ResMut<HeardTavernHints>,
+    continent_map: Option<Res<ContinentMap>>,
 ) {
     match town_res.phase.clone() {
         TownMenuPhase::MenuSelect => {
@@ -119,12 +120,15 @@ pub fn town_input_system(
                                     let mut rng = rand::thread_rng();
                                     let &chosen = unheard.choose(&mut rng).unwrap();
                                     heard_set.insert(chosen);
+                                    let cf = continent_map.as_ref().and_then(|cm| {
+                                        cm.get(pos.x, pos.y).map(|cid| (cm.as_raw(), cid))
+                                    });
                                     let dialogue = match chosen {
                                         TavernHintKind::Cave => {
-                                            cave_hint_dialogue(&active_map.grid, pos.x, pos.y)
+                                            cave_hint_dialogue(&active_map.grid, pos.x, pos.y, cf)
                                         }
                                         TavernHintKind::Hokora => {
-                                            hokora_hint_dialogue(&active_map.grid, pos.x, pos.y)
+                                            hokora_hint_dialogue(&active_map.grid, pos.x, pos.y, cf)
                                         }
                                     };
                                     town_res.phase =

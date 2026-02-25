@@ -1568,7 +1568,7 @@ fn cave_hint_dialogue_finds_nearest_cave_in_generated_map() {
     }
 
     if let Some((tx, ty)) = town_pos {
-        let dialogue = cave_hint_dialogue(&map.grid, tx, ty);
+        let dialogue = cave_hint_dialogue(&map.grid, tx, ty, None);
         // マップに洞窟があれば方角ヒントが返る
         let has_cave = map.grid.iter().flatten().any(|t| *t == Terrain::Cave);
         if has_cave {

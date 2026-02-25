@@ -202,11 +202,15 @@ pub fn candidate_join_dialogue(kind: PartyMemberKind) -> String {
 }
 
 /// グリッド内で指定テラインへの最短方向を求める
+///
+/// `continent_filter` が `Some((continent_map, town_continent_id))` の場合、
+/// ターゲットタイルの大陸IDが `town_continent_id` と一致するもののみ探索する。
 fn find_nearest_terrain(
     grid: &[Vec<Terrain>],
     town_x: usize,
     town_y: usize,
     target: Terrain,
+    continent_filter: Option<(&[Vec<Option<u8>>], u8)>,
 ) -> Option<(i32, i32, i32)> {
     let mut best_dist = i32::MAX;
     let mut best_dx = 0i32;
@@ -215,6 +219,17 @@ fn find_nearest_terrain(
     for (y, row) in grid.iter().enumerate() {
         for (x, terrain) in row.iter().enumerate() {
             if *terrain == target {
+                // 大陸フィルタが有効な場合、同じ大陸のもののみ対象とする
+                if let Some((continent_map, town_cid)) = continent_filter {
+                    let tile_cid = continent_map
+                        .get(y)
+                        .and_then(|r| r.get(x))
+                        .copied()
+                        .flatten();
+                    if tile_cid != Some(town_cid) {
+                        continue;
+                    }
+                }
                 let dx = torus_delta(town_x, x, MAP_WIDTH);
                 let dy = torus_delta(town_y, y, MAP_HEIGHT);
                 let dist = dx.abs() + dy.abs();
@@ -235,8 +250,17 @@ fn find_nearest_terrain(
 }
 
 /// 街の位置から最寄りの洞窟の方角を教える台詞を生成する
-pub fn cave_hint_dialogue(grid: &[Vec<Terrain>], town_x: usize, town_y: usize) -> String {
-    let Some((dx, dy, dist)) = find_nearest_terrain(grid, town_x, town_y, Terrain::Cave) else {
+///
+/// `continent_filter` が `Some` なら同じ大陸の洞窟のみ対象。
+pub fn cave_hint_dialogue(
+    grid: &[Vec<Terrain>],
+    town_x: usize,
+    town_y: usize,
+    continent_filter: Option<(&[Vec<Option<u8>>], u8)>,
+) -> String {
+    let Some((dx, dy, dist)) =
+        find_nearest_terrain(grid, town_x, town_y, Terrain::Cave, continent_filter)
+    else {
         return townsperson_dialogue().to_string();
     };
 
@@ -246,8 +270,17 @@ pub fn cave_hint_dialogue(grid: &[Vec<Terrain>], town_x: usize, town_y: usize) -
 }
 
 /// 街の位置から最寄りの祠の方角を教える台詞を生成する
-pub fn hokora_hint_dialogue(grid: &[Vec<Terrain>], town_x: usize, town_y: usize) -> String {
-    let Some((dx, dy, dist)) = find_nearest_terrain(grid, town_x, town_y, Terrain::Hokora) else {
+///
+/// `continent_filter` が `Some` なら同じ大陸の祠のみ対象。
+pub fn hokora_hint_dialogue(
+    grid: &[Vec<Terrain>],
+    town_x: usize,
+    town_y: usize,
+    continent_filter: Option<(&[Vec<Option<u8>>], u8)>,
+) -> String {
+    let Some((dx, dy, dist)) =
+        find_nearest_terrain(grid, town_x, town_y, Terrain::Hokora, continent_filter)
+    else {
         return townsperson_dialogue().to_string();
     };
 
@@ -287,7 +320,7 @@ mod tests {
         let mut grid = make_grid(MAP_WIDTH, MAP_HEIGHT);
         // 街(75, 75)の北(y=85)に洞窟を配置（tile_yが大きい=北）
         grid[85][75] = Terrain::Cave;
-        let dialogue = cave_hint_dialogue(&grid, 75, 75);
+        let dialogue = cave_hint_dialogue(&grid, 75, 75, None);
         assert!(
             dialogue.contains("きた"),
             "北の洞窟が検出されるべき: {dialogue}"
@@ -300,7 +333,7 @@ mod tests {
         let mut grid = make_grid(MAP_WIDTH, MAP_HEIGHT);
         // 街(75, 75)の南(y=65)に洞窟を配置（tile_yが小さい=南）
         grid[65][75] = Terrain::Cave;
-        let dialogue = cave_hint_dialogue(&grid, 75, 75);
+        let dialogue = cave_hint_dialogue(&grid, 75, 75, None);
         assert!(
             dialogue.contains("みなみ"),
             "南の洞窟が検出されるべき: {dialogue}"
@@ -310,7 +343,7 @@ mod tests {
     #[test]
     fn cave_hint_dialogue_no_cave_fallback() {
         let grid = make_grid(MAP_WIDTH, MAP_HEIGHT);
-        let dialogue = cave_hint_dialogue(&grid, 75, 75);
+        let dialogue = cave_hint_dialogue(&grid, 75, 75, None);
         assert_eq!(dialogue, townsperson_dialogue());
     }
 
@@ -323,7 +356,7 @@ mod tests {
         // 遠い洞窟(y=80)も配置
         grid[80][5] = Terrain::Cave;
 
-        let dialogue = cave_hint_dialogue(&grid, 5, 5);
+        let dialogue = cave_hint_dialogue(&grid, 5, 5, None);
         // ラップアラウンドでy=145は南方向（5→145 = +140だがラップで-10）
         // つまり北が近い
         assert!(
@@ -337,7 +370,7 @@ mod tests {
         let mut grid = make_grid(MAP_WIDTH, MAP_HEIGHT);
         // 遠い洞窟（距離50以上）
         grid[30][75] = Terrain::Cave;
-        let dialogue = cave_hint_dialogue(&grid, 75, 75);
+        let dialogue = cave_hint_dialogue(&grid, 75, 75, None);
         assert!(
             dialogue.contains("はるか とおくの"),
             "遠い洞窟: {dialogue}"
@@ -348,7 +381,7 @@ mod tests {
     fn hokora_hint_dialogue_to_the_east() {
         let mut grid = make_grid(MAP_WIDTH, MAP_HEIGHT);
         grid[75][90] = Terrain::Hokora;
-        let dialogue = hokora_hint_dialogue(&grid, 75, 75);
+        let dialogue = hokora_hint_dialogue(&grid, 75, 75, None);
         assert!(
             dialogue.contains("ひがし"),
             "東の祠が検出されるべき: {dialogue}"
@@ -359,7 +392,7 @@ mod tests {
     #[test]
     fn hokora_hint_dialogue_no_hokora_fallback() {
         let grid = make_grid(MAP_WIDTH, MAP_HEIGHT);
-        let dialogue = hokora_hint_dialogue(&grid, 75, 75);
+        let dialogue = hokora_hint_dialogue(&grid, 75, 75, None);
         assert_eq!(dialogue, townsperson_dialogue());
     }
 
@@ -368,10 +401,93 @@ mod tests {
         let mut grid = make_grid(MAP_WIDTH, MAP_HEIGHT);
         // 街(5, 5)からマップ端の反対側(x=145)に祠を配置
         grid[5][MAP_WIDTH - 5] = Terrain::Hokora;
-        let dialogue = hokora_hint_dialogue(&grid, 5, 5);
+        let dialogue = hokora_hint_dialogue(&grid, 5, 5, None);
         assert!(
             dialogue.contains("すぐ ちかくの"),
             "ラップアラウンドで近い祠が選ばれるべき: {dialogue}"
+        );
+    }
+
+    /// 大陸フィルタ用のcontinent_mapを作成するヘルパー
+    fn make_continent_map(width: usize, height: usize) -> Vec<Vec<Option<u8>>> {
+        vec![vec![None; width]; height]
+    }
+
+    #[test]
+    fn cave_hint_continent_filter_same_continent() {
+        let mut grid = make_grid(MAP_WIDTH, MAP_HEIGHT);
+        let mut cmap = make_continent_map(MAP_WIDTH, MAP_HEIGHT);
+
+        // 街(75, 75) = 大陸1、近い洞窟(75, 85)も大陸1
+        cmap[75][75] = Some(1);
+        grid[85][75] = Terrain::Cave;
+        cmap[85][75] = Some(1);
+
+        let dialogue = cave_hint_dialogue(&grid, 75, 75, Some((&cmap, 1)));
+        assert!(
+            dialogue.contains("どうくつ"),
+            "同じ大陸の洞窟が見つかるべき: {dialogue}"
+        );
+    }
+
+    #[test]
+    fn cave_hint_continent_filter_different_continent_excluded() {
+        let mut grid = make_grid(MAP_WIDTH, MAP_HEIGHT);
+        let mut cmap = make_continent_map(MAP_WIDTH, MAP_HEIGHT);
+
+        // 街(75, 75) = 大陸1、洞窟(75, 85) = 大陸2 → 除外
+        cmap[75][75] = Some(1);
+        grid[85][75] = Terrain::Cave;
+        cmap[85][75] = Some(2);
+
+        let dialogue = cave_hint_dialogue(&grid, 75, 75, Some((&cmap, 1)));
+        assert_eq!(
+            dialogue,
+            townsperson_dialogue(),
+            "別大陸の洞窟は除外されるべき: {dialogue}"
+        );
+    }
+
+    #[test]
+    fn cave_hint_continent_filter_picks_same_continent_over_closer() {
+        let mut grid = make_grid(MAP_WIDTH, MAP_HEIGHT);
+        let mut cmap = make_continent_map(MAP_WIDTH, MAP_HEIGHT);
+
+        // 街(75, 75) = 大陸1
+        cmap[75][75] = Some(1);
+        // 近い洞窟(75, 80) = 大陸2 → 除外
+        grid[80][75] = Terrain::Cave;
+        cmap[80][75] = Some(2);
+        // 遠い洞窟(75, 30) = 大陸1 → 選ばれる
+        grid[30][75] = Terrain::Cave;
+        cmap[30][75] = Some(1);
+
+        let dialogue = cave_hint_dialogue(&grid, 75, 75, Some((&cmap, 1)));
+        assert!(
+            dialogue.contains("どうくつ"),
+            "同じ大陸の遠い洞窟が選ばれるべき: {dialogue}"
+        );
+        assert!(
+            dialogue.contains("はるか とおくの"),
+            "遠い洞窟なので距離修飾語が正しいべき: {dialogue}"
+        );
+    }
+
+    #[test]
+    fn hokora_hint_continent_filter_different_continent_excluded() {
+        let mut grid = make_grid(MAP_WIDTH, MAP_HEIGHT);
+        let mut cmap = make_continent_map(MAP_WIDTH, MAP_HEIGHT);
+
+        // 街(75, 75) = 大陸1、祠(90, 75) = 大陸2 → 除外
+        cmap[75][75] = Some(1);
+        grid[75][90] = Terrain::Hokora;
+        cmap[75][90] = Some(2);
+
+        let dialogue = hokora_hint_dialogue(&grid, 75, 75, Some((&cmap, 1)));
+        assert_eq!(
+            dialogue,
+            townsperson_dialogue(),
+            "別大陸の祠は除外されるべき: {dialogue}"
         );
     }
 
