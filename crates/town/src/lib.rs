@@ -5,7 +5,7 @@ use terrain::{Terrain, MAP_HEIGHT, MAP_WIDTH};
 pub const INN_PRICE: u32 = 20;
 
 /// 居酒屋の利用料金
-pub const TAVERN_PRICE: u32 = 10;
+pub const TAVERN_PRICE: u32 = 5;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum BuyResult {
