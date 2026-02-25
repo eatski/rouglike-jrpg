@@ -40,6 +40,7 @@ members = [
     "crates/battle-ui",
     "crates/town-ui",
 
+    "crates/hud-ui",
     "crates/cave-ui",
     "crates/hokora-ui",
     "tools/generate_tiles",

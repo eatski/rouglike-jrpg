@@ -3,11 +3,11 @@ use rand::prelude::SliceRandom;
 
 use input_ui::{is_cancel_just_pressed, is_confirm_just_pressed, is_down_just_pressed, is_up_just_pressed};
 use party::{talk_to_candidate, PartyMember, TalkResult};
-use town::{buy_item, buy_weapon, candidate_first_dialogue, candidate_join_dialogue, cave_hint_dialogue, heal_party, hokora_hint_dialogue, sell_item, BuyResult, BuyWeaponResult, SellResult, INN_PRICE, TAVERN_PRICE};
+use town::{buy_item, buy_weapon, candidate_first_dialogue, candidate_join_dialogue, cave_hint_dialogue, companion_hint_dialogue, heal_party, hokora_hint_dialogue, sell_item, BuyResult, BuyWeaponResult, SellResult, INN_PRICE, TAVERN_PRICE};
 
 use app_state::SceneState;
 use field_core::{ActiveMap, Player, TilePosition};
-use app_state::{HeardTavernHints, PartyState, RecruitmentMap, TavernHintKind};
+use app_state::{ContinentMap, HeardTavernHints, PartyState, RecruitmentMap, TavernHintKind};
 
 use crate::scene::{shop_goods, ShopGoods, TownMenuPhase, TownResource};
 
@@ -21,6 +21,7 @@ pub fn town_input_system(
     active_map: Res<ActiveMap>,
     player_query: Query<&TilePosition, With<Player>>,
     mut heard_hints: ResMut<HeardTavernHints>,
+    continent_map: Option<Res<ContinentMap>>,
 ) {
     match town_res.phase.clone() {
         TownMenuPhase::MenuSelect => {
@@ -104,6 +105,18 @@ pub fn town_input_system(
                                 if !heard_set.contains(&TavernHintKind::Hokora) {
                                     unheard.push(TavernHintKind::Hokora);
                                 }
+                                // 同じ大陸内に仲間候補がいる場合のみ Companion ヒントを候補に含める
+                                let companion_towns = collect_companion_towns(
+                                    pos,
+                                    &recruitment_map,
+                                    &continent_map,
+                                    &party_state.candidates,
+                                );
+                                if !companion_towns.is_empty()
+                                    && !heard_set.contains(&TavernHintKind::Companion)
+                                {
+                                    unheard.push(TavernHintKind::Companion);
+                                }
 
                                 if unheard.is_empty() {
                                     // 全て既読 → ゴールド消費なし
@@ -119,12 +132,19 @@ pub fn town_input_system(
                                     let mut rng = rand::thread_rng();
                                     let &chosen = unheard.choose(&mut rng).unwrap();
                                     heard_set.insert(chosen);
+                                    let cf = continent_map.as_ref().and_then(|cm| {
+                                        cm.get(pos.x, pos.y).map(|cid| (cm.as_raw(), cid))
+                                    });
                                     let dialogue = match chosen {
                                         TavernHintKind::Cave => {
-                                            cave_hint_dialogue(&active_map.grid, pos.x, pos.y)
+                                            cave_hint_dialogue(&active_map.grid, pos.x, pos.y, cf)
                                         }
                                         TavernHintKind::Hokora => {
-                                            hokora_hint_dialogue(&active_map.grid, pos.x, pos.y)
+                                            hokora_hint_dialogue(&active_map.grid, pos.x, pos.y, cf)
+                                        }
+                                        TavernHintKind::Companion => {
+                                            companion_hint_dialogue(pos.x, pos.y, &companion_towns)
+                                                .unwrap_or_else(|| "もう あたらしい はなしは ないな".to_string())
                                         }
                                     };
                                     town_res.phase =
@@ -249,6 +269,36 @@ pub fn town_input_system(
             }
         }
     }
+}
+
+/// 同じ大陸内の仲間候補がいる街を収集する
+fn collect_companion_towns(
+    pos: &TilePosition,
+    recruitment_map: &RecruitmentMap,
+    continent_map: &Option<Res<ContinentMap>>,
+    candidates: &[party::RecruitCandidate],
+) -> Vec<(usize, usize, party::PartyMemberKind)> {
+    let current_continent = continent_map
+        .as_ref()
+        .and_then(|cm| cm.get(pos.x, pos.y));
+    let Some(current_cid) = current_continent else {
+        return Vec::new();
+    };
+    recruitment_map
+        .town_to_candidate
+        .iter()
+        .filter(|&(&(tx, ty), _)| {
+            (tx, ty) != (pos.x, pos.y)
+                && continent_map
+                    .as_ref()
+                    .and_then(|cm| cm.get(tx, ty))
+                    == Some(current_cid)
+        })
+        .map(|(&(tx, ty), &idx)| {
+            let kind = candidates[idx].kind;
+            (tx, ty, kind)
+        })
+        .collect()
 }
 
 fn handle_shop_character_select(

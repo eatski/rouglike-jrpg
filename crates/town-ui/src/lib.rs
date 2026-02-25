@@ -15,13 +15,13 @@ pub struct TownPlugin;
 impl Plugin for TownPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<HeardTavernHints>()
-            .add_systems(OnEnter(SceneState::Town), setup_town_scene)
+            .add_systems(OnEnter(SceneState::Town), (setup_town_scene, hud_ui::setup_hud))
             .add_systems(
                 Update,
-                (town_input_system, town_display_system)
+                (town_input_system, town_display_system, hud_ui::update_hud)
                     .chain()
                     .run_if(in_state(SceneState::Town)),
             )
-            .add_systems(OnExit(SceneState::Town), cleanup_town_scene);
+            .add_systems(OnExit(SceneState::Town), (cleanup_town_scene, hud_ui::cleanup_hud));
     }
 }

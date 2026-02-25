@@ -12,4 +12,5 @@ app-state = { path = "../app-state" }
 input-ui = { path = "../input-ui" }
 field-core = { path = "../field-core" }
 field-walk = { path = "../field-walk" }
+hud-ui = { path = "../hud-ui" }
 world-gen = { path = "../world-gen" }

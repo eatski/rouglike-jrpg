@@ -103,6 +103,11 @@ impl ContinentMap {
     pub fn get(&self, x: usize, y: usize) -> Option<u8> {
         self.map.get(y).and_then(|row| row.get(x)).copied().flatten()
     }
+
+    /// 生データへの参照を返す（Bevy非依存のドメイン層に渡すため）
+    pub fn as_raw(&self) -> &[Vec<Option<u8>>] {
+        &self.map
+    }
 }
 
 /// 現在のエンカウントゾーン（戦闘開始時にどの敵が出現するかを決定する）
@@ -133,6 +138,7 @@ pub struct OpenedChests {
 pub enum TavernHintKind {
     Cave,
     Hokora,
+    Companion,
 }
 
 /// 居酒屋で聞いたヒントの既読管理リソース
