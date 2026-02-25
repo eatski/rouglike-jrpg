@@ -201,6 +201,45 @@ pub fn candidate_join_dialogue(kind: PartyMemberKind) -> String {
     }
 }
 
+/// 同じ大陸内で仲間候補がいる街の方角を教える台詞を生成する
+///
+/// `candidate_towns` は (街x, 街y, 候補のkind) のリスト。
+/// 最も近い街を選び、方角と仲間の名前を含む台詞を返す。
+/// 候補がいなければ None を返す。
+pub fn companion_hint_dialogue(
+    town_x: usize,
+    town_y: usize,
+    candidate_towns: &[(usize, usize, PartyMemberKind)],
+) -> Option<String> {
+    if candidate_towns.is_empty() {
+        return None;
+    }
+
+    let mut best_dist = i32::MAX;
+    let mut best_dx = 0i32;
+    let mut best_dy = 0i32;
+    let mut best_kind = candidate_towns[0].2;
+
+    for &(cx, cy, kind) in candidate_towns {
+        let dx = torus_delta(town_x, cx, MAP_WIDTH);
+        let dy = torus_delta(town_y, cy, MAP_HEIGHT);
+        let dist = dx.abs() + dy.abs();
+        if dist < best_dist {
+            best_dist = dist;
+            best_dx = dx;
+            best_dy = dy;
+            best_kind = kind;
+        }
+    }
+
+    let dir = direction_label(best_dx, best_dy);
+    let modifier = distance_modifier(best_dist);
+    let name = best_kind.name();
+    Some(format!(
+        "{modifier} {dir}の まちに\n{name}という つわものが いるらしいぞ"
+    ))
+}
+
 /// グリッド内で指定テラインへの最短方向を求める
 ///
 /// `continent_filter` が `Some((continent_map, town_continent_id))` の場合、
@@ -489,6 +528,42 @@ mod tests {
             townsperson_dialogue(),
             "別大陸の祠は除外されるべき: {dialogue}"
         );
+    }
+
+    #[test]
+    fn companion_hint_dialogue_nearest_town() {
+        // 街(75, 75)の北東に仲間候補がいる街がある
+        let candidates = vec![(85, 85, PartyMemberKind::Chilchuck)];
+        let result = companion_hint_dialogue(75, 75, &candidates);
+        assert!(result.is_some());
+        let dialogue = result.unwrap();
+        assert!(
+            dialogue.contains("ほくとう"),
+            "北東の仲間が検出されるべき: {dialogue}"
+        );
+        assert!(dialogue.contains("チルチャック"));
+        assert!(dialogue.contains("つわもの"));
+    }
+
+    #[test]
+    fn companion_hint_dialogue_picks_closest() {
+        // 近い候補と遠い候補がある場合、近い方を選ぶ
+        let candidates = vec![
+            (120, 75, PartyMemberKind::Marcille),   // 遠い (東45)
+            (80, 75, PartyMemberKind::Chilchuck),    // 近い (東5)
+        ];
+        let result = companion_hint_dialogue(75, 75, &candidates);
+        let dialogue = result.unwrap();
+        assert!(
+            dialogue.contains("チルチャック"),
+            "近い方の仲間が選ばれるべき: {dialogue}"
+        );
+    }
+
+    #[test]
+    fn companion_hint_dialogue_empty_returns_none() {
+        let result = companion_hint_dialogue(75, 75, &[]);
+        assert!(result.is_none());
     }
 
     #[test]

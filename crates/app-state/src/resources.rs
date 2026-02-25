@@ -138,6 +138,7 @@ pub struct OpenedChests {
 pub enum TavernHintKind {
     Cave,
     Hokora,
+    Companion,
 }
 
 /// 居酒屋で聞いたヒントの既読管理リソース
