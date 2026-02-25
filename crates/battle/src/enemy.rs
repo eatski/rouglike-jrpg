@@ -94,8 +94,8 @@ impl EnemyKind {
     /// Tier 1 の基本ステータス (max_hp, attack, defense, speed, max_mp)
     fn base_stats(self) -> (i32, i32, i32, i32, i32) {
         match self {
-            EnemyKind::Slime => (10, 3, 1, 3, 0),
-            EnemyKind::Bat => (8, 4, 0, 6, 0),
+            EnemyKind::Slime => (8, 2, 1, 3, 0),
+            EnemyKind::Bat => (6, 3, 0, 6, 0),
             EnemyKind::Goblin => (15, 5, 2, 3, 0),
             EnemyKind::Wolf => (12, 7, 1, 5, 0),
             EnemyKind::Scorpion => (14, 6, 3, 4, 0),
@@ -201,11 +201,9 @@ const fn e(kind: EnemyKind, tier: u8, weight: u8) -> EncounterEntry {
 }
 
 // フィールド（大陸別） — 各大陸5〜7種の敵が出現、隣接大陸と重複あり
-static FIELD_CONTINENT_0: [EncounterEntry; 5] = [
+static FIELD_CONTINENT_0: [EncounterEntry; 3] = [
     e(EnemyKind::Slime, 1, 5),
-    e(EnemyKind::Slime, 2, 2),
-    e(EnemyKind::Bat, 1, 5),
-    e(EnemyKind::Bat, 2, 1),
+    e(EnemyKind::Bat, 1, 4),
     e(EnemyKind::Goblin, 1, 2),
 ];
 
@@ -281,14 +279,13 @@ static FIELD_CONTINENT_6: [EncounterEntry; 8] = [
 ];
 
 // 洞窟（大陸別 — フィールドより少し強い、種類も多め）
-static CAVE_CONTINENT_0: [EncounterEntry; 7] = [
-    e(EnemyKind::Slime, 2, 4),
-    e(EnemyKind::Slime, 3, 1),
-    e(EnemyKind::Bat, 2, 4),
-    e(EnemyKind::Bat, 3, 1),
-    e(EnemyKind::Goblin, 1, 2),
+static CAVE_CONTINENT_0: [EncounterEntry; 6] = [
+    e(EnemyKind::Slime, 1, 3),
+    e(EnemyKind::Slime, 2, 2),
+    e(EnemyKind::Bat, 1, 3),
+    e(EnemyKind::Bat, 2, 2),
+    e(EnemyKind::Goblin, 1, 3),
     e(EnemyKind::Goblin, 2, 1),
-    e(EnemyKind::Scorpion, 1, 1),
 ];
 
 static CAVE_CONTINENT_1: [EncounterEntry; 8] = [
@@ -401,12 +398,19 @@ pub fn generate_enemy_group(
 ) -> Vec<Enemy> {
     let table = encounter_table(continent_id, is_cave);
 
+    let max_count: usize = match continent_id {
+        0 => 2,
+        1 => 3,
+        _ => 4,
+    };
+
     let count = match count_random {
         v if v < 0.3 => 1,
         v if v < 0.6 => 2,
         v if v < 0.85 => 3,
         _ => 4,
     };
+    let count = count.min(max_count);
 
     // 各敵を独立にテーブルから選択（1回の戦闘で複数種類が出る）
     (0..count)
@@ -425,12 +429,30 @@ mod tests {
 
     #[test]
     fn generate_enemy_group_returns_1_to_4() {
+        // 大陸2以上は最大4体
+        assert_eq!(generate_enemy_group(2, false, 0.0, 0.0).len(), 1);
+        assert_eq!(generate_enemy_group(2, false, 0.29, 0.0).len(), 1);
+        assert_eq!(generate_enemy_group(2, false, 0.3, 0.0).len(), 2);
+        assert_eq!(generate_enemy_group(2, false, 0.6, 0.0).len(), 3);
+        assert_eq!(generate_enemy_group(2, false, 0.85, 0.0).len(), 4);
+        assert_eq!(generate_enemy_group(2, false, 1.0, 0.0).len(), 4);
+    }
+
+    #[test]
+    fn continent_0_max_2_enemies() {
+        // 大陸0は最大2体
         assert_eq!(generate_enemy_group(0, false, 0.0, 0.0).len(), 1);
-        assert_eq!(generate_enemy_group(0, false, 0.29, 0.0).len(), 1);
         assert_eq!(generate_enemy_group(0, false, 0.3, 0.0).len(), 2);
-        assert_eq!(generate_enemy_group(0, false, 0.6, 0.0).len(), 3);
-        assert_eq!(generate_enemy_group(0, false, 0.85, 0.0).len(), 4);
-        assert_eq!(generate_enemy_group(0, false, 1.0, 0.0).len(), 4);
+        assert_eq!(generate_enemy_group(0, false, 0.85, 0.0).len(), 2);
+        assert_eq!(generate_enemy_group(0, false, 1.0, 0.0).len(), 2);
+    }
+
+    #[test]
+    fn continent_1_max_3_enemies() {
+        // 大陸1は最大3体
+        assert_eq!(generate_enemy_group(1, false, 0.6, 0.0).len(), 3);
+        assert_eq!(generate_enemy_group(1, false, 0.85, 0.0).len(), 3);
+        assert_eq!(generate_enemy_group(1, false, 1.0, 0.0).len(), 3);
     }
 
     #[test]
@@ -454,7 +476,7 @@ mod tests {
 
     #[test]
     fn cave_enemies_are_higher_tier() {
-        // 大陸0洞窟: Slime/Bat T2以上 + Goblin/Scorpion T1以上
+        // 大陸0洞窟: Slime/Bat/Goblin T1/T2
         let cave_table = encounter_table(0, true);
         // 洞窟テーブルの最低ティアが1以上であること
         assert!(cave_table.iter().all(|e| e.tier >= 1));
@@ -492,13 +514,13 @@ mod tests {
         let t2 = Enemy::new(EnemyKind::Slime, 2);
         let t3 = Enemy::new(EnemyKind::Slime, 3);
 
-        assert_eq!(t1.stats.max_hp, 10);
-        assert_eq!(t2.stats.max_hp, 15); // 10 * 1.5
-        assert_eq!(t3.stats.max_hp, 20); // 10 * 2.0
+        assert_eq!(t1.stats.max_hp, 8);
+        assert_eq!(t2.stats.max_hp, 12); // 8 * 1.5
+        assert_eq!(t3.stats.max_hp, 16); // 8 * 2.0
 
-        assert_eq!(t1.stats.attack, 3);
-        assert_eq!(t2.stats.attack, 5); // 3 * 1.5 = 4.5 → 5
-        assert_eq!(t3.stats.attack, 6); // 3 * 2.0
+        assert_eq!(t1.stats.attack, 2);
+        assert_eq!(t2.stats.attack, 3); // 2 * 1.5 = 3
+        assert_eq!(t3.stats.attack, 4); // 2 * 2.0
     }
 
     #[test]
@@ -528,7 +550,7 @@ mod tests {
         let s = Enemy::slime();
         assert_eq!(s.kind, EnemyKind::Slime);
         assert_eq!(s.tier, 1);
-        assert_eq!(s.stats.max_hp, 10);
+        assert_eq!(s.stats.max_hp, 8);
 
         let dl = Enemy::dark_lord();
         assert_eq!(dl.kind, EnemyKind::DarkLord);
