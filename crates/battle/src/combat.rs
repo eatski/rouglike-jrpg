@@ -815,7 +815,7 @@ mod tests {
                 target: TargetId::Enemy(0),
             },
             BattleAction::Spell {
-                spell: SpellKind::Zola,
+                spell: SpellKind::Fire1,
                 target: TargetId::Enemy(0),
             },
             BattleAction::Attack {
@@ -857,7 +857,7 @@ mod tests {
                 target: TargetId::Enemy(0),
             },
             BattleAction::Spell {
-                spell: SpellKind::Luna,
+                spell: SpellKind::Heal1,
                 target: TargetId::Party(0),
             },
         ];
@@ -890,7 +890,7 @@ mod tests {
                 target: TargetId::Enemy(0),
             },
             BattleAction::Spell {
-                spell: SpellKind::Luna,
+                spell: SpellKind::Heal1,
                 target: TargetId::Party(0), // 倒されている → リターゲット
             },
         ];
@@ -981,7 +981,7 @@ mod tests {
         let mut battle = BattleState::new(party, enemies);
 
         let commands = vec![BattleAction::Spell {
-            spell: SpellKind::Neld,
+            spell: SpellKind::Blaze1,
             target: TargetId::Enemy(0), // AoEなのでダミー
         }];
         let randoms = make_random(vec![1.0; 4], 0.0);
@@ -1021,7 +1021,7 @@ mod tests {
                 target: TargetId::Enemy(0),
             },
             BattleAction::Spell {
-                spell: SpellKind::Panam,
+                spell: SpellKind::Healall1,
                 target: TargetId::Party(0), // AoEなのでダミー
             },
         ];
@@ -1056,7 +1056,7 @@ mod tests {
                 target: TargetId::Enemy(0),
             },
             BattleAction::Spell {
-                spell: SpellKind::Bolga,
+                spell: SpellKind::Boost1,
                 target: TargetId::Party(0),
             },
         ];
@@ -1095,7 +1095,7 @@ mod tests {
                 target: TargetId::Enemy(0),
             },
             BattleAction::Spell {
-                spell: SpellKind::Garde,
+                spell: SpellKind::Shield1,
                 target: TargetId::Party(0),
             },
         ];
@@ -1120,7 +1120,7 @@ mod tests {
 
         // ターン1: バフ付与
         let commands = vec![BattleAction::Spell {
-            spell: SpellKind::Bolga,
+            spell: SpellKind::Boost1,
             target: TargetId::Party(0),
         }];
         let randoms = make_random(vec![1.0; 2], 0.0);
@@ -1165,7 +1165,7 @@ mod tests {
 
         // Bolga(ATK+3)を付与
         let commands = vec![BattleAction::Spell {
-            spell: SpellKind::Bolga,
+            spell: SpellKind::Boost1,
             target: TargetId::Party(0),
         }];
         let randoms = make_random(vec![1.0; 2], 0.0);
@@ -1185,7 +1185,7 @@ mod tests {
 
         // Bolgarda(ATK+6)で上書き → 持続5にリセット
         let commands = vec![BattleAction::Spell {
-            spell: SpellKind::Bolgarda,
+            spell: SpellKind::Boost2,
             target: TargetId::Party(0),
         }];
         let randoms = make_random(vec![1.0; 2], 0.0);
