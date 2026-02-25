@@ -121,10 +121,10 @@ pub fn town_input_system(
                                     heard_set.insert(chosen);
                                     let dialogue = match chosen {
                                         TavernHintKind::Cave => {
-                                            cave_hint_dialogue(&active_map.grid, pos.x, pos.y)
+                                            cave_hint_dialogue(&active_map.structures, pos.x, pos.y)
                                         }
                                         TavernHintKind::Hokora => {
-                                            hokora_hint_dialogue(&active_map.grid, pos.x, pos.y)
+                                            hokora_hint_dialogue(&active_map.structures, pos.x, pos.y)
                                         }
                                     };
                                     town_res.phase =

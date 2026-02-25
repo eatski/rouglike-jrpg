@@ -1,7 +1,6 @@
 use bevy::prelude::*;
 
 use terrain::TileAction;
-
 use app_state::{ContinentMap, EncounterZone, SceneState};
 use field_core::{ActiveMap, OnBoat, Player, TilePosition};
 use crate::TileEnteredEvent;
@@ -24,8 +23,7 @@ pub fn check_tile_action_system(
             continue;
         }
 
-        let terrain = active_map.terrain_at(tile_pos.x, tile_pos.y);
-        match terrain.tile_action() {
+        match active_map.tile_action_at(tile_pos.x, tile_pos.y) {
             TileAction::EnterTown => {
                 next_state.set(SceneState::Town);
                 return;

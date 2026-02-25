@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use cave::TreasureContent;
-use terrain::Terrain;
+use terrain::Structure;
 
 use app_state::{BossBattlePending, OpenedChests, PartyState, SceneState};
 use field_core::{ActiveMap, Player, TilePosition};
@@ -128,7 +128,7 @@ pub fn handle_cave_move_completed(
                     // ワープゾーン上でPendingMoveがブロックされた場合にも
                     // 梯子判定を行う（MovementLockedはバウンスが解除）
                     if tile_pos.x < active_map.width && tile_pos.y < active_map.height
-                        && active_map.terrain_at(tile_pos.x, tile_pos.y) == Terrain::Ladder
+                        && active_map.structure_at(tile_pos.x, tile_pos.y) == Structure::Ladder
                     {
                         next_state.set(SceneState::Exploring);
                     }
@@ -136,8 +136,8 @@ pub fn handle_cave_move_completed(
             }
         } else {
             commands.entity(entity).remove::<MovementLocked>();
-            let terrain = active_map.terrain_at(tile_pos.x, tile_pos.y);
-            if terrain == Terrain::Ladder {
+            let structure = active_map.structure_at(tile_pos.x, tile_pos.y);
+            if structure == Structure::Ladder {
                 // 梯子タイル上 → フィールドに戻る
                 next_state.set(SceneState::Exploring);
                 return;

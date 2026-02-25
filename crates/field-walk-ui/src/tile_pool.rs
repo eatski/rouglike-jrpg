@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use std::collections::{HashMap, HashSet};
 
 use crate::coast_lookup;
-use terrain::{Terrain, MAP_HEIGHT, MAP_WIDTH};
+use terrain::{Structure, Terrain, MAP_HEIGHT, MAP_WIDTH};
 
 use app_state::ContinentMap;
 use field_core::{ActiveMap, MapTile, Player, TilePosition, TILE_SIZE, VISIBLE_CELLS};
@@ -89,8 +89,19 @@ fn logical_to_map(logical_x: i32, logical_y: i32) -> (usize, usize) {
 
 /// 地形に対応するテクスチャを取得
 ///
+/// 構造物がある場合は構造物テクスチャを優先。
 /// ボス大陸（continent_id=6）の Plains/Forest は暗いバリアントテクスチャを使用する。
-fn get_terrain_texture(terrain: Terrain, continent_id: Option<u8>, textures: &TileTextures) -> Handle<Image> {
+fn get_terrain_texture(terrain: Terrain, structure: Structure, continent_id: Option<u8>, textures: &TileTextures) -> Handle<Image> {
+    // 構造物がある場合は構造物テクスチャを優先
+    match structure {
+        Structure::Town => return textures.town.clone(),
+        Structure::Cave => return textures.cave.clone(),
+        Structure::BossCave => return textures.boss_cave.clone(),
+        Structure::Hokora => return textures.hokora.clone(),
+        Structure::Ladder => return textures.ladder.clone(),
+        Structure::WarpZone => return textures.warp_zone.clone(),
+        Structure::None => {}
+    }
     let is_boss = continent_id == Some(BOSS_CONTINENT_ID);
     match terrain {
         Terrain::Sea => textures.sea.clone(),
@@ -99,14 +110,8 @@ fn get_terrain_texture(terrain: Terrain, continent_id: Option<u8>, textures: &Ti
         Terrain::Forest if is_boss => textures.dark_forest.clone(),
         Terrain::Forest => textures.forest.clone(),
         Terrain::Mountain => textures.mountain.clone(),
-        Terrain::Town => textures.town.clone(),
-        Terrain::Cave => textures.cave.clone(),
         Terrain::CaveWall => textures.cave_wall.clone(),
         Terrain::CaveFloor => textures.cave_floor.clone(),
-        Terrain::WarpZone => textures.warp_zone.clone(),
-        Terrain::Ladder => textures.ladder.clone(),
-        Terrain::Hokora => textures.hokora.clone(),
-        Terrain::BossCave => textures.boss_cave.clone(),
         Terrain::BossCaveWall => textures.boss_cave_wall.clone(),
         Terrain::BossCaveFloor => textures.boss_cave_floor.clone(),
     }
@@ -212,8 +217,9 @@ pub fn update_visible_tiles(
         // マップ座標を計算（トーラスラップ）
         let (map_x, map_y) = logical_to_map(logical_x, logical_y);
         let terrain = active_map.grid[map_y][map_x];
+        let structure = active_map.structures[map_y][map_x];
         let continent_id = continent_map.as_ref().and_then(|cm| cm.get(map_x, map_y));
-        let texture = if terrain == Terrain::Sea {
+        let texture = if terrain == Terrain::Sea && structure == Structure::None {
             let mask = compute_coast_mask(map_x, map_y, &active_map.grid);
             if mask != 0 {
                 let idx = tile_textures.coast_lookup[mask as usize] as usize;
@@ -222,7 +228,7 @@ pub fn update_visible_tiles(
                 tile_textures.sea.clone()
             }
         } else {
-            get_terrain_texture(terrain, continent_id, &tile_textures)
+            get_terrain_texture(terrain, structure, continent_id, &tile_textures)
         };
 
         // ワールド座標を計算

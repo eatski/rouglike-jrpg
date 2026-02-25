@@ -25,6 +25,7 @@ fn setup_cave_direct(mut commands: Commands, asset_server: Res<AssetServer>) {
     let cave_origin_y = -(CAVE_HEIGHT as f32 * TILE_SIZE) / 2.0 + TILE_SIZE / 2.0;
     let active_map = ActiveMap {
         grid: cave_data.grid,
+        structures: cave_data.structures,
         width: cave_data.width,
         height: cave_data.height,
         origin_x: cave_origin_x,

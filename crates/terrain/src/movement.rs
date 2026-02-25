@@ -17,7 +17,7 @@ pub fn try_grid_move(
     width: usize,
     height: usize,
     wraps: bool,
-    passable: impl Fn(Terrain) -> bool,
+    passable: impl Fn(usize, usize, Terrain) -> bool,
 ) -> MoveResult {
     if is_diagonal_movement(dx, dy) {
         return MoveResult::Blocked;
@@ -37,7 +37,7 @@ pub fn try_grid_move(
         (nx as usize, ny as usize)
     };
 
-    if passable(grid[new_y][new_x]) {
+    if passable(new_x, new_y, grid[new_y][new_x]) {
         MoveResult::Moved { new_x, new_y }
     } else {
         MoveResult::Blocked
@@ -60,7 +60,7 @@ mod tests {
         grid[5][5] = Terrain::Plains;
         grid[5][6] = Terrain::Plains;
 
-        let result = try_grid_move(5, 5, 1, 0, &grid, MAP_WIDTH, MAP_HEIGHT, true, Terrain::is_walkable);
+        let result = try_grid_move(5, 5, 1, 0, &grid, MAP_WIDTH, MAP_HEIGHT, true, |_x, _y, t| t.is_walkable());
         assert_eq!(result, MoveResult::Moved { new_x: 6, new_y: 5 });
     }
 
@@ -70,7 +70,7 @@ mod tests {
         grid[5][5] = Terrain::Plains;
         grid[5][6] = Terrain::Forest;
 
-        let result = try_grid_move(5, 5, 1, 0, &grid, MAP_WIDTH, MAP_HEIGHT, true, Terrain::is_walkable);
+        let result = try_grid_move(5, 5, 1, 0, &grid, MAP_WIDTH, MAP_HEIGHT, true, |_x, _y, t| t.is_walkable());
         assert_eq!(result, MoveResult::Moved { new_x: 6, new_y: 5 });
     }
 
@@ -80,7 +80,7 @@ mod tests {
         grid[5][5] = Terrain::Plains;
         grid[5][6] = Terrain::Mountain;
 
-        let result = try_grid_move(5, 5, 1, 0, &grid, MAP_WIDTH, MAP_HEIGHT, true, Terrain::is_walkable);
+        let result = try_grid_move(5, 5, 1, 0, &grid, MAP_WIDTH, MAP_HEIGHT, true, |_x, _y, t| t.is_walkable());
         assert_eq!(result, MoveResult::Blocked);
     }
 
@@ -89,7 +89,7 @@ mod tests {
         let mut grid = create_test_grid(Terrain::Sea);
         grid[5][5] = Terrain::Plains;
 
-        let result = try_grid_move(5, 5, 1, 0, &grid, MAP_WIDTH, MAP_HEIGHT, true, Terrain::is_walkable);
+        let result = try_grid_move(5, 5, 1, 0, &grid, MAP_WIDTH, MAP_HEIGHT, true, |_x, _y, t| t.is_walkable());
         assert_eq!(result, MoveResult::Blocked);
     }
 
@@ -99,7 +99,7 @@ mod tests {
         grid[5][MAP_WIDTH - 1] = Terrain::Plains;
         grid[5][0] = Terrain::Plains;
 
-        let result = try_grid_move(MAP_WIDTH - 1, 5, 1, 0, &grid, MAP_WIDTH, MAP_HEIGHT, true, Terrain::is_walkable);
+        let result = try_grid_move(MAP_WIDTH - 1, 5, 1, 0, &grid, MAP_WIDTH, MAP_HEIGHT, true, |_x, _y, t| t.is_walkable());
         assert_eq!(result, MoveResult::Moved { new_x: 0, new_y: 5 });
     }
 
@@ -109,7 +109,7 @@ mod tests {
         grid[5][0] = Terrain::Plains;
         grid[5][MAP_WIDTH - 1] = Terrain::Plains;
 
-        let result = try_grid_move(0, 5, -1, 0, &grid, MAP_WIDTH, MAP_HEIGHT, true, Terrain::is_walkable);
+        let result = try_grid_move(0, 5, -1, 0, &grid, MAP_WIDTH, MAP_HEIGHT, true, |_x, _y, t| t.is_walkable());
         assert_eq!(result, MoveResult::Moved { new_x: MAP_WIDTH - 1, new_y: 5 });
     }
 
@@ -119,7 +119,7 @@ mod tests {
         grid[MAP_HEIGHT - 1][5] = Terrain::Plains;
         grid[0][5] = Terrain::Plains;
 
-        let result = try_grid_move(5, MAP_HEIGHT - 1, 0, 1, &grid, MAP_WIDTH, MAP_HEIGHT, true, Terrain::is_walkable);
+        let result = try_grid_move(5, MAP_HEIGHT - 1, 0, 1, &grid, MAP_WIDTH, MAP_HEIGHT, true, |_x, _y, t| t.is_walkable());
         assert_eq!(result, MoveResult::Moved { new_x: 5, new_y: 0 });
     }
 
@@ -129,7 +129,7 @@ mod tests {
         grid[0][5] = Terrain::Plains;
         grid[MAP_HEIGHT - 1][5] = Terrain::Plains;
 
-        let result = try_grid_move(5, 0, 0, -1, &grid, MAP_WIDTH, MAP_HEIGHT, true, Terrain::is_walkable);
+        let result = try_grid_move(5, 0, 0, -1, &grid, MAP_WIDTH, MAP_HEIGHT, true, |_x, _y, t| t.is_walkable());
         assert_eq!(result, MoveResult::Moved { new_x: 5, new_y: MAP_HEIGHT - 1 });
     }
 
@@ -139,7 +139,7 @@ mod tests {
         grid[5][5] = Terrain::Plains;
         grid[6][6] = Terrain::Plains;
 
-        let result = try_grid_move(5, 5, 1, 1, &grid, MAP_WIDTH, MAP_HEIGHT, true, Terrain::is_walkable);
+        let result = try_grid_move(5, 5, 1, 1, &grid, MAP_WIDTH, MAP_HEIGHT, true, |_x, _y, t| t.is_walkable());
         assert_eq!(result, MoveResult::Blocked);
     }
 
@@ -148,7 +148,7 @@ mod tests {
         let mut grid = create_test_grid(Terrain::Sea);
         grid[5][5] = Terrain::Plains;
 
-        let result = try_grid_move(5, 5, 0, 0, &grid, MAP_WIDTH, MAP_HEIGHT, true, Terrain::is_walkable);
+        let result = try_grid_move(5, 5, 0, 0, &grid, MAP_WIDTH, MAP_HEIGHT, true, |_x, _y, t| t.is_walkable());
         assert_eq!(result, MoveResult::Moved { new_x: 5, new_y: 5 });
     }
 
@@ -162,7 +162,7 @@ mod tests {
         grid[2][2] = Terrain::CaveFloor;
         grid[2][3] = Terrain::CaveFloor;
 
-        let result = try_grid_move(2, 2, 1, 0, &grid, 5, 5, false, Terrain::is_walkable);
+        let result = try_grid_move(2, 2, 1, 0, &grid, 5, 5, false, |_x, _y, t| t.is_walkable());
         assert_eq!(result, MoveResult::Moved { new_x: 3, new_y: 2 });
     }
 
@@ -171,7 +171,7 @@ mod tests {
         let mut grid = create_sized_grid(5, 5, Terrain::CaveWall);
         grid[2][2] = Terrain::CaveFloor;
 
-        let result = try_grid_move(2, 2, 1, 0, &grid, 5, 5, false, Terrain::is_walkable);
+        let result = try_grid_move(2, 2, 1, 0, &grid, 5, 5, false, |_x, _y, t| t.is_walkable());
         assert_eq!(result, MoveResult::Blocked);
     }
 
@@ -179,7 +179,7 @@ mod tests {
     fn try_grid_move_nowrap_blocked_by_boundary() {
         let grid = create_sized_grid(5, 5, Terrain::CaveFloor);
 
-        let result = try_grid_move(0, 0, -1, 0, &grid, 5, 5, false, Terrain::is_walkable);
+        let result = try_grid_move(0, 0, -1, 0, &grid, 5, 5, false, |_x, _y, t| t.is_walkable());
         assert_eq!(result, MoveResult::Blocked);
     }
 
@@ -187,17 +187,18 @@ mod tests {
     fn try_grid_move_nowrap_diagonal_blocked() {
         let grid = create_sized_grid(5, 5, Terrain::CaveFloor);
 
-        let result = try_grid_move(2, 2, 1, 1, &grid, 5, 5, false, Terrain::is_walkable);
+        let result = try_grid_move(2, 2, 1, 1, &grid, 5, 5, false, |_x, _y, t| t.is_walkable());
         assert_eq!(result, MoveResult::Blocked);
     }
 
     #[test]
-    fn try_grid_move_nowrap_to_ladder() {
+    fn try_grid_move_nowrap_to_ladder_tile() {
+        // 梯子はStructureだが、下地のCaveFloorが歩行可能なので移動可能
         let mut grid = create_sized_grid(5, 5, Terrain::CaveWall);
         grid[2][2] = Terrain::CaveFloor;
-        grid[2][3] = Terrain::Ladder;
+        grid[2][3] = Terrain::CaveFloor; // 梯子の下地
 
-        let result = try_grid_move(2, 2, 1, 0, &grid, 5, 5, false, Terrain::is_walkable);
+        let result = try_grid_move(2, 2, 1, 0, &grid, 5, 5, false, |_x, _y, t| t.is_walkable());
         assert_eq!(result, MoveResult::Moved { new_x: 3, new_y: 2 });
     }
 
@@ -209,7 +210,7 @@ mod tests {
     fn try_grid_move_navigable_succeeds_on_sea() {
         let grid = create_test_grid(Terrain::Sea);
 
-        let result = try_grid_move(5, 5, 1, 0, &grid, MAP_WIDTH, MAP_HEIGHT, true, Terrain::is_navigable);
+        let result = try_grid_move(5, 5, 1, 0, &grid, MAP_WIDTH, MAP_HEIGHT, true, |_x, _y, t| t.is_navigable());
         assert_eq!(result, MoveResult::Moved { new_x: 6, new_y: 5 });
     }
 
@@ -218,7 +219,7 @@ mod tests {
         let mut grid = create_test_grid(Terrain::Sea);
         grid[5][6] = Terrain::Plains;
 
-        let result = try_grid_move(5, 5, 1, 0, &grid, MAP_WIDTH, MAP_HEIGHT, true, Terrain::is_navigable);
+        let result = try_grid_move(5, 5, 1, 0, &grid, MAP_WIDTH, MAP_HEIGHT, true, |_x, _y, t| t.is_navigable());
         assert_eq!(result, MoveResult::Blocked);
     }
 }

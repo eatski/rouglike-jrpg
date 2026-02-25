@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use bevy::prelude::*;
-use terrain::Terrain;
+use terrain::{Structure, Terrain};
 
 use field_core::{ActiveMap, MapTile, Player, TilePosition, TILE_SIZE};
 use crate::SmoothMove;
@@ -97,24 +97,26 @@ pub fn update_simple_tiles(
         }
 
         // 範囲外は壁として描画
-        let terrain = if lx >= 0
+        let (terrain, structure) = if lx >= 0
             && lx < active_map.width as i32
             && ly >= 0
             && ly < active_map.height as i32
         {
-            active_map.grid[ly as usize][lx as usize]
+            (active_map.grid[ly as usize][lx as usize], active_map.structures[ly as usize][lx as usize])
         } else {
-            Terrain::CaveWall
+            (Terrain::CaveWall, Structure::None)
         };
 
-        let texture = match terrain {
-            Terrain::CaveWall => tile_textures.cave_wall.clone(),
-            Terrain::CaveFloor => tile_textures.cave_floor.clone(),
-            Terrain::BossCaveWall => tile_textures.boss_cave_wall.clone(),
-            Terrain::BossCaveFloor => tile_textures.boss_cave_floor.clone(),
-            Terrain::WarpZone => tile_textures.warp_zone.clone(),
-            Terrain::Ladder => tile_textures.ladder.clone(),
-            _ => tile_textures.cave_wall.clone(),
+        let texture = match structure {
+            Structure::Ladder => tile_textures.ladder.clone(),
+            Structure::WarpZone => tile_textures.warp_zone.clone(),
+            _ => match terrain {
+                Terrain::CaveWall => tile_textures.cave_wall.clone(),
+                Terrain::CaveFloor => tile_textures.cave_floor.clone(),
+                Terrain::BossCaveWall => tile_textures.boss_cave_wall.clone(),
+                Terrain::BossCaveFloor => tile_textures.boss_cave_floor.clone(),
+                _ => tile_textures.cave_wall.clone(),
+            },
         };
 
         let (world_x, world_y) = active_map.to_world_logical(lx, ly);

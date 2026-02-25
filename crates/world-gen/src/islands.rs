@@ -1,6 +1,6 @@
 //! 島検出と船スポーン位置の計算
 
-use terrain::{orthogonal_neighbors, Terrain, MAP_HEIGHT, MAP_WIDTH};
+use terrain::{orthogonal_neighbors, Structure, Terrain, MAP_HEIGHT, MAP_WIDTH};
 
 use rand::prelude::SliceRandom;
 use rand::Rng;
@@ -424,7 +424,8 @@ pub fn calculate_hokora_spawns(
 /// `spawn_position` が属する島にPlainsタイルからランダムに追加の街を配置する。
 /// 既存のTownタイルとspawn_positionを避ける。
 pub fn place_extra_towns(
-    grid: &mut [Vec<Terrain>],
+    grid: &[Vec<Terrain>],
+    structures: &mut [Vec<Structure>],
     rng: &mut impl Rng,
     spawn_position: (usize, usize),
     extra_count: usize,
@@ -447,7 +448,7 @@ pub fn place_extra_towns(
     // 既存の街座標を収集（間隔チェック用）
     let mut existing_towns: Vec<(usize, usize)> = spawn_island
         .iter()
-        .filter(|&&(x, y)| grid[y][x] == Terrain::Town)
+        .filter(|&&(x, y)| structures[y][x] == Structure::Town)
         .copied()
         .collect();
 
@@ -455,7 +456,9 @@ pub fn place_extra_towns(
         let mut candidates: Vec<(usize, usize)> = spawn_island
             .iter()
             .filter(|&&(x, y)| {
-                grid[y][x] == Terrain::Plains && (x, y) != spawn_position
+                grid[y][x] == Terrain::Plains
+                    && structures[y][x] == Structure::None
+                    && (x, y) != spawn_position
             })
             .copied()
             .collect();
@@ -469,7 +472,7 @@ pub fn place_extra_towns(
         });
 
         if let Some(&(x, y)) = picked {
-            grid[y][x] = Terrain::Town;
+            structures[y][x] = Structure::Town;
             placed.push(TownSpawn { x, y });
             existing_towns.push((x, y));
         } else {
@@ -605,6 +608,7 @@ mod tests {
     #[test]
     fn place_extra_towns_adds_towns_on_spawn_island() {
         let mut grid = create_test_grid(Terrain::Sea);
+        let mut structures = vec![vec![Structure::None; MAP_WIDTH]; MAP_HEIGHT];
         // スポーン大陸（十分な広さ: 30x30）
         for y in 5..35 {
             for x in 5..35 {
@@ -614,11 +618,11 @@ mod tests {
         let spawn_pos = (20, 20);
 
         let mut rng = create_rng(42);
-        let extra = place_extra_towns(&mut grid, &mut rng, spawn_pos, 2);
+        let extra = place_extra_towns(&grid, &mut structures, &mut rng, spawn_pos, 2);
 
         assert_eq!(extra.len(), 2);
         for town in &extra {
-            assert_eq!(grid[town.y][town.x], Terrain::Town);
+            assert_eq!(structures[town.y][town.x], Structure::Town);
             assert_ne!((town.x, town.y), spawn_pos);
         }
 

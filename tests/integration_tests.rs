@@ -92,6 +92,7 @@ fn setup_test_app_with_map(grid: Vec<Vec<Terrain>>, spawn_x: usize, spawn_y: usi
     let origin_x = -(width as f32 * TILE_SIZE) / 2.0 + TILE_SIZE / 2.0;
     let origin_y = -(height as f32 * TILE_SIZE) / 2.0 + TILE_SIZE / 2.0;
     app.insert_resource(ActiveMap {
+        structures: vec![vec![terrain::Structure::None; width]; height],
         grid,
         width,
         height,
@@ -722,6 +723,7 @@ fn setup_battle_test_app() -> App {
     app.init_resource::<PartyState>();
     app.insert_resource(ActiveMap {
         grid: vec![vec![Terrain::Plains; 1]; 1],
+        structures: vec![vec![terrain::Structure::None; 1]; 1],
         width: 1,
         height: 1,
         origin_x: 0.0,
@@ -1427,12 +1429,12 @@ fn cave_exploration_scenario() {
 
     // スポーン地点は梯子
     let (sx, sy) = cave.spawn_position;
-    assert_eq!(cave.grid[sy][sx], Terrain::Ladder);
+    assert_eq!(cave.structures[sy][sx], terrain::Structure::Ladder);
 
     // スポーン地点から歩行可能な隣接タイルを探す
     let mut can_move = false;
     for (dx, dy) in [(0, -1), (0, 1), (-1, 0), (1, 0)] {
-        let result = try_grid_move(sx, sy, dx, dy, &cave.grid, CAVE_WIDTH, CAVE_HEIGHT, false, Terrain::is_walkable);
+        let result = try_grid_move(sx, sy, dx, dy, &cave.grid, CAVE_WIDTH, CAVE_HEIGHT, false, |_x, _y, t: Terrain| t.is_walkable());
         if let MoveResult::Moved { .. } = result {
             can_move = true;
             break;
@@ -1497,7 +1499,7 @@ fn cave_diagonal_movement_is_always_blocked() {
 
     // 斜め移動は常にブロックされる
     for (dx, dy) in [(1, 1), (1, -1), (-1, 1), (-1, -1)] {
-        let result = try_grid_move(sx, sy, dx, dy, &cave.grid, CAVE_WIDTH, CAVE_HEIGHT, false, Terrain::is_walkable);
+        let result = try_grid_move(sx, sy, dx, dy, &cave.grid, CAVE_WIDTH, CAVE_HEIGHT, false, |_x, _y, t: Terrain| t.is_walkable());
         assert_eq!(result, MoveResult::Blocked, "Diagonal move ({},{}) should be blocked", dx, dy);
     }
 }
@@ -1549,6 +1551,7 @@ fn cave_treasure_adds_to_inventory() {
 fn cave_hint_dialogue_finds_nearest_cave_in_generated_map() {
     use world_gen::generate_map;
     use town::cave_hint_dialogue;
+    use terrain::Structure;
     use rand::SeedableRng;
     use rand_chacha::ChaCha8Rng;
 
@@ -1557,9 +1560,9 @@ fn cave_hint_dialogue_finds_nearest_cave_in_generated_map() {
 
     // マップ内の町を見つける
     let mut town_pos = None;
-    for (y, row) in map.grid.iter().enumerate() {
-        for (x, terrain) in row.iter().enumerate() {
-            if *terrain == Terrain::Town {
+    for (y, row) in map.structures.iter().enumerate() {
+        for (x, structure) in row.iter().enumerate() {
+            if *structure == Structure::Town {
                 town_pos = Some((x, y));
                 break;
             }
@@ -1568,9 +1571,9 @@ fn cave_hint_dialogue_finds_nearest_cave_in_generated_map() {
     }
 
     if let Some((tx, ty)) = town_pos {
-        let dialogue = cave_hint_dialogue(&map.grid, tx, ty);
+        let dialogue = cave_hint_dialogue(&map.structures, tx, ty);
         // マップに洞窟があれば方角ヒントが返る
-        let has_cave = map.grid.iter().flatten().any(|t| *t == Terrain::Cave);
+        let has_cave = map.structures.iter().flatten().any(|s| *s == Structure::Cave);
         if has_cave {
             assert!(dialogue.contains("どうくつ"), "Dialogue should mention cave: {}", dialogue);
         }
@@ -1584,6 +1587,7 @@ fn cave_hint_dialogue_finds_nearest_cave_in_generated_map() {
 #[test]
 fn generated_map_has_towns_and_caves_on_walkable_tiles() {
     use world_gen::generate_connected_map;
+    use terrain::Structure;
     use rand::SeedableRng;
     use rand_chacha::ChaCha8Rng;
 
@@ -1591,18 +1595,18 @@ fn generated_map_has_towns_and_caves_on_walkable_tiles() {
         let mut rng = ChaCha8Rng::seed_from_u64(seed);
         let map = generate_connected_map(&mut rng);
 
-        // 町の確認
-        for (y, row) in map.grid.iter().enumerate() {
-            for (x, terrain) in row.iter().enumerate() {
-                if *terrain == Terrain::Town {
-                    // Townタイルはis_walkableであること
-                    assert!(terrain.is_walkable(), "Town at ({},{}) should be walkable", x, y);
+        // 構造物の確認
+        for (y, row) in map.structures.iter().enumerate() {
+            for (x, structure) in row.iter().enumerate() {
+                if *structure == Structure::Town {
+                    // 構造物下の地形はis_walkableであること
+                    assert!(map.grid[y][x].is_walkable(), "Town at ({},{}) should be on walkable terrain", x, y);
                     // TileActionがEnterTownであること
-                    assert_eq!(terrain.tile_action(), terrain::TileAction::EnterTown);
+                    assert_eq!(structure.tile_action(), terrain::TileAction::EnterTown);
                 }
-                if *terrain == Terrain::Cave {
-                    // CaveタイルもEnterCaveアクションを持つ
-                    assert_eq!(terrain.tile_action(), terrain::TileAction::EnterCave);
+                if *structure == Structure::Cave {
+                    // CaveもEnterCaveアクションを持つ
+                    assert_eq!(structure.tile_action(), terrain::TileAction::EnterCave);
                 }
             }
         }
