@@ -1,5 +1,5 @@
 use crate::enemy::Enemy;
-use crate::spell::{calculate_heal_amount, calculate_spell_damage, SpellEffect, SpellKind, SpellTarget};
+use crate::spell::{calculate_heal_amount, calculate_mp_drain, calculate_spell_damage, SpellEffect, SpellKind, SpellTarget};
 use party::{CombatStats, ItemEffect, ItemKind, PartyMember};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -70,6 +70,12 @@ pub enum TurnResult {
     ItemUsed {
         user: ActorId,
         item: ItemKind,
+        target: TargetId,
+        amount: i32,
+    },
+    MpDrained {
+        caster: ActorId,
+        spell: SpellKind,
         target: TargetId,
         amount: i32,
     },
@@ -442,6 +448,36 @@ impl BattleState {
                     _ => {}
                 }
             }
+            SpellEffect::MpDrain => {
+                match spell.target_type() {
+                    SpellTarget::SingleEnemy => {
+                        let actual_target = self.retarget_enemy(target);
+                        if let Some(TargetId::Enemy(ei)) = actual_target {
+                            let amount = calculate_mp_drain(spell.power(), random_factor);
+                            self.enemies[ei].stats.drain_mp(amount);
+                            results.push(TurnResult::MpDrained {
+                                caster: ActorId::Party(caster_idx),
+                                spell,
+                                target: TargetId::Enemy(ei),
+                                amount,
+                            });
+                        }
+                    }
+                    SpellTarget::AllEnemies => {
+                        for ei in self.alive_enemy_indices() {
+                            let amount = calculate_mp_drain(spell.power(), random_factor);
+                            self.enemies[ei].stats.drain_mp(amount);
+                            results.push(TurnResult::MpDrained {
+                                caster: ActorId::Party(caster_idx),
+                                spell,
+                                target: TargetId::Enemy(ei),
+                                amount,
+                            });
+                        }
+                    }
+                    _ => {}
+                }
+            }
         }
 
         results
@@ -622,6 +658,38 @@ impl BattleState {
                     target: TargetId::Enemy(enemy_idx),
                     amount,
                 });
+            }
+            SpellEffect::MpDrain => {
+                match spell.target_type() {
+                    SpellTarget::SingleEnemy => {
+                        // 敵から見て「敵」= パーティメンバー → 先頭の生存メンバーのMP減少
+                        let alive_party = self.alive_party_indices();
+                        if let Some(&pi) = alive_party.first() {
+                            let amount = calculate_mp_drain(spell.power(), random_factor);
+                            self.party[pi].stats.drain_mp(amount);
+                            results.push(TurnResult::MpDrained {
+                                caster: ActorId::Enemy(enemy_idx),
+                                spell,
+                                target: TargetId::Party(pi),
+                                amount,
+                            });
+                        }
+                    }
+                    SpellTarget::AllEnemies => {
+                        // 敵から見て「全体敵」= パーティ全員のMP減少
+                        for pi in self.alive_party_indices() {
+                            let amount = calculate_mp_drain(spell.power(), random_factor);
+                            self.party[pi].stats.drain_mp(amount);
+                            results.push(TurnResult::MpDrained {
+                                caster: ActorId::Enemy(enemy_idx),
+                                spell,
+                                target: TargetId::Party(pi),
+                                amount,
+                            });
+                        }
+                    }
+                    _ => {}
+                }
             }
             // バフ呪文は敵には未実装
             _ => {}

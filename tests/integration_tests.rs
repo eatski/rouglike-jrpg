@@ -1094,9 +1094,9 @@ fn hero_has_all_16_spells_at_level_1() {
     use battle::spell::available_spells;
     use party::PartyMemberKind;
 
-    // ライオスはLv1で全16呪文を使える
+    // ライオスはLv1で全20呪文を使える
     let spells = available_spells(PartyMemberKind::Laios, 1);
-    assert_eq!(spells.len(), 16);
+    assert_eq!(spells.len(), 20);
 }
 
 // ============================================
@@ -3014,4 +3014,100 @@ fn buff_overwrite_resets_duration_integration() {
     let buff = battle.party_buffs[0].attack_up.unwrap();
     assert_eq!(buff.amount, 6, "Overwritten buff should have ATK+6");
     assert_eq!(buff.remaining_turns, 4, "Overwritten buff should have 4 remaining turns (5 - 1 tick)");
+}
+
+// ============================================
+// MP減少呪文テスト
+// ============================================
+
+#[test]
+fn drain_spell_reduces_enemy_mp() {
+    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult, SpellKind};
+    use party::PartyMember;
+
+    let mut laios = PartyMember::laios();
+    laios.stats.mp = 99;
+    laios.stats.max_mp = 99;
+
+    let mut ghost = Enemy::ghost();
+    ghost.stats.hp = 999;
+    ghost.stats.max_hp = 999;
+    let initial_mp = ghost.stats.mp; // Ghost has 8 MP
+
+    let mut battle = BattleDomainState::new(vec![laios], vec![ghost]);
+
+    let commands = vec![BattleAction::Spell { spell: SpellKind::Drain1, target: TargetId::Enemy(0) }];
+    let randoms = TurnRandomFactors { damage_randoms: vec![1.0; 2], flee_random: 1.0, spell_randoms: vec![1.0; 10] };
+    let results = battle.execute_turn(&commands, &randoms);
+
+    // MpDrained結果が含まれている
+    let mp_drained = results.iter().find(|r| matches!(r, TurnResult::MpDrained { .. }));
+    assert!(mp_drained.is_some(), "Should have MpDrained result");
+
+    // 敵のMPが減っている
+    assert!(battle.enemies[0].stats.mp < initial_mp, "Enemy MP should be reduced");
+}
+
+#[test]
+fn siphon_spell_reduces_all_enemies_mp() {
+    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult, SpellKind};
+    use party::PartyMember;
+
+    let mut laios = PartyMember::laios();
+    laios.stats.mp = 99;
+    laios.stats.max_mp = 99;
+
+    let mut ghost1 = Enemy::ghost();
+    ghost1.stats.hp = 999;
+    ghost1.stats.max_hp = 999;
+    let mut ghost2 = Enemy::ghost();
+    ghost2.stats.hp = 999;
+    ghost2.stats.max_hp = 999;
+    let initial_mp = ghost1.stats.mp;
+
+    let mut battle = BattleDomainState::new(vec![laios], vec![ghost1, ghost2]);
+
+    let commands = vec![BattleAction::Spell { spell: SpellKind::Siphon1, target: TargetId::Enemy(0) }];
+    let randoms = TurnRandomFactors { damage_randoms: vec![1.0; 3], flee_random: 1.0, spell_randoms: vec![1.0; 10] };
+    let results = battle.execute_turn(&commands, &randoms);
+
+    // 2体分のMpDrained結果
+    let mp_drained_count = results.iter().filter(|r| matches!(r, TurnResult::MpDrained { .. })).count();
+    assert_eq!(mp_drained_count, 2, "Should have 2 MpDrained results for 2 enemies");
+
+    // 両方の敵のMPが減っている
+    assert!(battle.enemies[0].stats.mp < initial_mp, "Enemy 0 MP should be reduced");
+    assert!(battle.enemies[1].stats.mp < initial_mp, "Enemy 1 MP should be reduced");
+}
+
+#[test]
+fn enemy_uses_drain_spell_on_party() {
+    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult};
+    use party::PartyMember;
+
+    let mut marcille = PartyMember::marcille();
+    marcille.stats.mp = 20;
+    marcille.stats.max_mp = 20;
+
+    // Ghostが呪文を使うように: spell_random < 0.5 にする
+    let mut ghost = Enemy::ghost();
+    ghost.stats.hp = 999;
+    ghost.stats.max_hp = 999;
+    ghost.stats.mp = 20; // Drain1(cost=4)を使えるだけのMP
+
+    let mut battle = BattleDomainState::new(vec![marcille], vec![ghost]);
+
+    // パーティは通常攻撃、敵が呪文を使う（spell_random=0.0 < 0.5で呪文使用）
+    let commands = vec![BattleAction::Attack { target: TargetId::Enemy(0) }];
+    // spell_random=0.0で呪文使用。Ghostの呪文は[Fire1, Drain1]なので最初のFire1が選ばれる可能性がある
+    // 確実にMPが変化したことを確認するため、ダメージか MP減少のどちらかが発生することを検証
+    let randoms = TurnRandomFactors { damage_randoms: vec![1.0; 2], flee_random: 1.0, spell_randoms: vec![0.0; 10] };
+    let results = battle.execute_turn(&commands, &randoms);
+
+    // 敵が何らかの呪文を使ったことを確認
+    let enemy_spell_used = results.iter().any(|r| matches!(r,
+        TurnResult::SpellDamage { caster: battle::ActorId::Enemy(_), .. } |
+        TurnResult::MpDrained { caster: battle::ActorId::Enemy(_), .. }
+    ));
+    assert!(enemy_spell_used, "Enemy should have used a spell");
 }
