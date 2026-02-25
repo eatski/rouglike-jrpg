@@ -243,8 +243,7 @@ pub fn calculate_town_spawns(
         let mut candidates: Vec<(usize, usize)> = island
             .iter()
             .filter(|&pos| {
-                matches!(grid[pos.1][pos.0], Terrain::Plains | Terrain::DarkPlains)
-                    && *pos != spawn_position
+                grid[pos.1][pos.0] == Terrain::Plains && *pos != spawn_position
             })
             .copied()
             .collect();

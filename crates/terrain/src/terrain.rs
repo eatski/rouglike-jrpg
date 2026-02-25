@@ -26,8 +26,6 @@ pub enum Terrain {
     BossCave,
     BossCaveWall,
     BossCaveFloor,
-    DarkPlains,
-    DarkForest,
 }
 
 impl Terrain {
@@ -47,8 +45,8 @@ impl Terrain {
     #[inline]
     pub fn encounter_rate(self) -> f32 {
         match self {
-            Terrain::Plains | Terrain::DarkPlains => 0.02,
-            Terrain::Forest | Terrain::DarkForest => 0.03,
+            Terrain::Plains => 0.02,
+            Terrain::Forest => 0.03,
             Terrain::Mountain => 0.08,
             Terrain::Sea => 0.10,
             Terrain::CaveFloor => 0.05,

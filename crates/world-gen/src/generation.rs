@@ -661,20 +661,6 @@ pub fn generate_map(rng: &mut impl Rng) -> MapData {
     // Phase 4.5a: 特殊タイルの周囲2マスを歩行可能にする
     clear_around_special_tiles(&mut grid);
 
-    // Phase 4.5b: ボス大陸（7番目の大陸）の平地・森を暗いバリアントに置換
-    if let Some(&boss_center) = centers.get(6) {
-        let islands = detect_islands(&grid);
-        if let Some(boss_island) = islands.iter().find(|island| island.contains(&boss_center)) {
-            for &(x, y) in boss_island {
-                match grid[y][x] {
-                    Terrain::Plains => grid[y][x] = Terrain::DarkPlains,
-                    Terrain::Forest => grid[y][x] = Terrain::DarkForest,
-                    _ => {}
-                }
-            }
-        }
-    }
-
     // Phase 5: 歩行可能タイルの連結性を保証（山で道が塞がれないようにする）
     ensure_walkable_connectivity(&mut grid);
 
