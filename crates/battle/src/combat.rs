@@ -1,5 +1,5 @@
 use crate::enemy::Enemy;
-use crate::spell::{calculate_heal_amount, calculate_mp_drain, calculate_spell_damage, SpellEffect, SpellKind, SpellTarget};
+use spell::{calculate_heal_amount, calculate_mp_drain, calculate_spell_damage, SpellEffect, SpellKind, SpellTarget};
 use party::{CombatStats, ItemEffect, ItemKind, PartyMember};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

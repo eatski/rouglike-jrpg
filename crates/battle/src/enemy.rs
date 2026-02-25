@@ -1,4 +1,4 @@
-use crate::spell::SpellKind;
+use spell::SpellKind;
 use party::CombatStats;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

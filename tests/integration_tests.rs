@@ -1070,7 +1070,7 @@ fn battle_victory_grants_exp_and_levels_up_party() {
 #[test]
 fn mage_learns_fire1_at_level_1_and_fire2_at_level_5() {
     use battle::SpellKind;
-    use battle::spell::{available_spells, spells_learned_at_level};
+    use battle::{available_spells, spells_learned_at_level};
     use party::PartyMemberKind;
 
     // Lv1のマルシルはFire1を知っている
@@ -1091,7 +1091,7 @@ fn mage_learns_fire1_at_level_1_and_fire2_at_level_5() {
 
 #[test]
 fn hero_has_all_16_spells_at_level_1() {
-    use battle::spell::available_spells;
+    use battle::available_spells;
     use party::PartyMemberKind;
 
     // ライオスはLv1で全20呪文を使える
@@ -2171,7 +2171,7 @@ fn sell_material_item_succeeds() {
 #[test]
 fn battle_victory_leveling_unlocks_new_spell() {
     use battle::{BattleState as BattleDomainState, Enemy, SpellKind};
-    use battle::spell::{available_spells, spells_learned_at_level};
+    use battle::{available_spells, spells_learned_at_level};
     use party::{PartyMember, PartyMemberKind};
 
     // マルシルLv1: Fire1のみ習得
