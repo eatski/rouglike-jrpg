@@ -24,6 +24,12 @@ pub enum SpellKind {
     // 味方全体ATK↑
     Rally1,
     Rally2,
+    // 単体MP減少
+    Drain1,
+    Drain2,
+    // 全体MP減少
+    Siphon1,
+    Siphon2,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -40,6 +46,7 @@ pub enum SpellEffect {
     Heal,
     AttackBuff,
     DefenseBuff,
+    MpDrain,
 }
 
 impl SpellKind {
@@ -61,6 +68,10 @@ impl SpellKind {
             SpellKind::Boost2 => "Boost2",
             SpellKind::Rally1 => "Rally1",
             SpellKind::Rally2 => "Rally2",
+            SpellKind::Drain1 => "Drain1",
+            SpellKind::Drain2 => "Drain2",
+            SpellKind::Siphon1 => "Siphon1",
+            SpellKind::Siphon2 => "Siphon2",
         }
     }
 
@@ -82,6 +93,10 @@ impl SpellKind {
             SpellKind::Boost2 => 6,
             SpellKind::Rally1 => 6,
             SpellKind::Rally2 => 10,
+            SpellKind::Drain1 => 4,
+            SpellKind::Drain2 => 8,
+            SpellKind::Siphon1 => 6,
+            SpellKind::Siphon2 => 10,
         }
     }
 
@@ -103,6 +118,10 @@ impl SpellKind {
             SpellKind::Boost2 => 6,
             SpellKind::Rally1 => 2,
             SpellKind::Rally2 => 4,
+            SpellKind::Drain1 => 8,
+            SpellKind::Drain2 => 18,
+            SpellKind::Siphon1 => 5,
+            SpellKind::Siphon2 => 12,
         }
     }
 
@@ -116,6 +135,8 @@ impl SpellKind {
             SpellKind::Barrier1 | SpellKind::Barrier2 => SpellTarget::AllAllies,
             SpellKind::Boost1 | SpellKind::Boost2 => SpellTarget::SingleAlly,
             SpellKind::Rally1 | SpellKind::Rally2 => SpellTarget::AllAllies,
+            SpellKind::Drain1 | SpellKind::Drain2 => SpellTarget::SingleEnemy,
+            SpellKind::Siphon1 | SpellKind::Siphon2 => SpellTarget::AllEnemies,
         }
     }
 
@@ -132,6 +153,9 @@ impl SpellKind {
             }
             SpellKind::Shield1 | SpellKind::Shield2 | SpellKind::Barrier1 | SpellKind::Barrier2 => {
                 SpellEffect::DefenseBuff
+            }
+            SpellKind::Drain1 | SpellKind::Drain2 | SpellKind::Siphon1 | SpellKind::Siphon2 => {
+                SpellEffect::MpDrain
             }
         }
     }
@@ -155,6 +179,12 @@ pub fn calculate_spell_damage(power: i32, defense: i32, random_factor: f32) -> i
     let base = power as f32 - defense as f32 / 4.0;
     let damage = (base * random_factor).round() as i32;
     damage.max(1)
+}
+
+/// MP減少量 = power × random_factor、最小1
+pub fn calculate_mp_drain(power: i32, random_factor: f32) -> i32 {
+    let amount = (power as f32 * random_factor).round() as i32;
+    amount.max(1)
 }
 
 /// 回復量 = power × random_factor
@@ -182,6 +212,10 @@ pub fn all_spells() -> Vec<SpellKind> {
         SpellKind::Boost2,
         SpellKind::Rally1,
         SpellKind::Rally2,
+        SpellKind::Drain1,
+        SpellKind::Drain2,
+        SpellKind::Siphon1,
+        SpellKind::Siphon2,
     ]
 }
 
@@ -194,6 +228,7 @@ pub fn spell_learn_table(kind: party::PartyMemberKind) -> &'static [(u32, SpellK
             (3, SpellKind::Blaze1),
             (5, SpellKind::Fire2),
             (7, SpellKind::Blaze2),
+            (9, SpellKind::Drain1),
         ],
         PartyMemberKind::Falin => &[
             (1, SpellKind::Heal1),
@@ -207,12 +242,14 @@ pub fn spell_learn_table(kind: party::PartyMemberKind) -> &'static [(u32, SpellK
             (1, SpellKind::Fire1),
             (3, SpellKind::Heal1),
             (5, SpellKind::Boost1),
+            (6, SpellKind::Drain1),
             (7, SpellKind::Boost2),
             (9, SpellKind::Rally2),
         ],
         PartyMemberKind::Kabru => &[
             (3, SpellKind::Heal1),
             (5, SpellKind::Shield1),
+            (6, SpellKind::Siphon1),
             (7, SpellKind::Barrier1),
             (9, SpellKind::Rally1),
         ],
@@ -233,6 +270,10 @@ pub fn spell_learn_table(kind: party::PartyMemberKind) -> &'static [(u32, SpellK
             (1, SpellKind::Boost2),
             (1, SpellKind::Rally1),
             (1, SpellKind::Rally2),
+            (1, SpellKind::Drain1),
+            (1, SpellKind::Drain2),
+            (1, SpellKind::Siphon1),
+            (1, SpellKind::Siphon2),
         ],
         PartyMemberKind::Izutsumi => &[
             (5, SpellKind::Fire1),
@@ -305,9 +346,9 @@ mod tests {
     }
 
     #[test]
-    fn laios_has_all_16_spells_at_level_1() {
+    fn laios_has_all_20_spells_at_level_1() {
         let spells = available_spells(party::PartyMemberKind::Laios, 1);
-        assert_eq!(spells.len(), 16);
+        assert_eq!(spells.len(), 20);
     }
 
     #[test]
@@ -357,8 +398,8 @@ mod tests {
     }
 
     #[test]
-    fn all_spells_returns_16() {
-        assert_eq!(all_spells().len(), 16);
+    fn all_spells_returns_20() {
+        assert_eq!(all_spells().len(), 20);
     }
 
     #[test]
@@ -377,6 +418,10 @@ mod tests {
                     assert!(!spell.is_offensive());
                     assert!(!spell.is_usable_in_field());
                 }
+                SpellEffect::MpDrain => {
+                    assert!(spell.is_offensive());
+                    assert!(!spell.is_usable_in_field());
+                }
             }
         }
     }
@@ -392,5 +437,45 @@ mod tests {
         assert!(available_spells(party::PartyMemberKind::Chilchuck, 99).is_empty());
         assert!(available_spells(party::PartyMemberKind::Shuro, 99).is_empty());
         assert!(available_spells(party::PartyMemberKind::Namari, 99).is_empty());
+    }
+
+    #[test]
+    fn mp_drain_basic() {
+        let amount = calculate_mp_drain(8, 1.0);
+        assert_eq!(amount, 8);
+    }
+
+    #[test]
+    fn mp_drain_with_random() {
+        let low = calculate_mp_drain(8, 0.8);
+        let high = calculate_mp_drain(8, 1.2);
+        assert_eq!(low, 6); // 8 * 0.8 = 6.4 → 6
+        assert_eq!(high, 10); // 8 * 1.2 = 9.6 → 10
+    }
+
+    #[test]
+    fn mp_drain_minimum_is_one() {
+        let amount = calculate_mp_drain(1, 0.1);
+        assert_eq!(amount, 1);
+    }
+
+    #[test]
+    fn marcille_learns_drain1_at_level_9() {
+        let spells = available_spells(party::PartyMemberKind::Marcille, 9);
+        assert!(spells.contains(&SpellKind::Drain1));
+    }
+
+    #[test]
+    fn rinsha_learns_drain1_at_level_6() {
+        let spells = available_spells(party::PartyMemberKind::Rinsha, 6);
+        assert!(spells.contains(&SpellKind::Drain1));
+        assert!(!available_spells(party::PartyMemberKind::Rinsha, 5).contains(&SpellKind::Drain1));
+    }
+
+    #[test]
+    fn kabru_learns_siphon1_at_level_6() {
+        let spells = available_spells(party::PartyMemberKind::Kabru, 6);
+        assert!(spells.contains(&SpellKind::Siphon1));
+        assert!(!available_spells(party::PartyMemberKind::Kabru, 5).contains(&SpellKind::Siphon1));
     }
 }

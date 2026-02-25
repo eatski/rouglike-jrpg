@@ -47,6 +47,10 @@ impl CombatStats {
         self.hp = (self.hp - damage).max(0);
     }
 
+    pub fn drain_mp(&mut self, amount: i32) {
+        self.mp = (self.mp - amount).max(0);
+    }
+
     /// ステータス成長を適用する
     pub fn apply_growth(&mut self, growth: &StatGrowth) {
         self.max_hp += growth.hp;

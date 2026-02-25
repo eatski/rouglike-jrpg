@@ -754,6 +754,68 @@ fn results_to_messages(
                     ));
                 }
             }
+            TurnResult::MpDrained {
+                caster,
+                spell,
+                target,
+                amount,
+            } => {
+                let target_name = target_name_str(target, state, &enemy_names);
+                let msg_index = messages.len();
+
+                let is_continuation = last_aoe_caster_spell == Some((*caster, *spell));
+                if is_continuation {
+                    messages.push(format!(
+                        "{}の MPが {}へった！",
+                        target_name, amount
+                    ));
+                } else {
+                    let caster_name = actor_name(caster, state, &enemy_names);
+                    messages.push(format!(
+                        "{}は {}を となえた！ {}の MPが {}へった！",
+                        caster_name,
+                        spell.name(),
+                        target_name,
+                        amount
+                    ));
+                }
+                last_aoe_caster_spell = Some((*caster, *spell));
+
+                // キャスターのMP更新エフェクト（最初のヒットのみ）
+                if !is_continuation
+                    && let ActorId::Party(ci) = caster
+                {
+                    running_party_mp[*ci] =
+                        (running_party_mp[*ci] - spell.mp_cost()).max(0);
+                    effects.push((
+                        msg_index,
+                        MessageEffect::UpdatePartyMp {
+                            member_index: *ci,
+                            new_mp: running_party_mp[*ci],
+                        },
+                    ));
+                }
+
+                // ターゲットのMP更新エフェクト
+                match target {
+                    TargetId::Party(pi) => {
+                        running_party_mp[*pi] = (running_party_mp[*pi] - amount).max(0);
+                        effects.push((
+                            msg_index,
+                            MessageEffect::UpdatePartyMp {
+                                member_index: *pi,
+                                new_mp: running_party_mp[*pi],
+                            },
+                        ));
+                    }
+                    TargetId::Enemy(i) => {
+                        effects.push((
+                            msg_index,
+                            MessageEffect::BlinkEnemy { enemy_index: *i },
+                        ));
+                    }
+                }
+            }
             TurnResult::Defeated { target } => {
                 last_aoe_caster_spell = None;
                 let msg_index = messages.len();
