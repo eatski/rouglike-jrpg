@@ -1511,12 +1511,23 @@ fn cave_diagonal_movement_is_always_blocked() {
 #[test]
 fn cave_treasure_adds_to_inventory() {
     use cave::{generate_cave_map, TreasureContent};
+    use terrain::Structure;
     use rand::SeedableRng;
     use rand_chacha::ChaCha8Rng;
     use party::PartyMember;
 
     let mut rng = ChaCha8Rng::seed_from_u64(42);
     let cave = generate_cave_map(&mut rng, &[]);
+
+    // 宝箱位置が structures に Chest として設定されていることを検証
+    for chest in &cave.treasures {
+        assert_eq!(
+            cave.structures[chest.y][chest.x],
+            Structure::Chest,
+            "Treasure at ({}, {}) should be Structure::Chest in structures layer",
+            chest.x, chest.y,
+        );
+    }
 
     let mut hero = PartyMember::laios();
     assert!(hero.inventory.is_empty());

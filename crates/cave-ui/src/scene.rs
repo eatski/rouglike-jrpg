@@ -6,6 +6,7 @@ use rand_chacha::ChaCha8Rng;
 
 use cave::{generate_boss_cave_map, generate_cave_map, TreasureChest, TreasureContent, CAVE_HEIGHT, CAVE_WIDTH};
 use party::ItemKind;
+use terrain::Structure;
 
 use app_state::{BossDefeated, ContinentCavePositions, ContinentMap, EncounterZone, OpenedChests};
 use field_core::{ActiveMap, Boat, Player, TilePosition, WorldMapData, TILE_SIZE};
@@ -19,12 +20,6 @@ use field_walk_ui::{create_tile_pool, PooledTile, SimpleTile, SimpleTileMap, Til
 pub struct FieldReturnState {
     pub player_tile_x: usize,
     pub player_tile_y: usize,
-}
-
-/// 宝箱エンティティのマーカー
-#[derive(Component)]
-pub struct ChestEntity {
-    pub treasure_index: usize,
 }
 
 /// 現在入っている洞窟の宝箱情報
@@ -66,7 +61,6 @@ pub fn setup_cave_scene(
     boat_query: Query<(Entity, &TilePosition), (With<Boat>, Without<Player>)>,
     mut move_state: ResMut<MovementState>,
     active_map: Res<ActiveMap>,
-    tile_textures: Res<TileTextures>,
     opened_chests: Res<OpenedChests>,
     mut boat_spawns: ResMut<BoatSpawnsResource>,
     mut map_mode_state: ResMut<MapModeState>,
@@ -136,7 +130,7 @@ pub fn setup_cave_scene(
     let cave_origin_x = -(CAVE_WIDTH as f32 * TILE_SIZE) / 2.0 + TILE_SIZE / 2.0;
     let cave_origin_y = -(CAVE_HEIGHT as f32 * TILE_SIZE) / 2.0 + TILE_SIZE / 2.0;
 
-    let active_map_resource = ActiveMap {
+    let mut active_map_resource = ActiveMap {
         grid: cave_data.grid,
         structures: cave_data.structures,
         width: cave_data.width,
@@ -146,22 +140,12 @@ pub fn setup_cave_scene(
         wraps: false,
     };
 
-    // 宝箱エンティティをspawn（取得済みは開いた見た目で表示）
-    let scale = TILE_SIZE / 16.0;
+    // 開封済み宝箱を structures に反映
     let opened_set = opened_chests.chests.get(&cave_world_pos);
     for (i, treasure) in cave_data.treasures.iter().enumerate() {
-        let is_opened = opened_set.is_some_and(|set| set.contains(&i));
-        let texture = if is_opened {
-            tile_textures.chest_open.clone()
-        } else {
-            tile_textures.chest.clone()
-        };
-        let (world_x, world_y) = active_map_resource.to_world_logical(treasure.x as i32, treasure.y as i32);
-        commands.spawn((
-            ChestEntity { treasure_index: i },
-            Sprite::from_image(texture),
-            Transform::from_xyz(world_x, world_y, 0.5).with_scale(Vec3::splat(scale)),
-        ));
+        if opened_set.is_some_and(|set| set.contains(&i)) {
+            active_map_resource.structures[treasure.y][treasure.x] = Structure::ChestOpen;
+        }
     }
 
     // 宝箱情報をリソースとして保存
@@ -297,14 +281,10 @@ pub fn setup_boss_cave_scene(
 pub fn despawn_cave_entities(
     mut commands: Commands,
     cave_tile_query: Query<Entity, With<SimpleTile>>,
-    chest_query: Query<Entity, With<ChestEntity>>,
     message_ui_query: Query<Entity, With<CaveMessageUI>>,
     boss_query: Query<Entity, With<BossEntity>>,
 ) {
     for entity in &cave_tile_query {
-        commands.entity(entity).despawn();
-    }
-    for entity in &chest_query {
         commands.entity(entity).despawn();
     }
     for entity in &message_ui_query {

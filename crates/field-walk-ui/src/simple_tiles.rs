@@ -110,6 +110,8 @@ pub fn update_simple_tiles(
         let texture = match structure {
             Structure::Ladder => tile_textures.ladder.clone(),
             Structure::WarpZone => tile_textures.warp_zone.clone(),
+            Structure::Chest => tile_textures.chest.clone(),
+            Structure::ChestOpen => tile_textures.chest_open.clone(),
             _ => match terrain {
                 Terrain::CaveWall => tile_textures.cave_wall.clone(),
                 Terrain::CaveFloor => tile_textures.cave_floor.clone(),

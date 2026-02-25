@@ -37,6 +37,8 @@ fn terrain_to_color(terrain: Terrain, structure: Structure, continent_id: Option
         Structure::Hokora => return [190, 45, 40, 255],     // 赤（鳥居の色）
         Structure::Ladder => return [200, 180, 60, 255],    // 黄色
         Structure::WarpZone => return [180, 100, 200, 255], // 紫
+        Structure::Chest => return [200, 150, 50, 255],    // 茶金色
+        Structure::ChestOpen => return [120, 100, 60, 255], // 暗い茶色
         Structure::None => {}
     }
     let is_boss = continent_id == Some(BOSS_CONTINENT_ID);

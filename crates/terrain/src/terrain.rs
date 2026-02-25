@@ -33,6 +33,8 @@ pub enum Structure {
     Hokora,
     Ladder,
     WarpZone,
+    Chest,
+    ChestOpen,
 }
 
 impl Structure {
@@ -44,7 +46,7 @@ impl Structure {
             Structure::Cave => TileAction::EnterCave,
             Structure::BossCave => TileAction::EnterBossCave,
             Structure::Hokora => TileAction::EnterHokora,
-            Structure::None | Structure::Ladder | Structure::WarpZone => TileAction::None,
+            Structure::None | Structure::Ladder | Structure::WarpZone | Structure::Chest | Structure::ChestOpen => TileAction::None,
         }
     }
 }

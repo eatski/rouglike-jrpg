@@ -100,6 +100,8 @@ fn get_terrain_texture(terrain: Terrain, structure: Structure, continent_id: Opt
         Structure::Hokora => return textures.hokora.clone(),
         Structure::Ladder => return textures.ladder.clone(),
         Structure::WarpZone => return textures.warp_zone.clone(),
+        Structure::Chest => return textures.chest.clone(),
+        Structure::ChestOpen => return textures.chest_open.clone(),
         Structure::None => {}
     }
     let is_boss = continent_id == Some(BOSS_CONTINENT_ID);

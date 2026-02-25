@@ -12,9 +12,9 @@ use field_walk_ui::{
 };
 use app_state::FieldMenuOpen;
 
-use field_walk_ui::{MapModeState, TileTextures};
+use field_walk_ui::{MapModeState, SimpleTileMap};
 
-use crate::scene::{BossCaveState, BossEntity, CaveMessageState, CaveMessageUI, CaveTreasures, ChestEntity};
+use crate::scene::{BossCaveState, BossEntity, CaveMessageState, CaveMessageUI, CaveTreasures};
 
 /// 洞窟内のプレイヤー移動入力を処理
 #[allow(clippy::too_many_arguments)]
@@ -150,14 +150,15 @@ pub fn handle_cave_move_completed(
 /// 宝箱取得システム: プレイヤーが宝箱タイルに入ったらアイテムを取得
 #[allow(clippy::too_many_arguments)]
 pub fn check_chest_system(
+    mut commands: Commands,
     mut events: MessageReader<TileEnteredEvent>,
     player_query: Query<&TilePosition, With<Player>>,
     cave_treasures: Option<Res<CaveTreasures>>,
     mut opened_chests: ResMut<OpenedChests>,
     mut party_state: ResMut<PartyState>,
     mut cave_message: ResMut<CaveMessageState>,
-    mut chest_query: Query<(&ChestEntity, &mut Sprite)>,
-    tile_textures: Res<TileTextures>,
+    mut active_map: ResMut<ActiveMap>,
+    mut tile_map: ResMut<SimpleTileMap>,
 ) {
     let Some(cave_treasures) = cave_treasures else {
         return;
@@ -167,6 +168,11 @@ pub fn check_chest_system(
         let Ok(tile_pos) = player_query.single() else {
             continue;
         };
+
+        // Structure::Chest でなければ早期リターン（O(1)判定）
+        if active_map.structure_at(tile_pos.x, tile_pos.y) != Structure::Chest {
+            continue;
+        }
 
         for (i, treasure) in cave_treasures.treasures.iter().enumerate() {
             if treasure.x != tile_pos.x || treasure.y != tile_pos.y {
@@ -253,12 +259,13 @@ pub fn check_chest_system(
                 }
             }
 
-            // 宝箱スプライトを開いた状態に変更
-            for (chest, mut sprite) in &mut chest_query {
-                if chest.treasure_index == i {
-                    sprite.image = tile_textures.chest_open.clone();
-                }
+            // structures を ChestOpen に変更し、タイルを再描画
+            active_map.structures[tile_pos.y][tile_pos.x] = Structure::ChestOpen;
+            let key = (tile_pos.x as i32, tile_pos.y as i32);
+            if let Some(entity) = tile_map.active_tiles.remove(&key) {
+                commands.entity(entity).despawn();
             }
+            tile_map.last_player_pos = None;
         }
     }
 }

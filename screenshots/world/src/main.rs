@@ -63,7 +63,7 @@ fn setup(
                 Structure::Cave => tex_cave.clone(),
                 Structure::BossCave => tex_boss_cave.clone(),
                 Structure::Hokora => tex_hokora.clone(),
-                Structure::Ladder | Structure::WarpZone => tex_plains.clone(),
+                Structure::Ladder | Structure::WarpZone | Structure::Chest | Structure::ChestOpen => tex_plains.clone(),
                 Structure::None => match terrain {
                     Terrain::Sea => tex_sea.clone(),
                     Terrain::Plains => tex_plains.clone(),

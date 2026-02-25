@@ -98,14 +98,17 @@ pub fn generate_cave_map(rng: &mut impl Rng, guaranteed_items: &[TreasureContent
     let treasures: Vec<TreasureChest> = floor_positions[..treasure_count]
         .iter()
         .enumerate()
-        .map(|(i, &(tx, ty))| TreasureChest {
-            x: tx,
-            y: ty,
-            content: if i < guaranteed_items.len() {
-                guaranteed_items[i]
-            } else {
-                random_treasure_content(rng)
-            },
+        .map(|(i, &(tx, ty))| {
+            structures[ty][tx] = Structure::Chest;
+            TreasureChest {
+                x: tx,
+                y: ty,
+                content: if i < guaranteed_items.len() {
+                    guaranteed_items[i]
+                } else {
+                    random_treasure_content(rng)
+                },
+            }
         })
         .collect();
 
@@ -305,6 +308,22 @@ mod tests {
                 map.grid[y][CAVE_WIDTH - 1],
                 Terrain::CaveFloor,
                 "Right edge should not be floor"
+            );
+        }
+    }
+
+    #[test]
+    fn generate_cave_map_treasures_in_structures() {
+        let mut rng = create_rng(42);
+        let map = generate_cave_map(&mut rng, &[]);
+        assert!(!map.treasures.is_empty(), "Cave should have treasures");
+        for treasure in &map.treasures {
+            assert_eq!(
+                map.structures[treasure.y][treasure.x],
+                Structure::Chest,
+                "Treasure at ({}, {}) should be Structure::Chest",
+                treasure.x,
+                treasure.y,
             );
         }
     }
