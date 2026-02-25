@@ -4,11 +4,15 @@ use std::collections::{HashMap, HashSet};
 use crate::coast_lookup;
 use terrain::{Terrain, MAP_HEIGHT, MAP_WIDTH};
 
+use app_state::ContinentMap;
 use field_core::{ActiveMap, MapTile, Player, TilePosition, TILE_SIZE, VISIBLE_CELLS};
 use crate::SmoothMove;
 use crate::smooth_move::is_smooth_moving;
 
 use crate::rendering::TileTextures;
+
+/// ボス大陸の大陸ID
+const BOSS_CONTINENT_ID: u8 = 6;
 
 /// 視界範囲 + バッファのサイズ（片側）
 const TILE_BUFFER: i32 = 3;
@@ -84,10 +88,15 @@ fn logical_to_map(logical_x: i32, logical_y: i32) -> (usize, usize) {
 }
 
 /// 地形に対応するテクスチャを取得
-fn get_terrain_texture(terrain: Terrain, textures: &TileTextures) -> Handle<Image> {
+///
+/// ボス大陸（continent_id=6）の Plains/Forest は暗いバリアントテクスチャを使用する。
+fn get_terrain_texture(terrain: Terrain, continent_id: Option<u8>, textures: &TileTextures) -> Handle<Image> {
+    let is_boss = continent_id == Some(BOSS_CONTINENT_ID);
     match terrain {
         Terrain::Sea => textures.sea.clone(),
+        Terrain::Plains if is_boss => textures.dark_plains.clone(),
         Terrain::Plains => textures.plains.clone(),
+        Terrain::Forest if is_boss => textures.dark_forest.clone(),
         Terrain::Forest => textures.forest.clone(),
         Terrain::Mountain => textures.mountain.clone(),
         Terrain::Town => textures.town.clone(),
@@ -100,8 +109,6 @@ fn get_terrain_texture(terrain: Terrain, textures: &TileTextures) -> Handle<Imag
         Terrain::BossCave => textures.boss_cave.clone(),
         Terrain::BossCaveWall => textures.boss_cave_wall.clone(),
         Terrain::BossCaveFloor => textures.boss_cave_floor.clone(),
-        Terrain::DarkPlains => textures.dark_plains.clone(),
-        Terrain::DarkForest => textures.dark_forest.clone(),
     }
 }
 
@@ -136,6 +143,7 @@ pub fn update_visible_tiles(
     smooth_move_query: Query<&SmoothMove, With<Player>>,
     active_map: Res<ActiveMap>,
     tile_textures: Res<TileTextures>,
+    continent_map: Option<Res<ContinentMap>>,
     mut tile_query: Query<(
         &mut Transform,
         &mut Sprite,
@@ -204,6 +212,7 @@ pub fn update_visible_tiles(
         // マップ座標を計算（トーラスラップ）
         let (map_x, map_y) = logical_to_map(logical_x, logical_y);
         let terrain = active_map.grid[map_y][map_x];
+        let continent_id = continent_map.as_ref().and_then(|cm| cm.get(map_x, map_y));
         let texture = if terrain == Terrain::Sea {
             let mask = compute_coast_mask(map_x, map_y, &active_map.grid);
             if mask != 0 {
@@ -213,7 +222,7 @@ pub fn update_visible_tiles(
                 tile_textures.sea.clone()
             }
         } else {
-            get_terrain_texture(terrain, &tile_textures)
+            get_terrain_texture(terrain, continent_id, &tile_textures)
         };
 
         // ワールド座標を計算
