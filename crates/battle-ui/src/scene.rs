@@ -135,6 +135,14 @@ pub struct EnemySprite {
     pub index: usize,
 }
 
+/// コマンドスクロール上インジケータ
+#[derive(Component)]
+pub struct CommandScrollUp;
+
+/// コマンドスクロール下インジケータ
+#[derive(Component)]
+pub struct CommandScrollDown;
+
 /// 同種・同段階の敵にサフィックスを付与した表示名を生成
 pub(crate) fn enemy_display_names(enemies: &[battle::Enemy]) -> Vec<String> {
     // 同じ表示名の敵が複数いる場合のみサフィックス付与
@@ -590,6 +598,19 @@ fn build_bottom_area(
                 ..default()
             })
             .with_children(|cmd_area| {
+                // ▲ スクロールインジケータ
+                cmd_area.spawn((
+                    CommandScrollUp,
+                    Text::new("  ▲"),
+                    TextFont {
+                        font: font.clone(),
+                        font_size: 16.0,
+                        ..default()
+                    },
+                    TextColor(unselected_color),
+                    Visibility::Hidden,
+                ));
+
                 let labels = ["> たたかう", "  じゅもん", "  どうぐ", "  にげる"];
                 for (i, label) in labels.iter().enumerate() {
                     let color = if i == 0 { selected_color } else { unselected_color };
@@ -618,6 +639,19 @@ fn build_bottom_area(
                         Visibility::Hidden,
                     ));
                 }
+
+                // ▼ スクロールインジケータ
+                cmd_area.spawn((
+                    CommandScrollDown,
+                    Text::new("  ▼"),
+                    TextFont {
+                        font: font.clone(),
+                        font_size: 16.0,
+                        ..default()
+                    },
+                    TextColor(unselected_color),
+                    Visibility::Hidden,
+                ));
             });
         });
 }

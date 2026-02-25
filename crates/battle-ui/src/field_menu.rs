@@ -59,9 +59,26 @@ pub struct FieldMenuItem {
 }
 
 const MAX_MENU_ITEMS: usize = 16;
+const VISIBLE_ITEMS: usize = 6;
 const SELECTED_COLOR: Color = Color::srgb(1.0, 0.9, 0.2);
 const UNSELECTED_COLOR: Color = Color::srgb(0.8, 0.8, 0.8);
 const DISABLED_COLOR: Color = Color::srgb(0.4, 0.4, 0.4);
+
+/// フィールドメニューのスクロール上インジケータ
+#[derive(Component)]
+pub struct FieldMenuScrollUp;
+
+/// フィールドメニューのスクロール下インジケータ
+#[derive(Component)]
+pub struct FieldMenuScrollDown;
+
+fn scroll_offset(cursor: usize, total: usize, visible: usize) -> usize {
+    if total <= visible {
+        return 0;
+    }
+    let half = visible / 2;
+    cursor.saturating_sub(half).min(total - visible)
+}
 
 /// メニューUIをスポーンする
 fn spawn_menu_ui(commands: &mut Commands, asset_server: &AssetServer) {
@@ -113,7 +130,20 @@ fn spawn_menu_ui(commands: &mut Commands, asset_server: &AssetServer) {
                         },
                     ));
 
-                    // メニューアイテム（最大4つ）
+                    // ▲ スクロールインジケータ
+                    menu_box.spawn((
+                        FieldMenuScrollUp,
+                        Text::new("  ▲"),
+                        TextFont {
+                            font: font.clone(),
+                            font_size: 14.0,
+                            ..default()
+                        },
+                        TextColor(UNSELECTED_COLOR),
+                        Visibility::Hidden,
+                    ));
+
+                    // メニューアイテム
                     for i in 0..MAX_MENU_ITEMS {
                         menu_box.spawn((
                             FieldMenuItem { index: i },
@@ -127,6 +157,19 @@ fn spawn_menu_ui(commands: &mut Commands, asset_server: &AssetServer) {
                             Visibility::Hidden,
                         ));
                     }
+
+                    // ▼ スクロールインジケータ
+                    menu_box.spawn((
+                        FieldMenuScrollDown,
+                        Text::new("  ▼"),
+                        TextFont {
+                            font: font.clone(),
+                            font_size: 14.0,
+                            ..default()
+                        },
+                        TextColor(UNSELECTED_COLOR),
+                        Visibility::Hidden,
+                    ));
                 });
         });
 }
@@ -563,14 +606,17 @@ fn handle_target_select(
 }
 
 /// フィールドメニューの表示更新システム
+#[allow(clippy::type_complexity)]
 pub fn field_menu_display_system(
     state: Option<Res<FieldMenuState>>,
     party_state: Res<PartyState>,
-    mut title_query: Query<&mut Text, (With<FieldMenuTitle>, Without<FieldMenuItem>)>,
+    mut title_query: Query<&mut Text, (With<FieldMenuTitle>, Without<FieldMenuItem>, Without<FieldMenuScrollUp>, Without<FieldMenuScrollDown>)>,
     mut item_query: Query<
-        (&FieldMenuItem, &mut Text, &mut TextColor, &mut Visibility),
-        Without<FieldMenuTitle>,
+        (&FieldMenuItem, &mut Text, &mut TextColor, &mut Visibility, &mut Node),
+        (Without<FieldMenuTitle>, Without<FieldMenuScrollUp>, Without<FieldMenuScrollDown>),
     >,
+    mut scroll_up_query: Query<(&mut Visibility, &mut Node), (With<FieldMenuScrollUp>, Without<FieldMenuTitle>, Without<FieldMenuItem>, Without<FieldMenuScrollDown>)>,
+    mut scroll_down_query: Query<(&mut Visibility, &mut Node), (With<FieldMenuScrollDown>, Without<FieldMenuTitle>, Without<FieldMenuItem>, Without<FieldMenuScrollUp>)>,
 ) {
     let Some(state) = state else { return };
 
@@ -604,7 +650,7 @@ pub fn field_menu_display_system(
     }
 
     // メニューアイテム更新
-    for (item, mut text, mut color, mut vis) in &mut item_query {
+    for (item, mut text, mut color, mut vis, mut node) in &mut item_query {
         match &state.phase {
             FieldMenuPhase::TopMenu { cursor } => {
                 let labels = ["じゅもん", "どうぐ"];
@@ -648,9 +694,11 @@ pub fn field_menu_display_system(
                 }
             }
             FieldMenuPhase::SpellSelect { caster, spells, cursor } => {
-                if item.index < spells.len() {
-                    let spell = spells[item.index];
-                    let is_selected = item.index == *cursor;
+                let offset = scroll_offset(*cursor, spells.len(), VISIBLE_ITEMS);
+                let data_index = offset + item.index;
+                if item.index < VISIBLE_ITEMS && data_index < spells.len() {
+                    let spell = spells[data_index];
+                    let is_selected = data_index == *cursor;
                     let caster_mp = party_state.members[*caster].stats.mp;
                     let can_use = caster_mp >= spell.mp_cost();
                     let prefix = if is_selected { "> " } else { "  " };
@@ -691,12 +739,14 @@ pub fn field_menu_display_system(
                 }
             }
             FieldMenuPhase::ItemSelect { member, items, cursor } => {
-                if item.index < items.len() {
-                    let item_kind = items[item.index];
+                let offset = scroll_offset(*cursor, items.len(), VISIBLE_ITEMS);
+                let data_index = offset + item.index;
+                if item.index < VISIBLE_ITEMS && data_index < items.len() {
+                    let item_kind = items[data_index];
                     let count = party_state.members[*member]
                         .inventory
                         .count(item_kind);
-                    let is_selected = item.index == *cursor;
+                    let is_selected = data_index == *cursor;
                     let prefix = if is_selected { "> " } else { "  " };
                     **text = format!("{}{} x{}", prefix, item_kind.name(), count);
                     *color = if is_selected {
@@ -735,6 +785,36 @@ pub fn field_menu_display_system(
             FieldMenuPhase::ShowMessage { .. } => {
                 *vis = Visibility::Hidden;
             }
+        }
+        // Display::NoneでレイアウトからもHiddenアイテムを除外
+        node.display = if *vis == Visibility::Hidden { Display::None } else { Display::DEFAULT };
+    }
+
+    // スクロールインジケータ更新
+    let (scroll_total, scroll_cursor) = match &state.phase {
+        FieldMenuPhase::SpellSelect { spells, cursor, .. } => (spells.len(), *cursor),
+        FieldMenuPhase::ItemSelect { items, cursor, .. } => (items.len(), *cursor),
+        _ => (0, 0),
+    };
+
+    if scroll_total > VISIBLE_ITEMS {
+        let offset = scroll_offset(scroll_cursor, scroll_total, VISIBLE_ITEMS);
+        for (mut vis, mut node) in &mut scroll_up_query {
+            *vis = if offset > 0 { Visibility::Inherited } else { Visibility::Hidden };
+            node.display = if *vis == Visibility::Hidden { Display::None } else { Display::DEFAULT };
+        }
+        for (mut vis, mut node) in &mut scroll_down_query {
+            *vis = if offset + VISIBLE_ITEMS < scroll_total { Visibility::Inherited } else { Visibility::Hidden };
+            node.display = if *vis == Visibility::Hidden { Display::None } else { Display::DEFAULT };
+        }
+    } else {
+        for (mut vis, mut node) in &mut scroll_up_query {
+            *vis = Visibility::Hidden;
+            node.display = Display::None;
+        }
+        for (mut vis, mut node) in &mut scroll_down_query {
+            *vis = Visibility::Hidden;
+            node.display = Display::None;
         }
     }
 }
