@@ -1,4 +1,4 @@
-use party::PartyMemberKind;
+use crate::party::PartyMemberKind;
 use spell::SpellKind;
 
 /// キャラ別の呪文習得テーブル: (必要レベル, 呪文) のペア

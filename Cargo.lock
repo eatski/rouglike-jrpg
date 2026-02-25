@@ -3879,6 +3879,9 @@ dependencies = [
 [[package]]
 name = "party"
 version = "0.1.0"
+dependencies = [
+ "spell",
+]
 
 [[package]]
 name = "paste"
