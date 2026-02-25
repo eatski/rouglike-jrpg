@@ -80,7 +80,7 @@ fn handle_command_select(
             1 => {
                 // じゅもん → 呪文がないクラスは遷移しない
                 let member_kind = game_state.state.party[member_index].kind;
-                let spells = battle::available_spells(member_kind, game_state.state.party[member_index].level);
+                let spells = party::available_spells(member_kind, game_state.state.party[member_index].level);
                 if spells.is_empty() {
                     return;
                 }
@@ -115,7 +115,7 @@ fn handle_spell_select(
     member_index: usize,
 ) {
     let member_kind = game_state.state.party[member_index].kind;
-    let spells = battle::available_spells(member_kind, game_state.state.party[member_index].level);
+    let spells = party::available_spells(member_kind, game_state.state.party[member_index].level);
     let spell_count = spells.len();
 
     // 上下でカーソル移動
@@ -446,7 +446,7 @@ fn execute_turn(game_state: &mut BattleGameState, ui_state: &mut BattleUIState) 
                 ));
                 // レベルアップで新しく習得した呪文をチェック
                 for lvl in (old_level + 1)..=member.level {
-                    for spell in battle::spells_learned_at_level(member.kind, lvl) {
+                    for spell in party::spells_learned_at_level(member.kind, lvl) {
                         messages.push(format!(
                             "{}は {}を おぼえた！",
                             member.kind.name(),
