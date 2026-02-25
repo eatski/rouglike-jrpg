@@ -138,6 +138,7 @@ pub fn setup_cave_scene(
 
     let active_map_resource = ActiveMap {
         grid: cave_data.grid,
+        structures: cave_data.structures,
         width: cave_data.width,
         height: cave_data.height,
         origin_x: cave_origin_x,
@@ -242,6 +243,7 @@ pub fn setup_boss_cave_scene(
 
     let active_map_resource = ActiveMap {
         grid: cave_data.grid,
+        structures: cave_data.structures,
         width: cave_data.width,
         height: cave_data.height,
         origin_x: cave_origin_x,

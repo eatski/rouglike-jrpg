@@ -1,12 +1,13 @@
 use bevy::prelude::*;
 
 use crate::constants::TILE_SIZE;
-use terrain::{try_grid_move, MoveResult, Terrain};
+use terrain::{try_grid_move, MoveResult, Structure, Terrain, TileAction};
 
 /// 現在のアクティブマップ（フィールド or 洞窟）
 #[derive(Resource, Clone)]
 pub struct ActiveMap {
     pub grid: Vec<Vec<Terrain>>,
+    pub structures: Vec<Vec<Structure>>,
     pub width: usize,
     pub height: usize,
     pub origin_x: f32,
@@ -16,13 +17,14 @@ pub struct ActiveMap {
 
 impl ActiveMap {
     /// グリッドからActiveMapを構築（フィールド用: wraps=true）
-    pub fn from_grid(grid: Vec<Vec<Terrain>>) -> Self {
+    pub fn from_grid(grid: Vec<Vec<Terrain>>, structures: Vec<Vec<Structure>>) -> Self {
         let width = grid[0].len();
         let height = grid.len();
         let origin_x = -(width as f32 * TILE_SIZE) / 2.0 + TILE_SIZE / 2.0;
         let origin_y = -(height as f32 * TILE_SIZE) / 2.0 + TILE_SIZE / 2.0;
         Self {
             grid,
+            structures,
             width,
             height,
             origin_x,
@@ -31,13 +33,33 @@ impl ActiveMap {
         }
     }
 
-    /// 徒歩移動（is_walkable）
+    /// タイル座標の構造物を取得
+    pub fn structure_at(&self, x: usize, y: usize) -> Structure {
+        self.structures[y][x]
+    }
+
+    /// エンカウント率を返す（構造物がある場合は0.0）
+    pub fn encounter_rate_at(&self, x: usize, y: usize) -> f32 {
+        if self.structures[y][x] != Structure::None {
+            return 0.0;
+        }
+        self.grid[y][x].encounter_rate()
+    }
+
+    /// タイルアクションを返す（構造物に基づく）
+    pub fn tile_action_at(&self, x: usize, y: usize) -> TileAction {
+        self.structures[y][x].tile_action()
+    }
+
+    /// 徒歩移動（is_walkable + 構造物は通行可能）
     pub fn try_move(&self, x: usize, y: usize, dx: i32, dy: i32) -> MoveResult {
-        try_grid_move(x, y, dx, dy, &self.grid, self.width, self.height, self.wraps, Terrain::is_walkable)
+        let s = &self.structures;
+        try_grid_move(x, y, dx, dy, &self.grid, self.width, self.height, self.wraps,
+            |nx, ny, t| s[ny][nx] != Structure::None || t.is_walkable())
     }
 
     /// 任意の通行判定で移動試行
-    pub fn try_move_with(&self, x: usize, y: usize, dx: i32, dy: i32, passable: impl Fn(Terrain) -> bool) -> MoveResult {
+    pub fn try_move_with(&self, x: usize, y: usize, dx: i32, dy: i32, passable: impl Fn(usize, usize, Terrain) -> bool) -> MoveResult {
         try_grid_move(x, y, dx, dy, &self.grid, self.width, self.height, self.wraps, passable)
     }
 

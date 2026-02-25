@@ -16,3 +16,4 @@ app-state = { path = "../../crates/app-state" }
 cave = { path = "../../crates/cave" }
 field-core = { path = "../../crates/field-core" }
 field-walk-ui = { path = "../../crates/field-walk-ui" }
+terrain = { path = "../../crates/terrain" }

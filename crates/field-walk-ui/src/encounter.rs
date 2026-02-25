@@ -20,8 +20,7 @@ pub fn check_encounter_system(
             continue;
         }
 
-        let terrain = active_map.terrain_at(tile_pos.x, tile_pos.y);
-        if rand::random::<f32>() < terrain.encounter_rate() {
+        if rand::random::<f32>() < active_map.encounter_rate_at(tile_pos.x, tile_pos.y) {
             next_state.set(BattleState::Active);
             return;
         }

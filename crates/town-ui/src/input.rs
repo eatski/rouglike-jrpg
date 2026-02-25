@@ -137,10 +137,10 @@ pub fn town_input_system(
                                     });
                                     let dialogue = match chosen {
                                         TavernHintKind::Cave => {
-                                            cave_hint_dialogue(&active_map.grid, pos.x, pos.y, cf)
+                                            cave_hint_dialogue(&active_map.structures, pos.x, pos.y, cf)
                                         }
                                         TavernHintKind::Hokora => {
-                                            hokora_hint_dialogue(&active_map.grid, pos.x, pos.y, cf)
+                                            hokora_hint_dialogue(&active_map.structures, pos.x, pos.y, cf)
                                         }
                                         TavernHintKind::Companion => {
                                             companion_hint_dialogue(pos.x, pos.y, &companion_towns)

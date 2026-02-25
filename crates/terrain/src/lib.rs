@@ -9,4 +9,4 @@ pub use coordinates::{
     ORTHOGONAL_DIRECTIONS,
 };
 pub use movement::{try_grid_move, MoveResult};
-pub use terrain::{Terrain, TileAction, MAP_HEIGHT, MAP_WIDTH};
+pub use terrain::{Structure, Terrain, TileAction, MAP_HEIGHT, MAP_WIDTH};

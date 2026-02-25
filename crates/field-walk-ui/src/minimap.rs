@@ -3,7 +3,7 @@ use bevy::asset::RenderAssetUsages;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 
 use field_walk::exploration::TileVisibility;
-use terrain::{Terrain, MAP_HEIGHT, MAP_WIDTH};
+use terrain::{Structure, Terrain, MAP_HEIGHT, MAP_WIDTH};
 
 use app_state::ContinentMap;
 use field_core::{ActiveMap, MAP_PIXEL_WIDTH};
@@ -26,8 +26,19 @@ pub struct MinimapTexture {
 
 /// 地形タイプから色を取得
 ///
+/// 構造物がある場合は構造物の色を優先。
 /// ボス大陸（continent_id=6）の Plains/Forest は禍々しい色で表示する。
-fn terrain_to_color(terrain: Terrain, continent_id: Option<u8>) -> [u8; 4] {
+fn terrain_to_color(terrain: Terrain, structure: Structure, continent_id: Option<u8>) -> [u8; 4] {
+    // 構造物がある場合は構造物の色を優先
+    match structure {
+        Structure::Town => return [200, 160, 60, 255],      // 金色
+        Structure::Cave => return [100, 80, 60, 255],       // 暗い茶色
+        Structure::BossCave => return [120, 40, 100, 255],  // 紫（ボス洞窟入口）
+        Structure::Hokora => return [190, 45, 40, 255],     // 赤（鳥居の色）
+        Structure::Ladder => return [200, 180, 60, 255],    // 黄色
+        Structure::WarpZone => return [180, 100, 200, 255], // 紫
+        Structure::None => {}
+    }
     let is_boss = continent_id == Some(BOSS_CONTINENT_ID);
     match terrain {
         Terrain::Sea => [64, 64, 200, 255],        // 青
@@ -36,14 +47,8 @@ fn terrain_to_color(terrain: Terrain, continent_id: Option<u8>) -> [u8; 4] {
         Terrain::Forest if is_boss => [50, 30, 60, 255],   // 暗い紫（禍々しい森）
         Terrain::Forest => [34, 139, 34, 255],     // 濃い緑
         Terrain::Mountain => [139, 137, 137, 255], // グレー
-        Terrain::Town => [200, 160, 60, 255],      // 金色
-        Terrain::Cave => [100, 80, 60, 255],       // 暗い茶色
         Terrain::CaveWall => [60, 50, 40, 255],    // 暗い茶色
         Terrain::CaveFloor => [140, 120, 90, 255], // 薄い茶色
-        Terrain::WarpZone => [180, 100, 200, 255], // 紫
-        Terrain::Ladder => [200, 180, 60, 255],    // 黄色
-        Terrain::Hokora => [190, 45, 40, 255],     // 赤（鳥居の色）
-        Terrain::BossCave => [120, 40, 100, 255],  // 紫（ボス洞窟入口）
         Terrain::BossCaveWall => [50, 20, 55, 255], // 暗い紫
         Terrain::BossCaveFloor => [100, 65, 105, 255], // 紫系床
     }
@@ -80,13 +85,14 @@ pub fn init_minimap_system(
     for y in 0..MAP_HEIGHT {
         for x in 0..MAP_WIDTH {
             let terrain = active_map.grid[y][x];
+            let structure = active_map.structures[y][x];
             let visibility = exploration_data
                 .map
                 .get(x, y)
                 .unwrap_or(TileVisibility::Unexplored);
 
             let continent_id = continent_map.as_ref().and_then(|cm| cm.get(x, y));
-            let base_color = terrain_to_color(terrain, continent_id);
+            let base_color = terrain_to_color(terrain, structure, continent_id);
             let final_color = apply_visibility(base_color, visibility);
 
             // Y座標を反転（テクスチャは上から下、ゲームは下から上）
@@ -152,13 +158,14 @@ pub fn update_minimap_texture_system(
     for y in 0..MAP_HEIGHT {
         for x in 0..MAP_WIDTH {
             let terrain = active_map.grid[y][x];
+            let structure = active_map.structures[y][x];
             let visibility = exploration_data
                 .map
                 .get(x, y)
                 .unwrap_or(TileVisibility::Unexplored);
 
             let continent_id = continent_map.as_ref().and_then(|cm| cm.get(x, y));
-            let base_color = terrain_to_color(terrain, continent_id);
+            let base_color = terrain_to_color(terrain, structure, continent_id);
             let final_color = apply_visibility(base_color, visibility);
 
             let tex_y = MAP_HEIGHT - 1 - y;

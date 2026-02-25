@@ -2,7 +2,7 @@ use rand::seq::SliceRandom;
 use rand::Rng;
 
 use party::{ItemKind, WeaponKind};
-use terrain::Terrain;
+use terrain::{Structure, Terrain};
 
 pub const CAVE_WIDTH: usize = 30;
 pub const CAVE_HEIGHT: usize = 30;
@@ -36,6 +36,7 @@ pub struct TreasureChest {
 
 pub struct CaveMapData {
     pub grid: Vec<Vec<Terrain>>,
+    pub structures: Vec<Vec<Structure>>,
     pub width: usize,
     pub height: usize,
     pub spawn_position: (usize, usize),
@@ -67,8 +68,9 @@ pub fn generate_cave_map(rng: &mut impl Rng, guaranteed_items: &[TreasureContent
 
     let spawn_position = (CAVE_WIDTH / 2, CAVE_HEIGHT / 2);
 
-    // スポーン地点に梯子を配置
-    grid[spawn_position.1][spawn_position.0] = Terrain::Ladder;
+    // スポーン地点に梯子を配置（structuresレイヤー）
+    let mut structures = vec![vec![Structure::None; CAVE_WIDTH]; CAVE_HEIGHT];
+    structures[spawn_position.1][spawn_position.0] = Structure::Ladder;
 
     // 宝箱配置: 床タイルからスポーン地点を除いた候補を収集
     let mut floor_positions: Vec<(usize, usize)> = grid
@@ -109,6 +111,7 @@ pub fn generate_cave_map(rng: &mut impl Rng, guaranteed_items: &[TreasureContent
 
     CaveMapData {
         grid,
+        structures,
         width: CAVE_WIDTH,
         height: CAVE_HEIGHT,
         spawn_position,
@@ -118,6 +121,7 @@ pub fn generate_cave_map(rng: &mut impl Rng, guaranteed_items: &[TreasureContent
 
 pub struct BossCaveMapData {
     pub grid: Vec<Vec<Terrain>>,
+    pub structures: Vec<Vec<Structure>>,
     pub width: usize,
     pub height: usize,
     pub spawn_position: (usize, usize),
@@ -150,14 +154,16 @@ pub fn generate_boss_cave_map(rng: &mut impl Rng) -> BossCaveMapData {
 
     let spawn_position = (CAVE_WIDTH / 2, CAVE_HEIGHT / 2);
 
-    // スポーン地点に梯子を配置
-    grid[spawn_position.1][spawn_position.0] = Terrain::Ladder;
+    // スポーン地点に梯子を配置（structuresレイヤー）
+    let mut structures = vec![vec![Structure::None; CAVE_WIDTH]; CAVE_HEIGHT];
+    structures[spawn_position.1][spawn_position.0] = Structure::Ladder;
 
     // ボス位置: スポーンから最も遠い床タイル
     let boss_position = find_boss_position(&grid, spawn_position);
 
     BossCaveMapData {
         grid,
+        structures,
         width: CAVE_WIDTH,
         height: CAVE_HEIGHT,
         spawn_position,
@@ -256,7 +262,7 @@ mod tests {
         let mut rng = create_rng(42);
         let map = generate_cave_map(&mut rng, &[]);
         let (sx, sy) = map.spawn_position;
-        assert_eq!(map.grid[sy][sx], Terrain::Ladder);
+        assert_eq!(map.structures[sy][sx], Structure::Ladder);
     }
 
     #[test]

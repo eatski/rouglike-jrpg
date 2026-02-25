@@ -2,7 +2,7 @@ use bevy::camera::{OrthographicProjection, Projection, ScalingMode};
 use bevy::prelude::*;
 
 use screenshot_common::{ScreenshotAppBuilder, ScreenshotRng};
-use terrain::{Terrain, MAP_HEIGHT, MAP_WIDTH};
+use terrain::{Structure, Terrain, MAP_HEIGHT, MAP_WIDTH};
 use world_gen::generate_connected_map;
 
 const TILE_SIZE: f32 = 4.0;
@@ -51,19 +51,26 @@ fn setup(
     let origin_x = -(MAP_WIDTH as f32 * TILE_SIZE) / 2.0 + TILE_SIZE / 2.0;
     let origin_y = -(MAP_HEIGHT as f32 * TILE_SIZE) / 2.0 + TILE_SIZE / 2.0;
 
+    let tex_boss_cave: Handle<Image> = asset_server.load("tiles/boss_cave.png");
+
     // 全タイルをスプライトとして配置
     for y in 0..MAP_HEIGHT {
         for x in 0..MAP_WIDTH {
             let terrain = map_data.grid[y][x];
-            let texture = match terrain {
-                Terrain::Sea => tex_sea.clone(),
-                Terrain::Plains => tex_plains.clone(),
-                Terrain::Forest => tex_forest.clone(),
-                Terrain::Mountain => tex_mountain.clone(),
-                Terrain::Town => tex_town.clone(),
-                Terrain::Cave => tex_cave.clone(),
-                Terrain::Hokora => tex_hokora.clone(),
-                _ => tex_sea.clone(),
+            let structure = map_data.structures[y][x];
+            let texture = match structure {
+                Structure::Town => tex_town.clone(),
+                Structure::Cave => tex_cave.clone(),
+                Structure::BossCave => tex_boss_cave.clone(),
+                Structure::Hokora => tex_hokora.clone(),
+                Structure::Ladder | Structure::WarpZone => tex_plains.clone(),
+                Structure::None => match terrain {
+                    Terrain::Sea => tex_sea.clone(),
+                    Terrain::Plains => tex_plains.clone(),
+                    Terrain::Forest => tex_forest.clone(),
+                    Terrain::Mountain => tex_mountain.clone(),
+                    _ => tex_sea.clone(),
+                },
             };
 
             let world_x = origin_x + x as f32 * TILE_SIZE;

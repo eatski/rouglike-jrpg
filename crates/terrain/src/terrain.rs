@@ -16,31 +16,40 @@ pub enum Terrain {
     Mountain,
     Forest,
     Sea,
-    Town,
-    Cave,
     CaveWall,
     CaveFloor,
-    WarpZone,
-    Ladder,
-    Hokora,
-    BossCave,
     BossCaveWall,
     BossCaveFloor,
 }
 
-impl Terrain {
-    /// このタイルに歩いて到着した際のアクションを返す
+/// 地形上に配置される構造物・設置物
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum Structure {
+    #[default]
+    None,
+    Town,
+    Cave,
+    BossCave,
+    Hokora,
+    Ladder,
+    WarpZone,
+}
+
+impl Structure {
+    /// この構造物に歩いて到着した際のアクションを返す
     #[inline]
     pub fn tile_action(self) -> TileAction {
         match self {
-            Terrain::Town => TileAction::EnterTown,
-            Terrain::Cave => TileAction::EnterCave,
-            Terrain::BossCave => TileAction::EnterBossCave,
-            Terrain::Hokora => TileAction::EnterHokora,
-            _ => TileAction::None,
+            Structure::Town => TileAction::EnterTown,
+            Structure::Cave => TileAction::EnterCave,
+            Structure::BossCave => TileAction::EnterBossCave,
+            Structure::Hokora => TileAction::EnterHokora,
+            Structure::None | Structure::Ladder | Structure::WarpZone => TileAction::None,
         }
     }
+}
 
+impl Terrain {
     /// エンカウント率を返す
     #[inline]
     pub fn encounter_rate(self) -> f32 {
@@ -50,8 +59,7 @@ impl Terrain {
             Terrain::Mountain => 0.08,
             Terrain::Sea => 0.10,
             Terrain::CaveFloor => 0.05,
-            Terrain::Town | Terrain::Cave | Terrain::CaveWall | Terrain::WarpZone | Terrain::Ladder | Terrain::Hokora
-            | Terrain::BossCave | Terrain::BossCaveWall | Terrain::BossCaveFloor => 0.0,
+            Terrain::CaveWall | Terrain::BossCaveWall | Terrain::BossCaveFloor => 0.0,
         }
     }
 

@@ -1,6 +1,6 @@
 use rand::Rng;
 
-use terrain::{orthogonal_neighbors, wrap_position, Terrain, MAP_HEIGHT, MAP_WIDTH};
+use terrain::{orthogonal_neighbors, wrap_position, Structure, Terrain, MAP_HEIGHT, MAP_WIDTH};
 
 use std::collections::{HashSet, VecDeque};
 
@@ -36,6 +36,7 @@ const MOUNTAIN_CLUSTER_MAX: usize = 50;
 
 pub struct MapData {
     pub grid: Vec<Vec<Terrain>>,
+    pub structures: Vec<Vec<Structure>>,
     pub spawn_position: (usize, usize),
     /// 祠の位置とワープ先（配置順: [大陸1, 大陸2, 大陸3]、一方向チェーン）
     pub hokora_spawns: Vec<((usize, usize), (usize, usize))>,
@@ -448,10 +449,10 @@ fn scatter_terrain_clusters(
 ///
 /// 街・洞窟・祠の周囲2マス以内の Mountain や Sea を Plains に変換し、
 /// プレイヤーが確実にアクセスできるようにする。
-fn clear_around_special_tiles(grid: &mut Vec<Vec<Terrain>>) {
+fn clear_around_special_tiles(grid: &mut Vec<Vec<Terrain>>, structures: &[Vec<Structure>]) {
     let special_tiles: Vec<(usize, usize)> = (0..MAP_HEIGHT)
         .flat_map(|y| (0..MAP_WIDTH).map(move |x| (x, y)))
-        .filter(|&(x, y)| matches!(grid[y][x], Terrain::Town | Terrain::Cave | Terrain::Hokora))
+        .filter(|&(x, y)| structures[y][x] != Structure::None)
         .collect();
 
     for &(sx, sy) in &special_tiles {
@@ -626,24 +627,27 @@ pub fn generate_map(rng: &mut impl Rng) -> MapData {
         .collect();
     scatter_terrain_clusters(&mut grid, &scatter_protected, rng);
 
-    // Phase 4: 町・洞窟配置
+    // 構造物レイヤーを初期化
+    let mut structures: Vec<Vec<Structure>> = vec![vec![Structure::None; MAP_WIDTH]; MAP_HEIGHT];
+
+    // Phase 4: 町・洞窟配置（構造物レイヤーに配置、gridはそのまま）
     let town_spawns = calculate_town_spawns(&grid, rng, spawn_position);
     for town in &town_spawns {
-        grid[town.y][town.x] = Terrain::Town;
+        structures[town.y][town.x] = Structure::Town;
     }
 
     // 7番目の大陸(centers[6])をボス大陸として扱い、通常洞窟を配置しない
     let boss_continent_center = centers.get(6).copied();
     let cave_spawns = calculate_cave_spawns(&grid, rng, boss_continent_center);
     for cave in &cave_spawns {
-        grid[cave.y][cave.x] = Terrain::Cave;
+        structures[cave.y][cave.x] = Structure::Cave;
     }
 
     // ボス洞窟を7番目の大陸に配置
     let boss_cave_position = boss_continent_center
         .and_then(|center| calculate_boss_cave_spawn(&grid, rng, center));
     if let Some((bx, by)) = boss_cave_position {
-        grid[by][bx] = Terrain::BossCave;
+        structures[by][bx] = Structure::BossCave;
     }
 
     let hokora_spawns = calculate_hokora_spawns(&grid, rng, &centers, spawn_position);
@@ -652,14 +656,14 @@ pub fn generate_map(rng: &mut impl Rng) -> MapData {
         .map(|h| ((h.x, h.y), h.warp_destination))
         .collect();
     for hokora in &hokora_spawns {
-        grid[hokora.y][hokora.x] = Terrain::Hokora;
+        structures[hokora.y][hokora.x] = Structure::Hokora;
     }
 
     // spawn_position が Plains であることを最終保証
     grid[spawn_position.1][spawn_position.0] = Terrain::Plains;
 
     // Phase 4.5a: 特殊タイルの周囲2マスを歩行可能にする
-    clear_around_special_tiles(&mut grid);
+    clear_around_special_tiles(&mut grid, &structures);
 
     // Phase 5: 歩行可能タイルの連結性を保証（山で道が塞がれないようにする）
     ensure_walkable_connectivity(&mut grid);
@@ -672,11 +676,8 @@ pub fn generate_map(rng: &mut impl Rng) -> MapData {
         let islands = detect_islands(&grid);
         if let Some(boss_island) = islands.iter().find(|island| island.contains(&boss_center)) {
             for &(x, y) in boss_island {
-                // 特殊タイル・ワープ先はスキップ
-                if matches!(
-                    grid[y][x],
-                    Terrain::BossCave | Terrain::Town | Terrain::Hokora | Terrain::Cave
-                ) {
+                // 構造物があるタイル・ワープ先はスキップ
+                if structures[y][x] != Structure::None {
                     continue;
                 }
                 if boss_warp_dest == Some((x, y)) {
@@ -706,6 +707,7 @@ pub fn generate_map(rng: &mut impl Rng) -> MapData {
 
     MapData {
         grid,
+        structures,
         spawn_position,
         hokora_spawns: hokora_spawn_data,
         boss_cave_position,
@@ -888,16 +890,16 @@ mod tests {
             let islands = detect_islands(&map.grid);
 
             let town_count: usize = map
-                .grid
+                .structures
                 .iter()
                 .flatten()
-                .filter(|t| **t == Terrain::Town)
+                .filter(|s| **s == Structure::Town)
                 .count();
             let cave_count: usize = map
-                .grid
+                .structures
                 .iter()
                 .flatten()
-                .filter(|t| **t == Terrain::Cave)
+                .filter(|s| **s == Structure::Cave)
                 .count();
 
             eprintln!("=== seed {} ===", seed);
@@ -905,11 +907,11 @@ mod tests {
             for (i, island) in islands.iter().enumerate() {
                 let towns_on_island = island
                     .iter()
-                    .filter(|&&(x, y)| map.grid[y][x] == Terrain::Town)
+                    .filter(|&&(x, y)| map.structures[y][x] == Structure::Town)
                     .count();
                 let caves_on_island = island
                     .iter()
-                    .filter(|&&(x, y)| map.grid[y][x] == Terrain::Cave)
+                    .filter(|&&(x, y)| map.structures[y][x] == Structure::Cave)
                     .count();
                 eprintln!(
                     "  島{}: {}タイル, 街{}個, 洞窟{}個",

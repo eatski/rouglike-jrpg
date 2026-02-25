@@ -10,7 +10,7 @@ use world_gen::{
 use field_core::{ActiveMap, Player, TilePosition, TILE_SIZE};
 use party::default_candidates;
 use app_state::{ContinentCavePositions, ContinentMap, EncounterZone, HokoraPositions, RecruitmentMap};
-use terrain::Terrain;
+use terrain::Structure;
 
 use crate::{load_tile_textures, spawn_boat_entities, BoatSpawnsResource, BossCaveWorldPos};
 
@@ -34,7 +34,8 @@ pub fn spawn_field_map_with_rng(
     // スポーン大陸に仲間候補用の追加街を配置
     let candidate_count = default_candidates().len();
     place_extra_towns(
-        &mut map_data.grid,
+        &map_data.grid,
+        &mut map_data.structures,
         rng,
         map_data.spawn_position,
         candidate_count,
@@ -50,7 +51,7 @@ pub fn spawn_field_map_with_rng(
     let spawn_island_towns: Vec<(usize, usize)> = spawn_island
         .iter()
         .copied()
-        .filter(|&(x, y)| map_data.grid[y][x] == Terrain::Town)
+        .filter(|&(x, y)| map_data.structures[y][x] == Structure::Town)
         .collect();
 
     // 仲間候補を街に割り当て
@@ -90,7 +91,7 @@ pub fn spawn_field_map_with_rng(
                     island
                         .iter()
                         .copied()
-                        .filter(|&(x, y)| map_data.grid[y][x] == Terrain::Cave)
+                        .filter(|&(x, y)| map_data.structures[y][x] == Structure::Cave)
                         .collect()
                 })
                 .unwrap_or_default()
@@ -107,7 +108,7 @@ pub fn spawn_field_map_with_rng(
         position: map_data.boss_cave_position,
     });
 
-    let active_map = ActiveMap::from_grid(map_data.grid);
+    let active_map = ActiveMap::from_grid(map_data.grid, map_data.structures);
 
     // 船のスポーン位置を保存してスポーン
     let boat_spawns_resource = BoatSpawnsResource {

@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use terrain::{MoveResult, Terrain};
+use terrain::MoveResult;
 
 use field_core::{ActiveMap, Boat, OnBoat, Player, TilePosition};
 
@@ -28,7 +28,7 @@ pub fn execute_move(
 ) -> ExecuteMoveResult {
     if let Some(on_boat) = on_boat {
         // 船モード: まず海上移動を試行
-        match active_map.try_move_with(tile_pos.x, tile_pos.y, dx, dy, Terrain::is_navigable) {
+        match active_map.try_move_with(tile_pos.x, tile_pos.y, dx, dy, |_x, _y, t| t.is_navigable()) {
             MoveResult::Moved { new_x, new_y } => {
                 if let Ok((_, mut boat_pos)) = boat_query.get_mut(on_boat.boat_entity) {
                     boat_pos.x = new_x;
