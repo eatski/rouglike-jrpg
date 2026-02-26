@@ -445,22 +445,109 @@ fn scatter_terrain_clusters(
     }
 }
 
-/// 特殊タイル（Town/Cave/Hokora）の周囲2マスを歩行可能にする
+/// 構築物タイルを壁とみなした場合に、歩行可能な4近傍同士がBFSで連結しているか判定する。
 ///
-/// 街・洞窟・祠の周囲2マス以内の Mountain や Sea を Plains に変換し、
-/// プレイヤーが確実にアクセスできるようにする。
+/// 連結していなければチョークポイント（迂回不能なボトルネック）と判定する。
+fn is_structure_chokepoint(
+    x: usize,
+    y: usize,
+    grid: &[Vec<Terrain>],
+    structure_set: &HashSet<(usize, usize)>,
+) -> bool {
+    // 歩行可能な4近傍を収集（構築物タイルは壁扱いで除外）
+    let walkable_neighbors: Vec<(usize, usize)> = orthogonal_neighbors(x, y)
+        .into_iter()
+        .filter(|&(nx, ny)| grid[ny][nx].is_walkable() && !structure_set.contains(&(nx, ny)))
+        .collect();
+
+    if walkable_neighbors.len() <= 1 {
+        return false;
+    }
+
+    // BFSで1つ目の歩行可能隣接から他全てに到達できるか確認
+    let start = walkable_neighbors[0];
+    let targets: HashSet<(usize, usize)> = walkable_neighbors[1..].iter().copied().collect();
+    let mut visited = HashSet::new();
+    let mut queue = VecDeque::new();
+    visited.insert(start);
+    queue.push_back(start);
+
+    let mut reached = HashSet::new();
+
+    while let Some((cx, cy)) = queue.pop_front() {
+        if targets.contains(&(cx, cy)) {
+            reached.insert((cx, cy));
+            if reached.len() == targets.len() {
+                return false;
+            }
+        }
+        for (nx, ny) in orthogonal_neighbors(cx, cy) {
+            if !visited.contains(&(nx, ny))
+                && grid[ny][nx].is_walkable()
+                && !structure_set.contains(&(nx, ny))
+            {
+                visited.insert((nx, ny));
+                queue.push_back((nx, ny));
+            }
+        }
+    }
+
+    // 到達不能な隣接がある → チョークポイント
+    reached.len() < targets.len()
+}
+
+/// 特殊タイル（Town/Cave/Hokora/BossCave）の歩行可能性とチョークポイント解消を保証する
+///
+/// 3ステップ:
+/// 1. 構築物タイル自体を歩行可能にする（Cave/BossCaveはMountain上に配置されるため）
+/// 2. 歩行可能隣接が0個の場合、隣接を1つだけPlains化してアクセスを確保
+/// 3. チョークポイントの場合、3x3の歩行不可タイルをPlains化
 fn clear_around_special_tiles(grid: &mut Vec<Vec<Terrain>>, structures: &[Vec<Structure>]) {
     let special_tiles: Vec<(usize, usize)> = (0..MAP_HEIGHT)
         .flat_map(|y| (0..MAP_WIDTH).map(move |x| (x, y)))
         .filter(|&(x, y)| structures[y][x] != Structure::None)
         .collect();
 
+    let structure_set: HashSet<(usize, usize)> = special_tiles.iter().copied().collect();
+
+    // Step 1: 構築物タイル自体を歩行可能にする
     for &(sx, sy) in &special_tiles {
-        for dy in -2i32..=2 {
-            for dx in -2i32..=2 {
-                let (nx, ny) = wrap_position(sx, sy, dx, dy);
-                if !grid[ny][nx].is_walkable() {
+        if !grid[sy][sx].is_walkable() {
+            grid[sy][sx] = Terrain::Plains;
+        }
+    }
+
+    // Step 2: アクセス確保（歩行可能隣接が0個の場合）
+    for &(sx, sy) in &special_tiles {
+        let walkable_neighbors: Vec<(usize, usize)> = orthogonal_neighbors(sx, sy)
+            .into_iter()
+            .filter(|&(nx, ny)| grid[ny][nx].is_walkable() && !structure_set.contains(&(nx, ny)))
+            .collect();
+
+        if walkable_neighbors.is_empty() {
+            // 隣接の非構築物タイルを1つだけPlains化
+            for (nx, ny) in orthogonal_neighbors(sx, sy) {
+                if !structure_set.contains(&(nx, ny)) {
                     grid[ny][nx] = Terrain::Plains;
+                    break;
+                }
+            }
+        }
+    }
+
+    // Step 3: チョークポイント解消
+    for &(sx, sy) in &special_tiles {
+        if is_structure_chokepoint(sx, sy, grid, &structure_set) {
+            // 8近傍(3x3)の歩行不可タイルをPlains化
+            for dy in -1i32..=1 {
+                for dx in -1i32..=1 {
+                    if dx == 0 && dy == 0 {
+                        continue;
+                    }
+                    let (nx, ny) = wrap_position(sx, sy, dx, dy);
+                    if !grid[ny][nx].is_walkable() {
+                        grid[ny][nx] = Terrain::Plains;
+                    }
                 }
             }
         }
@@ -662,7 +749,7 @@ pub fn generate_map(rng: &mut impl Rng) -> MapData {
     // spawn_position が Plains であることを最終保証
     grid[spawn_position.1][spawn_position.0] = Terrain::Plains;
 
-    // Phase 4.5a: 特殊タイルの周囲2マスを歩行可能にする
+    // Phase 4.5: 構築物の歩行可能化とアクセス確保
     clear_around_special_tiles(&mut grid, &structures);
 
     // Phase 5: 歩行可能タイルの連結性を保証（山で道が塞がれないようにする）
@@ -693,6 +780,9 @@ pub fn generate_map(rng: &mut impl Rng) -> MapData {
             }
         }
     }
+
+    // Phase 5.5後: ボス大陸の山壁で再導入されたチョークポイントを解消
+    clear_around_special_tiles(&mut grid, &structures);
 
     // 各タイルを最も近い大陸中心に基づいて大陸IDに割り当て
     let mut continent_map: Vec<Vec<Option<u8>>> = vec![vec![None; MAP_WIDTH]; MAP_HEIGHT];
@@ -927,6 +1017,83 @@ mod tests {
 
             // 街間の最小距離は配置時に島単位で保証されるが、
             // clear_around_special_tiles で島が結合されるため最終マップでは保証外
+        }
+    }
+
+    #[test]
+    fn structure_chokepoint_detected() {
+        // 短い横通路: (4,5),(5,5),(6,5) のみPlains、構築物は中央(5,5) → チョークポイント
+        let mut grid = vec![vec![Terrain::Mountain; MAP_WIDTH]; MAP_HEIGHT];
+        grid[5][4] = Terrain::Plains;
+        grid[5][5] = Terrain::Plains;
+        grid[5][6] = Terrain::Plains;
+
+        let mut structure_set = HashSet::new();
+        structure_set.insert((5, 5));
+
+        assert!(
+            is_structure_chokepoint(5, 5, &grid, &structure_set),
+            "短い横通路の中央の構築物はチョークポイントであるべき"
+        );
+    }
+
+    #[test]
+    fn structure_not_chokepoint_with_bypass() {
+        // 3x3の平原の中央に構築物 → 迂回路があるので非チョークポイント
+        let mut grid = vec![vec![Terrain::Mountain; MAP_WIDTH]; MAP_HEIGHT];
+        for dy in 0..3 {
+            for dx in 0..3 {
+                grid[4 + dy][4 + dx] = Terrain::Plains;
+            }
+        }
+        let mut structure_set = HashSet::new();
+        structure_set.insert((5, 5));
+
+        assert!(
+            !is_structure_chokepoint(5, 5, &grid, &structure_set),
+            "周囲がPlains3x3なら迂回できるので非チョークポイント"
+        );
+    }
+
+    #[test]
+    fn cave_tile_becomes_walkable() {
+        // Mountain上のCaveタイルがPlains化されることを確認
+        let mut grid = vec![vec![Terrain::Plains; MAP_WIDTH]; MAP_HEIGHT];
+        grid[5][5] = Terrain::Mountain; // Cave配置先
+        let mut structures = vec![vec![Structure::None; MAP_WIDTH]; MAP_HEIGHT];
+        structures[5][5] = Structure::Cave;
+
+        clear_around_special_tiles(&mut grid, &structures);
+
+        assert_eq!(
+            grid[5][5],
+            Terrain::Plains,
+            "Mountain上のCaveタイルはPlains化されるべき"
+        );
+    }
+
+    #[test]
+    fn structures_are_not_chokepoints_in_generated_map() {
+        // 複数シードで生成し、全構築物が非チョークポイントであることを確認
+        for seed in [42, 123, 456, 789, 9999] {
+            let mut rng = create_rng(seed);
+            let map = generate_connected_map(&mut rng);
+
+            let structure_set: HashSet<(usize, usize)> = (0..MAP_HEIGHT)
+                .flat_map(|y| (0..MAP_WIDTH).map(move |x| (x, y)))
+                .filter(|&(x, y)| map.structures[y][x] != Structure::None)
+                .collect();
+
+            for &(sx, sy) in &structure_set {
+                assert!(
+                    !is_structure_chokepoint(sx, sy, &map.grid, &structure_set),
+                    "seed {}: ({},{}) の構築物({:?})がチョークポイント",
+                    seed,
+                    sx,
+                    sy,
+                    map.structures[sy][sx]
+                );
+            }
         }
     }
 }
