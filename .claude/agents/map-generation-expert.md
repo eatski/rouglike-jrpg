@@ -26,9 +26,11 @@ You are an expert in procedural map generation. Respond in the user's language.
 5. **Phase 2.5c: 極小島除去** — 8タイル未満の孤立島を海に吸収
 6. **Phase 3: 地形散布** — Forest（45クラスタ）・Mountain（120クラスタ）をクラスター状に散布
 7. **Phase 4: 町・洞窟配置** — 各島にPlainsから町を1つ、Mountainから洞窟を1つ配置
-8. **Phase 5: 歩行連結性保証** — Mountainで分断された歩行可能エリアをBFSで検出し、Mountain を Plains に変換して道を開通
-9. **Phase 5.5: ボス大陸海岸封鎖** — ボス大陸（index 6）の海に隣接するタイルを Mountain に変換（特殊タイル・祠ワープ先を除く）。船でのアクセスを不可にする
-10. **大陸IDマップ生成** — 各タイルを `closest_center_index` で最も近い大陸中心に割り当て、`MapData.continent_map` として保存。海タイルは `None`
+8. **Phase 4.5: 構築物アクセス確保** — `clear_around_special_tiles` で3ステップ処理：(1)構築物タイル自体をPlains化、(2)歩行可能隣接0個の場合に1タイルだけPlains化、(3)BFSチョークポイント判定で3x3をPlains化。最大変換数は通常0-1タイル、チョークポイント時最大8タイル
+9. **Phase 5: 歩行連結性保証** — Mountainで分断された歩行可能エリアをBFSで検出し、Mountain を Plains に変換して道を開通
+10. **Phase 5.5: ボス大陸海岸封鎖** — ボス大陸（index 6）の海に隣接するタイルを Mountain に変換（特殊タイル・祠ワープ先を除く）。船でのアクセスを不可にする
+11. **Phase 5.5後: 再アクセス確保** — Phase 5.5の山壁生成で新たに生じたチョークポイントを解消するため `clear_around_special_tiles` を再呼び出し
+12. **大陸IDマップ生成** — 各タイルを `closest_center_index` で最も近い大陸中心に割り当て、`MapData.continent_map` として保存。海タイルは `None`
 
 ### 接続性保証の設計意図
 
