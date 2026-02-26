@@ -833,6 +833,146 @@ fn results_to_messages(
                     }
                 }
             }
+            TurnResult::AilmentInflicted {
+                caster,
+                spell,
+                target,
+                ailment,
+            } => {
+                let caster_name = actor_name(caster, state, &enemy_names);
+                let target_name = target_name_str(target, state, &enemy_names);
+                let msg_index = messages.len();
+
+                let is_continuation = last_aoe_caster_spell == Some((*caster, *spell));
+                if is_continuation {
+                    messages.push(format!(
+                        "{}は {}になった！",
+                        target_name,
+                        ailment.name()
+                    ));
+                } else {
+                    messages.push(format!(
+                        "{}は {}を となえた！ {}は {}になった！",
+                        caster_name,
+                        spell.name(),
+                        target_name,
+                        ailment.name()
+                    ));
+                }
+                last_aoe_caster_spell = Some((*caster, *spell));
+
+                // キャスターのMP更新エフェクト（最初のヒットのみ）
+                if !is_continuation
+                    && let ActorId::Party(ci) = caster
+                {
+                    running_party_mp[*ci] =
+                        (running_party_mp[*ci] - spell.mp_cost()).max(0);
+                    effects.push((
+                        msg_index,
+                        MessageEffect::UpdatePartyMp {
+                            member_index: *ci,
+                            new_mp: running_party_mp[*ci],
+                        },
+                    ));
+                }
+
+                if let TargetId::Enemy(i) = target {
+                    effects.push((
+                        msg_index,
+                        MessageEffect::BlinkEnemy { enemy_index: *i },
+                    ));
+                }
+            }
+            TurnResult::AilmentResisted {
+                caster,
+                spell,
+                target,
+            } => {
+                let target_name = target_name_str(target, state, &enemy_names);
+                let msg_index = messages.len();
+
+                let is_continuation = last_aoe_caster_spell == Some((*caster, *spell));
+                if is_continuation {
+                    messages.push(format!(
+                        "しかし {}には きかなかった！",
+                        target_name
+                    ));
+                } else {
+                    let caster_name = actor_name(caster, state, &enemy_names);
+                    messages.push(format!(
+                        "{}は {}を となえた！ しかし {}には きかなかった！",
+                        caster_name,
+                        spell.name(),
+                        target_name
+                    ));
+                }
+                last_aoe_caster_spell = Some((*caster, *spell));
+
+                // キャスターのMP更新エフェクト（最初のヒットのみ）
+                if !is_continuation
+                    && let ActorId::Party(ci) = caster
+                {
+                    running_party_mp[*ci] =
+                        (running_party_mp[*ci] - spell.mp_cost()).max(0);
+                    effects.push((
+                        msg_index,
+                        MessageEffect::UpdatePartyMp {
+                            member_index: *ci,
+                            new_mp: running_party_mp[*ci],
+                        },
+                    ));
+                }
+
+                if let TargetId::Enemy(i) = target {
+                    effects.push((
+                        msg_index,
+                        MessageEffect::BlinkEnemy { enemy_index: *i },
+                    ));
+                }
+            }
+            TurnResult::Sleeping { actor } => {
+                last_aoe_caster_spell = None;
+                let name = actor_name(actor, state, &enemy_names);
+                messages.push(format!("{}は ねむっている…", name));
+            }
+            TurnResult::PoisonDamage { target, damage } => {
+                last_aoe_caster_spell = None;
+                let target_name = target_name_str(target, state, &enemy_names);
+                let msg_index = messages.len();
+                messages.push(format!(
+                    "{}は どくで {}ダメージ！",
+                    target_name, damage
+                ));
+
+                match target {
+                    TargetId::Enemy(i) => {
+                        effects.push((
+                            msg_index,
+                            MessageEffect::BlinkEnemy { enemy_index: *i },
+                        ));
+                    }
+                    TargetId::Party(i) => {
+                        effects.push((msg_index, MessageEffect::Shake));
+                        running_party_hp[*i] = (running_party_hp[*i] - damage).max(0);
+                        effects.push((
+                            msg_index,
+                            MessageEffect::UpdatePartyHp {
+                                member_index: *i,
+                                new_hp: running_party_hp[*i],
+                            },
+                        ));
+                    }
+                }
+            }
+            TurnResult::AilmentCured { target, ailment } => {
+                last_aoe_caster_spell = None;
+                let target_name = target_name_str(target, state, &enemy_names);
+                messages.push(format!(
+                    "{}の {}が なおった！",
+                    target_name,
+                    ailment.name()
+                ));
+            }
             TurnResult::Fled => {
                 last_aoe_caster_spell = None;
                 messages.push("うまく にげきれた！".to_string());
