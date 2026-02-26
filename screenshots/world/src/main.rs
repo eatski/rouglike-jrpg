@@ -53,33 +53,43 @@ fn setup(
 
     let tex_boss_cave: Handle<Image> = asset_server.load("tiles/boss_cave.png");
 
-    // 全タイルをスプライトとして配置
+    // 全タイルをスプライトとして配置（地形z=0.0 + 構造物オーバーレイz=0.1）
     for y in 0..MAP_HEIGHT {
         for x in 0..MAP_WIDTH {
             let terrain = map_data.grid[y][x];
             let structure = map_data.structures[y][x];
-            let texture = match structure {
-                Structure::Town => tex_town.clone(),
-                Structure::Cave => tex_cave.clone(),
-                Structure::BossCave => tex_boss_cave.clone(),
-                Structure::Hokora => tex_hokora.clone(),
-                Structure::Ladder | Structure::WarpZone | Structure::Chest | Structure::ChestOpen => tex_plains.clone(),
-                Structure::None => match terrain {
-                    Terrain::Sea => tex_sea.clone(),
-                    Terrain::Plains => tex_plains.clone(),
-                    Terrain::Forest => tex_forest.clone(),
-                    Terrain::Mountain => tex_mountain.clone(),
-                    _ => tex_sea.clone(),
-                },
+
+            // 常に地形テクスチャをz=0.0で描画
+            let terrain_texture = match terrain {
+                Terrain::Sea => tex_sea.clone(),
+                Terrain::Plains => tex_plains.clone(),
+                Terrain::Forest => tex_forest.clone(),
+                Terrain::Mountain => tex_mountain.clone(),
+                _ => tex_sea.clone(),
             };
 
             let world_x = origin_x + x as f32 * TILE_SIZE;
             let world_y = origin_y + y as f32 * TILE_SIZE;
 
             commands.spawn((
-                Sprite::from_image(texture),
+                Sprite::from_image(terrain_texture),
                 Transform::from_xyz(world_x, world_y, 0.0).with_scale(Vec3::splat(scale)),
             ));
+
+            // 構造物があればオーバーレイとして上に描画
+            let structure_texture = match structure {
+                Structure::Town => Some(tex_town.clone()),
+                Structure::Cave => Some(tex_cave.clone()),
+                Structure::BossCave => Some(tex_boss_cave.clone()),
+                Structure::Hokora => Some(tex_hokora.clone()),
+                _ => None,
+            };
+            if let Some(tex) = structure_texture {
+                commands.spawn((
+                    Sprite::from_image(tex),
+                    Transform::from_xyz(world_x, world_y, 0.1).with_scale(Vec3::splat(scale)),
+                ));
+            }
         }
     }
 }

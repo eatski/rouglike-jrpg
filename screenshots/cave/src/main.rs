@@ -50,6 +50,7 @@ fn setup_cave_direct(mut commands: Commands, asset_server: Res<AssetServer>) {
     // 洞窟タイルプールを初期化
     commands.insert_resource(SimpleTileMap {
         active_tiles: HashMap::new(),
+        structure_overlays: HashMap::new(),
         last_player_pos: None,
     });
     commands.insert_resource(tile_textures);

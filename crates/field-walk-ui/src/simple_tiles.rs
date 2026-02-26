@@ -13,10 +13,15 @@ use crate::{MapModeState, TileTextures};
 #[derive(Component)]
 pub struct SimpleTile;
 
+/// 構造物オーバーレイのマーカーコンポーネント
+#[derive(Component)]
+pub struct StructureOverlay;
+
 /// シンプルタイルマップのリソース
 #[derive(Resource)]
 pub struct SimpleTileMap {
     pub active_tiles: HashMap<(i32, i32), Entity>,
+    pub structure_overlays: HashMap<(i32, i32), Entity>,
     pub last_player_pos: Option<(i32, i32)>,
 }
 
@@ -88,6 +93,9 @@ pub fn update_simple_tiles(
             }
             commands.entity(entity).despawn();
         }
+        if let Some(entity) = tile_map.structure_overlays.remove(&pos) {
+            commands.entity(entity).despawn();
+        }
     }
 
     // 新しいタイルを生成
@@ -107,18 +115,13 @@ pub fn update_simple_tiles(
             (Terrain::CaveWall, Structure::None)
         };
 
-        let texture = match structure {
-            Structure::Ladder => tile_textures.ladder.clone(),
-            Structure::WarpZone => tile_textures.warp_zone.clone(),
-            Structure::Chest => tile_textures.chest.clone(),
-            Structure::ChestOpen => tile_textures.chest_open.clone(),
-            _ => match terrain {
-                Terrain::CaveWall => tile_textures.cave_wall.clone(),
-                Terrain::CaveFloor => tile_textures.cave_floor.clone(),
-                Terrain::BossCaveWall => tile_textures.boss_cave_wall.clone(),
-                Terrain::BossCaveFloor => tile_textures.boss_cave_floor.clone(),
-                _ => tile_textures.cave_wall.clone(),
-            },
+        // 常に地形テクスチャを描画
+        let terrain_texture = match terrain {
+            Terrain::CaveWall => tile_textures.cave_wall.clone(),
+            Terrain::CaveFloor => tile_textures.cave_floor.clone(),
+            Terrain::BossCaveWall => tile_textures.boss_cave_wall.clone(),
+            Terrain::BossCaveFloor => tile_textures.boss_cave_floor.clone(),
+            _ => tile_textures.cave_wall.clone(),
         };
 
         let (world_x, world_y) = active_map.to_world_logical(lx, ly);
@@ -127,11 +130,30 @@ pub fn update_simple_tiles(
             .spawn((
                 MapTile,
                 SimpleTile,
-                Sprite::from_image(texture),
+                Sprite::from_image(terrain_texture),
                 Transform::from_xyz(world_x, world_y, 0.0).with_scale(Vec3::splat(scale)),
             ))
             .id();
 
         tile_map.active_tiles.insert((lx, ly), entity);
+
+        // 構造物があればオーバーレイとして上に描画
+        let structure_texture = match structure {
+            Structure::Ladder => Some(tile_textures.ladder.clone()),
+            Structure::WarpZone => Some(tile_textures.warp_zone.clone()),
+            Structure::Chest => Some(tile_textures.chest.clone()),
+            Structure::ChestOpen => Some(tile_textures.chest_open.clone()),
+            _ => None,
+        };
+        if let Some(tex) = structure_texture {
+            let overlay = commands
+                .spawn((
+                    StructureOverlay,
+                    Sprite::from_image(tex),
+                    Transform::from_xyz(world_x, world_y, 0.1).with_scale(Vec3::splat(scale)),
+                ))
+                .id();
+            tile_map.structure_overlays.insert((lx, ly), overlay);
+        }
     }
 }

@@ -10,6 +10,7 @@ use crate::SmoothMove;
 use crate::smooth_move::is_smooth_moving;
 
 use crate::rendering::TileTextures;
+use crate::simple_tiles::StructureOverlay;
 
 /// ボス大陸の大陸ID
 const BOSS_CONTINENT_ID: u8 = 6;
@@ -28,6 +29,8 @@ pub struct TilePool {
     available: Vec<Entity>,
     /// 現在表示中のタイル: (論理座標) -> Entity
     active_tiles: HashMap<(i32, i32), Entity>,
+    /// 構造物オーバーレイエンティティ: (論理座標) -> Entity
+    structure_overlays: HashMap<(i32, i32), Entity>,
     /// 前回のプレイヤータイル位置
     pub last_player_pos: Option<(i32, i32)>,
 }
@@ -37,6 +40,7 @@ impl TilePool {
         Self {
             available: Vec::with_capacity(TILE_POOL_SIZE),
             active_tiles: HashMap::with_capacity(TILE_POOL_SIZE),
+            structure_overlays: HashMap::new(),
             last_player_pos: None,
         }
     }
@@ -87,23 +91,10 @@ fn logical_to_map(logical_x: i32, logical_y: i32) -> (usize, usize) {
     )
 }
 
-/// 地形に対応するテクスチャを取得
+/// 地形に対応するテクスチャを取得（構造物は無視）
 ///
-/// 構造物がある場合は構造物テクスチャを優先。
 /// ボス大陸（continent_id=6）の Plains/Forest は暗いバリアントテクスチャを使用する。
-fn get_terrain_texture(terrain: Terrain, structure: Structure, continent_id: Option<u8>, textures: &TileTextures) -> Handle<Image> {
-    // 構造物がある場合は構造物テクスチャを優先
-    match structure {
-        Structure::Town => return textures.town.clone(),
-        Structure::Cave => return textures.cave.clone(),
-        Structure::BossCave => return textures.boss_cave.clone(),
-        Structure::Hokora => return textures.hokora.clone(),
-        Structure::Ladder => return textures.ladder.clone(),
-        Structure::WarpZone => return textures.warp_zone.clone(),
-        Structure::Chest => return textures.chest.clone(),
-        Structure::ChestOpen => return textures.chest_open.clone(),
-        Structure::None => {}
-    }
+fn get_terrain_texture(terrain: Terrain, continent_id: Option<u8>, textures: &TileTextures) -> Handle<Image> {
     let is_boss = continent_id == Some(BOSS_CONTINENT_ID);
     match terrain {
         Terrain::Sea => textures.sea.clone(),
@@ -116,6 +107,21 @@ fn get_terrain_texture(terrain: Terrain, structure: Structure, continent_id: Opt
         Terrain::CaveFloor => textures.cave_floor.clone(),
         Terrain::BossCaveWall => textures.boss_cave_wall.clone(),
         Terrain::BossCaveFloor => textures.boss_cave_floor.clone(),
+    }
+}
+
+/// 構造物に対応するテクスチャを取得（構造物がなければNone）
+fn get_structure_texture(structure: Structure, textures: &TileTextures) -> Option<Handle<Image>> {
+    match structure {
+        Structure::Town => Some(textures.town.clone()),
+        Structure::Cave => Some(textures.cave.clone()),
+        Structure::BossCave => Some(textures.boss_cave.clone()),
+        Structure::Hokora => Some(textures.hokora.clone()),
+        Structure::Ladder => Some(textures.ladder.clone()),
+        Structure::WarpZone => Some(textures.warp_zone.clone()),
+        Structure::Chest => Some(textures.chest.clone()),
+        Structure::ChestOpen => Some(textures.chest_open.clone()),
+        Structure::None => None,
     }
 }
 
@@ -144,7 +150,9 @@ fn compute_coast_mask(x: usize, y: usize, grid: &[Vec<Terrain>]) -> u8 {
 }
 
 /// プレイヤー位置に応じて可視タイルを更新するシステム
+#[allow(clippy::too_many_arguments)]
 pub fn update_visible_tiles(
+    mut commands: Commands,
     mut tile_pool: ResMut<TilePool>,
     player_query: Query<&TilePosition, With<Player>>,
     smooth_move_query: Query<&SmoothMove, With<Player>>,
@@ -177,6 +185,7 @@ pub fn update_visible_tiles(
     tile_pool.last_player_pos = Some(player_tile);
 
     let half_width = TILE_POOL_WIDTH / 2;
+    let scale = TILE_SIZE / 16.0;
 
     // 新しい表示範囲を計算
     let mut needed_tiles: HashSet<(i32, i32)> = HashSet::with_capacity(TILE_POOL_SIZE);
@@ -204,6 +213,10 @@ pub fn update_visible_tiles(
             }
             tile_pool.available.push(entity);
         }
+        // 構造物オーバーレイも削除
+        if let Some(overlay) = tile_pool.structure_overlays.remove(&pos) {
+            commands.entity(overlay).despawn();
+        }
     }
 
     // 新しく必要なタイルを配置
@@ -221,7 +234,9 @@ pub fn update_visible_tiles(
         let terrain = active_map.grid[map_y][map_x];
         let structure = active_map.structures[map_y][map_x];
         let continent_id = continent_map.as_ref().and_then(|cm| cm.get(map_x, map_y));
-        let texture = if terrain == Terrain::Sea && structure == Structure::None {
+
+        // 地形テクスチャ（海岸判定含む）
+        let texture = if terrain == Terrain::Sea {
             let mask = compute_coast_mask(map_x, map_y, &active_map.grid);
             if mask != 0 {
                 let idx = tile_textures.coast_lookup[mask as usize] as usize;
@@ -230,7 +245,7 @@ pub fn update_visible_tiles(
                 tile_textures.sea.clone()
             }
         } else {
-            get_terrain_texture(terrain, structure, continent_id, &tile_textures)
+            get_terrain_texture(terrain, continent_id, &tile_textures)
         };
 
         // ワールド座標を計算
@@ -248,5 +263,17 @@ pub fn update_visible_tiles(
         }
 
         tile_pool.active_tiles.insert((logical_x, logical_y), entity);
+
+        // 構造物があればオーバーレイとして上に描画
+        if let Some(structure_tex) = get_structure_texture(structure, &tile_textures) {
+            let overlay = commands
+                .spawn((
+                    StructureOverlay,
+                    Sprite::from_image(structure_tex),
+                    Transform::from_xyz(world_x, world_y, 0.1).with_scale(Vec3::splat(scale)),
+                ))
+                .id();
+            tile_pool.structure_overlays.insert((logical_x, logical_y), overlay);
+        }
     }
 }
