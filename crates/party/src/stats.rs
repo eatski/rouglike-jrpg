@@ -54,9 +54,9 @@ impl CombatStats {
     /// ステータス成長を適用する
     pub fn apply_growth(&mut self, growth: &StatGrowth) {
         self.max_hp += growth.hp;
-        self.hp = self.max_hp; // レベルアップ時は全回復
+        self.hp = (self.hp + growth.hp).min(self.max_hp);
         self.max_mp += growth.mp;
-        self.mp = self.max_mp;
+        self.mp = (self.mp + growth.mp).min(self.max_mp);
         self.attack += growth.attack;
         self.defense += growth.defense;
         self.speed += growth.speed;
