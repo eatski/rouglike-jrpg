@@ -25,6 +25,8 @@ Bevy 0.18の2Dローグライク風JRPG。Cargoワークスペース構成。
 
 ドメイン層（Bevy非依存）→ UI共通層 → UI機能層 の3層構成＋ツール群。
 
+- `hud-ui/menu_style.rs`: `SceneMenu` trait ベースのメニューUIフレームワーク。hokora-ui・town-ui で共通利用。
+
 ## ワークフロー
 
 - **コミット**: ユーザーが明示的に指示した場合のみ `/commit` で実行

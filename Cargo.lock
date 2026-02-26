@@ -338,6 +338,7 @@ dependencies = [
  "battle",
  "bevy",
  "cave-ui",
+ "hud-ui",
  "input-ui",
  "party",
  "rand 0.8.5",
@@ -2950,6 +2951,7 @@ dependencies = [
  "app-state",
  "bevy",
  "field-core",
+ "hud-ui",
  "input-ui",
  "party",
 ]
@@ -2960,6 +2962,7 @@ version = "0.1.0"
 dependencies = [
  "app-state",
  "bevy",
+ "input-ui",
 ]
 
 [[package]]

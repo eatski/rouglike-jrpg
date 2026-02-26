@@ -314,12 +314,12 @@ fn setup_battle_scene_inner(
     commands.insert_resource(game_state);
     commands.insert_resource(ui_state);
 
-    let panel_bg = Color::srgba(0.1, 0.1, 0.15, 0.85);
-    let border_color = Color::srgb(0.4, 0.4, 0.5);
+    let panel_bg = hud_ui::menu_style::PANEL_BG;
+    let border_color = hud_ui::menu_style::PANEL_BORDER;
     let hp_bar_bg = Color::srgb(0.2, 0.2, 0.2);
     let hp_bar_green = Color::srgb(0.2, 0.8, 0.2);
-    let selected_color = Color::srgb(1.0, 0.9, 0.2);
-    let unselected_color = Color::srgb(0.6, 0.6, 0.6);
+    let selected_color = hud_ui::menu_style::SELECTED_COLOR;
+    let unselected_color = hud_ui::menu_style::UNSELECTED_COLOR;
 
     // 全画面を覆う黒背景UI
     commands

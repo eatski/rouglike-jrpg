@@ -12,3 +12,4 @@ party = { path = "../party" }
 app-state = { path = "../app-state" }
 input-ui = { path = "../input-ui" }
 cave-ui = { path = "../cave-ui" }
+hud-ui = { path = "../hud-ui" }
