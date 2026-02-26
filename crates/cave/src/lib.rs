@@ -72,6 +72,17 @@ pub fn generate_cave_map(rng: &mut impl Rng, guaranteed_items: &[TreasureContent
     let mut structures = vec![vec![Structure::None; CAVE_WIDTH]; CAVE_HEIGHT];
     structures[spawn_position.1][spawn_position.0] = Structure::Ladder;
 
+    // Ladder周辺のチョークポイント解消
+    terrain::clear_around_structures(
+        &mut grid,
+        &structures,
+        CAVE_HEIGHT,
+        CAVE_WIDTH,
+        Terrain::CaveFloor,
+        |x, y| terrain::bounded_orthogonal_neighbors(x, y, CAVE_WIDTH, CAVE_HEIGHT),
+        |x, y, dx, dy| terrain::bounded_offset(x, y, dx, dy, CAVE_WIDTH, CAVE_HEIGHT),
+    );
+
     // 宝箱配置: 床タイルからスポーン地点を除いた候補を収集
     let mut floor_positions: Vec<(usize, usize)> = grid
         .iter()
@@ -160,6 +171,17 @@ pub fn generate_boss_cave_map(rng: &mut impl Rng) -> BossCaveMapData {
     // スポーン地点に梯子を配置（structuresレイヤー）
     let mut structures = vec![vec![Structure::None; CAVE_WIDTH]; CAVE_HEIGHT];
     structures[spawn_position.1][spawn_position.0] = Structure::Ladder;
+
+    // Ladder周辺のチョークポイント解消
+    terrain::clear_around_structures(
+        &mut grid,
+        &structures,
+        CAVE_HEIGHT,
+        CAVE_WIDTH,
+        Terrain::BossCaveFloor,
+        |x, y| terrain::bounded_orthogonal_neighbors(x, y, CAVE_WIDTH, CAVE_HEIGHT),
+        |x, y, dx, dy| terrain::bounded_offset(x, y, dx, dy, CAVE_WIDTH, CAVE_HEIGHT),
+    );
 
     // ボス位置: スポーンから最も遠い床タイル
     let boss_position = find_boss_position(&grid, spawn_position);

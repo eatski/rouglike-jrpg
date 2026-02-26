@@ -68,6 +68,27 @@ pub fn orthogonal_neighbors(x: usize, y: usize) -> [(usize, usize); 4] {
     ]
 }
 
+/// 境界チェック付き4近傍（洞窟等の非ラップマップ用）
+pub fn bounded_orthogonal_neighbors(x: usize, y: usize, w: usize, h: usize) -> Vec<(usize, usize)> {
+    let mut result = Vec::with_capacity(4);
+    if y > 0 { result.push((x, y - 1)); }
+    if y + 1 < h { result.push((x, y + 1)); }
+    if x > 0 { result.push((x - 1, y)); }
+    if x + 1 < w { result.push((x + 1, y)); }
+    result
+}
+
+/// 境界チェック付きオフセット（洞窟等の非ラップマップ用）
+pub fn bounded_offset(x: usize, y: usize, dx: i32, dy: i32, w: usize, h: usize) -> Option<(usize, usize)> {
+    let nx = x as i32 + dx;
+    let ny = y as i32 + dy;
+    if nx >= 0 && (nx as usize) < w && ny >= 0 && (ny as usize) < h {
+        Some((nx as usize, ny as usize))
+    } else {
+        None
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
