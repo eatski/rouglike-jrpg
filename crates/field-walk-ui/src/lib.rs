@@ -34,7 +34,7 @@ pub use input::{process_movement_input, MovementInput};
 pub use map_mode::{reset_map_mode_system, toggle_map_mode_system, MapModeState, NORMAL_ZOOM};
 pub use rendering::{load_tile_textures, spawn_boat_entities, BoatSpawnsResource, BossCaveWorldPos, TileTextures};
 pub use resources::MovementState;
-pub use simple_tiles::{update_simple_tiles, SimpleTile, SimpleTileMap};
+pub use simple_tiles::{update_simple_tiles, SimpleTile, SimpleTileMap, StructureOverlay};
 pub use smooth_move::{
     ease_out_quad, is_smooth_moving, start_smooth_move, update_smooth_move, SmoothMove,
     MOVE_DURATION,

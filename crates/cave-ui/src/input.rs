@@ -265,6 +265,9 @@ pub fn check_chest_system(
             if let Some(entity) = tile_map.active_tiles.remove(&key) {
                 commands.entity(entity).despawn();
             }
+            if let Some(entity) = tile_map.structure_overlays.remove(&key) {
+                commands.entity(entity).despawn();
+            }
             tile_map.last_player_pos = None;
         }
     }

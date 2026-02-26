@@ -13,7 +13,7 @@ use field_core::{ActiveMap, Boat, Player, TilePosition, WorldMapData, TILE_SIZE}
 use field_walk_ui::MovementState;
 
 use field_walk_ui::{spawn_boat_entities, BoatSpawnsResource, BossCaveWorldPos, MapModeState, TileTextures};
-use field_walk_ui::{create_tile_pool, PooledTile, SimpleTile, SimpleTileMap, TilePool};
+use field_walk_ui::{create_tile_pool, PooledTile, SimpleTile, SimpleTileMap, StructureOverlay, TilePool};
 
 /// 洞窟進入前のフィールド座標を保存
 #[derive(Resource)]
@@ -59,6 +59,7 @@ pub fn setup_cave_scene(
     mut player_query: Query<(&mut TilePosition, &mut Transform), With<Player>>,
     tile_pool_query: Query<Entity, With<PooledTile>>,
     boat_query: Query<(Entity, &TilePosition), (With<Boat>, Without<Player>)>,
+    structure_overlay_query: Query<Entity, With<StructureOverlay>>,
     mut move_state: ResMut<MovementState>,
     active_map: Res<ActiveMap>,
     opened_chests: Res<OpenedChests>,
@@ -69,6 +70,11 @@ pub fn setup_cave_scene(
 ) {
     // ワールドでマップモードがONのまま洞窟に入った場合にリセット
     map_mode_state.enabled = false;
+
+    // ワールドマップの構造物オーバーレイを削除
+    for entity in &structure_overlay_query {
+        commands.entity(entity).despawn();
+    }
     // フィールド座標を保存
     let Ok((mut tile_pos, mut transform)) = player_query.single_mut() else {
         return;
@@ -167,6 +173,7 @@ pub fn setup_cave_scene(
     // 洞窟用タイルプールを初期化
     commands.insert_resource(SimpleTileMap {
         active_tiles: HashMap::new(),
+        structure_overlays: HashMap::new(),
         last_player_pos: None,
     });
 
@@ -181,6 +188,7 @@ pub fn setup_boss_cave_scene(
     mut player_query: Query<(&mut TilePosition, &mut Transform), With<Player>>,
     tile_pool_query: Query<Entity, With<PooledTile>>,
     boat_query: Query<(Entity, &TilePosition), (With<Boat>, Without<Player>)>,
+    structure_overlay_query: Query<Entity, With<StructureOverlay>>,
     mut move_state: ResMut<MovementState>,
     active_map: Res<ActiveMap>,
     tile_textures: Res<TileTextures>,
@@ -191,6 +199,11 @@ pub fn setup_boss_cave_scene(
     let Ok((mut tile_pos, mut transform)) = player_query.single_mut() else {
         return;
     };
+
+    // ワールドマップの構造物オーバーレイを削除
+    for entity in &structure_overlay_query {
+        commands.entity(entity).despawn();
+    }
 
     // フィールド座標を保存
     commands.insert_resource(FieldReturnState {
@@ -272,6 +285,7 @@ pub fn setup_boss_cave_scene(
     // 洞窟用タイルプールを初期化
     commands.insert_resource(SimpleTileMap {
         active_tiles: HashMap::new(),
+        structure_overlays: HashMap::new(),
         last_player_pos: None,
     });
 
@@ -281,10 +295,14 @@ pub fn setup_boss_cave_scene(
 pub fn despawn_cave_entities(
     mut commands: Commands,
     cave_tile_query: Query<Entity, With<SimpleTile>>,
+    structure_overlay_query: Query<Entity, With<StructureOverlay>>,
     message_ui_query: Query<Entity, With<CaveMessageUI>>,
     boss_query: Query<Entity, With<BossEntity>>,
 ) {
     for entity in &cave_tile_query {
+        commands.entity(entity).despawn();
+    }
+    for entity in &structure_overlay_query {
         commands.entity(entity).despawn();
     }
     for entity in &message_ui_query {
