@@ -5,7 +5,7 @@ use bevy::prelude::*;
 pub use resources::{
     BossBattlePending, BossDefeated, ContinentCavePositions, ContinentMap, EncounterZone,
     FieldMenuOpen, HeardTavernHints, HokoraPositions, OpenedChests, PartyState, RecruitmentMap,
-    TavernHintKind,
+    TavernBounties, TavernHintKind,
 };
 
 pub struct AppStatePlugin;
@@ -16,7 +16,8 @@ impl Plugin for AppStatePlugin {
             .init_state::<BattleState>()
             .add_computed_state::<InField>()
             .init_resource::<PartyState>()
-            .init_resource::<OpenedChests>();
+            .init_resource::<OpenedChests>()
+            .init_resource::<TavernBounties>();
     }
 }
 

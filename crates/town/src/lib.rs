@@ -328,6 +328,66 @@ pub fn hokora_hint_dialogue(
     format!("{modifier} {dir}のほうに\nふるい ほこらが あるそうだ")
 }
 
+/// 買い取り対象の素材アイテム一覧（安い順）
+pub fn bounty_eligible_items() -> [ItemKind; 4] {
+    [
+        ItemKind::MagicStone,
+        ItemKind::SilverOre,
+        ItemKind::AncientCoin,
+        ItemKind::DragonScale,
+    ]
+}
+
+/// 街座標から決定論的に買い取り対象アイテムを決定する
+pub fn tavern_bounty_item(town_x: usize, town_y: usize) -> ItemKind {
+    let items = bounty_eligible_items();
+    let hash = town_x.wrapping_mul(31).wrapping_add(town_y.wrapping_mul(97));
+    items[hash % items.len()]
+}
+
+/// 買い取り価格（売価×3）
+pub fn bounty_buy_price(item: ItemKind) -> u32 {
+    item.sell_price() * 3
+}
+
+/// 買い取り依頼の台詞（持っていない場合）
+pub fn bounty_offer_dialogue(item: ItemKind) -> String {
+    let price = bounty_buy_price(item);
+    format!(
+        "{}G はらった。\n「{}を もってきてくれ。\n{}Gで かいとるぞ」",
+        TAVERN_PRICE,
+        item.name(),
+        price,
+    )
+}
+
+/// 買い取り依頼の台詞（持っている場合）
+pub fn bounty_has_item_dialogue(item: ItemKind) -> String {
+    let price = bounty_buy_price(item);
+    format!(
+        "{}G はらった。\n「おっ {}を もっているのか！\n{}Gで かいとるぞ！」",
+        TAVERN_PRICE,
+        item.name(),
+        price,
+    )
+}
+
+/// 買い取り依頼で売却完了時のメッセージ
+pub fn bounty_sold_dialogue(item: ItemKind) -> String {
+    let price = bounty_buy_price(item);
+    format!("{}を {}Gで かいとった！", item.name(), price)
+}
+
+/// 買い取り依頼でアイテムを売却する（売価×3）
+pub fn sell_bounty_item(item: ItemKind, inventory: &mut Inventory) -> SellResult {
+    if !inventory.remove_item(item) {
+        return SellResult::NotOwned;
+    }
+    SellResult::Success {
+        earned_gold: bounty_buy_price(item),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -665,5 +725,39 @@ mod tests {
             }
         );
         assert_eq!(member.equipment.weapon, Some(WeaponKind::IronSword));
+    }
+
+    #[test]
+    fn bounty_buy_price_is_triple_sell_price() {
+        assert_eq!(bounty_buy_price(ItemKind::MagicStone), 90);
+        assert_eq!(bounty_buy_price(ItemKind::SilverOre), 180);
+        assert_eq!(bounty_buy_price(ItemKind::AncientCoin), 360);
+        assert_eq!(bounty_buy_price(ItemKind::DragonScale), 750);
+    }
+
+    #[test]
+    fn tavern_bounty_item_deterministic() {
+        // 同じ座標なら常に同じアイテム
+        let item1 = tavern_bounty_item(10, 20);
+        let item2 = tavern_bounty_item(10, 20);
+        assert_eq!(item1, item2);
+        // bounty_eligible_items に含まれる
+        assert!(bounty_eligible_items().contains(&item1));
+    }
+
+    #[test]
+    fn sell_bounty_item_success() {
+        let mut inv = Inventory::new();
+        inv.add(ItemKind::MagicStone, 1);
+        let result = sell_bounty_item(ItemKind::MagicStone, &mut inv);
+        assert_eq!(result, SellResult::Success { earned_gold: 90 });
+        assert_eq!(inv.count(ItemKind::MagicStone), 0);
+    }
+
+    #[test]
+    fn sell_bounty_item_not_owned() {
+        let mut inv = Inventory::new();
+        let result = sell_bounty_item(ItemKind::MagicStone, &mut inv);
+        assert_eq!(result, SellResult::NotOwned);
     }
 }

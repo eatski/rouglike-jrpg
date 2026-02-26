@@ -1,7 +1,43 @@
 use bevy::prelude::*;
 
 use party::{shop_items, shop_weapons, ItemKind, WeaponKind, INVENTORY_CAPACITY};
-use app_state::PartyState;
+use app_state::{PartyState, TavernBounties};
+use field_core::{Player, TilePosition};
+/// 町メニューのコマンド
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TownCommand {
+    Inn,
+    Shop,
+    Tavern,
+    SellBounty(ItemKind),
+    Leave,
+}
+
+impl TownCommand {
+    pub fn label(&self) -> String {
+        match self {
+            TownCommand::Inn => "やどや".to_string(),
+            TownCommand::Shop => "よろず屋".to_string(),
+            TownCommand::Tavern => "居酒屋".to_string(),
+            TownCommand::SellBounty(item) => format!("{}をうる", item.name()),
+            TownCommand::Leave => "街を出る".to_string(),
+        }
+    }
+}
+
+/// デフォルトの町メニューコマンドを構築する
+pub fn build_town_commands(bounty: Option<ItemKind>) -> Vec<TownCommand> {
+    let mut cmds = vec![
+        TownCommand::Inn,
+        TownCommand::Shop,
+        TownCommand::Tavern,
+    ];
+    if let Some(item) = bounty {
+        cmds.push(TownCommand::SellBounty(item));
+    }
+    cmds.push(TownCommand::Leave);
+    cmds
+}
 
 /// よろず屋の商品（アイテムと武器を統合）
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -58,15 +94,21 @@ pub enum TownMenuPhase {
     SellCharacterSelect { selected: usize },
     /// よろず屋 — 売却アイテム選択
     SellItemSelect { member_index: usize, selected: usize },
+    /// 買い取り依頼 — キャラクター選択
+    BountyCharacterSelect { item: ItemKind, selected: usize },
+    /// 買い取り依頼 — 結果メッセージ
+    BountyMessage { message: String },
 }
 
 /// 町の状態管理リソース
 #[derive(Resource)]
 pub struct TownResource {
-    /// 現在選択中のメニュー項目 (0=やどや, 1=よろず屋, 2=居酒屋, 3=街を出る)
+    /// 現在選択中のメニュー項目
     pub selected_item: usize,
     /// 現在のフェーズ
     pub phase: TownMenuPhase,
+    /// 動的メニューコマンド一覧
+    pub commands: Vec<TownCommand>,
 }
 
 /// 町メニュー項目のマーカー
@@ -117,6 +159,9 @@ const UNSELECTED_COLOR: Color = Color::srgb(0.6, 0.6, 0.6);
 /// ショップパネル内のメニュー項目最大数（購入・売却で共用）
 const SHOP_PANEL_MAX_ITEMS: usize = 7;
 
+/// メインメニューの最大項目数（基本4 + 買い取り依頼1）
+const TOWN_MENU_MAX_ITEMS: usize = 5;
+
 fn format_goods_label(prefix: &str, goods: &ShopGoods) -> String {
     match goods {
         ShopGoods::Item(item) => {
@@ -147,8 +192,13 @@ pub fn setup_town_scene(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     party_state: Res<PartyState>,
+    tavern_bounties: Res<TavernBounties>,
+    player_query: Query<&TilePosition, With<Player>>,
 ) {
-    setup_town_scene_inner(&mut commands, &asset_server, &party_state, TownMenuPhase::MenuSelect, 0);
+    let bounty_item = player_query.single().ok().and_then(|pos| {
+        tavern_bounties.active.get(&(pos.x, pos.y)).copied()
+    });
+    setup_town_scene_inner(&mut commands, &asset_server, &party_state, TownMenuPhase::MenuSelect, 0, bounty_item);
 }
 
 /// TownSceneConfigリソースから設定を読んでシーンを構築するシステム
@@ -157,11 +207,16 @@ pub fn setup_town_scene_with_config(
     asset_server: Res<AssetServer>,
     party_state: Res<PartyState>,
     config: Res<TownSceneConfig>,
+    tavern_bounties: Res<TavernBounties>,
+    player_query: Query<&TilePosition, With<Player>>,
 ) {
     let phase = config.initial_phase.clone();
     let selected = config.selected_item;
     commands.remove_resource::<TownSceneConfig>();
-    setup_town_scene_inner(&mut commands, &asset_server, &party_state, phase, selected);
+    let bounty_item = player_query.single().ok().and_then(|pos| {
+        tavern_bounties.active.get(&(pos.x, pos.y)).copied()
+    });
+    setup_town_scene_inner(&mut commands, &asset_server, &party_state, phase, selected, bounty_item);
 }
 
 fn setup_town_scene_inner(
@@ -170,10 +225,13 @@ fn setup_town_scene_inner(
     party_state: &PartyState,
     initial_phase: TownMenuPhase,
     selected_item: usize,
+    bounty_item: Option<ItemKind>,
 ) {
+    let town_commands = build_town_commands(bounty_item);
     commands.insert_resource(TownResource {
         selected_item,
         phase: initial_phase,
+        commands: town_commands,
     });
 
     let font: Handle<Font> = asset_server.load("fonts/NotoSansJP-Bold.ttf");
@@ -225,8 +283,14 @@ fn setup_town_scene_inner(
                     BorderColor::all(border_color),
                 ))
                 .with_children(|menu| {
-                    let items = ["> やどや", "  よろず屋", "  居酒屋", "  街を出る"];
-                    for (i, label) in items.iter().enumerate() {
+                    let base_labels = ["やどや", "よろず屋", "居酒屋", "街を出る"];
+                    for i in 0..TOWN_MENU_MAX_ITEMS {
+                        let (label, display) = if i < base_labels.len() {
+                            let prefix = if i == 0 { "> " } else { "  " };
+                            (format!("{}{}", prefix, base_labels[i]), Display::Flex)
+                        } else {
+                            (String::new(), Display::None)
+                        };
                         let color = if i == 0 {
                             SELECTED_COLOR
                         } else {
@@ -234,13 +298,17 @@ fn setup_town_scene_inner(
                         };
                         menu.spawn((
                             TownMenuItem { index: i },
-                            Text::new(*label),
+                            Text::new(label),
                             TextFont {
                                 font: font.clone(),
                                 font_size: 18.0,
                                 ..default()
                             },
                             TextColor(color),
+                            Node {
+                                display,
+                                ..default()
+                            },
                         ));
                     }
                 });
@@ -407,8 +475,8 @@ pub fn town_display_system(
     mut main_menu_query: Query<&mut Node, (With<TownMainMenu>, Without<ShopMenuRoot>, Without<TownMessageArea>, Without<ShopCharacterPanel>)>,
     mut shop_root_query: Query<&mut Node, (With<ShopMenuRoot>, Without<TownMainMenu>, Without<TownMessageArea>, Without<ShopCharacterPanel>)>,
     mut menu_query: Query<
-        (&TownMenuItem, &mut Text, &mut TextColor),
-        (Without<TownMessageText>, Without<TownMessageArea>, Without<ShopMenuItem>, Without<ShopCharacterMenuItem>),
+        (&TownMenuItem, &mut Text, &mut TextColor, &mut Node),
+        (Without<TownMessageText>, Without<TownMessageArea>, Without<ShopMenuItem>, Without<ShopCharacterMenuItem>, Without<TownMainMenu>, Without<ShopMenuRoot>, Without<ShopCharacterPanel>),
     >,
     mut shop_item_query: Query<
         (&ShopMenuItem, &mut Text, &mut TextColor, &mut Node),
@@ -433,8 +501,12 @@ pub fn town_display_system(
         &town_res.phase,
         TownMenuPhase::ShopCharacterSelect { .. }
             | TownMenuPhase::SellCharacterSelect { .. }
+            | TownMenuPhase::BountyCharacterSelect { .. }
     );
-    let in_shop_message = matches!(&town_res.phase, TownMenuPhase::ShopMessage { .. });
+    let in_shop_message = matches!(
+        &town_res.phase,
+        TownMenuPhase::ShopMessage { .. } | TownMenuPhase::BountyMessage { .. }
+    );
 
     // メインメニュー表示/非表示
     for mut node in &mut main_menu_query {
@@ -477,6 +549,24 @@ pub fn town_display_system(
         }
     }
 
+    // キャラクター選択メニュー項目の更新（買い取り依頼）
+    if let TownMenuPhase::BountyCharacterSelect { item, selected } = &town_res.phase {
+        for (char_item, mut text, mut color) in &mut char_item_query {
+            if char_item.index < party_state.members.len() {
+                let is_selected = char_item.index == *selected;
+                let prefix = if is_selected { "> " } else { "  " };
+                let member = &party_state.members[char_item.index];
+                let count = member.inventory.count(*item);
+                **text = format!("{}{} ({}個)", prefix, member.kind.name(), count);
+                *color = if is_selected {
+                    TextColor(SELECTED_COLOR)
+                } else {
+                    TextColor(UNSELECTED_COLOR)
+                };
+            }
+        }
+    }
+
     // キャラクター選択メニュー項目の更新（売却）
     if let TownMenuPhase::SellCharacterSelect { selected } = &town_res.phase {
         for (char_item, mut text, mut color) in &mut char_item_query {
@@ -501,18 +591,21 @@ pub fn town_display_system(
         }
     }
 
-    // メインメニュー項目の更新
-    let labels = ["やどや", "よろず屋", "居酒屋", "街を出る"];
-    for (item, mut text, mut color) in &mut menu_query {
-        if item.index < labels.len() {
+    // メインメニュー項目の更新（commands ベースで動的）
+    for (item, mut text, mut color, mut node) in &mut menu_query {
+        if item.index < town_res.commands.len() {
             let is_selected = item.index == town_res.selected_item;
             let prefix = if is_selected { "> " } else { "  " };
-            **text = format!("{}{}", prefix, labels[item.index]);
+            **text = format!("{}{}", prefix, town_res.commands[item.index].label());
             *color = if is_selected {
                 TextColor(SELECTED_COLOR)
             } else {
                 TextColor(UNSELECTED_COLOR)
             };
+            node.display = Display::Flex;
+        } else {
+            **text = String::new();
+            node.display = Display::None;
         }
     }
 
@@ -609,6 +702,7 @@ pub fn town_display_system(
         TownMenuPhase::ShowMessage { .. }
             | TownMenuPhase::ShopMessage { .. }
             | TownMenuPhase::RecruitMessage { .. }
+            | TownMenuPhase::BountyMessage { .. }
     );
 
     for mut node in &mut message_area_query {
@@ -619,7 +713,8 @@ pub fn town_display_system(
         match &town_res.phase {
             TownMenuPhase::ShowMessage { message }
             | TownMenuPhase::ShopMessage { message }
-            | TownMenuPhase::RecruitMessage { message } => {
+            | TownMenuPhase::RecruitMessage { message }
+            | TownMenuPhase::BountyMessage { message } => {
                 **text = message.clone();
             }
             _ => {}

@@ -4,14 +4,16 @@ use rand::prelude::SliceRandom;
 use input_ui::{is_cancel_just_pressed, is_confirm_just_pressed, is_down_just_pressed, is_up_just_pressed};
 use party::{talk_to_candidate, PartyMember, TalkResult};
 use town::{buy_item, buy_weapon, candidate_first_dialogue, candidate_join_dialogue, cave_hint_dialogue, companion_hint_dialogue, heal_party, hokora_hint_dialogue, sell_item, BuyResult, BuyWeaponResult, SellResult, INN_PRICE, TAVERN_PRICE};
+use town::{tavern_bounty_item, bounty_offer_dialogue, bounty_has_item_dialogue, bounty_sold_dialogue, sell_bounty_item};
 
 use app_state::SceneState;
 use field_core::{ActiveMap, Player, TilePosition};
-use app_state::{ContinentMap, HeardTavernHints, PartyState, RecruitmentMap, TavernHintKind};
+use app_state::{ContinentMap, HeardTavernHints, PartyState, RecruitmentMap, TavernBounties, TavernHintKind};
 
-use crate::scene::{shop_goods, ShopGoods, TownMenuPhase, TownResource};
+use crate::scene::{build_town_commands, shop_goods, ShopGoods, TownCommand, TownMenuPhase, TownResource};
 
 /// 町画面の入力処理システム
+#[allow(clippy::too_many_arguments)]
 pub fn town_input_system(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut town_res: ResMut<TownResource>,
@@ -22,20 +24,22 @@ pub fn town_input_system(
     player_query: Query<&TilePosition, With<Player>>,
     mut heard_hints: ResMut<HeardTavernHints>,
     continent_map: Option<Res<ContinentMap>>,
+    mut tavern_bounties: ResMut<TavernBounties>,
 ) {
     match town_res.phase.clone() {
         TownMenuPhase::MenuSelect => {
+            let max_index = town_res.commands.len().saturating_sub(1);
             // 上下でカーソル移動
             if is_up_just_pressed(&keyboard) {
-                town_res.selected_item = if town_res.selected_item > 0 { town_res.selected_item - 1 } else { 3 };
+                town_res.selected_item = if town_res.selected_item > 0 { town_res.selected_item - 1 } else { max_index };
             }
             if is_down_just_pressed(&keyboard) {
-                town_res.selected_item = if town_res.selected_item < 3 { town_res.selected_item + 1 } else { 0 };
+                town_res.selected_item = if town_res.selected_item < max_index { town_res.selected_item + 1 } else { 0 };
             }
 
             if is_confirm_just_pressed(&keyboard) {
-                match town_res.selected_item {
-                    0 => {
+                match &town_res.commands[town_res.selected_item].clone() {
+                    TownCommand::Inn => {
                         // やどや → ゴールド消費してHP/MPを全回復
                         if party_state.gold < INN_PRICE {
                             town_res.phase = TownMenuPhase::ShowMessage {
@@ -49,11 +53,11 @@ pub fn town_input_system(
                             };
                         }
                     }
-                    1 => {
+                    TownCommand::Shop => {
                         // よろず屋 → かう/うる選択へ
                         town_res.phase = TownMenuPhase::ShopModeSelect { selected: 0 };
                     }
-                    2 => {
+                    TownCommand::Tavern => {
                         // 居酒屋 → 仲間候補がいればイベント、いなければヒント（ランダム1つ）
                         if let Ok(pos) = player_query.single() {
                             let town_pos = (pos.x, pos.y);
@@ -117,6 +121,10 @@ pub fn town_input_system(
                                 {
                                     unheard.push(TavernHintKind::Companion);
                                 }
+                                // Bounty ヒントを候補に含める
+                                if !heard_set.contains(&TavernHintKind::Bounty) {
+                                    unheard.push(TavernHintKind::Bounty);
+                                }
 
                                 if unheard.is_empty() {
                                     // 全て既読 → ゴールド消費なし
@@ -146,6 +154,17 @@ pub fn town_input_system(
                                             companion_hint_dialogue(pos.x, pos.y, &companion_towns)
                                                 .unwrap_or_else(|| "もう あたらしい はなしは ないな".to_string())
                                         }
+                                        TavernHintKind::Bounty => {
+                                            let item = tavern_bounty_item(pos.x, pos.y);
+                                            let has_item = party_state.members.iter().any(|m| m.inventory.count(item) > 0);
+                                            tavern_bounties.active.insert(town_pos, item);
+                                            town_res.commands = build_town_commands(Some(item));
+                                            if has_item {
+                                                bounty_has_item_dialogue(item)
+                                            } else {
+                                                bounty_offer_dialogue(item)
+                                            }
+                                        }
                                     };
                                     town_res.phase =
                                         TownMenuPhase::ShowMessage { message: dialogue };
@@ -153,7 +172,14 @@ pub fn town_input_system(
                             }
                         }
                     }
-                    _ => {
+                    TownCommand::SellBounty(item) => {
+                        // 買い取り依頼 → キャラクター選択へ
+                        town_res.phase = TownMenuPhase::BountyCharacterSelect {
+                            item: *item,
+                            selected: 0,
+                        };
+                    }
+                    TownCommand::Leave => {
                         // 街を出る → フィールドに戻る
                         next_state.set(SceneState::Exploring);
                     }
@@ -264,6 +290,50 @@ pub fn town_input_system(
             );
         }
         TownMenuPhase::RecruitMessage { .. } => {
+            if is_confirm_just_pressed(&keyboard) {
+                town_res.phase = TownMenuPhase::MenuSelect;
+            }
+        }
+        TownMenuPhase::BountyCharacterSelect { item, selected } => {
+            let max_index = party_state.members.len().saturating_sub(1);
+
+            if is_up_just_pressed(&keyboard) {
+                town_res.phase = TownMenuPhase::BountyCharacterSelect {
+                    item,
+                    selected: if selected > 0 { selected - 1 } else { max_index },
+                };
+            }
+            if is_down_just_pressed(&keyboard) {
+                town_res.phase = TownMenuPhase::BountyCharacterSelect {
+                    item,
+                    selected: if selected < max_index { selected + 1 } else { 0 },
+                };
+            }
+
+            if is_cancel_just_pressed(&keyboard) {
+                town_res.phase = TownMenuPhase::MenuSelect;
+                return;
+            }
+
+            if is_confirm_just_pressed(&keyboard) {
+                match sell_bounty_item(item, &mut party_state.members[selected].inventory) {
+                    SellResult::Success { earned_gold } => {
+                        party_state.gold += earned_gold;
+                        town_res.phase = TownMenuPhase::BountyMessage {
+                            message: bounty_sold_dialogue(item),
+                        };
+                    }
+                    SellResult::NotOwned => {
+                        let name = party_state.members[selected].kind.name();
+                        town_res.phase = TownMenuPhase::BountyMessage {
+                            message: format!("{} は {} を もっていない！", name, item.name()),
+                        };
+                    }
+                    SellResult::CannotSell => {}
+                }
+            }
+        }
+        TownMenuPhase::BountyMessage { .. } => {
             if is_confirm_just_pressed(&keyboard) {
                 town_res.phase = TownMenuPhase::MenuSelect;
             }

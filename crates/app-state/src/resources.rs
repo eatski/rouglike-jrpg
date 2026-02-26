@@ -139,6 +139,7 @@ pub enum TavernHintKind {
     Cave,
     Hokora,
     Companion,
+    Bounty,
 }
 
 /// 居酒屋で聞いたヒントの既読管理リソース
@@ -146,4 +147,11 @@ pub enum TavernHintKind {
 pub struct HeardTavernHints {
     /// key: 町座標, value: 聞いたヒント種類の集合
     pub heard: HashMap<(usize, usize), HashSet<TavernHintKind>>,
+}
+
+/// 居酒屋で受けた買い取り依頼を管理するリソース
+#[derive(Resource, Default)]
+pub struct TavernBounties {
+    /// 居酒屋で依頼を聞いた街 → 対象アイテム
+    pub active: HashMap<(usize, usize), ItemKind>,
 }
