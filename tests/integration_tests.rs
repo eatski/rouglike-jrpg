@@ -1096,9 +1096,9 @@ fn hero_has_all_16_spells_at_level_1() {
     use party::available_spells;
     use party::PartyMemberKind;
 
-    // ライオスはLv1で全20呪文を使える
+    // ライオスはLv1で全24呪文を使える
     let spells = available_spells(PartyMemberKind::Laios, 1);
-    assert_eq!(spells.len(), 20);
+    assert_eq!(spells.len(), 24);
 }
 
 // ============================================

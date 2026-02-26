@@ -1,5 +1,5 @@
 use crate::enemy::Enemy;
-use spell::{calculate_heal_amount, calculate_mp_drain, calculate_spell_damage, SpellEffect, SpellKind, SpellTarget};
+use spell::{calculate_ailment_success, calculate_heal_amount, calculate_mp_drain, calculate_spell_damage, Ailment, SpellEffect, SpellKind, SpellTarget, POISON_DAMAGE};
 use party::{CombatStats, ItemEffect, ItemKind, PartyMember};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -37,6 +37,19 @@ pub struct ActorBuffs {
 }
 
 pub const BUFF_DURATION: u32 = 5;
+
+/// 1アクターの状態異常
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ActorAilments {
+    pub sleep: bool,
+    pub poison: bool,
+}
+
+impl ActorAilments {
+    pub fn has_any(&self) -> bool {
+        self.sleep || self.poison
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TurnResult {
@@ -82,6 +95,28 @@ pub enum TurnResult {
     Defeated {
         target: TargetId,
     },
+    AilmentInflicted {
+        caster: ActorId,
+        spell: SpellKind,
+        target: TargetId,
+        ailment: Ailment,
+    },
+    AilmentResisted {
+        caster: ActorId,
+        spell: SpellKind,
+        target: TargetId,
+    },
+    Sleeping {
+        actor: ActorId,
+    },
+    PoisonDamage {
+        target: TargetId,
+        damage: i32,
+    },
+    AilmentCured {
+        target: TargetId,
+        ailment: Ailment,
+    },
     Fled,
     FleeFailed,
 }
@@ -109,16 +144,21 @@ pub struct BattleState {
     pub enemies: Vec<Enemy>,
     pub turn_log: Vec<TurnResult>,
     pub party_buffs: Vec<ActorBuffs>,
+    pub party_ailments: Vec<ActorAilments>,
+    pub enemy_ailments: Vec<ActorAilments>,
 }
 
 impl BattleState {
     pub fn new(party: Vec<PartyMember>, enemies: Vec<Enemy>) -> Self {
-        let buff_count = party.len();
+        let party_count = party.len();
+        let enemy_count = enemies.len();
         Self {
             party,
             enemies,
             turn_log: Vec::new(),
-            party_buffs: vec![ActorBuffs::default(); buff_count],
+            party_buffs: vec![ActorBuffs::default(); party_count],
+            party_ailments: vec![ActorAilments::default(); party_count],
+            enemy_ailments: vec![ActorAilments::default(); enemy_count],
         }
     }
 
@@ -197,6 +237,12 @@ impl BattleState {
                     if !self.party[pi].stats.is_alive() {
                         continue;
                     }
+                    if self.party_ailments[pi].sleep {
+                        results.push(TurnResult::Sleeping {
+                            actor: ActorId::Party(pi),
+                        });
+                        continue;
+                    }
                     match party_commands.get(pi) {
                         Some(BattleAction::Attack { target }) => {
                             let actual_target = self.retarget_enemy(*target);
@@ -219,6 +265,12 @@ impl BattleState {
                     if !self.enemies[ei].stats.is_alive() {
                         continue;
                     }
+                    if self.enemy_ailments[ei].sleep {
+                        results.push(TurnResult::Sleeping {
+                            actor: ActorId::Enemy(ei),
+                        });
+                        continue;
+                    }
                     let spell_random = random_factors
                         .spell_randoms
                         .get(ei)
@@ -231,6 +283,9 @@ impl BattleState {
 
         // ターン終了時: バフのtick
         results.extend(self.tick_buffs());
+
+        // ターン終了時: 毒ダメージ
+        results.extend(self.tick_poison());
 
         self.turn_log.extend(results.clone());
         results
@@ -478,6 +533,52 @@ impl BattleState {
                     _ => {}
                 }
             }
+            SpellEffect::Ailment => {
+                let ailment = spell.ailment().expect("Ailment spell must have ailment");
+                let success_rate = spell.power();
+                match spell.target_type() {
+                    SpellTarget::SingleEnemy => {
+                        let actual_target = self.retarget_enemy(target);
+                        if let Some(TargetId::Enemy(ei)) = actual_target {
+                            if calculate_ailment_success(success_rate, random_factor) {
+                                self.apply_ailment_to_enemy(ei, ailment);
+                                results.push(TurnResult::AilmentInflicted {
+                                    caster: ActorId::Party(caster_idx),
+                                    spell,
+                                    target: TargetId::Enemy(ei),
+                                    ailment,
+                                });
+                            } else {
+                                results.push(TurnResult::AilmentResisted {
+                                    caster: ActorId::Party(caster_idx),
+                                    spell,
+                                    target: TargetId::Enemy(ei),
+                                });
+                            }
+                        }
+                    }
+                    SpellTarget::AllEnemies => {
+                        for ei in self.alive_enemy_indices() {
+                            if calculate_ailment_success(success_rate, random_factor) {
+                                self.apply_ailment_to_enemy(ei, ailment);
+                                results.push(TurnResult::AilmentInflicted {
+                                    caster: ActorId::Party(caster_idx),
+                                    spell,
+                                    target: TargetId::Enemy(ei),
+                                    ailment,
+                                });
+                            } else {
+                                results.push(TurnResult::AilmentResisted {
+                                    caster: ActorId::Party(caster_idx),
+                                    spell,
+                                    target: TargetId::Enemy(ei),
+                                });
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
         }
 
         results
@@ -555,6 +656,8 @@ impl BattleState {
             });
             if !self.enemies[ei].stats.is_alive() {
                 results.push(TurnResult::Defeated { target });
+            } else if let Some(cure) = self.wake_up_if_sleeping(&target) {
+                results.push(cure);
             }
         }
         results
@@ -691,6 +794,52 @@ impl BattleState {
                     _ => {}
                 }
             }
+            SpellEffect::Ailment => {
+                let ailment = spell.ailment().expect("Ailment spell must have ailment");
+                let success_rate = spell.power();
+                match spell.target_type() {
+                    SpellTarget::SingleEnemy => {
+                        let alive_party = self.alive_party_indices();
+                        if let Some(&pi) = alive_party.first() {
+                            if calculate_ailment_success(success_rate, random_factor) {
+                                self.apply_ailment_to_party(pi, ailment);
+                                results.push(TurnResult::AilmentInflicted {
+                                    caster: ActorId::Enemy(enemy_idx),
+                                    spell,
+                                    target: TargetId::Party(pi),
+                                    ailment,
+                                });
+                            } else {
+                                results.push(TurnResult::AilmentResisted {
+                                    caster: ActorId::Enemy(enemy_idx),
+                                    spell,
+                                    target: TargetId::Party(pi),
+                                });
+                            }
+                        }
+                    }
+                    SpellTarget::AllEnemies => {
+                        for pi in self.alive_party_indices() {
+                            if calculate_ailment_success(success_rate, random_factor) {
+                                self.apply_ailment_to_party(pi, ailment);
+                                results.push(TurnResult::AilmentInflicted {
+                                    caster: ActorId::Enemy(enemy_idx),
+                                    spell,
+                                    target: TargetId::Party(pi),
+                                    ailment,
+                                });
+                            } else {
+                                results.push(TurnResult::AilmentResisted {
+                                    caster: ActorId::Enemy(enemy_idx),
+                                    spell,
+                                    target: TargetId::Party(pi),
+                                });
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
             // バフ呪文は敵には未実装
             _ => {}
         }
@@ -721,8 +870,91 @@ impl BattleState {
         });
         if !self.party[target_idx].stats.is_alive() {
             results.push(TurnResult::Defeated { target });
+        } else if let Some(cure) = self.wake_up_if_sleeping(&target) {
+            results.push(cure);
         }
         results
+    }
+
+    /// 敵に状態異常を付与
+    fn apply_ailment_to_enemy(&mut self, ei: usize, ailment: Ailment) {
+        match ailment {
+            Ailment::Sleep => self.enemy_ailments[ei].sleep = true,
+            Ailment::Poison => self.enemy_ailments[ei].poison = true,
+        }
+    }
+
+    /// 味方に状態異常を付与
+    fn apply_ailment_to_party(&mut self, pi: usize, ailment: Ailment) {
+        match ailment {
+            Ailment::Sleep => self.party_ailments[pi].sleep = true,
+            Ailment::Poison => self.party_ailments[pi].poison = true,
+        }
+    }
+
+    /// ターン終了時の毒ダメージ処理
+    fn tick_poison(&mut self) -> Vec<TurnResult> {
+        let mut results = Vec::new();
+
+        for pi in 0..self.party.len() {
+            if self.party[pi].stats.is_alive() && self.party_ailments[pi].poison {
+                self.party[pi].stats.take_damage(POISON_DAMAGE);
+                results.push(TurnResult::PoisonDamage {
+                    target: TargetId::Party(pi),
+                    damage: POISON_DAMAGE,
+                });
+                if !self.party[pi].stats.is_alive() {
+                    results.push(TurnResult::Defeated {
+                        target: TargetId::Party(pi),
+                    });
+                }
+            }
+        }
+
+        for ei in 0..self.enemies.len() {
+            if self.enemies[ei].stats.is_alive() && self.enemy_ailments[ei].poison {
+                self.enemies[ei].stats.take_damage(POISON_DAMAGE);
+                results.push(TurnResult::PoisonDamage {
+                    target: TargetId::Enemy(ei),
+                    damage: POISON_DAMAGE,
+                });
+                if !self.enemies[ei].stats.is_alive() {
+                    results.push(TurnResult::Defeated {
+                        target: TargetId::Enemy(ei),
+                    });
+                }
+            }
+        }
+
+        results
+    }
+
+    /// 攻撃を受けた対象の眠りを解除
+    fn wake_up_if_sleeping(&mut self, target: &TargetId) -> Option<TurnResult> {
+        match target {
+            TargetId::Enemy(ei) => {
+                if self.enemy_ailments[*ei].sleep {
+                    self.enemy_ailments[*ei].sleep = false;
+                    Some(TurnResult::AilmentCured {
+                        target: *target,
+                        ailment: Ailment::Sleep,
+                    })
+                } else {
+                    None
+                }
+            }
+            TargetId::Party(pi) => {
+                if self.party_ailments[*pi].sleep {
+                    self.party_ailments[*pi].sleep = false;
+                    Some(TurnResult::AilmentCured {
+                        target: *target,
+                        ailment: Ailment::Sleep,
+                    })
+                } else {
+                    None
+                }
+            }
+        }
     }
 
     /// ターン終了時にバフの残りターンをデクリメント、0になったバフを除去
@@ -1492,5 +1724,216 @@ mod tests {
             .filter(|r| matches!(r, TurnResult::SpellDamage { caster: ActorId::Enemy(0), .. }))
             .collect();
         assert_eq!(spell_hits.len(), 3, "Blaze2でパーティ全員にヒットするはず");
+    }
+
+    #[test]
+    fn sleeping_actor_skips_turn() {
+        let party = vec![PartyMember::laios()];
+        let mut slime = Enemy::slime();
+        slime.stats.hp = 999;
+        slime.stats.max_hp = 999;
+        slime.stats.attack = 0;
+        let enemies = vec![slime];
+        let mut battle = BattleState::new(party, enemies);
+
+        // ライオスを眠り状態にする
+        battle.party_ailments[0].sleep = true;
+
+        let commands = vec![BattleAction::Attack {
+            target: TargetId::Enemy(0),
+        }];
+        let randoms = make_random(vec![1.0; 2], 0.0);
+        let results = battle.execute_turn(&commands, &randoms);
+
+        let sleeping = results
+            .iter()
+            .any(|r| matches!(r, TurnResult::Sleeping { actor: ActorId::Party(0) }));
+        assert!(sleeping, "眠り状態のアクターはSleepingが出るはず");
+
+        let attacks = results
+            .iter()
+            .filter(|r| matches!(r, TurnResult::Attack { attacker: ActorId::Party(0), .. }))
+            .count();
+        assert_eq!(attacks, 0, "眠り状態のアクターは攻撃しないはず");
+    }
+
+    #[test]
+    fn sleeping_enemy_skips_turn() {
+        let party = vec![PartyMember::laios()];
+        let mut slime = Enemy::slime();
+        slime.stats.hp = 999;
+        slime.stats.max_hp = 999;
+        slime.stats.speed = 99; // 敵が先に行動するようにする
+        let enemies = vec![slime];
+        let mut battle = BattleState::new(party, enemies);
+
+        // 敵を眠り状態にする
+        battle.enemy_ailments[0].sleep = true;
+
+        let commands = vec![BattleAction::Attack {
+            target: TargetId::Enemy(0),
+        }];
+        let randoms = make_random(vec![1.0; 2], 0.0);
+        let results = battle.execute_turn(&commands, &randoms);
+
+        let sleeping = results
+            .iter()
+            .any(|r| matches!(r, TurnResult::Sleeping { actor: ActorId::Enemy(0) }));
+        assert!(sleeping, "眠り状態の敵はSleepingが出るはず");
+
+        let enemy_attacks = results
+            .iter()
+            .filter(|r| matches!(r, TurnResult::Attack { attacker: ActorId::Enemy(0), .. }))
+            .count();
+        assert_eq!(enemy_attacks, 0, "眠り状態の敵は攻撃しないはず");
+    }
+
+    #[test]
+    fn poison_damage_at_turn_end() {
+        let party = vec![PartyMember::laios()];
+        let mut slime = Enemy::slime();
+        slime.stats.hp = 999;
+        slime.stats.max_hp = 999;
+        slime.stats.attack = 0;
+        let enemies = vec![slime];
+        let mut battle = BattleState::new(party, enemies);
+
+        // ライオスを毒状態にする
+        battle.party_ailments[0].poison = true;
+
+        let commands = vec![BattleAction::Attack {
+            target: TargetId::Enemy(0),
+        }];
+        let randoms = make_random(vec![1.0; 2], 0.0);
+        let results = battle.execute_turn(&commands, &randoms);
+
+        let poison_dmg = results
+            .iter()
+            .any(|r| matches!(r, TurnResult::PoisonDamage { target: TargetId::Party(0), .. }));
+        assert!(poison_dmg, "毒状態でPoisonDamageが発生するはず");
+
+        // 敵攻撃（最低1ダメージ）＋毒ダメージ分HPが減っていること
+        let hp_after = battle.party[0].stats.hp;
+        let max_hp = battle.party[0].stats.max_hp;
+        assert!(hp_after <= max_hp - POISON_DAMAGE, "毒ダメージ分以上HPが減るはず");
+    }
+
+    #[test]
+    fn poison_damage_on_enemy() {
+        let party = vec![PartyMember::laios()];
+        let mut slime = Enemy::slime();
+        slime.stats.hp = 999;
+        slime.stats.max_hp = 999;
+        slime.stats.attack = 0;
+        let enemies = vec![slime];
+        let mut battle = BattleState::new(party, enemies);
+
+        // 敵を毒状態にする
+        battle.enemy_ailments[0].poison = true;
+
+        let commands = vec![BattleAction::Attack {
+            target: TargetId::Enemy(0),
+        }];
+        let randoms = make_random(vec![1.0; 2], 0.0);
+        let results = battle.execute_turn(&commands, &randoms);
+
+        let poison_dmg = results
+            .iter()
+            .any(|r| matches!(r, TurnResult::PoisonDamage { target: TargetId::Enemy(0), .. }));
+        assert!(poison_dmg, "毒状態の敵にPoisonDamageが発生するはず");
+    }
+
+    #[test]
+    fn attack_wakes_up_sleeping_enemy() {
+        let party = vec![PartyMember::laios()];
+        let mut slime = Enemy::slime();
+        slime.stats.hp = 999;
+        slime.stats.max_hp = 999;
+        slime.stats.attack = 0;
+        let enemies = vec![slime];
+        let mut battle = BattleState::new(party, enemies);
+
+        // 敵を眠り状態にする
+        battle.enemy_ailments[0].sleep = true;
+
+        let commands = vec![BattleAction::Attack {
+            target: TargetId::Enemy(0),
+        }];
+        let randoms = make_random(vec![1.0; 2], 0.0);
+        let results = battle.execute_turn(&commands, &randoms);
+
+        let cured = results.iter().any(|r| {
+            matches!(
+                r,
+                TurnResult::AilmentCured {
+                    target: TargetId::Enemy(0),
+                    ailment: Ailment::Sleep,
+                }
+            )
+        });
+        assert!(cured, "攻撃で眠りが解除されるはず");
+        assert!(!battle.enemy_ailments[0].sleep, "眠りフラグが解除されるはず");
+    }
+
+    #[test]
+    fn ailment_spell_success_and_failure() {
+        let mut marcille = PartyMember::marcille();
+        marcille.level = 8;
+        marcille.stats.mp = 99;
+        marcille.stats.max_mp = 99;
+        let party = vec![marcille.clone(), marcille];
+        let mut slime = Enemy::slime();
+        slime.stats.hp = 999;
+        slime.stats.max_hp = 999;
+        slime.stats.attack = 0;
+        let enemies = vec![slime];
+        let mut battle = BattleState::new(party, enemies);
+
+        // Sleep1 power=70 → random_factor < 0.7 で成功
+        // Party(0): 成功ケース (random=0.5 → 0.5*100=50 < 70 → 成功)
+        let commands = vec![
+            BattleAction::Spell {
+                spell: SpellKind::Sleep1,
+                target: TargetId::Enemy(0),
+            },
+            BattleAction::Attack {
+                target: TargetId::Enemy(0),
+            },
+        ];
+        let randoms = make_random(vec![0.5; 3], 0.0);
+        let results = battle.execute_turn(&commands, &randoms);
+
+        let inflicted = results.iter().any(|r| {
+            matches!(
+                r,
+                TurnResult::AilmentInflicted {
+                    ailment: Ailment::Sleep,
+                    ..
+                }
+            )
+        });
+        assert!(inflicted, "成功率内なら状態異常が付与されるはず");
+
+        // リセット
+        battle.enemy_ailments[0].sleep = false;
+
+        // 失敗ケース (random=0.9 → 0.9*100=90 >= 70 → 失敗)
+        let commands = vec![
+            BattleAction::Spell {
+                spell: SpellKind::Sleep1,
+                target: TargetId::Enemy(0),
+            },
+            BattleAction::Attack {
+                target: TargetId::Enemy(0),
+            },
+        ];
+        let randoms = make_random(vec![0.9; 3], 0.0);
+        let results = battle.execute_turn(&commands, &randoms);
+
+        let resisted = results
+            .iter()
+            .any(|r| matches!(r, TurnResult::AilmentResisted { .. }));
+        assert!(resisted, "成功率外なら状態異常が抵抗されるはず");
+        assert!(!battle.enemy_ailments[0].sleep, "抵抗時は眠りフラグがfalseのまま");
     }
 }

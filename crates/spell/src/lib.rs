@@ -1,3 +1,30 @@
+/// 状態異常の種類
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Ailment {
+    /// 眠り: 行動不能、攻撃を受けると解除
+    Sleep,
+    /// 毒: ターン終了時に固定ダメージ
+    Poison,
+}
+
+impl Ailment {
+    pub fn name(self) -> &'static str {
+        match self {
+            Ailment::Sleep => "ねむり",
+            Ailment::Poison => "どく",
+        }
+    }
+}
+
+/// 状態異常呪文の付与判定
+/// success_rate: 0~100の成功率、random_factor: 0.0~1.0の乱数
+pub fn calculate_ailment_success(success_rate: i32, random_factor: f32) -> bool {
+    random_factor * 100.0 < success_rate as f32
+}
+
+/// 毒の固定ダメージ
+pub const POISON_DAMAGE: i32 = 3;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SpellKind {
     // 単体攻撃
@@ -30,6 +57,14 @@ pub enum SpellKind {
     // 全体MP減少
     Siphon1,
     Siphon2,
+    // 単体眠り
+    Sleep1,
+    // 全体眠り
+    Sleepall1,
+    // 単体毒
+    Poison1,
+    // 全体毒
+    Poisonall1,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -47,6 +82,7 @@ pub enum SpellEffect {
     AttackBuff,
     DefenseBuff,
     MpDrain,
+    Ailment,
 }
 
 impl SpellKind {
@@ -72,6 +108,10 @@ impl SpellKind {
             SpellKind::Drain2 => "Drain2",
             SpellKind::Siphon1 => "Siphon1",
             SpellKind::Siphon2 => "Siphon2",
+            SpellKind::Sleep1 => "Sleep1",
+            SpellKind::Sleepall1 => "Sleepall1",
+            SpellKind::Poison1 => "Poison1",
+            SpellKind::Poisonall1 => "Poisonall1",
         }
     }
 
@@ -97,6 +137,10 @@ impl SpellKind {
             SpellKind::Drain2 => 8,
             SpellKind::Siphon1 => 6,
             SpellKind::Siphon2 => 10,
+            SpellKind::Sleep1 => 4,
+            SpellKind::Sleepall1 => 8,
+            SpellKind::Poison1 => 3,
+            SpellKind::Poisonall1 => 6,
         }
     }
 
@@ -122,6 +166,10 @@ impl SpellKind {
             SpellKind::Drain2 => 18,
             SpellKind::Siphon1 => 5,
             SpellKind::Siphon2 => 12,
+            SpellKind::Sleep1 => 70,
+            SpellKind::Sleepall1 => 50,
+            SpellKind::Poison1 => 80,
+            SpellKind::Poisonall1 => 60,
         }
     }
 
@@ -137,6 +185,8 @@ impl SpellKind {
             SpellKind::Rally1 | SpellKind::Rally2 => SpellTarget::AllAllies,
             SpellKind::Drain1 | SpellKind::Drain2 => SpellTarget::SingleEnemy,
             SpellKind::Siphon1 | SpellKind::Siphon2 => SpellTarget::AllEnemies,
+            SpellKind::Sleep1 | SpellKind::Poison1 => SpellTarget::SingleEnemy,
+            SpellKind::Sleepall1 | SpellKind::Poisonall1 => SpellTarget::AllEnemies,
         }
     }
 
@@ -157,6 +207,19 @@ impl SpellKind {
             SpellKind::Drain1 | SpellKind::Drain2 | SpellKind::Siphon1 | SpellKind::Siphon2 => {
                 SpellEffect::MpDrain
             }
+            SpellKind::Sleep1
+            | SpellKind::Sleepall1
+            | SpellKind::Poison1
+            | SpellKind::Poisonall1 => SpellEffect::Ailment,
+        }
+    }
+
+    /// 状態異常呪文が付与するAilmentを返す
+    pub fn ailment(self) -> Option<Ailment> {
+        match self {
+            SpellKind::Sleep1 | SpellKind::Sleepall1 => Some(Ailment::Sleep),
+            SpellKind::Poison1 | SpellKind::Poisonall1 => Some(Ailment::Poison),
+            _ => None,
         }
     }
 
@@ -171,6 +234,11 @@ impl SpellKind {
     /// フィールドで使用可能か（回復呪文のみtrue）
     pub fn is_usable_in_field(self) -> bool {
         self.effect() == SpellEffect::Heal
+    }
+
+    /// 状態異常呪文かどうか
+    pub fn is_ailment(self) -> bool {
+        self.effect() == SpellEffect::Ailment
     }
 }
 
@@ -216,6 +284,10 @@ pub fn all_spells() -> Vec<SpellKind> {
         SpellKind::Drain2,
         SpellKind::Siphon1,
         SpellKind::Siphon2,
+        SpellKind::Sleep1,
+        SpellKind::Sleepall1,
+        SpellKind::Poison1,
+        SpellKind::Poisonall1,
     ]
 }
 
@@ -259,8 +331,8 @@ mod tests {
     }
 
     #[test]
-    fn all_spells_returns_20() {
-        assert_eq!(all_spells().len(), 20);
+    fn all_spells_returns_24() {
+        assert_eq!(all_spells().len(), 24);
     }
 
     #[test]
@@ -282,6 +354,11 @@ mod tests {
                 SpellEffect::MpDrain => {
                     assert!(spell.is_offensive());
                     assert!(!spell.is_usable_in_field());
+                }
+                SpellEffect::Ailment => {
+                    assert!(spell.is_offensive());
+                    assert!(!spell.is_usable_in_field());
+                    assert!(spell.ailment().is_some());
                 }
             }
         }

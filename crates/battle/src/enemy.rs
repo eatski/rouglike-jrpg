@@ -82,11 +82,11 @@ impl EnemyKind {
     /// 使用可能な呪文テーブル
     pub fn spells(self) -> &'static [SpellKind] {
         match self {
-            EnemyKind::Ghost => &[SpellKind::Fire1, SpellKind::Drain1],
+            EnemyKind::Ghost => &[SpellKind::Fire1, SpellKind::Drain1, SpellKind::Sleep1],
             EnemyKind::Demon => &[SpellKind::Fire1, SpellKind::Blaze1],
-            EnemyKind::Wraith => &[SpellKind::Fire2, SpellKind::Blaze1, SpellKind::Drain2],
+            EnemyKind::Wraith => &[SpellKind::Fire2, SpellKind::Blaze1, SpellKind::Drain2, SpellKind::Sleepall1],
             EnemyKind::Dragon => &[SpellKind::Blaze2],
-            EnemyKind::DarkLord => &[SpellKind::Blaze2, SpellKind::Fire2, SpellKind::Heal2, SpellKind::Siphon2],
+            EnemyKind::DarkLord => &[SpellKind::Blaze2, SpellKind::Fire2, SpellKind::Heal2, SpellKind::Siphon2, SpellKind::Poisonall1],
             _ => &[],
         }
     }

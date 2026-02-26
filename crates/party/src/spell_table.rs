@@ -9,7 +9,9 @@ pub fn spell_learn_table(kind: PartyMemberKind) -> &'static [(u32, SpellKind)] {
             (3, SpellKind::Blaze1),
             (5, SpellKind::Fire2),
             (7, SpellKind::Blaze2),
+            (8, SpellKind::Sleep1),
             (9, SpellKind::Drain1),
+            (10, SpellKind::Sleepall1),
         ],
         PartyMemberKind::Falin => &[
             (1, SpellKind::Heal1),
@@ -25,6 +27,7 @@ pub fn spell_learn_table(kind: PartyMemberKind) -> &'static [(u32, SpellKind)] {
             (5, SpellKind::Boost1),
             (6, SpellKind::Drain1),
             (7, SpellKind::Boost2),
+            (8, SpellKind::Poison1),
             (9, SpellKind::Rally2),
         ],
         PartyMemberKind::Kabru => &[
@@ -32,6 +35,7 @@ pub fn spell_learn_table(kind: PartyMemberKind) -> &'static [(u32, SpellKind)] {
             (5, SpellKind::Shield1),
             (6, SpellKind::Siphon1),
             (7, SpellKind::Barrier1),
+            (8, SpellKind::Poisonall1),
             (9, SpellKind::Rally1),
         ],
         PartyMemberKind::Laios => &[
@@ -55,6 +59,10 @@ pub fn spell_learn_table(kind: PartyMemberKind) -> &'static [(u32, SpellKind)] {
             (1, SpellKind::Drain2),
             (1, SpellKind::Siphon1),
             (1, SpellKind::Siphon2),
+            (1, SpellKind::Sleep1),
+            (1, SpellKind::Sleepall1),
+            (1, SpellKind::Poison1),
+            (1, SpellKind::Poisonall1),
         ],
         PartyMemberKind::Izutsumi => &[
             (5, SpellKind::Fire1),
@@ -92,9 +100,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn laios_has_all_20_spells_at_level_1() {
+    fn laios_has_all_24_spells_at_level_1() {
         let spells = available_spells(PartyMemberKind::Laios, 1);
-        assert_eq!(spells.len(), 20);
+        assert_eq!(spells.len(), 24);
     }
 
     #[test]
