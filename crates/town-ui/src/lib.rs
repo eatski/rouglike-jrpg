@@ -6,8 +6,8 @@ use app_state::{HeardTavernHints, SceneState};
 
 pub use input::town_input_system;
 pub use scene::{
-    cleanup_town_scene, setup_town_scene, setup_town_scene_with_config, town_display_system,
-    ShopGoods, TownMenuPhase, TownResource, TownSceneConfig,
+    build_town_commands, cleanup_town_scene, setup_town_scene, setup_town_scene_with_config,
+    town_display_system, ShopGoods, TownCommand, TownMenuPhase, TownResource, TownSceneConfig,
 };
 
 pub struct TownPlugin;
