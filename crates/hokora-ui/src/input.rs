@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use input_ui::{is_confirm_just_pressed, is_down_just_pressed, is_up_just_pressed};
+use input_ui::{is_cancel_just_pressed, is_confirm_just_pressed, is_down_just_pressed, is_up_just_pressed};
 use party::ItemKind;
 
 use app_state::{PartyState, SceneState};
@@ -36,6 +36,11 @@ pub fn hokora_input_system(
                 };
             }
 
+            if is_cancel_just_pressed(&keyboard) {
+                next_state.set(SceneState::Exploring);
+                return;
+            }
+
             if is_confirm_just_pressed(&keyboard) {
                 match hokora_res.selected_item {
                     0 => {
@@ -56,7 +61,7 @@ pub fn hokora_input_system(
             }
         }
         HokoraMenuPhase::ShowMessage { .. } => {
-            if is_confirm_just_pressed(&keyboard) {
+            if is_confirm_just_pressed(&keyboard) || is_cancel_just_pressed(&keyboard) {
                 if hokora_res.warped {
                     // ワープ後はフィールドに遷移
                     next_state.set(SceneState::Exploring);

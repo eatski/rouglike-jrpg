@@ -49,6 +49,10 @@ pub fn is_cancel_just_pressed(keyboard: &ButtonInput<KeyCode>) -> bool {
     keyboard.just_pressed(KeyCode::Escape) || keyboard.just_pressed(KeyCode::KeyX)
 }
 
+pub fn is_menu_just_pressed(keyboard: &ButtonInput<KeyCode>) -> bool {
+    keyboard.just_pressed(KeyCode::Tab)
+}
+
 pub fn is_map_toggle_just_pressed(keyboard: &ButtonInput<KeyCode>) -> bool {
     keyboard.just_pressed(KeyCode::KeyM)
 }

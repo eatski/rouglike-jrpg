@@ -215,7 +215,7 @@ pub fn field_menu_input_system(
 ) {
     if menu_open.is_none() {
         // メニュー非表示: 確認キーで開く
-        if input_ui::is_confirm_just_pressed(&keyboard) {
+        if input_ui::is_menu_just_pressed(&keyboard) {
             let alive = alive_member_indices(&party_state);
             if alive.is_empty() {
                 return;

@@ -37,6 +37,11 @@ pub fn town_input_system(
                 town_res.selected_item = if town_res.selected_item < max_index { town_res.selected_item + 1 } else { 0 };
             }
 
+            if is_cancel_just_pressed(&keyboard) {
+                next_state.set(SceneState::Exploring);
+                return;
+            }
+
             if is_confirm_just_pressed(&keyboard) {
                 match &town_res.commands[town_res.selected_item].clone() {
                     TownCommand::Inn => {
@@ -187,8 +192,8 @@ pub fn town_input_system(
             }
         }
         TownMenuPhase::ShowMessage { .. } => {
-            // メッセージ表示中は Enter でメニューに戻る
-            if is_confirm_just_pressed(&keyboard) {
+            // メッセージ表示中は Enter または ESC でメニューに戻る
+            if is_confirm_just_pressed(&keyboard) || is_cancel_just_pressed(&keyboard) {
                 town_res.phase = TownMenuPhase::MenuSelect;
             }
         }
