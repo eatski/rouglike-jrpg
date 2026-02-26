@@ -116,16 +116,17 @@ pub fn setup_cave_scene(
     let seed = tile_pos.x as u64 * 10007 + tile_pos.y as u64;
     let mut rng = ChaCha8Rng::seed_from_u64(seed);
     let guaranteed_items: Vec<TreasureContent> =
-        if continent_caves
+        if let Some(caves) = continent_caves
             .caves_by_continent
             .iter()
-            .any(|caves| caves.contains(&cave_world_pos))
+            .find(|caves| caves.contains(&cave_world_pos))
         {
-            vec![
-                TreasureContent::Item(ItemKind::MoonFragment),
-                TreasureContent::Item(ItemKind::MoonFragment),
-                TreasureContent::Item(ItemKind::MoonFragment),
-            ]
+            let num_caves = caves.len();
+            let idx = caves.iter().position(|&c| c == cave_world_pos).unwrap();
+            let base = 3 / num_caves;
+            let remainder = 3 % num_caves;
+            let count = base + if idx < remainder { 1 } else { 0 };
+            vec![TreasureContent::Item(ItemKind::MoonFragment); count]
         } else {
             vec![]
         };
