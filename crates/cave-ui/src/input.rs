@@ -284,7 +284,7 @@ pub fn cave_message_input_system(
     if cave_message.message.is_none() {
         return;
     }
-    if input_ui::is_confirm_just_pressed(&keyboard) {
+    if input_ui::is_confirm_just_pressed(&keyboard) || input_ui::is_cancel_just_pressed(&keyboard) {
         cave_message.message = None;
         // フィールドメニューが同フレームで反応しないよう確認キーを消費
         input_ui::clear_confirm_just_pressed(&mut keyboard);
