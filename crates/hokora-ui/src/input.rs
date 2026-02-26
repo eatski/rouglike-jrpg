@@ -1,14 +1,13 @@
 use bevy::prelude::*;
 
-use input_ui::{is_cancel_just_pressed, is_confirm_just_pressed, is_down_just_pressed, is_up_just_pressed};
+use input_ui::{is_cancel_just_pressed, is_confirm_just_pressed};
 use party::ItemKind;
 
 use app_state::{PartyState, SceneState};
 use field_core::{Player, TilePosition};
+use hud_ui::menu_style;
 
 use crate::scene::{HokoraMenuPhase, HokoraResource};
-
-const MENU_ITEM_COUNT: usize = 3;
 
 /// 祠画面の入力処理システム
 pub fn hokora_input_system(
@@ -21,20 +20,7 @@ pub fn hokora_input_system(
     match hokora_res.phase.clone() {
         HokoraMenuPhase::MenuSelect => {
             // 上下でカーソル移動
-            if is_up_just_pressed(&keyboard) {
-                hokora_res.selected_item = if hokora_res.selected_item > 0 {
-                    hokora_res.selected_item - 1
-                } else {
-                    MENU_ITEM_COUNT - 1
-                };
-            }
-            if is_down_just_pressed(&keyboard) {
-                hokora_res.selected_item = if hokora_res.selected_item < MENU_ITEM_COUNT - 1 {
-                    hokora_res.selected_item + 1
-                } else {
-                    0
-                };
-            }
+            menu_style::handle_menu_navigation(&keyboard, &mut *hokora_res);
 
             if is_cancel_just_pressed(&keyboard) {
                 next_state.set(SceneState::Exploring);

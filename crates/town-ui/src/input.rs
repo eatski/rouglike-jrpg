@@ -9,6 +9,7 @@ use town::{tavern_bounty_item, bounty_offer_dialogue, bounty_has_item_dialogue, 
 use app_state::SceneState;
 use field_core::{ActiveMap, Player, TilePosition};
 use app_state::{ContinentMap, HeardTavernHints, PartyState, RecruitmentMap, TavernBounties, TavernHintKind};
+use hud_ui::menu_style;
 
 use crate::scene::{build_town_commands, shop_goods, ShopGoods, TownCommand, TownMenuPhase, TownResource};
 
@@ -28,14 +29,8 @@ pub fn town_input_system(
 ) {
     match town_res.phase.clone() {
         TownMenuPhase::MenuSelect => {
-            let max_index = town_res.commands.len().saturating_sub(1);
             // 上下でカーソル移動
-            if is_up_just_pressed(&keyboard) {
-                town_res.selected_item = if town_res.selected_item > 0 { town_res.selected_item - 1 } else { max_index };
-            }
-            if is_down_just_pressed(&keyboard) {
-                town_res.selected_item = if town_res.selected_item < max_index { town_res.selected_item + 1 } else { 0 };
-            }
+            menu_style::handle_menu_navigation(&keyboard, &mut *town_res);
 
             if is_cancel_just_pressed(&keyboard) {
                 next_state.set(SceneState::Exploring);

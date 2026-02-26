@@ -1,3 +1,5 @@
+pub mod menu_style;
+
 use bevy::prelude::*;
 
 use app_state::PartyState;

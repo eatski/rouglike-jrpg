@@ -2,6 +2,7 @@ use bevy::prelude::*;
 
 use app_state::HokoraPositions;
 use field_core::{Player, TilePosition};
+use hud_ui::menu_style::{self, SceneMenu};
 
 /// 祠シーンのルートUIエンティティを識別するマーカー
 #[derive(Component)]
@@ -31,22 +32,36 @@ pub struct HokoraResource {
     pub warped: bool,
 }
 
-/// メニュー項目のマーカー
-#[derive(Component)]
-pub struct HokoraMenuItem {
-    pub index: usize,
+const HOKORA_LABELS: [&str; 3] = ["様子を見る", "扉を開ける", "出る"];
+
+impl SceneMenu for HokoraResource {
+    fn menu_labels(&self) -> Vec<String> {
+        HOKORA_LABELS.iter().map(|s| (*s).to_string()).collect()
+    }
+
+    fn selected(&self) -> usize {
+        self.selected_item
+    }
+
+    fn set_selected(&mut self, index: usize) {
+        self.selected_item = index;
+    }
+
+    fn is_in_main_menu(&self) -> bool {
+        matches!(self.phase, HokoraMenuPhase::MenuSelect)
+    }
+
+    fn show_main_menu(&self) -> bool {
+        true
+    }
+
+    fn current_message(&self) -> Option<&str> {
+        match &self.phase {
+            HokoraMenuPhase::ShowMessage { message } => Some(message),
+            _ => None,
+        }
+    }
 }
-
-/// メッセージテキストのマーカー
-#[derive(Component)]
-pub struct HokoraMessageText;
-
-/// メッセージエリアの親ノードのマーカー
-#[derive(Component)]
-pub struct HokoraMessageArea;
-
-const SELECTED_COLOR: Color = Color::srgb(1.0, 0.9, 0.2);
-const UNSELECTED_COLOR: Color = Color::srgb(0.6, 0.6, 0.6);
 
 pub fn setup_hokora_scene(
     mut commands: Commands,
@@ -71,103 +86,15 @@ pub fn setup_hokora_scene(
         warped: false,
     });
 
-    let font: Handle<Font> = asset_server.load("fonts/NotoSansJP-Bold.ttf");
-    let panel_bg = Color::srgba(0.1, 0.1, 0.15, 0.85);
-    let border_color = Color::srgb(0.4, 0.4, 0.5);
-
-    commands
-        .spawn((
-            HokoraSceneRoot,
-            Node {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                flex_direction: FlexDirection::Column,
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..default()
-            },
-            BackgroundColor(Color::BLACK),
-            GlobalZIndex(100),
-        ))
-        .with_children(|parent| {
-            // タイトル
-            parent.spawn((
-                Text::new("ほこらに ついた"),
-                TextFont {
-                    font: font.clone(),
-                    font_size: 24.0,
-                    ..default()
-                },
-                TextColor(Color::WHITE),
-                Node {
-                    margin: UiRect::bottom(Val::Px(32.0)),
-                    ..default()
-                },
-            ));
-
-            // メニューパネル
-            parent
-                .spawn((
-                    Node {
-                        flex_direction: FlexDirection::Column,
-                        padding: UiRect::all(Val::Px(24.0)),
-                        border: UiRect::all(Val::Px(2.0)),
-                        row_gap: Val::Px(8.0),
-                        ..default()
-                    },
-                    BackgroundColor(panel_bg),
-                    BorderColor::all(border_color),
-                ))
-                .with_children(|menu| {
-                    let items = ["> 様子を見る", "  扉を開ける", "  出る"];
-                    for (i, label) in items.iter().enumerate() {
-                        let color = if i == 0 {
-                            SELECTED_COLOR
-                        } else {
-                            UNSELECTED_COLOR
-                        };
-                        menu.spawn((
-                            HokoraMenuItem { index: i },
-                            Text::new(*label),
-                            TextFont {
-                                font: font.clone(),
-                                font_size: 18.0,
-                                ..default()
-                            },
-                            TextColor(color),
-                        ));
-                    }
-                });
-
-            // メッセージエリア（初期は非表示）
-            parent
-                .spawn((
-                    HokoraMessageArea,
-                    Node {
-                        margin: UiRect::top(Val::Px(24.0)),
-                        padding: UiRect::all(Val::Px(16.0)),
-                        border: UiRect::all(Val::Px(2.0)),
-                        min_width: Val::Px(300.0),
-                        justify_content: JustifyContent::Center,
-                        display: Display::None,
-                        ..default()
-                    },
-                    BackgroundColor(panel_bg),
-                    BorderColor::all(border_color),
-                ))
-                .with_children(|area| {
-                    area.spawn((
-                        HokoraMessageText,
-                        Text::new(""),
-                        TextFont {
-                            font: font.clone(),
-                            font_size: 14.0,
-                            ..default()
-                        },
-                        TextColor(Color::WHITE),
-                    ));
-                });
-        });
+    let root = menu_style::spawn_menu_scene(
+        &mut commands,
+        &asset_server,
+        "ほこらに ついた",
+        &HOKORA_LABELS,
+        HOKORA_LABELS.len(),
+        HokoraSceneRoot,
+    );
+    menu_style::spawn_message_area(&mut commands, root, &asset_server);
 }
 
 pub fn cleanup_hokora_scene(
@@ -178,54 +105,4 @@ pub fn cleanup_hokora_scene(
         commands.entity(entity).despawn();
     }
     commands.remove_resource::<HokoraResource>();
-}
-
-/// 祠メニューの表示を更新するシステム
-pub fn hokora_display_system(
-    hokora_res: Res<HokoraResource>,
-    mut menu_query: Query<
-        (&HokoraMenuItem, &mut Text, &mut TextColor),
-        (Without<HokoraMessageText>, Without<HokoraMessageArea>),
-    >,
-    mut message_query: Query<
-        &mut Text,
-        (
-            With<HokoraMessageText>,
-            Without<HokoraMenuItem>,
-            Without<HokoraMessageArea>,
-        ),
-    >,
-    mut message_area_query: Query<&mut Node, With<HokoraMessageArea>>,
-) {
-    // メニュー項目の更新
-    let labels = ["様子を見る", "扉を開ける", "出る"];
-    for (item, mut text, mut color) in &mut menu_query {
-        if item.index < labels.len() {
-            let is_selected = item.index == hokora_res.selected_item;
-            let prefix = if is_selected { "> " } else { "  " };
-            **text = format!("{}{}", prefix, labels[item.index]);
-            *color = if is_selected {
-                TextColor(SELECTED_COLOR)
-            } else {
-                TextColor(UNSELECTED_COLOR)
-            };
-        }
-    }
-
-    // メッセージエリアの表示/非表示
-    let show_message = matches!(&hokora_res.phase, HokoraMenuPhase::ShowMessage { .. });
-    for mut node in &mut message_area_query {
-        node.display = if show_message {
-            Display::Flex
-        } else {
-            Display::None
-        };
-    }
-
-    // メッセージテキストの更新
-    for mut text in &mut message_query {
-        if let HokoraMenuPhase::ShowMessage { message } = &hokora_res.phase {
-            **text = message.clone();
-        }
-    }
 }

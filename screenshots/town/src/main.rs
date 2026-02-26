@@ -4,7 +4,8 @@ use app_state::PartyState;
 use party::ItemKind;
 use screenshot_common::{setup_camera, ScreenshotAppBuilder};
 use town_ui::{
-    setup_town_scene_with_config, town_display_system, ShopGoods, TownMenuPhase, TownSceneConfig,
+    setup_town_scene_with_config, town_extra_display_system, ShopGoods, TownMenuPhase,
+    TownResource, TownSceneConfig,
 };
 
 fn make_config(variant: &str) -> TownSceneConfig {
@@ -46,6 +47,13 @@ fn main() {
             Startup,
             (setup_camera, setup_town_scene_with_config, hud_ui::setup_hud).chain(),
         )
-        .add_systems(Update, (town_display_system, hud_ui::update_hud))
+        .add_systems(
+            Update,
+            (
+                hud_ui::menu_style::menu_display_system::<TownResource>,
+                town_extra_display_system,
+                hud_ui::update_hud,
+            ),
+        )
         .run();
 }
