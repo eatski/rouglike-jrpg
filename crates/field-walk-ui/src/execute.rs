@@ -12,6 +12,36 @@ pub enum ExecuteMoveResult {
     Blocked,
 }
 
+/// 船なしの単純な移動実行（洞窟・徒歩共通）
+pub fn apply_simple_move(
+    entity: Entity,
+    tile_pos: &mut TilePosition,
+    dx: i32,
+    dy: i32,
+    active_map: &ActiveMap,
+    moved_events: &mut MessageWriter<PlayerMovedEvent>,
+    blocked_events: &mut MessageWriter<MovementBlockedEvent>,
+) -> ExecuteMoveResult {
+    match active_map.try_move(tile_pos.x, tile_pos.y, dx, dy) {
+        MoveResult::Moved { new_x, new_y } => {
+            tile_pos.x = new_x;
+            tile_pos.y = new_y;
+            moved_events.write(PlayerMovedEvent {
+                entity,
+                direction: (dx, dy),
+            });
+            ExecuteMoveResult::Success
+        }
+        MoveResult::Blocked => {
+            blocked_events.write(MovementBlockedEvent {
+                entity,
+                direction: (dx, dy),
+            });
+            ExecuteMoveResult::Blocked
+        }
+    }
+}
+
 /// 徒歩・船を統合した移動実行関数
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn execute_move(
@@ -67,23 +97,6 @@ pub fn execute_move(
         }
     } else {
         // 徒歩移動
-        match active_map.try_move(tile_pos.x, tile_pos.y, dx, dy) {
-            MoveResult::Moved { new_x, new_y } => {
-                tile_pos.x = new_x;
-                tile_pos.y = new_y;
-                moved_events.write(PlayerMovedEvent {
-                    entity,
-                    direction: (dx, dy),
-                });
-                ExecuteMoveResult::Success
-            }
-            MoveResult::Blocked => {
-                blocked_events.write(MovementBlockedEvent {
-                    entity,
-                    direction: (dx, dy),
-                });
-                ExecuteMoveResult::Blocked
-            }
-        }
+        apply_simple_move(entity, tile_pos, dx, dy, active_map, moved_events, blocked_events)
     }
 }

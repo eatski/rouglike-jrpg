@@ -6,8 +6,8 @@ use terrain::Structure;
 use app_state::{BossBattlePending, OpenedChests, PartyState, SceneState};
 use field_core::{ActiveMap, Player, TilePosition};
 use field_walk_ui::{
-    process_movement_input,
-    MovementBlockedEvent, MovementLocked, MoveResult, MovementState,
+    apply_simple_move, process_movement_input, ExecuteMoveResult,
+    MovementBlockedEvent, MovementLocked, MovementState,
     PendingMove, PlayerMovedEvent, TileEnteredEvent,
 };
 use app_state::FieldMenuOpen;
@@ -56,26 +56,12 @@ pub fn cave_player_movement(
         return;
     };
 
-    // 洞窟では船なし: execute_moveに直接委譲
-    // boat_queryはダミー（洞窟に船はない）
-    // on_boat=Noneなのでboat_queryは使われない
-    match active_map.try_move(tile_pos.x, tile_pos.y, input.first_dx, input.first_dy) {
-        MoveResult::Moved { new_x, new_y } => {
-            tile_pos.x = new_x;
-            tile_pos.y = new_y;
-            moved_events.write(PlayerMovedEvent {
-                entity,
-                direction: (input.first_dx, input.first_dy),
-            });
-            if let Some(dir) = input.pending_direction {
-                commands.entity(entity).insert(PendingMove { direction: dir });
-            }
-        }
-        MoveResult::Blocked => {
-            blocked_events.write(MovementBlockedEvent {
-                entity,
-                direction: (input.first_dx, input.first_dy),
-            });
+    if let ExecuteMoveResult::Success = apply_simple_move(
+        entity, &mut tile_pos, input.first_dx, input.first_dy,
+        &active_map, &mut moved_events, &mut blocked_events,
+    ) {
+        if let Some(dir) = input.pending_direction {
+            commands.entity(entity).insert(PendingMove { direction: dir });
         }
     }
 }
@@ -111,27 +97,16 @@ pub fn handle_cave_move_completed(
             let (dx, dy) = pending.direction;
             commands.entity(entity).remove::<PendingMove>();
 
-            match active_map.try_move(tile_pos.x, tile_pos.y, dx, dy) {
-                MoveResult::Moved { new_x, new_y } => {
-                    tile_pos.x = new_x;
-                    tile_pos.y = new_y;
-                    moved_events.write(PlayerMovedEvent {
-                        entity,
-                        direction: (dx, dy),
-                    });
-                }
-                MoveResult::Blocked => {
-                    blocked_events.write(MovementBlockedEvent {
-                        entity,
-                        direction: (dx, dy),
-                    });
-                    // ワープゾーン上でPendingMoveがブロックされた場合にも
-                    // 梯子判定を行う（MovementLockedはバウンスが解除）
-                    if tile_pos.x < active_map.width && tile_pos.y < active_map.height
-                        && active_map.structure_at(tile_pos.x, tile_pos.y) == Structure::Ladder
-                    {
-                        next_state.set(SceneState::Exploring);
-                    }
+            if let ExecuteMoveResult::Blocked = apply_simple_move(
+                entity, &mut tile_pos, dx, dy,
+                &active_map, &mut moved_events, &mut blocked_events,
+            ) {
+                // ワープゾーン上でPendingMoveがブロックされた場合にも
+                // 梯子判定を行う（MovementLockedはバウンスが解除）
+                if tile_pos.x < active_map.width && tile_pos.y < active_map.height
+                    && active_map.structure_at(tile_pos.x, tile_pos.y) == Structure::Ladder
+                {
+                    next_state.set(SceneState::Exploring);
                 }
             }
         } else {
