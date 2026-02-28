@@ -10,6 +10,7 @@ app-state = { path = "crates/app-state" }
 battle = { path = "crates/battle" }
 battle-ui = { path = "crates/battle-ui" }
 cave-ui = { path = "crates/cave-ui" }
+field-menu-ui = { path = "crates/field-menu-ui" }
 hokora-ui = { path = "crates/hokora-ui" }
 field-core = { path = "crates/field-core" }
 terrain = { path = "crates/terrain" }
@@ -43,6 +44,7 @@ members = [
 
     "crates/hud-ui",
     "crates/cave-ui",
+    "crates/field-menu-ui",
     "crates/hokora-ui",
     "tools/generate_tiles",
     "tools/deps_mermaid",

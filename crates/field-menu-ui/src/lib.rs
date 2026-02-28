@@ -2,7 +2,8 @@ use bevy::prelude::*;
 
 use party::available_spells;
 use spell::{calculate_heal_amount, SpellKind, SpellTarget};
-use app_state::{FieldMenuOpen, PartyState};
+use app_state::{FieldMenuOpen, InField, PartyState};
+use input_ui::InputSystemSet;
 use party::{ItemEffect, ItemKind};
 
 /// ターゲット選択の文脈（呪文 or アイテム）
@@ -72,6 +73,24 @@ pub struct FieldMenuScrollUp;
 /// フィールドメニューのスクロール下インジケータ
 #[derive(Component)]
 pub struct FieldMenuScrollDown;
+
+pub struct FieldMenuPlugin;
+
+impl Plugin for FieldMenuPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(
+            Update,
+            (
+                field_menu_input_system
+                    .in_set(InputSystemSet::FieldMenuInput)
+                    .after(InputSystemSet::MessageInput),
+                field_menu_display_system,
+            )
+                .chain()
+                .run_if(in_state(InField)),
+        );
+    }
+}
 
 fn scroll_offset(cursor: usize, total: usize, visible: usize) -> usize {
     if total <= visible {
@@ -204,7 +223,7 @@ fn close_menu(
 
 /// フィールドメニューの入力処理システム
 #[allow(clippy::too_many_arguments)]
-pub fn field_menu_input_system(
+fn field_menu_input_system(
     mut commands: Commands,
     keyboard: Res<ButtonInput<KeyCode>>,
     asset_server: Res<AssetServer>,
@@ -619,7 +638,7 @@ fn handle_target_select(
 
 /// フィールドメニューの表示更新システム
 #[allow(clippy::type_complexity)]
-pub fn field_menu_display_system(
+fn field_menu_display_system(
     state: Option<Res<FieldMenuState>>,
     party_state: Res<PartyState>,
     mut title_query: Query<&mut Text, (With<FieldMenuTitle>, Without<FieldMenuItem>, Without<FieldMenuScrollUp>, Without<FieldMenuScrollDown>)>,

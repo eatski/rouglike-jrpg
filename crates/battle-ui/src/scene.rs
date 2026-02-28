@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use battle::{generate_enemy_group, BattleAction, BattleState, Enemy, ItemKind, SpellKind};
 
-use app_state::{BossBattlePending, EncounterZone, PartyState};
+use app_state::{BossBattlePending, EncounterZone, PartyState, SceneState};
 
 use super::display::{
     CommandCursor, EnemyNameLabel, MessageText, PartyMemberHpBarFill, PartyMemberHpText,
@@ -661,7 +661,7 @@ pub fn cleanup_battle_scene(
     query: Query<Entity, With<BattleSceneRoot>>,
     game_state: Res<BattleGameState>,
     mut party_state: ResMut<PartyState>,
-    boss_cave_state: Option<Res<cave_ui::BossCaveState>>,
+    scene_state: Res<State<SceneState>>,
 ) {
     // 戦闘結果を永続状態に書き戻す
     for (i, member) in game_state.state.party.iter().enumerate() {
@@ -675,7 +675,7 @@ pub fn cleanup_battle_scene(
     }
 
     // ボス洞窟で戦闘勝利した場合、ボス撃破フラグを設定
-    if boss_cave_state.is_some() && game_state.state.enemies.iter().all(|e| e.stats.hp <= 0) {
+    if *scene_state.get() == SceneState::BossCave && game_state.state.enemies.iter().all(|e| e.stats.hp <= 0) {
         commands.insert_resource(app_state::BossDefeated);
     }
 

@@ -35,6 +35,7 @@ fn main() {
             field_walk_ui::MovementPlugin,
             field_walk_ui::WorldPlugin,
             battle_ui::BattlePlugin,
+            field_menu_ui::FieldMenuPlugin,
             town_ui::TownPlugin,
             hokora_ui::HokoraPlugin,
             cave_ui::CavePlugin,

@@ -1,5 +1,14 @@
 use bevy::prelude::*;
 
+/// 入力システムの実行順序を制御するためのSystemSet
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub enum InputSystemSet {
+    /// メッセージ確認入力（確認キーを消費する側）
+    MessageInput,
+    /// フィールドメニュー入力（確認キーを使う側）
+    FieldMenuInput,
+}
+
 /// キーボード入力のヘルパー関数群
 pub fn is_up_pressed(keyboard: &ButtonInput<KeyCode>) -> bool {
     keyboard.pressed(KeyCode::KeyW) || keyboard.pressed(KeyCode::ArrowUp)

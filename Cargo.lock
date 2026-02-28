@@ -337,7 +337,6 @@ dependencies = [
  "app-state",
  "battle",
  "bevy",
- "cave-ui",
  "hud-ui",
  "input-ui",
  "party",
@@ -2431,6 +2430,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "field-menu-ui"
+version = "0.1.0"
+dependencies = [
+ "app-state",
+ "bevy",
+ "input-ui",
+ "party",
+ "rand 0.8.5",
+ "spell",
+]
+
+[[package]]
 name = "field-walk"
 version = "0.1.0"
 dependencies = [
@@ -4342,6 +4353,7 @@ dependencies = [
  "cave",
  "cave-ui",
  "field-core",
+ "field-menu-ui",
  "field-walk",
  "field-walk-ui",
  "hokora-ui",
