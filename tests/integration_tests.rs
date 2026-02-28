@@ -1277,9 +1277,9 @@ fn buy_herb_at_shop_then_use_in_battle() {
 
 #[test]
 fn buy_weapon_at_shop_then_equip_affects_battle() {
-    use town::{buy_weapon, BuyWeaponResult};
+    use town::{buy_item, BuyResult};
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult};
-    use party::{PartyMember, WeaponKind};
+    use party::{PartyMember, ItemKind, WeaponKind};
 
     let mut hero = PartyMember::laios();
     let gold = 100u32;
@@ -1287,14 +1287,18 @@ fn buy_weapon_at_shop_then_equip_affects_battle() {
     // 武器購入前の攻撃力を記録
     let attack_before = hero.effective_attack();
 
-    // 街で鉄の剣を購入
-    let result = buy_weapon(WeaponKind::IronSword, gold, &mut hero);
+    // 街で鉄の剣を購入（インベントリに入る）
+    let result = buy_item(ItemKind::Weapon(WeaponKind::IronSword), gold, &mut hero.inventory);
     match result {
-        BuyWeaponResult::Success { remaining_gold } => {
+        BuyResult::Success { remaining_gold } => {
             assert_eq!(remaining_gold, 50); // 100 - 50 = 50
         }
         _ => panic!("Should succeed buying IronSword"),
     }
+
+    // 道具メニューから装備する
+    hero.inventory.remove_item(ItemKind::Weapon(WeaponKind::IronSword));
+    hero.equipment.equip_weapon(WeaponKind::IronSword);
 
     // 攻撃力が上がっていることを確認
     let attack_after = hero.effective_attack();
@@ -1317,7 +1321,6 @@ fn buy_weapon_at_shop_then_equip_affects_battle() {
         if let TurnResult::Attack { attacker: battle::ActorId::Party(0), damage, .. } = r { Some(*damage) } else { None }
     }).unwrap();
 
-    // attack_after(13) - defense(1)/2 = 12.5 → round(12.5 * 1.0) = 13 (or 12)
     assert!(damage > 0, "Should deal damage with equipped weapon");
 }
 
@@ -2326,19 +2329,21 @@ fn cave_treasure_sold_at_shop() {
 
 #[test]
 fn weapon_upgrade_replaces_old_and_changes_damage() {
-    use town::{buy_weapon, BuyWeaponResult};
+    use town::{buy_item, BuyResult};
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult};
-    use party::{PartyMember, WeaponKind};
+    use party::{PartyMember, ItemKind, WeaponKind};
 
     let mut hero = PartyMember::laios();
     let gold = 500u32;
 
-    // 鉄の剣を購入（+5）
-    let result = buy_weapon(WeaponKind::IronSword, gold, &mut hero);
+    // 鉄の剣を購入してインベントリから装備（+5）
+    let result = buy_item(ItemKind::Weapon(WeaponKind::IronSword), gold, &mut hero.inventory);
     let remaining = match result {
-        BuyWeaponResult::Success { remaining_gold } => remaining_gold,
+        BuyResult::Success { remaining_gold } => remaining_gold,
         _ => panic!("Should buy IronSword"),
     };
+    hero.inventory.remove_item(ItemKind::Weapon(WeaponKind::IronSword));
+    hero.equipment.equip_weapon(WeaponKind::IronSword);
     assert_eq!(hero.equipment.weapon, Some(WeaponKind::IronSword));
     let attack_with_iron = hero.effective_attack();
 
@@ -2354,9 +2359,15 @@ fn weapon_upgrade_replaces_old_and_changes_damage() {
         if let TurnResult::Attack { attacker: battle::ActorId::Party(0), damage, .. } = r { Some(*damage) } else { None }
     }).unwrap();
 
-    // 鋼の剣に買い替え（+10）
-    let result = buy_weapon(WeaponKind::SteelSword, remaining, &mut hero);
-    assert!(matches!(result, BuyWeaponResult::Success { .. }));
+    // 鋼の剣を購入して装備（+10）、旧武器はインベントリに戻る
+    let result = buy_item(ItemKind::Weapon(WeaponKind::SteelSword), remaining, &mut hero.inventory);
+    assert!(matches!(result, BuyResult::Success { .. }));
+    hero.inventory.remove_item(ItemKind::Weapon(WeaponKind::SteelSword));
+    let old = hero.equipment.unequip_weapon();
+    if let Some(old_w) = old {
+        hero.inventory.add(ItemKind::Weapon(old_w), 1);
+    }
+    hero.equipment.equip_weapon(WeaponKind::SteelSword);
     assert_eq!(hero.equipment.weapon, Some(WeaponKind::SteelSword));
     let attack_with_steel = hero.effective_attack();
     assert_eq!(attack_with_steel, attack_with_iron + 5, "SteelSword(+10) should be 5 more than IronSword(+5)");
@@ -2519,14 +2530,25 @@ fn buy_item_fails_with_insufficient_gold() {
 
 #[test]
 fn buy_weapon_fails_with_insufficient_gold() {
-    use town::{buy_weapon, BuyWeaponResult};
-    use party::{PartyMember, WeaponKind};
+    use town::{buy_item, BuyResult};
+    use party::{PartyMember, ItemKind, WeaponKind};
 
     let mut hero = PartyMember::laios();
     // 鉄の剣は50ゴールド
-    let result = buy_weapon(WeaponKind::IronSword, 49, &mut hero);
-    assert_eq!(result, BuyWeaponResult::InsufficientGold, "Should fail with 49 gold for 50-gold sword");
-    assert_eq!(hero.equipment.weapon, None, "No weapon should be equipped");
+    let result = buy_item(ItemKind::Weapon(WeaponKind::IronSword), 49, &mut hero.inventory);
+    assert_eq!(result, BuyResult::InsufficientGold, "Should fail with 49 gold for 50-gold sword");
+    assert_eq!(hero.inventory.count(ItemKind::Weapon(WeaponKind::IronSword)), 0, "No weapon should be in inventory");
+}
+
+#[test]
+fn buy_weapon_fails_with_full_inventory() {
+    use town::{buy_item, BuyResult};
+    use party::{PartyMember, ItemKind, WeaponKind};
+
+    let mut hero = PartyMember::laios();
+    hero.inventory.add(ItemKind::Herb, 6); // 容量いっぱい
+    let result = buy_item(ItemKind::Weapon(WeaponKind::IronSword), 100, &mut hero.inventory);
+    assert_eq!(result, BuyResult::InventoryFull, "Should fail when inventory is full");
 }
 
 // ============================================
@@ -2698,16 +2720,18 @@ fn multi_turn_battle_accumulates_turn_log() {
 
 #[test]
 fn full_town_equip_battle_levelup_flow() {
-    use town::{buy_weapon, buy_item, heal_party, BuyWeaponResult, BuyResult};
+    use town::{buy_item, heal_party, BuyResult};
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors};
     use party::{PartyMember, ItemKind, WeaponKind};
 
     let mut hero = PartyMember::laios();
     let mut gold = 500u32;
 
-    // 1. 街で武器を買う
-    if let BuyWeaponResult::Success { remaining_gold } = buy_weapon(WeaponKind::IronSword, gold, &mut hero) {
+    // 1. 街で武器を買ってインベントリから装備する
+    if let BuyResult::Success { remaining_gold } = buy_item(ItemKind::Weapon(WeaponKind::IronSword), gold, &mut hero.inventory) {
         gold = remaining_gold;
+        hero.inventory.remove_item(ItemKind::Weapon(WeaponKind::IronSword));
+        hero.equipment.equip_weapon(WeaponKind::IronSword);
     }
 
     // 2. やくそうを買う

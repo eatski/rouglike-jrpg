@@ -276,7 +276,7 @@ pub fn battle_display_system(
                     _ => 0,
                 };
                 let is_selected = data_index == ui_state.selected_item;
-                let can_use = !matches!(item.effect(), ItemEffect::KeyItem | ItemEffect::Material);
+                let can_use = !matches!(item.effect(), ItemEffect::KeyItem | ItemEffect::Material | ItemEffect::Equip);
                 let prefix = if is_selected { "> " } else { "  " };
                 **text = format!("{}{} x{}", prefix, item.name(), count);
                 *color = if !can_use {

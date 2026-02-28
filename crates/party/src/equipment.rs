@@ -38,6 +38,16 @@ impl WeaponKind {
             WeaponKind::HolyStaff => 80,
         }
     }
+
+    pub fn description(self) -> &'static str {
+        match self {
+            WeaponKind::WoodenSword => "きで つくった つるぎ",
+            WeaponKind::IronSword => "てつで きたえた つるぎ",
+            WeaponKind::SteelSword => "はがねの かたい つるぎ",
+            WeaponKind::MageStaff => "まりょくを たかめる つえ",
+            WeaponKind::HolyStaff => "せいなる ちからの つえ",
+        }
+    }
 }
 
 /// 装備スロット
@@ -54,6 +64,11 @@ impl Equipment {
     /// 武器を装備し、以前の武器を返す
     pub fn equip_weapon(&mut self, weapon: WeaponKind) -> Option<WeaponKind> {
         self.weapon.replace(weapon)
+    }
+
+    /// 武器を外して返す
+    pub fn unequip_weapon(&mut self) -> Option<WeaponKind> {
+        self.weapon.take()
     }
 
     /// 装備による攻撃力ボーナス合計

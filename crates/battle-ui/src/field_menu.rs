@@ -247,7 +247,7 @@ pub fn field_menu_input_system(
             handle_member_select(&keyboard, &mut state, &party_state, candidates, cursor);
         }
         FieldMenuPhase::ItemSelect { member, items, cursor } => {
-            handle_item_select(&keyboard, &mut state, &party_state, member, items, cursor);
+            handle_item_select(&keyboard, &mut state, &mut party_state, member, items, cursor);
         }
         FieldMenuPhase::TargetSelect { candidates, cursor, context } => {
             handle_target_select(
@@ -433,7 +433,7 @@ fn handle_member_select(
 fn handle_item_select(
     keyboard: &ButtonInput<KeyCode>,
     state: &mut FieldMenuState,
-    party_state: &PartyState,
+    party_state: &mut PartyState,
     member: usize,
     items: Vec<ItemKind>,
     mut cursor: usize,
@@ -467,6 +467,29 @@ fn handle_item_select(
                         item_cursor: cursor,
                     },
                 };
+            }
+            ItemEffect::Equip => {
+                let weapon = item.as_weapon().expect("Equip effect must be Weapon");
+                let member_ref = &mut party_state.members[member];
+                let member_name = member_ref.kind.name();
+
+                // インベントリから新武器を取り出す
+                member_ref.inventory.remove_item(item);
+
+                // 装備中の武器を外してインベントリに戻す
+                let old_weapon = member_ref.equipment.unequip_weapon();
+                if let Some(old_w) = old_weapon {
+                    member_ref.inventory.add(ItemKind::Weapon(old_w), 1);
+                }
+
+                // 新武器を装備
+                member_ref.equipment.equip_weapon(weapon);
+
+                let mut msg = format!("{}は {}を そうびした！", member_name, weapon.name());
+                if let Some(old_w) = old_weapon {
+                    msg.push_str(&format!("\n{}を はずした", old_w.name()));
+                }
+                state.phase = FieldMenuPhase::ShowMessage { message: msg };
             }
             ItemEffect::KeyItem | ItemEffect::Material => {
                 let member_name = party_state.members[member].kind.name();
@@ -749,7 +772,11 @@ pub fn field_menu_display_system(
                         .count(item_kind);
                     let is_selected = data_index == *cursor;
                     let prefix = if is_selected { "> " } else { "  " };
-                    **text = format!("{}{} x{}", prefix, item_kind.name(), count);
+                    if let Some(w) = item_kind.as_weapon() {
+                        **text = format!("{}{} ATK+{} x{}", prefix, item_kind.name(), w.attack_bonus(), count);
+                    } else {
+                        **text = format!("{}{} x{}", prefix, item_kind.name(), count);
+                    }
                     *color = if is_selected {
                         TextColor(SELECTED_COLOR)
                     } else {

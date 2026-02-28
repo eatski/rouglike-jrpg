@@ -222,40 +222,35 @@ pub fn check_chest_system(
                     }
                 }
                 TreasureContent::Weapon(weapon) => {
-                    // 武器は装備スロットなので必ず取得可能
-                    // 装備なしのメンバーがいれば自動装備
-                    let mut equipped_to = None;
+                    // 先頭メンバーから順にインベントリ追加を試みる
+                    let weapon_item = party::ItemKind::Weapon(weapon);
+                    let mut added = false;
+                    let mut receiver_name = String::new();
                     for member in &mut party_state.members {
-                        if member.equipment.weapon.is_none() {
-                            member.equipment.equip_weapon(weapon);
-                            equipped_to = Some(member.kind.name().to_string());
+                        if member.inventory.try_add(weapon_item, 1) {
+                            receiver_name = member.kind.name().to_string();
+                            added = true;
                             break;
                         }
                     }
-                    if let Some(name) = equipped_to {
+                    if added {
                         cave_message.message = Some(format!(
-                            "たからばこから {}を てにいれた！\n{}が そうびした！",
+                            "たからばこから {}を てにいれた！（{}）",
                             weapon.name(),
-                            name,
+                            receiver_name,
                         ));
+                        // 取得済みに記録
+                        opened_chests
+                            .chests
+                            .entry(cave_pos)
+                            .or_default()
+                            .insert(i);
                     } else {
-                        // 全員装備済み → 先頭メンバーの武器を上書き
-                        if let Some(member) = party_state.members.first_mut() {
-                            let old = member.equipment.equip_weapon(weapon);
-                            cave_message.message = Some(format!(
-                                "たからばこから {}を てにいれた！\n{}が そうびした！（{}を はずした）",
-                                weapon.name(),
-                                member.kind.name(),
-                                old.map_or("なし", |w| w.name()),
-                            ));
-                        }
+                        cave_message.message =
+                            Some("もちものが いっぱいだ！".to_string());
+                        // 取得失敗 → 宝箱は残す（取得済みに記録しない）
+                        continue;
                     }
-                    // 取得済みに記録
-                    opened_chests
-                        .chests
-                        .entry(cave_pos)
-                        .or_default()
-                        .insert(i);
                 }
             }
 

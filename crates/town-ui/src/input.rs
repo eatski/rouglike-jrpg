@@ -3,7 +3,8 @@ use rand::prelude::SliceRandom;
 
 use input_ui::{is_cancel_just_pressed, is_confirm_just_pressed, is_down_just_pressed, is_up_just_pressed};
 use party::{talk_to_candidate, PartyMember, TalkResult};
-use town::{buy_item, buy_weapon, candidate_first_dialogue, candidate_join_dialogue, cave_hint_dialogue, companion_hint_dialogue, heal_party, hokora_hint_dialogue, sell_item, BuyResult, BuyWeaponResult, SellResult, INN_PRICE, TAVERN_PRICE};
+use party::ItemKind;
+use town::{buy_item, candidate_first_dialogue, candidate_join_dialogue, cave_hint_dialogue, companion_hint_dialogue, heal_party, hokora_hint_dialogue, sell_item, BuyResult, SellResult, INN_PRICE, TAVERN_PRICE};
 use town::{tavern_bounty_item, bounty_offer_dialogue, bounty_has_item_dialogue, bounty_sold_dialogue, sell_bounty_item};
 
 use app_state::SceneState;
@@ -430,16 +431,21 @@ fn handle_shop_character_select(
                 }
             }
             ShopGoods::Weapon(weapon) => {
-                match buy_weapon(weapon, party_state.gold, &mut party_state.members[selected]) {
-                    BuyWeaponResult::Success { remaining_gold } => {
+                match buy_item(ItemKind::Weapon(weapon), party_state.gold, &mut party_state.members[selected].inventory) {
+                    BuyResult::Success { remaining_gold } => {
                         party_state.gold = remaining_gold;
                         town_res.phase = TownMenuPhase::ShopMessage {
-                            message: format!("{}が {} を そうびした！", member_name, weapon.name()),
+                            message: format!("{}が {} を てにいれた！", member_name, weapon.name()),
                         };
                     }
-                    BuyWeaponResult::InsufficientGold => {
+                    BuyResult::InsufficientGold => {
                         town_res.phase = TownMenuPhase::ShopMessage {
                             message: "おかねが たりない！".to_string(),
+                        };
+                    }
+                    BuyResult::InventoryFull => {
+                        town_res.phase = TownMenuPhase::ShopMessage {
+                            message: format!("{}の もちものが いっぱいだ！", member_name),
                         };
                     }
                 }

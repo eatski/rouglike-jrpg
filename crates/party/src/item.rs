@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use crate::equipment::WeaponKind;
+
 pub const INVENTORY_CAPACITY: u32 = 6;
 
 /// アイテム使用時の効果
@@ -11,6 +13,8 @@ pub enum ItemEffect {
     KeyItem,
     /// 素材（売却専用、使用不可）
     Material,
+    /// 装備（武器を装備する）
+    Equip,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -23,6 +27,7 @@ pub enum ItemKind {
     SilverOre,
     AncientCoin,
     DragonScale,
+    Weapon(WeaponKind),
 }
 
 impl ItemKind {
@@ -36,6 +41,7 @@ impl ItemKind {
             ItemKind::SilverOre => "ぎんこうせき",
             ItemKind::AncientCoin => "いにしえのコイン",
             ItemKind::DragonScale => "りゅうのウロコ",
+            ItemKind::Weapon(w) => w.name(),
         }
     }
 
@@ -49,6 +55,7 @@ impl ItemKind {
             | ItemKind::SilverOre
             | ItemKind::AncientCoin
             | ItemKind::DragonScale => ItemEffect::Material,
+            ItemKind::Weapon(_) => ItemEffect::Equip,
         }
     }
 
@@ -62,12 +69,21 @@ impl ItemKind {
             ItemKind::SilverOre => "きれいな ぎんいろの こうせき",
             ItemKind::AncientCoin => "おおむかしの きんか",
             ItemKind::DragonScale => "りゅうの からだを おおう ウロコ",
+            ItemKind::Weapon(w) => w.description(),
         }
     }
 
     /// 使用時に消費されるか
     pub fn is_consumable(self) -> bool {
         matches!(self.effect(), ItemEffect::Heal { .. })
+    }
+
+    /// 武器バリアントの場合、WeaponKindを返す
+    pub fn as_weapon(self) -> Option<WeaponKind> {
+        match self {
+            ItemKind::Weapon(w) => Some(w),
+            _ => None,
+        }
     }
 
     /// 買値（0 = 購入不可）
@@ -81,6 +97,7 @@ impl ItemKind {
             ItemKind::SilverOre => 0,
             ItemKind::AncientCoin => 0,
             ItemKind::DragonScale => 0,
+            ItemKind::Weapon(w) => w.price(),
         }
     }
 
@@ -95,6 +112,7 @@ impl ItemKind {
             ItemKind::SilverOre => 60,
             ItemKind::AncientCoin => 120,
             ItemKind::DragonScale => 250,
+            ItemKind::Weapon(w) => w.price() / 2,
         }
     }
 }

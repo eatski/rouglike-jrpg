@@ -232,8 +232,8 @@ fn handle_item_select(
     if input_ui::is_confirm_just_pressed(keyboard) {
         let item = owned[ui_state.selected_item];
 
-        // キーアイテムは戦闘中使用不可
-        if matches!(item.effect(), ItemEffect::KeyItem | ItemEffect::Material) {
+        // キーアイテム・素材・装備は戦闘中使用不可
+        if matches!(item.effect(), ItemEffect::KeyItem | ItemEffect::Material | ItemEffect::Equip) {
             return;
         }
 

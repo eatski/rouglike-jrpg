@@ -524,21 +524,13 @@ pub fn town_display_system(
     }
 
     // キャラクター選択メニュー項目の更新（購入）
-    if let TownMenuPhase::ShopCharacterSelect { goods, selected } = &town_res.phase {
+    if let TownMenuPhase::ShopCharacterSelect { selected, .. } = &town_res.phase {
         for (char_item, mut text, mut color) in &mut char_item_query {
             if char_item.index < party_state.members.len() {
                 let is_selected = char_item.index == *selected;
                 let prefix = if is_selected { "> " } else { "  " };
                 let member = &party_state.members[char_item.index];
-                let detail = match goods {
-                    ShopGoods::Item(_) => {
-                        format!("{}/{}", member.inventory.total_count(), INVENTORY_CAPACITY)
-                    }
-                    ShopGoods::Weapon(_) => {
-                        let weapon_name = member.equipment.weapon.map_or("なし", |w| w.name());
-                        format!("[{}]", weapon_name)
-                    }
-                };
+                let detail = format!("{}/{}", member.inventory.total_count(), INVENTORY_CAPACITY);
                 **text = format!("{}{}  {}", prefix, member.kind.name(), detail);
                 *color = if is_selected {
                     TextColor(SELECTED_COLOR)

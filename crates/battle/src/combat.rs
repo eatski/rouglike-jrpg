@@ -613,7 +613,7 @@ impl BattleState {
                     });
                 }
             }
-            ItemEffect::KeyItem | ItemEffect::Material => {}
+            ItemEffect::KeyItem | ItemEffect::Material | ItemEffect::Equip => {}
 
         }
 
