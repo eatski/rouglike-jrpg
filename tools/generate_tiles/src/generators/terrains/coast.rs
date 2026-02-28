@@ -128,8 +128,8 @@ fn quadrant_distance(state: QuadrantState, lx: f32, ly: f32, qi: usize) -> f32 {
 pub fn generate_coast_tiles(output_dir: &Path) {
     let (unique_masks, count) = build_lookup_table();
 
-    for tile_idx in 0..count {
-        let quadrants = mask_to_quadrants(unique_masks[tile_idx]);
+    for (tile_idx, &mask) in unique_masks.iter().enumerate().take(count) {
+        let quadrants = mask_to_quadrants(mask);
         let mut img = new_image();
 
         for gy in 0..16u32 {

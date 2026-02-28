@@ -129,7 +129,7 @@ fn place_continent_centers(rng: &mut impl Rng) -> Vec<(usize, usize)> {
 
 /// Phase 2: 大陸を成長させる（Random Growth / Frontier拡散法）
 fn grow_continents(
-    grid: &mut Vec<Vec<Terrain>>,
+    grid: &mut [Vec<Terrain>],
     centers: &[(usize, usize)],
     rng: &mut impl Rng,
 ) {
@@ -226,7 +226,7 @@ fn grow_continents(
 /// 海に隣接する陸地タイルを確率的に海に戻す。
 /// 2パス実行することで、より複雑な海岸線を生成する。
 fn erode_coastline(
-    grid: &mut Vec<Vec<Terrain>>,
+    grid: &mut [Vec<Terrain>],
     protected: &[(usize, usize)],
     rng: &mut impl Rng,
 ) {
@@ -269,7 +269,7 @@ fn erode_coastline(
 ///
 /// 内陸（海に隣接しない）の陸地にクラスタ状の湖を生成する。
 fn place_lakes(
-    grid: &mut Vec<Vec<Terrain>>,
+    grid: &mut [Vec<Terrain>],
     protected: &[(usize, usize)],
     rng: &mut impl Rng,
 ) {
@@ -331,7 +331,7 @@ fn place_lakes(
 ///
 /// spawn_position を含む島は保護する。
 fn remove_tiny_islands(
-    grid: &mut Vec<Vec<Terrain>>,
+    grid: &mut [Vec<Terrain>],
     protected: &[(usize, usize)],
 ) {
     const MIN_ISLAND_SIZE: usize = 8;
@@ -356,7 +356,7 @@ fn remove_tiny_islands(
 ///
 /// `protected` 内のタイルは Plains のまま保護する。
 fn scatter_terrain_clusters(
-    grid: &mut Vec<Vec<Terrain>>,
+    grid: &mut [Vec<Terrain>],
     protected: &HashSet<(usize, usize)>,
     rng: &mut impl Rng,
 ) {
@@ -446,7 +446,7 @@ fn scatter_terrain_clusters(
 }
 
 /// 特殊タイル（Town/Cave/Hokora/BossCave）の歩行可能性とチョークポイント解消を保証する
-fn clear_around_special_tiles(grid: &mut Vec<Vec<Terrain>>, structures: &[Vec<Structure>]) {
+fn clear_around_special_tiles(grid: &mut [Vec<Terrain>], structures: &[Vec<Structure>]) {
     terrain::clear_around_structures(
         grid,
         structures,
@@ -463,7 +463,7 @@ fn clear_around_special_tiles(grid: &mut Vec<Vec<Terrain>>, structures: &[Vec<St
 /// Mountain が歩行不可のため、山の配置で歩行可能エリアが分断される可能性がある。
 /// 分断が検出された場合、最大連結成分以外の成分から最大成分へBFSで最短経路を探し、
 /// 経路上の Mountain を Plains に変換して道を作る。
-fn ensure_walkable_connectivity(grid: &mut Vec<Vec<Terrain>>) {
+fn ensure_walkable_connectivity(grid: &mut [Vec<Terrain>]) {
     let islands = detect_islands(grid);
 
     for island in &islands {

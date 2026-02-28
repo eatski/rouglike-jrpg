@@ -185,13 +185,13 @@ pub fn generate_chest(output_dir: &Path) {
 
     // === 蓋の縦バンド（左右） ===
     for &(y, x_start, x_end) in &lid_rows {
-        if y >= 3 && y <= 7 {
+        if (3..=7).contains(&y) {
             let bl = x_start + 2;
             let br = x_end - 2;
-            if bl >= x_start + 1 && bl < 6 {
+            if bl > x_start && bl < 6 {
                 img.put_pixel(bl, y, gold_dark);
             }
-            if br <= x_end - 1 && br > 9 {
+            if br < x_end && br > 9 {
                 img.put_pixel(br, y, gold_dark);
             }
         }
@@ -404,13 +404,13 @@ pub fn generate_chest_open(output_dir: &Path) {
 
     // 蓋の縦バンド（左右の金属）
     for &(y, x_start, x_end) in &lid_open_rows {
-        if y >= 2 && y <= 4 {
+        if (2..=4).contains(&y) {
             let bl = x_start + 2;
             let br = x_end - 2;
-            if bl >= x_start + 1 && bl < 6 {
+            if bl > x_start && bl < 6 {
                 img.put_pixel(bl, y, gold_dark);
             }
-            if br <= x_end - 1 && br > 9 {
+            if br < x_end && br > 9 {
                 img.put_pixel(br, y, gold_dark);
             }
         }

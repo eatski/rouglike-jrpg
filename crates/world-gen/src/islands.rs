@@ -83,7 +83,7 @@ pub fn detect_islands(grid: &[Vec<Terrain>]) -> Vec<Vec<(usize, usize)>> {
     }
 
     // サイズ降順でソート
-    islands.sort_by(|a, b| b.len().cmp(&a.len()));
+    islands.sort_by_key(|b| std::cmp::Reverse(b.len()));
     islands
 }
 
@@ -118,7 +118,7 @@ fn detect_sea_regions(grid: &[Vec<Terrain>]) -> Vec<Vec<(usize, usize)>> {
     }
 
     // サイズ降順でソート
-    regions.sort_by(|a, b| b.len().cmp(&a.len()));
+    regions.sort_by_key(|b| std::cmp::Reverse(b.len()));
     regions
 }
 
@@ -289,10 +289,9 @@ pub fn calculate_cave_spawns(
         }
 
         // ボス大陸の島には通常洞窟を配置しない
-        if let Some(center) = boss_continent_center {
-            if island.contains(&center) {
+        if let Some(center) = boss_continent_center
+            && island.contains(&center) {
                 continue;
-            }
         }
 
         let mut candidates: Vec<(usize, usize)> = island

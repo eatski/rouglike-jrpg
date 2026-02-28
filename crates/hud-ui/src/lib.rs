@@ -168,6 +168,7 @@ pub fn setup_hud(mut commands: Commands, asset_server: Res<AssetServer>, party_s
 type GoldTextQuery<'w, 's> = Query<'w, 's, &'static mut Text, (With<HudGoldText>, Without<HudHpText>, Without<HudMpText>, Without<HudNameText>)>;
 
 /// PartyState変化時にHUDのHP/MP/バー/名前+レベルを更新するシステム
+#[allow(clippy::type_complexity)]
 pub fn update_hud(
     party_state: Res<PartyState>,
     mut name_query: Query<(&HudNameText, &mut Text), (Without<HudHpText>, Without<HudMpText>, Without<HudGoldText>)>,

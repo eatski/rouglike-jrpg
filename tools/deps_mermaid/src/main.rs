@@ -196,12 +196,11 @@ fn compute_clusters(
     for (from, to_list) in deps {
         if let Some(&fi) = node_idx.get(from.as_str()) {
             for to in to_list {
-                if let Some(&ti) = node_idx.get(to.as_str()) {
-                    if !adj[fi][ti] {
+                if let Some(&ti) = node_idx.get(to.as_str())
+                    && !adj[fi][ti] {
                         adj[fi][ti] = true;
                         adj[ti][fi] = true;
                         total_edges += 1;
-                    }
                 }
             }
         }

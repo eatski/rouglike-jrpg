@@ -53,7 +53,7 @@ pub struct BossCaveState {
     pub cave_world_pos: (usize, usize),
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn setup_cave_scene(
     mut commands: Commands,
     mut player_query: Query<(&mut TilePosition, &mut Transform), With<Player>>,
@@ -183,7 +183,7 @@ pub fn setup_cave_scene(
 }
 
 /// ボス洞窟シーンのセットアップ
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn setup_boss_cave_scene(
     mut commands: Commands,
     mut player_query: Query<(&mut TilePosition, &mut Transform), With<Player>>,

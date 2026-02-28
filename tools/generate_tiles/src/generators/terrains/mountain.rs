@@ -6,6 +6,7 @@ use crate::generators::common::{new_image, pixel_hash, pixel_noise, save_image, 
 // タイル上に三角形の山ピークを描画する
 // peak_x: ピーク頂点のX座標, peak_y: ピーク頂点のY座標
 // base_y: 山の底辺のY座標, half_base: 底辺の半幅
+#[allow(clippy::too_many_arguments)]
 fn draw_mountain_peak(
     img: &mut RgbaImage,
     peak_x: u32,
