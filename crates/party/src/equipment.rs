@@ -66,11 +66,6 @@ impl Equipment {
         self.weapon.replace(weapon)
     }
 
-    /// 武器を外して返す
-    pub fn unequip_weapon(&mut self) -> Option<WeaponKind> {
-        self.weapon.take()
-    }
-
     /// 装備による攻撃力ボーナス合計
     pub fn attack_bonus(&self) -> i32 {
         self.weapon.map_or(0, |w| w.attack_bonus())

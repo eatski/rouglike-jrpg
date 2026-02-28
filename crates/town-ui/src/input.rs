@@ -479,11 +479,20 @@ fn handle_sell_character_select(
     }
 
     if is_confirm_just_pressed(keyboard) {
+        let equipped_weapon = party_state.members[selected].equipment.weapon;
         let sellable: Vec<_> = party_state.members[selected]
             .inventory
             .owned_items()
             .into_iter()
-            .filter(|i| i.sell_price() > 0)
+            .filter(|i| {
+                if i.sell_price() == 0 { return false; }
+                if let Some(w) = i.as_weapon()
+                    && equipped_weapon == Some(w)
+                {
+                    return party_state.members[selected].inventory.count(*i) > 1;
+                }
+                true
+            })
             .collect();
         if sellable.is_empty() {
             town_res.phase = TownMenuPhase::ShopMessage {
@@ -505,11 +514,20 @@ fn handle_sell_item_select(
     member_index: usize,
     selected: usize,
 ) {
+    let equipped_weapon = party_state.members[member_index].equipment.weapon;
     let sellable: Vec<_> = party_state.members[member_index]
         .inventory
         .owned_items()
         .into_iter()
-        .filter(|i| i.sell_price() > 0)
+        .filter(|i| {
+            if i.sell_price() == 0 { return false; }
+            if let Some(w) = i.as_weapon()
+                && equipped_weapon == Some(w)
+            {
+                return party_state.members[member_index].inventory.count(*i) > 1;
+            }
+            true
+        })
         .collect();
 
     if sellable.is_empty() {
@@ -539,7 +557,7 @@ fn handle_sell_item_select(
 
     if is_confirm_just_pressed(keyboard) {
         let item = sellable[selected];
-        match sell_item(item, &mut party_state.members[member_index].inventory) {
+        match sell_item(item, &mut party_state.members[member_index].inventory, equipped_weapon) {
             SellResult::Success { earned_gold } => {
                 party_state.gold += earned_gold;
                 town_res.phase = TownMenuPhase::ShopMessage {

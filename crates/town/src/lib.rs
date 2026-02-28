@@ -1,4 +1,4 @@
-use party::{Inventory, ItemKind, PartyMember, PartyMemberKind};
+use party::{Inventory, ItemKind, PartyMember, PartyMemberKind, WeaponKind};
 use terrain::{Structure, MAP_HEIGHT, MAP_WIDTH};
 
 /// 宿屋の宿泊料金
@@ -37,9 +37,18 @@ pub enum SellResult {
 }
 
 /// アイテムを売却する
-pub fn sell_item(item: ItemKind, inventory: &mut Inventory) -> SellResult {
+///
+/// `equipped_weapon` が `Some` かつ該当武器が1本のみの場合、売却不可。
+pub fn sell_item(item: ItemKind, inventory: &mut Inventory, equipped_weapon: Option<WeaponKind>) -> SellResult {
     let sell_price = item.sell_price();
     if sell_price == 0 {
+        return SellResult::CannotSell;
+    }
+    // 装備中の武器が1本のみの場合は売却不可
+    if let Some(w) = item.as_weapon()
+        && equipped_weapon == Some(w)
+        && inventory.count(item) <= 1
+    {
         return SellResult::CannotSell;
     }
     if !inventory.remove_item(item) {
