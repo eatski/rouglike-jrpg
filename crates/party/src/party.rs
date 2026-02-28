@@ -296,6 +296,23 @@ pub fn initial_party() -> Vec<PartyMember> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RecruitmentPath {
+    /// 居酒屋2回で仲間になる
+    TavernBond,
+    /// 金を払って雇う
+    GoldHire { cost: u32 },
+}
+
+impl PartyMemberKind {
+    pub fn recruit_method(self) -> RecruitmentPath {
+        match self {
+            PartyMemberKind::Namari => RecruitmentPath::GoldHire { cost: 200 },
+            _ => RecruitmentPath::TavernBond,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RecruitmentStatus {
     /// まだ出会っていない
     Undiscovered,

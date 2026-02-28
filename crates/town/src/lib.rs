@@ -140,7 +140,7 @@ pub fn candidate_first_dialogue(kind: PartyMemberKind) -> String {
             "シュローと もうす。\nこの けんで おやくに たてよう。\nつぎの まちで おまちしている。".to_string()
         }
         PartyMemberKind::Namari => {
-            "ナマリだ。ちからには じしんが ある。\nつぎの まちで まっている。".to_string()
+            "ナマリだ。ちからには じしんが ある。\n200G はらえば なかまに\nなってやるぞ。".to_string()
         }
         PartyMemberKind::Kabru => {
             "ぼくは カブルー。\nいろいろ かんがえるのが とくいさ。\nつぎの まちで まっているよ。".to_string()
@@ -189,6 +189,16 @@ pub fn candidate_join_dialogue(kind: PartyMemberKind) -> String {
             let name = kind.name();
             format!("{name}が なかまに くわわった！")
         }
+    }
+}
+
+/// 雇用成功時のセリフ
+pub fn hire_success_dialogue(kind: PartyMemberKind) -> String {
+    match kind {
+        PartyMemberKind::Namari => {
+            "ナマリが なかまに くわわった！\n「きんの きれめが えんの きれめだ。\nよろしく たのむ」".to_string()
+        }
+        _ => candidate_join_dialogue(kind),
     }
 }
 

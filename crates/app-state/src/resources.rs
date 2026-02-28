@@ -32,6 +32,8 @@ pub struct RecruitmentMap {
     pub town_to_candidate: HashMap<(usize, usize), usize>,
     /// key: candidates配列のインデックス, value: 知り合い後の移動先街座標
     pub candidate_second_town: HashMap<usize, (usize, usize)>,
+    /// 雇用可能なキャラ: key: 街座標 (x, y), value: candidates配列のインデックス
+    pub hire_available: HashMap<(usize, usize), usize>,
 }
 
 /// フィールドメニュー開閉のマーカーリソース（存在=開、不在=閉）

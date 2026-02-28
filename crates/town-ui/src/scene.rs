@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
-use party::{shop_items, shop_weapons, ItemKind, WeaponKind, INVENTORY_CAPACITY};
-use app_state::{PartyState, TavernBounties};
+use party::{shop_items, shop_weapons, ItemKind, PartyMemberKind, WeaponKind, INVENTORY_CAPACITY};
+use app_state::{PartyState, RecruitmentMap, TavernBounties};
 use field_core::{Player, TilePosition};
 use hud_ui::menu_style::{self, SceneMenu, PANEL_BG, PANEL_BORDER, SELECTED_COLOR, UNSELECTED_COLOR, FONT_PATH};
 
@@ -12,6 +12,7 @@ pub enum TownCommand {
     Shop,
     Tavern,
     SellBounty(ItemKind),
+    HireCompanion(PartyMemberKind),
     Leave,
 }
 
@@ -22,13 +23,14 @@ impl TownCommand {
             TownCommand::Shop => "よろず屋".to_string(),
             TownCommand::Tavern => "居酒屋".to_string(),
             TownCommand::SellBounty(item) => format!("{}をうる", item.name()),
+            TownCommand::HireCompanion(kind) => format!("{}をやとう", kind.name()),
             TownCommand::Leave => "街を出る".to_string(),
         }
     }
 }
 
 /// デフォルトの町メニューコマンドを構築する
-pub fn build_town_commands(bounty: Option<ItemKind>) -> Vec<TownCommand> {
+pub fn build_town_commands(bounty: Option<ItemKind>, hire_candidates: &[PartyMemberKind]) -> Vec<TownCommand> {
     let mut cmds = vec![
         TownCommand::Inn,
         TownCommand::Shop,
@@ -36,6 +38,9 @@ pub fn build_town_commands(bounty: Option<ItemKind>) -> Vec<TownCommand> {
     ];
     if let Some(item) = bounty {
         cmds.push(TownCommand::SellBounty(item));
+    }
+    for &kind in hire_candidates {
+        cmds.push(TownCommand::HireCompanion(kind));
     }
     cmds.push(TownCommand::Leave);
     cmds
@@ -182,8 +187,8 @@ pub struct ShopCharacterMenuItem {
 /// ショップパネル内のメニュー項目最大数（購入・売却で共用）
 const SHOP_PANEL_MAX_ITEMS: usize = 7;
 
-/// メインメニューの最大項目数（基本4 + 買い取り依頼1）
-const TOWN_MENU_MAX_ITEMS: usize = 5;
+/// メインメニューの最大項目数（基本4 + 買い取り依頼1 + 雇用1）
+const TOWN_MENU_MAX_ITEMS: usize = 6;
 
 fn format_goods_label(prefix: &str, goods: &ShopGoods) -> String {
     match goods {
@@ -216,12 +221,13 @@ pub fn setup_town_scene(
     asset_server: Res<AssetServer>,
     party_state: Res<PartyState>,
     tavern_bounties: Res<TavernBounties>,
+    recruitment_map: Res<RecruitmentMap>,
     player_query: Query<&TilePosition, With<Player>>,
 ) {
-    let bounty_item = player_query.single().ok().and_then(|pos| {
-        tavern_bounties.active.get(&(pos.x, pos.y)).copied()
-    });
-    setup_town_scene_inner(&mut commands, &asset_server, &party_state, TownMenuPhase::MenuSelect, 0, bounty_item);
+    let town_pos = player_query.single().ok().map(|pos| (pos.x, pos.y));
+    let bounty_item = town_pos.and_then(|tp| tavern_bounties.active.get(&tp).copied());
+    let hire_candidates = collect_hire_candidates(town_pos, &recruitment_map, &party_state);
+    setup_town_scene_inner(&mut commands, &asset_server, &party_state, TownMenuPhase::MenuSelect, 0, bounty_item, &hire_candidates);
 }
 
 /// TownSceneConfigリソースから設定を読んでシーンを構築するシステム
@@ -231,15 +237,31 @@ pub fn setup_town_scene_with_config(
     party_state: Res<PartyState>,
     config: Res<TownSceneConfig>,
     tavern_bounties: Res<TavernBounties>,
+    recruitment_map: Res<RecruitmentMap>,
     player_query: Query<&TilePosition, With<Player>>,
 ) {
     let phase = config.initial_phase.clone();
     let selected = config.selected_item;
     commands.remove_resource::<TownSceneConfig>();
-    let bounty_item = player_query.single().ok().and_then(|pos| {
-        tavern_bounties.active.get(&(pos.x, pos.y)).copied()
-    });
-    setup_town_scene_inner(&mut commands, &asset_server, &party_state, phase, selected, bounty_item);
+    let town_pos = player_query.single().ok().map(|pos| (pos.x, pos.y));
+    let bounty_item = town_pos.and_then(|tp| tavern_bounties.active.get(&tp).copied());
+    let hire_candidates = collect_hire_candidates(town_pos, &recruitment_map, &party_state);
+    setup_town_scene_inner(&mut commands, &asset_server, &party_state, phase, selected, bounty_item, &hire_candidates);
+}
+
+/// 雇用可能なキャラを収集する
+fn collect_hire_candidates(
+    town_pos: Option<(usize, usize)>,
+    recruitment_map: &RecruitmentMap,
+    party_state: &PartyState,
+) -> Vec<PartyMemberKind> {
+    let Some(tp) = town_pos else { return Vec::new() };
+    recruitment_map
+        .hire_available
+        .get(&tp)
+        .map(|&idx| party_state.candidates[idx].kind)
+        .into_iter()
+        .collect()
 }
 
 fn setup_town_scene_inner(
@@ -249,8 +271,9 @@ fn setup_town_scene_inner(
     initial_phase: TownMenuPhase,
     selected_item: usize,
     bounty_item: Option<ItemKind>,
+    hire_candidates: &[PartyMemberKind],
 ) {
-    let town_commands = build_town_commands(bounty_item);
+    let town_commands = build_town_commands(bounty_item, hire_candidates);
     let initial_labels: Vec<String> = town_commands.iter().map(|c| c.label()).collect();
     let initial_label_refs: Vec<&str> = initial_labels.iter().map(|s| s.as_str()).collect();
 

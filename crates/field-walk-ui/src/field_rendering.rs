@@ -65,6 +65,7 @@ pub fn spawn_field_map_with_rng(
     commands.insert_resource(RecruitmentMap {
         town_to_candidate,
         candidate_second_town,
+        hire_available: HashMap::new(),
     });
 
     // 船のスポーン位置を計算
