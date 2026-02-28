@@ -436,21 +436,13 @@ pub fn town_extra_display_system(
     }
 
     // キャラクター選択メニュー項目の更新（購入）
-    if let TownMenuPhase::ShopCharacterSelect { goods, selected } = &town_res.phase {
+    if let TownMenuPhase::ShopCharacterSelect { selected, .. } = &town_res.phase {
         for (char_item, mut text, mut color) in &mut char_item_query {
             if char_item.index < party_state.members.len() {
                 let is_selected = char_item.index == *selected;
                 let prefix = if is_selected { "> " } else { "  " };
                 let member = &party_state.members[char_item.index];
-                let detail = match goods {
-                    ShopGoods::Item(_) => {
-                        format!("{}/{}", member.inventory.total_count(), INVENTORY_CAPACITY)
-                    }
-                    ShopGoods::Weapon(_) => {
-                        let weapon_name = member.equipment.weapon.map_or("なし", |w| w.name());
-                        format!("[{}]", weapon_name)
-                    }
-                };
+                let detail = format!("{}/{}", member.inventory.total_count(), INVENTORY_CAPACITY);
                 **text = format!("{}{}  {}", prefix, member.kind.name(), detail);
                 *color = menu_style::menu_item_color(is_selected);
             }
@@ -478,12 +470,21 @@ pub fn town_extra_display_system(
                 let is_selected = char_item.index == *selected;
                 let prefix = if is_selected { "> " } else { "  " };
                 let member = &party_state.members[char_item.index];
+                let equipped_weapon = member.equipment.weapon;
                 let sellable_count: u32 = member
                     .inventory
                     .owned_items()
                     .iter()
                     .filter(|i| i.sell_price() > 0)
-                    .map(|i| member.inventory.count(*i))
+                    .map(|i| {
+                        let cnt = member.inventory.count(*i);
+                        if let Some(w) = i.as_weapon()
+                            && equipped_weapon == Some(w)
+                        {
+                            return cnt.saturating_sub(1);
+                        }
+                        cnt
+                    })
                     .sum();
                 **text = format!("{}{}  売却可: {}個", prefix, member.kind.name(), sellable_count);
                 *color = menu_style::menu_item_color(is_selected);
@@ -527,15 +528,26 @@ pub fn town_extra_display_system(
             member_index,
             selected,
         } => {
-            let sellable_items: Vec<_> = if *member_index < party_state.members.len() {
-                party_state.members[*member_index]
+            let (sellable_items, equipped_weapon) = if *member_index < party_state.members.len() {
+                let member = &party_state.members[*member_index];
+                let eq_w = member.equipment.weapon;
+                let items: Vec<_> = member
                     .inventory
                     .owned_items()
                     .into_iter()
-                    .filter(|i| i.sell_price() > 0)
-                    .collect()
+                    .filter(|i| {
+                        if i.sell_price() == 0 { return false; }
+                        if let Some(w) = i.as_weapon()
+                            && eq_w == Some(w)
+                        {
+                            return member.inventory.count(*i) > 1;
+                        }
+                        true
+                    })
+                    .collect();
+                (items, eq_w)
             } else {
-                Vec::new()
+                (Vec::new(), None)
             };
             for (shop_item, mut text, mut color, mut node) in &mut shop_item_query {
                 if shop_item.index < sellable_items.len() {
@@ -543,13 +555,26 @@ pub fn town_extra_display_system(
                     let count = party_state.members[*member_index].inventory.count(item);
                     let is_selected = shop_item.index == *selected;
                     let prefix = if is_selected { "> " } else { "  " };
-                    **text = format!(
-                        "{}{} x{}  {}G",
-                        prefix,
-                        item.name(),
-                        count,
-                        item.sell_price()
-                    );
+                    if let Some(w) = item.as_weapon() {
+                        let is_equipped = equipped_weapon == Some(w);
+                        let equip_mark = if is_equipped { "E " } else { "" };
+                        **text = format!(
+                            "{}{}{} x{}  {}G",
+                            prefix,
+                            equip_mark,
+                            item.name(),
+                            count,
+                            item.sell_price()
+                        );
+                    } else {
+                        **text = format!(
+                            "{}{} x{}  {}G",
+                            prefix,
+                            item.name(),
+                            count,
+                            item.sell_price()
+                        );
+                    }
                     *color = menu_style::menu_item_color(is_selected);
                     node.display = Display::Flex;
                 } else {

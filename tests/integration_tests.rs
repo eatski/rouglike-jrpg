@@ -1277,9 +1277,9 @@ fn buy_herb_at_shop_then_use_in_battle() {
 
 #[test]
 fn buy_weapon_at_shop_then_equip_affects_battle() {
-    use town::{buy_weapon, BuyWeaponResult};
+    use town::{buy_item, BuyResult};
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult};
-    use party::{PartyMember, WeaponKind};
+    use party::{PartyMember, ItemKind, WeaponKind};
 
     let mut hero = PartyMember::laios();
     let gold = 100u32;
@@ -1287,18 +1287,22 @@ fn buy_weapon_at_shop_then_equip_affects_battle() {
     // 武器購入前の攻撃力を記録
     let attack_before = hero.effective_attack();
 
-    // 街で鉄の剣を購入
-    let result = buy_weapon(WeaponKind::IronSword, gold, &mut hero);
+    // 街で鉄の剣を購入（インベントリに入る）
+    let result = buy_item(ItemKind::Weapon(WeaponKind::IronSword), gold, &mut hero.inventory);
     match result {
-        BuyWeaponResult::Success { remaining_gold } => {
+        BuyResult::Success { remaining_gold } => {
             assert_eq!(remaining_gold, 50); // 100 - 50 = 50
         }
         _ => panic!("Should succeed buying IronSword"),
     }
 
+    // 道具メニューから装備する（武器はインベントリに残る）
+    hero.equipment.equip_weapon(WeaponKind::IronSword);
+
     // 攻撃力が上がっていることを確認
     let attack_after = hero.effective_attack();
     assert_eq!(attack_after, attack_before + 5, "IronSword should add 5 attack");
+    assert_eq!(hero.inventory.count(ItemKind::Weapon(WeaponKind::IronSword)), 1, "Weapon stays in inventory");
 
     // 戦闘でダメージを確認
     let mut slime = Enemy::slime();
@@ -1317,7 +1321,6 @@ fn buy_weapon_at_shop_then_equip_affects_battle() {
         if let TurnResult::Attack { attacker: battle::ActorId::Party(0), damage, .. } = r { Some(*damage) } else { None }
     }).unwrap();
 
-    // attack_after(13) - defense(1)/2 = 12.5 → round(12.5 * 1.0) = 13 (or 12)
     assert!(damage > 0, "Should deal damage with equipped weapon");
 }
 
@@ -2160,7 +2163,7 @@ fn sell_key_item_is_rejected() {
     let mut inv = Inventory::new();
     inv.add(ItemKind::CopperKey, 1);
 
-    let result = sell_item(ItemKind::CopperKey, &mut inv);
+    let result = sell_item(ItemKind::CopperKey, &mut inv, None);
     assert_eq!(result, SellResult::CannotSell, "Key items should not be sellable");
     assert_eq!(inv.count(ItemKind::CopperKey), 1, "Key item should remain in inventory");
 }
@@ -2173,7 +2176,7 @@ fn sell_material_item_succeeds() {
     let mut inv = Inventory::new();
     inv.add(ItemKind::MagicStone, 1);
 
-    let result = sell_item(ItemKind::MagicStone, &mut inv);
+    let result = sell_item(ItemKind::MagicStone, &mut inv, None);
     assert_eq!(result, SellResult::Success { earned_gold: 30 },
         "Material item should sell for its sell_price");
     assert_eq!(inv.count(ItemKind::MagicStone), 0, "Item should be removed after selling");
@@ -2296,7 +2299,7 @@ fn cave_treasure_sold_at_shop() {
     for item in &owned {
         // 同じアイテムが複数ある場合に全て売却
         while hero.inventory.count(*item) > 0 {
-            let result = sell_item(*item, &mut hero.inventory);
+            let result = sell_item(*item, &mut hero.inventory, None);
             match result {
                 SellResult::Success { earned_gold } => {
                     total_earned += earned_gold;
@@ -2326,20 +2329,22 @@ fn cave_treasure_sold_at_shop() {
 
 #[test]
 fn weapon_upgrade_replaces_old_and_changes_damage() {
-    use town::{buy_weapon, BuyWeaponResult};
+    use town::{buy_item, BuyResult};
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult};
-    use party::{PartyMember, WeaponKind};
+    use party::{PartyMember, ItemKind, WeaponKind};
 
     let mut hero = PartyMember::laios();
     let gold = 500u32;
 
-    // 鉄の剣を購入（+5）
-    let result = buy_weapon(WeaponKind::IronSword, gold, &mut hero);
+    // 鉄の剣を購入して装備（+5）— 武器はインベントリに残る
+    let result = buy_item(ItemKind::Weapon(WeaponKind::IronSword), gold, &mut hero.inventory);
     let remaining = match result {
-        BuyWeaponResult::Success { remaining_gold } => remaining_gold,
+        BuyResult::Success { remaining_gold } => remaining_gold,
         _ => panic!("Should buy IronSword"),
     };
+    hero.equipment.equip_weapon(WeaponKind::IronSword);
     assert_eq!(hero.equipment.weapon, Some(WeaponKind::IronSword));
+    assert_eq!(hero.inventory.count(ItemKind::Weapon(WeaponKind::IronSword)), 1);
     let attack_with_iron = hero.effective_attack();
 
     // HP999の敵にダメージを与えて記録
@@ -2354,10 +2359,13 @@ fn weapon_upgrade_replaces_old_and_changes_damage() {
         if let TurnResult::Attack { attacker: battle::ActorId::Party(0), damage, .. } = r { Some(*damage) } else { None }
     }).unwrap();
 
-    // 鋼の剣に買い替え（+10）
-    let result = buy_weapon(WeaponKind::SteelSword, remaining, &mut hero);
-    assert!(matches!(result, BuyWeaponResult::Success { .. }));
+    // 鋼の剣を購入して装備（+10）— 旧武器もインベントリに残る
+    let result = buy_item(ItemKind::Weapon(WeaponKind::SteelSword), remaining, &mut hero.inventory);
+    assert!(matches!(result, BuyResult::Success { .. }));
+    hero.equipment.equip_weapon(WeaponKind::SteelSword);
     assert_eq!(hero.equipment.weapon, Some(WeaponKind::SteelSword));
+    assert_eq!(hero.inventory.count(ItemKind::Weapon(WeaponKind::IronSword)), 1, "Old weapon stays in inventory");
+    assert_eq!(hero.inventory.count(ItemKind::Weapon(WeaponKind::SteelSword)), 1);
     let attack_with_steel = hero.effective_attack();
     assert_eq!(attack_with_steel, attack_with_iron + 5, "SteelSword(+10) should be 5 more than IronSword(+5)");
 
@@ -2410,7 +2418,7 @@ fn sell_item_not_owned_returns_not_owned() {
 
     let mut inv = Inventory::new();
     // 所持していないアイテムを売却しようとする
-    let result = sell_item(ItemKind::Herb, &mut inv);
+    let result = sell_item(ItemKind::Herb, &mut inv, None);
     assert_eq!(result, SellResult::NotOwned, "Selling unowned item should return NotOwned");
 }
 
@@ -2423,7 +2431,7 @@ fn sell_herb_succeeds_at_half_price() {
     inv.add(ItemKind::Herb, 1);
 
     // やくそうは売却可能（sell_price=4、購入価格8の半額）
-    let result = sell_item(ItemKind::Herb, &mut inv);
+    let result = sell_item(ItemKind::Herb, &mut inv, None);
     assert_eq!(result, SellResult::Success { earned_gold: 4 }, "Herb should sell for 4 gold");
     assert_eq!(inv.count(ItemKind::Herb), 0, "Herb should be removed after selling");
 }
@@ -2519,14 +2527,25 @@ fn buy_item_fails_with_insufficient_gold() {
 
 #[test]
 fn buy_weapon_fails_with_insufficient_gold() {
-    use town::{buy_weapon, BuyWeaponResult};
-    use party::{PartyMember, WeaponKind};
+    use town::{buy_item, BuyResult};
+    use party::{PartyMember, ItemKind, WeaponKind};
 
     let mut hero = PartyMember::laios();
     // 鉄の剣は50ゴールド
-    let result = buy_weapon(WeaponKind::IronSword, 49, &mut hero);
-    assert_eq!(result, BuyWeaponResult::InsufficientGold, "Should fail with 49 gold for 50-gold sword");
-    assert_eq!(hero.equipment.weapon, None, "No weapon should be equipped");
+    let result = buy_item(ItemKind::Weapon(WeaponKind::IronSword), 49, &mut hero.inventory);
+    assert_eq!(result, BuyResult::InsufficientGold, "Should fail with 49 gold for 50-gold sword");
+    assert_eq!(hero.inventory.count(ItemKind::Weapon(WeaponKind::IronSword)), 0, "No weapon should be in inventory");
+}
+
+#[test]
+fn buy_weapon_fails_with_full_inventory() {
+    use town::{buy_item, BuyResult};
+    use party::{PartyMember, ItemKind, WeaponKind};
+
+    let mut hero = PartyMember::laios();
+    hero.inventory.add(ItemKind::Herb, 6); // 容量いっぱい
+    let result = buy_item(ItemKind::Weapon(WeaponKind::IronSword), 100, &mut hero.inventory);
+    assert_eq!(result, BuyResult::InventoryFull, "Should fail when inventory is full");
 }
 
 // ============================================
@@ -2596,7 +2615,7 @@ fn all_material_items_can_be_sold_with_correct_price() {
         let mut inv = Inventory::new();
         inv.add(*item, 1);
 
-        let result = sell_item(*item, &mut inv);
+        let result = sell_item(*item, &mut inv, None);
         assert_eq!(result, SellResult::Success { earned_gold: *expected_price },
             "{} should sell for {} gold", item.name(), expected_price);
         assert_eq!(inv.count(*item), 0, "{} should be removed after selling", item.name());
@@ -2698,16 +2717,17 @@ fn multi_turn_battle_accumulates_turn_log() {
 
 #[test]
 fn full_town_equip_battle_levelup_flow() {
-    use town::{buy_weapon, buy_item, heal_party, BuyWeaponResult, BuyResult};
+    use town::{buy_item, heal_party, BuyResult};
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors};
     use party::{PartyMember, ItemKind, WeaponKind};
 
     let mut hero = PartyMember::laios();
     let mut gold = 500u32;
 
-    // 1. 街で武器を買う
-    if let BuyWeaponResult::Success { remaining_gold } = buy_weapon(WeaponKind::IronSword, gold, &mut hero) {
+    // 1. 街で武器を買って装備する（武器はインベントリに残る）
+    if let BuyResult::Success { remaining_gold } = buy_item(ItemKind::Weapon(WeaponKind::IronSword), gold, &mut hero.inventory) {
         gold = remaining_gold;
+        hero.equipment.equip_weapon(WeaponKind::IronSword);
     }
 
     // 2. やくそうを買う
@@ -3125,4 +3145,68 @@ fn enemy_uses_drain_spell_on_party() {
         TurnResult::MpDrained { caster: battle::ActorId::Enemy(_), .. }
     ));
     assert!(enemy_spell_used, "Enemy should have used a spell");
+}
+
+// ============================================
+// 装備中武器の売却ガードテスト
+// ============================================
+
+#[test]
+fn sell_equipped_weapon_only_one_is_rejected() {
+    use town::{sell_item, SellResult};
+    use party::{Inventory, ItemKind, WeaponKind};
+
+    let mut inv = Inventory::new();
+    inv.add(ItemKind::Weapon(WeaponKind::IronSword), 1);
+
+    // 装備中の武器が1本のみ → 売却不可
+    let result = sell_item(ItemKind::Weapon(WeaponKind::IronSword), &mut inv, Some(WeaponKind::IronSword));
+    assert_eq!(result, SellResult::CannotSell, "Equipped weapon (only 1) should not be sellable");
+    assert_eq!(inv.count(ItemKind::Weapon(WeaponKind::IronSword)), 1, "Weapon should remain");
+}
+
+#[test]
+fn sell_equipped_weapon_two_copies_allows_one_sale() {
+    use town::{sell_item, SellResult};
+    use party::{Inventory, ItemKind, WeaponKind};
+
+    let mut inv = Inventory::new();
+    inv.add(ItemKind::Weapon(WeaponKind::IronSword), 2);
+
+    // 同じ武器2本持ち、1本装備中 → 1本は売却可能
+    let result = sell_item(ItemKind::Weapon(WeaponKind::IronSword), &mut inv, Some(WeaponKind::IronSword));
+    assert_eq!(result, SellResult::Success { earned_gold: 25 }, "Should sell one copy of equipped weapon");
+    assert_eq!(inv.count(ItemKind::Weapon(WeaponKind::IronSword)), 1, "One copy should remain");
+
+    // 残り1本は装備中なので売却不可
+    let result2 = sell_item(ItemKind::Weapon(WeaponKind::IronSword), &mut inv, Some(WeaponKind::IronSword));
+    assert_eq!(result2, SellResult::CannotSell, "Last equipped weapon should not be sellable");
+}
+
+#[test]
+fn sell_unequipped_weapon_succeeds() {
+    use town::{sell_item, SellResult};
+    use party::{Inventory, ItemKind, WeaponKind};
+
+    let mut inv = Inventory::new();
+    inv.add(ItemKind::Weapon(WeaponKind::IronSword), 1);
+
+    // 装備していない武器は売却可能
+    let result = sell_item(ItemKind::Weapon(WeaponKind::IronSword), &mut inv, None);
+    assert_eq!(result, SellResult::Success { earned_gold: 25 }, "Unequipped weapon should be sellable");
+    assert_eq!(inv.count(ItemKind::Weapon(WeaponKind::IronSword)), 0);
+}
+
+#[test]
+fn sell_different_weapon_while_another_equipped() {
+    use town::{sell_item, SellResult};
+    use party::{Inventory, ItemKind, WeaponKind};
+
+    let mut inv = Inventory::new();
+    inv.add(ItemKind::Weapon(WeaponKind::WoodenSword), 1);
+
+    // 鉄の剣を装備中、木の剣は装備していないので売却可能
+    let result = sell_item(ItemKind::Weapon(WeaponKind::WoodenSword), &mut inv, Some(WeaponKind::IronSword));
+    assert_eq!(result, SellResult::Success { earned_gold: 5 }, "Non-equipped weapon should be sellable");
+    assert_eq!(inv.count(ItemKind::Weapon(WeaponKind::WoodenSword)), 0);
 }

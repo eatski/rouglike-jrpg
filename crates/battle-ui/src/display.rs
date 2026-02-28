@@ -276,9 +276,14 @@ pub fn battle_display_system(
                     _ => 0,
                 };
                 let is_selected = data_index == ui_state.selected_item;
-                let can_use = !matches!(item.effect(), ItemEffect::KeyItem | ItemEffect::Material);
+                let can_use = !matches!(item.effect(), ItemEffect::KeyItem | ItemEffect::Material | ItemEffect::Equip);
                 let prefix = if is_selected { "> " } else { "  " };
-                **text = format!("{}{} x{}", prefix, item.name(), count);
+                let equip_mark = if let Some(w) = item.as_weapon() {
+                    if let BattlePhase::ItemSelect { member_index } = &ui_state.phase {
+                        if game_state.state.party[*member_index].equipment.weapon == Some(w) { "E " } else { "" }
+                    } else { "" }
+                } else { "" };
+                **text = format!("{}{}{} x{}", prefix, equip_mark, item.name(), count);
                 *color = if !can_use {
                     TextColor(COMMAND_COLOR_DISABLED)
                 } else if is_selected {

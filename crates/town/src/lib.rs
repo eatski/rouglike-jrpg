@@ -30,24 +30,6 @@ pub fn buy_item(item: ItemKind, gold: u32, inventory: &mut Inventory) -> BuyResu
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum BuyWeaponResult {
-    Success { remaining_gold: u32 },
-    InsufficientGold,
-}
-
-/// 武器を購入して即装備する
-pub fn buy_weapon(weapon: WeaponKind, gold: u32, member: &mut PartyMember) -> BuyWeaponResult {
-    let price = weapon.price();
-    if gold < price {
-        return BuyWeaponResult::InsufficientGold;
-    }
-    member.equipment.equip_weapon(weapon);
-    BuyWeaponResult::Success {
-        remaining_gold: gold - price,
-    }
-}
-
-#[derive(Debug, PartialEq, Eq)]
 pub enum SellResult {
     Success { earned_gold: u32 },
     CannotSell,
@@ -55,9 +37,18 @@ pub enum SellResult {
 }
 
 /// アイテムを売却する
-pub fn sell_item(item: ItemKind, inventory: &mut Inventory) -> SellResult {
+///
+/// `equipped_weapon` が `Some` かつ該当武器が1本のみの場合、売却不可。
+pub fn sell_item(item: ItemKind, inventory: &mut Inventory, equipped_weapon: Option<WeaponKind>) -> SellResult {
     let sell_price = item.sell_price();
     if sell_price == 0 {
+        return SellResult::CannotSell;
+    }
+    // 装備中の武器が1本のみの場合は売却不可
+    if let Some(w) = item.as_weapon()
+        && equipped_weapon == Some(w)
+        && inventory.count(item) <= 1
+    {
         return SellResult::CannotSell;
     }
     if !inventory.remove_item(item) {
@@ -690,41 +681,35 @@ mod tests {
     }
 
     #[test]
-    fn buy_weapon_success() {
-        use party::WeaponKind;
-        let mut member = PartyMember::laios();
-        let result = buy_weapon(WeaponKind::WoodenSword, 100, &mut member);
+    fn buy_weapon_item_success() {
+        use party::{Inventory, WeaponKind};
+        let mut inv = Inventory::new();
+        let result = buy_item(ItemKind::Weapon(WeaponKind::WoodenSword), 100, &mut inv);
         assert_eq!(
             result,
-            BuyWeaponResult::Success {
+            BuyResult::Success {
                 remaining_gold: 90
             }
         );
-        assert_eq!(member.equipment.weapon, Some(WeaponKind::WoodenSword));
+        assert_eq!(inv.count(ItemKind::Weapon(WeaponKind::WoodenSword)), 1);
     }
 
     #[test]
-    fn buy_weapon_insufficient_gold() {
-        use party::WeaponKind;
-        let mut member = PartyMember::laios();
-        let result = buy_weapon(WeaponKind::IronSword, 10, &mut member);
-        assert_eq!(result, BuyWeaponResult::InsufficientGold);
-        assert_eq!(member.equipment.weapon, None);
+    fn buy_weapon_item_insufficient_gold() {
+        use party::{Inventory, WeaponKind};
+        let mut inv = Inventory::new();
+        let result = buy_item(ItemKind::Weapon(WeaponKind::IronSword), 10, &mut inv);
+        assert_eq!(result, BuyResult::InsufficientGold);
+        assert_eq!(inv.count(ItemKind::Weapon(WeaponKind::IronSword)), 0);
     }
 
     #[test]
-    fn buy_weapon_replaces_existing() {
-        use party::WeaponKind;
-        let mut member = PartyMember::laios();
-        member.equipment.equip_weapon(WeaponKind::WoodenSword);
-        let result = buy_weapon(WeaponKind::IronSword, 100, &mut member);
-        assert_eq!(
-            result,
-            BuyWeaponResult::Success {
-                remaining_gold: 50
-            }
-        );
-        assert_eq!(member.equipment.weapon, Some(WeaponKind::IronSword));
+    fn buy_weapon_item_inventory_full() {
+        use party::{Inventory, WeaponKind};
+        let mut inv = Inventory::new();
+        inv.add(ItemKind::Herb, 6); // 容量いっぱい
+        let result = buy_item(ItemKind::Weapon(WeaponKind::IronSword), 100, &mut inv);
+        assert_eq!(result, BuyResult::InventoryFull);
     }
 
     #[test]

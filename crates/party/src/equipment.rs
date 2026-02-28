@@ -38,6 +38,16 @@ impl WeaponKind {
             WeaponKind::HolyStaff => 80,
         }
     }
+
+    pub fn description(self) -> &'static str {
+        match self {
+            WeaponKind::WoodenSword => "きで つくった つるぎ",
+            WeaponKind::IronSword => "てつで きたえた つるぎ",
+            WeaponKind::SteelSword => "はがねの かたい つるぎ",
+            WeaponKind::MageStaff => "まりょくを たかめる つえ",
+            WeaponKind::HolyStaff => "せいなる ちからの つえ",
+        }
+    }
 }
 
 /// 装備スロット
