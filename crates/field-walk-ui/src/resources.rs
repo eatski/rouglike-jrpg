@@ -13,6 +13,8 @@ pub struct MovementState {
     pub first_axis: Option<bool>,
     /// SmoothMoveアニメーション完了時にセットされるフラグ（完了したEntity）
     pub move_just_completed: Option<Entity>,
+    /// 中間タイル到着後、次フレームでPendingMoveを実行するためのフラグ
+    pub pending_move_ready: Option<Entity>,
 }
 
 impl Default for MovementState {
@@ -24,6 +26,7 @@ impl Default for MovementState {
             last_direction: (0, 0),
             first_axis: None,
             move_just_completed: None,
+            pending_move_ready: None,
         }
     }
 }

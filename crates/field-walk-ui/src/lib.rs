@@ -30,8 +30,8 @@ pub use constants::*;
 pub use encounter::check_encounter_system;
 pub use events::{MovementBlockedEvent, PlayerMovedEvent, TileEnteredEvent};
 pub use execute::{
-    apply_input_move, apply_simple_move, execute_move, process_simple_move_completed,
-    try_apply_second_move, ExecuteMoveResult,
+    apply_input_move, apply_simple_move, execute_move,
+    ExecuteMoveResult,
 };
 pub use input::{process_movement_input, MovementInput};
 pub use map_mode::{reset_map_mode_system, toggle_map_mode_system, MapModeState, NORMAL_ZOOM};
@@ -91,13 +91,15 @@ impl Plugin for MovementPlugin {
 }
 
 /// TilePosition変更時にTransformを自動同期するシステム。
-/// SmoothMoveアニメーション中はスキップされる（SmoothMove側がTransformを制御するため）。
+/// SmoothMove中またはMovementLocked中はスキップされる
+/// （SmoothMoveがTransformを制御するため。斜め移動の2回目PendingMove実行後、
+///   次フレームのstart_smooth_moveがSmoothMoveを作成するまでの間のスナップを防ぐ）。
 #[allow(clippy::type_complexity)]
 fn sync_tile_to_transform(
     active_map: Option<Res<ActiveMap>>,
     mut query: Query<
         (&TilePosition, &mut Transform),
-        (Changed<TilePosition>, With<Player>, Without<SmoothMove>),
+        (Changed<TilePosition>, With<Player>, Without<SmoothMove>, Without<MovementLocked>),
     >,
 ) {
     let Some(active_map) = active_map else {

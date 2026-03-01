@@ -4,7 +4,7 @@ use terrain::coordinates::wrap_position;
 
 use field_core::{ActiveMap, Boat, OnBoat, Player, TilePosition};
 use crate::{
-    execute_move, process_movement_input, try_apply_second_move, ExecuteMoveResult,
+    execute_move, process_movement_input, ExecuteMoveResult,
     MovementBlockedEvent, MovementLocked, MovementState, PendingMove, PlayerMovedEvent,
 };
 use app_state::FieldMenuOpen;
@@ -84,16 +84,7 @@ pub fn player_movement(
         &mut moved_events, &mut blocked_events,
     ) {
         if let Some((dx2, dy2)) = input.pending_direction {
-            if on_boat.is_some() {
-                // 船: PendingMove維持（下船等のエッジケース）
-                commands.entity(entity).insert(PendingMove { direction: (dx2, dy2) });
-            } else if !try_apply_second_move(
-                entity, &mut tile_pos, dx2, dy2,
-                &active_map, &mut moved_events, &mut blocked_events,
-            ) {
-                // 2回目がブロック: PendingMoveで遅延実行（バウンス表示）
-                commands.entity(entity).insert(PendingMove { direction: (dx2, dy2) });
-            }
+            commands.entity(entity).insert(PendingMove { direction: (dx2, dy2) });
         }
     }
 }
