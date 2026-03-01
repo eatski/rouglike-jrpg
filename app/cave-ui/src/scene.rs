@@ -107,7 +107,7 @@ pub fn setup_cave_scene(
     let cave_world_pos = (tile_pos.x, tile_pos.y);
     let cave_continent_id = continent_map
         .as_ref()
-        .and_then(|cm| cm.get(cave_world_pos.0, cave_world_pos.1))
+        .and_then(|cm| cm.map.get(cave_world_pos.1)?.get(cave_world_pos.0).copied().flatten())
         .unwrap_or(0);
     commands.insert_resource(EncounterZone {
         continent_id: cave_continent_id,

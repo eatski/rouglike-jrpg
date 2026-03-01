@@ -233,7 +233,7 @@ pub fn update_visible_tiles(
         let (map_x, map_y) = logical_to_map(logical_x, logical_y);
         let terrain = active_map.grid[map_y][map_x];
         let structure = active_map.structures[map_y][map_x];
-        let continent_id = continent_map.as_ref().and_then(|cm| cm.get(map_x, map_y));
+        let continent_id = continent_map.as_ref().and_then(|cm| cm.map.get(map_y)?.get(map_x).copied().flatten());
 
         // 地形テクスチャ（海岸判定含む）
         let texture = if terrain == Terrain::Sea {

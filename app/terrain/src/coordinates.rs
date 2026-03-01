@@ -89,9 +89,35 @@ pub fn bounded_offset(x: usize, y: usize, dx: i32, dy: i32, w: usize, h: usize) 
     }
 }
 
+/// 座標リストから最寄りの座標のインデックスを返す
+///
+/// ユークリッド距離の二乗で比較する。リストが空の場合は `None`。
+pub fn nearest_position(positions: &[(usize, usize)], x: usize, y: usize) -> Option<usize> {
+    positions
+        .iter()
+        .enumerate()
+        .min_by_key(|&(_, &(px, py))| {
+            let dx = x as isize - px as isize;
+            let dy = y as isize - py as isize;
+            dx * dx + dy * dy
+        })
+        .map(|(i, _)| i)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn nearest_position_returns_closest() {
+        let positions = vec![(10, 10), (20, 20), (5, 5)];
+        assert_eq!(nearest_position(&positions, 6, 6), Some(2));
+    }
+
+    #[test]
+    fn nearest_position_empty_returns_none() {
+        assert_eq!(nearest_position(&[], 0, 0), None);
+    }
 
     #[test]
     fn wrap_coordinate_normal_movement() {

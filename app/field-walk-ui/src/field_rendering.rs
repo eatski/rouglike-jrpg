@@ -99,7 +99,10 @@ pub fn spawn_field_map_with_rng(
     });
 
     // 祠の位置とワープ先をリソースとして登録
-    commands.insert_resource(HokoraPositions::new(hokora_pos_vec.clone(), warp_dest_vec));
+    commands.insert_resource(HokoraPositions {
+        positions: hokora_pos_vec.clone(),
+        warp_destinations: warp_dest_vec,
+    });
 
     // 各祠が所属する大陸の洞窟座標を収集
     let caves_by_continent: Vec<Vec<(usize, usize)>> = hokora_pos_vec
@@ -121,7 +124,7 @@ pub fn spawn_field_map_with_rng(
     commands.insert_resource(ContinentCavePositions { caves_by_continent });
 
     // 大陸マップをリソースとして保存
-    commands.insert_resource(ContinentMap::new(map_data.continent_map));
+    commands.insert_resource(ContinentMap { map: map_data.continent_map });
     commands.insert_resource(EncounterZone::default());
 
     // ボス洞窟座標を保存

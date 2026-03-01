@@ -3,7 +3,7 @@ use rand::prelude::SliceRandom;
 
 use input_ui::{is_cancel_just_pressed, is_confirm_just_pressed, is_down_just_pressed, is_up_just_pressed};
 use item::ItemKind;
-use party::{talk_to_candidate, PartyMember, RecruitmentPath, TalkResult};
+use party::{consume_item, has_item, talk_to_candidate, PartyMember, RecruitmentPath, TalkResult};
 use town::{buy_item, candidate_first_dialogue, candidate_join_dialogue, cave_hint_dialogue, companion_hint_dialogue, heal_party, hire_success_dialogue, hokora_hint_dialogue, sell_item, BuyResult, SellResult, INN_PRICE, TAVERN_PRICE};
 use town::{tavern_bounty_item, bounty_offer_dialogue, bounty_has_item_dialogue, bounty_sold_dialogue, sell_bounty_item};
 
@@ -159,7 +159,7 @@ pub fn town_input_system(
                                     let &chosen = unheard.choose(&mut rng).unwrap();
                                     heard_set.insert(chosen);
                                     let cf = continent_map.as_ref().and_then(|cm| {
-                                        cm.get(pos.x, pos.y).map(|cid| (cm.as_raw(), cid))
+                                        cm.map.get(pos.y)?.get(pos.x).copied().flatten().map(|cid| (cm.map.as_slice(), cid))
                                     });
                                     let dialogue = match chosen {
                                         TavernHintKind::Cave => {
@@ -174,7 +174,7 @@ pub fn town_input_system(
                                         }
                                         TavernHintKind::Bounty => {
                                             let item = tavern_bounty_item(pos.x, pos.y);
-                                            let has_item = party_state.has_item(item);
+                                            let has_item = has_item(&party_state.members, &party_state.bag, item);
                                             tavern_bounties.active.insert(town_pos, item);
                                             let hire_candidates: Vec<_> = recruitment_map
                                                 .hire_available
@@ -237,7 +237,7 @@ pub fn town_input_system(
                                 }
                             }
                             RecruitmentPath::ItemTrade { item } => {
-                                if !party_state.has_item(item) {
+                                if !has_item(&party_state.members, &party_state.bag, item) {
                                     town_res.phase = TownMenuPhase::ShowMessage {
                                         message: format!("{}を もっていない！", item.name()),
                                     };
@@ -391,7 +391,8 @@ pub fn town_input_system(
             if is_confirm_just_pressed(&keyboard) {
                 if selected == 0 {
                     // はい → アイテム消費して雇用
-                    if party_state.consume_item(item) {
+                    let ps = &mut *party_state;
+                    if consume_item(&mut ps.members, &mut ps.bag, item) {
                         party_state.members.push(PartyMember::from_kind(kind));
                         if let Ok(pos) = player_query.single() {
                             let town_pos = (pos.x, pos.y);
@@ -484,7 +485,7 @@ fn collect_companion_towns(
 ) -> Vec<(usize, usize, party::PartyMemberKind)> {
     let current_continent = continent_map
         .as_ref()
-        .and_then(|cm| cm.get(pos.x, pos.y));
+        .and_then(|cm| cm.map.get(pos.y)?.get(pos.x).copied().flatten());
     let Some(current_cid) = current_continent else {
         return Vec::new();
     };
@@ -495,7 +496,7 @@ fn collect_companion_towns(
             (tx, ty) != (pos.x, pos.y)
                 && continent_map
                     .as_ref()
-                    .and_then(|cm| cm.get(tx, ty))
+                    .and_then(|cm| cm.map.get(ty)?.get(tx).copied().flatten())
                     == Some(current_cid)
         })
         .map(|(&(tx, ty), &idx)| {

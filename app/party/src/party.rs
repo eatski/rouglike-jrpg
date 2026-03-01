@@ -381,6 +381,21 @@ pub fn talk_to_candidate(candidate: &mut RecruitCandidate) -> TalkResult {
     }
 }
 
+/// パーティ全体（メンバー+ふくろ）で指定アイテムを持っているか
+pub fn has_item(members: &[PartyMember], bag: &Inventory, item: ItemKind) -> bool {
+    members.iter().any(|m| m.inventory.count(item) > 0) || bag.count(item) > 0
+}
+
+/// メンバー→ふくろの順で指定アイテムを1つ消費する。成功したらtrue
+pub fn consume_item(members: &mut [PartyMember], bag: &mut Inventory, item: ItemKind) -> bool {
+    for member in members.iter_mut() {
+        if member.inventory.remove_item(item) {
+            return true;
+        }
+    }
+    bag.remove_item(item)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -434,6 +449,51 @@ mod tests {
 
         let result = talk_to_candidate(&mut candidate);
         assert_eq!(result, TalkResult::AlreadyRecruited);
+    }
+
+    #[test]
+    fn has_item_finds_in_member_inventory() {
+        let mut members = vec![PartyMember::laios()];
+        let bag = Inventory::with_capacity(10);
+        members[0].inventory.add(ItemKind::Herb, 1);
+        assert!(has_item(&members, &bag, ItemKind::Herb));
+        assert!(!has_item(&members, &bag, ItemKind::HighHerb));
+    }
+
+    #[test]
+    fn has_item_finds_in_bag() {
+        let members = vec![PartyMember::laios()];
+        let mut bag = Inventory::with_capacity(10);
+        bag.add(ItemKind::HighHerb, 1);
+        assert!(has_item(&members, &bag, ItemKind::HighHerb));
+    }
+
+    #[test]
+    fn consume_item_prefers_member_over_bag() {
+        let mut members = vec![PartyMember::laios()];
+        let mut bag = Inventory::with_capacity(10);
+        members[0].inventory.add(ItemKind::Herb, 1);
+        bag.add(ItemKind::Herb, 1);
+        assert!(consume_item(&mut members, &mut bag, ItemKind::Herb));
+        // メンバーから先に消費される
+        assert_eq!(members[0].inventory.count(ItemKind::Herb), 0);
+        assert_eq!(bag.count(ItemKind::Herb), 1);
+    }
+
+    #[test]
+    fn consume_item_falls_back_to_bag() {
+        let mut members = vec![PartyMember::laios()];
+        let mut bag = Inventory::with_capacity(10);
+        bag.add(ItemKind::Herb, 1);
+        assert!(consume_item(&mut members, &mut bag, ItemKind::Herb));
+        assert_eq!(bag.count(ItemKind::Herb), 0);
+    }
+
+    #[test]
+    fn consume_item_returns_false_when_absent() {
+        let mut members = vec![PartyMember::laios()];
+        let mut bag = Inventory::with_capacity(10);
+        assert!(!consume_item(&mut members, &mut bag, ItemKind::Herb));
     }
 
     #[test]

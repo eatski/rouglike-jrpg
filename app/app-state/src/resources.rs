@@ -5,23 +5,6 @@ use std::collections::{HashMap, HashSet};
 use item::{Inventory, ItemKind, BAG_CAPACITY};
 use party::{default_candidates, initial_party, PartyMember, RecruitCandidate};
 
-impl PartyState {
-    /// パーティ全体（メンバー+ふくろ）で指定アイテムを持っているか
-    pub fn has_item(&self, item: ItemKind) -> bool {
-        self.members.iter().any(|m| m.inventory.count(item) > 0) || self.bag.count(item) > 0
-    }
-
-    /// メンバー→ふくろの順で指定アイテムを1つ消費する。成功したらtrue
-    pub fn consume_item(&mut self, item: ItemKind) -> bool {
-        for member in &mut self.members {
-            if member.inventory.remove_item(item) {
-                return true;
-            }
-        }
-        self.bag.remove_item(item)
-    }
-}
-
 /// パーティの永続的な状態を管理するリソース（戦闘間でHP/MPを引き継ぐ）
 #[derive(Resource)]
 pub struct PartyState {
@@ -64,45 +47,8 @@ pub struct FieldMenuOpen;
 /// 祠のワールドマップ座標を保持するリソース
 #[derive(Resource)]
 pub struct HokoraPositions {
-    positions: Vec<(usize, usize)>,
-    warp_destinations: Vec<(usize, usize)>,
-}
-
-impl HokoraPositions {
-    pub fn new(positions: Vec<(usize, usize)>, warp_destinations: Vec<(usize, usize)>) -> Self {
-        assert!(!positions.is_empty(), "ホコラは最低1つ必要");
-        assert_eq!(
-            positions.len(),
-            warp_destinations.len(),
-            "positionsとwarp_destinationsの長さが不一致"
-        );
-        Self {
-            positions,
-            warp_destinations,
-        }
-    }
-
-    /// 最寄りの祠インデックスを返す（コンストラクタで非空を保証済み）
-    pub fn nearest(&self, player_x: usize, player_y: usize) -> usize {
-        self.positions
-            .iter()
-            .enumerate()
-            .min_by_key(|&(_, &(hx, hy))| {
-                let dx = player_x as isize - hx as isize;
-                let dy = player_y as isize - hy as isize;
-                dx * dx + dy * dy
-            })
-            .map(|(i, _)| i)
-            .unwrap() // positions非空はコンストラクタで保証
-    }
-
-    pub fn warp_destination(&self, index: usize) -> Option<(usize, usize)> {
-        self.warp_destinations.get(index).copied()
-    }
-
-    pub fn positions(&self) -> &[(usize, usize)] {
-        &self.positions
-    }
+    pub positions: Vec<(usize, usize)>,
+    pub warp_destinations: Vec<(usize, usize)>,
 }
 
 /// 各大陸にある洞窟のワールドマップ座標（インデックス0=大陸1, 1=大陸2, 2=大陸3）
@@ -114,23 +60,7 @@ pub struct ContinentCavePositions {
 /// 各タイルが属する大陸IDを保持するリソース（ワールドマップ用）
 #[derive(Resource)]
 pub struct ContinentMap {
-    map: Vec<Vec<Option<u8>>>,
-}
-
-impl ContinentMap {
-    pub fn new(map: Vec<Vec<Option<u8>>>) -> Self {
-        Self { map }
-    }
-
-    /// 指定座標の大陸IDを返す（海や範囲外は None）
-    pub fn get(&self, x: usize, y: usize) -> Option<u8> {
-        self.map.get(y).and_then(|row| row.get(x)).copied().flatten()
-    }
-
-    /// 生データへの参照を返す（Bevy非依存のドメイン層に渡すため）
-    pub fn as_raw(&self) -> &[Vec<Option<u8>>] {
-        &self.map
-    }
+    pub map: Vec<Vec<Option<u8>>>,
 }
 
 /// 現在のエンカウントゾーン（戦闘開始時にどの敵が出現するかを決定する）

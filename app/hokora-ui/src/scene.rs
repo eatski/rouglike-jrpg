@@ -74,8 +74,9 @@ pub fn setup_hokora_scene(
 ) {
     // 最寄りの祠を特定し、対応するワープ先とインデックスを取得
     let (warp_destination, hokora_index) = if let Ok(pos) = player_query.single() {
-        let idx = hokora_positions.nearest(pos.x, pos.y);
-        let dest = hokora_positions.warp_destination(idx);
+        let idx = terrain::nearest_position(&hokora_positions.positions, pos.x, pos.y)
+            .unwrap();
+        let dest = hokora_positions.warp_destinations.get(idx).copied();
         (dest, idx)
     } else {
         (None, 0)

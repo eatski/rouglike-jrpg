@@ -8,6 +8,7 @@ bevy = "0.18"
 item = { path = "../item" }
 party = { path = "../party" }
 app-state = { path = "../app-state" }
+terrain = { path = "../terrain" }
 input-ui = { path = "../input-ui" }
 field-core = { path = "../field-core" }
 hud-ui = { path = "../hud-ui" }

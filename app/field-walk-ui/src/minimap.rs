@@ -93,7 +93,7 @@ pub fn init_minimap_system(
                 .get(x, y)
                 .unwrap_or(TileVisibility::Unexplored);
 
-            let continent_id = continent_map.as_ref().and_then(|cm| cm.get(x, y));
+            let continent_id = continent_map.as_ref().and_then(|cm| cm.map.get(y)?.get(x).copied().flatten());
             let base_color = terrain_to_color(terrain, structure, continent_id);
             let final_color = apply_visibility(base_color, visibility);
 
@@ -166,7 +166,7 @@ pub fn update_minimap_texture_system(
                 .get(x, y)
                 .unwrap_or(TileVisibility::Unexplored);
 
-            let continent_id = continent_map.as_ref().and_then(|cm| cm.get(x, y));
+            let continent_id = continent_map.as_ref().and_then(|cm| cm.map.get(y)?.get(x).copied().flatten());
             let base_color = terrain_to_color(terrain, structure, continent_id);
             let final_color = apply_visibility(base_color, visibility);
 

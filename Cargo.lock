@@ -2972,6 +2972,7 @@ dependencies = [
  "input-ui",
  "item",
  "party",
+ "terrain",
 ]
 
 [[package]]
