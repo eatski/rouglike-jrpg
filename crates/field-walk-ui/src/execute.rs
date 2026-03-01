@@ -3,7 +3,8 @@ use bevy::prelude::*;
 use field_core::{ActiveMap, Boat, OnBoat, Player, TilePosition};
 use field_walk::{resolve_field_move, FieldMoveResult};
 
-use crate::{MovementBlockedEvent, PlayerMovedEvent};
+use crate::{MovementBlockedEvent, MovementLocked, PendingMove, PlayerMovedEvent};
+use crate::input::MovementInput;
 
 /// 移動実行の結果
 pub enum ExecuteMoveResult {
@@ -84,6 +85,69 @@ pub fn try_apply_second_move(
         true
     } else {
         false
+    }
+}
+
+/// 入力に基づいて移動を実行（船なし）。
+/// 1回目の移動を実行し、斜め入力なら2回目も即時実行を試みる。
+/// 2回目がブロックされる場合はPendingMoveを追加する。
+pub fn apply_input_move(
+    commands: &mut Commands,
+    entity: Entity,
+    tile_pos: &mut TilePosition,
+    input: &MovementInput,
+    active_map: &ActiveMap,
+    moved_events: &mut MessageWriter<PlayerMovedEvent>,
+    blocked_events: &mut MessageWriter<MovementBlockedEvent>,
+) {
+    if let ExecuteMoveResult::Success = apply_simple_move(
+        entity, tile_pos, input.first_dx, input.first_dy,
+        active_map, moved_events, blocked_events,
+    ) {
+        if let Some((dx2, dy2)) = input.pending_direction {
+            if !try_apply_second_move(
+                entity, tile_pos, dx2, dy2,
+                active_map, moved_events, blocked_events,
+            ) {
+                commands.entity(entity).insert(PendingMove { direction: (dx2, dy2) });
+            }
+        }
+    }
+}
+
+/// SmoothMove完了後のPendingMove処理結果
+pub enum SimpleMoveDone {
+    /// PendingMoveが成功 → 新しいSmoothMove開始
+    PendingMoved,
+    /// PendingMoveがブロック → バウンス開始
+    PendingBlocked,
+    /// PendingMoveなし → MovementLocked解除済み
+    Arrived,
+}
+
+/// SmoothMove完了後のPendingMove処理（船なし版）。
+///
+/// PendingMoveがあれば2回目の移動を試行し、なければMovementLockedを解除する。
+/// TileEnteredEventは呼び出し元で発火すること（梯子等のシーン固有チェックのため）。
+pub fn process_simple_move_completed(
+    commands: &mut Commands,
+    entity: Entity,
+    tile_pos: &mut TilePosition,
+    pending_move: Option<&PendingMove>,
+    active_map: &ActiveMap,
+    moved_events: &mut MessageWriter<PlayerMovedEvent>,
+    blocked_events: &mut MessageWriter<MovementBlockedEvent>,
+) -> SimpleMoveDone {
+    if let Some(pending) = pending_move {
+        let (dx, dy) = pending.direction;
+        commands.entity(entity).remove::<PendingMove>();
+        match apply_simple_move(entity, tile_pos, dx, dy, active_map, moved_events, blocked_events) {
+            ExecuteMoveResult::Success => SimpleMoveDone::PendingMoved,
+            ExecuteMoveResult::Blocked => SimpleMoveDone::PendingBlocked,
+        }
+    } else {
+        commands.entity(entity).remove::<MovementLocked>();
+        SimpleMoveDone::Arrived
     }
 }
 
