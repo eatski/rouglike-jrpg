@@ -4,8 +4,8 @@ use terrain::coordinates::wrap_position;
 
 use field_core::{ActiveMap, Boat, OnBoat, Player, TilePosition};
 use crate::{
-    execute_move, process_movement_input, ExecuteMoveResult, MovementBlockedEvent,
-    MovementLocked, MovementState, PendingMove, PlayerMovedEvent,
+    execute_move, process_movement_input, try_apply_second_move, ExecuteMoveResult,
+    MovementBlockedEvent, MovementLocked, MovementState, PendingMove, PlayerMovedEvent,
 };
 use app_state::FieldMenuOpen;
 
@@ -53,13 +53,6 @@ pub fn player_movement(
         return;
     };
 
-    // 2回目の移動をPendingMoveとして予約するヘルパー
-    let add_pending_move = |commands: &mut Commands, entity: Entity, direction: Option<(i32, i32)>| {
-        if let Some(dir) = direction {
-            commands.entity(entity).insert(PendingMove { direction: dir });
-        }
-    };
-
     if on_boat.is_none() {
         // === 徒歩: 乗船判定 ===
         let (new_x, new_y) = wrap_position(tile_pos.x, tile_pos.y, input.first_dx, input.first_dy);
@@ -72,7 +65,9 @@ pub fn player_movement(
             // 船がある場所への移動 → 乗船
             tile_pos.x = new_x;
             tile_pos.y = new_y;
-            add_pending_move(&mut commands, entity, input.pending_direction);
+            if let Some(dir) = input.pending_direction {
+                commands.entity(entity).insert(PendingMove { direction: dir });
+            }
             moved_events.write(PlayerMovedEvent {
                 entity,
                 direction: (input.first_dx, input.first_dy),
@@ -88,7 +83,18 @@ pub fn player_movement(
         &active_map, on_boat, &mut boat_query,
         &mut moved_events, &mut blocked_events,
     ) {
-        add_pending_move(&mut commands, entity, input.pending_direction);
+        if let Some((dx2, dy2)) = input.pending_direction {
+            if on_boat.is_some() {
+                // 船: PendingMove維持（下船等のエッジケース）
+                commands.entity(entity).insert(PendingMove { direction: (dx2, dy2) });
+            } else if !try_apply_second_move(
+                entity, &mut tile_pos, dx2, dy2,
+                &active_map, &mut moved_events, &mut blocked_events,
+            ) {
+                // 2回目がブロック: PendingMoveで遅延実行（バウンス表示）
+                commands.entity(entity).insert(PendingMove { direction: (dx2, dy2) });
+            }
+        }
     }
 }
 

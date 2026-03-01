@@ -55,6 +55,38 @@ pub fn apply_simple_move(
     }
 }
 
+/// 対角線移動の2回目を即時実行（成功する場合のみ）。
+/// 成功: true（PlayerMovedEvent発火済み、start_smooth_moveが統合）、
+/// 失敗: false（呼び出し元がPendingMoveを追加すべき）。
+pub fn try_apply_second_move(
+    entity: Entity,
+    tile_pos: &mut TilePosition,
+    dx: i32,
+    dy: i32,
+    active_map: &ActiveMap,
+    moved_events: &mut MessageWriter<PlayerMovedEvent>,
+    blocked_events: &mut MessageWriter<MovementBlockedEvent>,
+) -> bool {
+    let check = resolve_field_move(
+        &active_map.grid,
+        &active_map.structures,
+        active_map.width,
+        active_map.height,
+        active_map.wraps,
+        tile_pos.x,
+        tile_pos.y,
+        dx,
+        dy,
+        false,
+    );
+    if matches!(check, FieldMoveResult::Walked { .. }) {
+        apply_simple_move(entity, tile_pos, dx, dy, active_map, moved_events, blocked_events);
+        true
+    } else {
+        false
+    }
+}
+
 /// 徒歩・船を統合した移動実行関数
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn execute_move(

@@ -6,7 +6,7 @@ use terrain::Structure;
 use app_state::{BossBattlePending, OpenedChests, PartyState, SceneState};
 use field_core::{ActiveMap, Player, TilePosition};
 use field_walk_ui::{
-    apply_simple_move, process_movement_input, ExecuteMoveResult,
+    apply_simple_move, process_movement_input, try_apply_second_move, ExecuteMoveResult,
     MovementBlockedEvent, MovementLocked, MovementState,
     PendingMove, PlayerMovedEvent, TileEnteredEvent,
 };
@@ -60,8 +60,13 @@ pub fn cave_player_movement(
         entity, &mut tile_pos, input.first_dx, input.first_dy,
         &active_map, &mut moved_events, &mut blocked_events,
     ) {
-        if let Some(dir) = input.pending_direction {
-            commands.entity(entity).insert(PendingMove { direction: dir });
+        if let Some((dx2, dy2)) = input.pending_direction {
+            if !try_apply_second_move(
+                entity, &mut tile_pos, dx2, dy2,
+                &active_map, &mut moved_events, &mut blocked_events,
+            ) {
+                commands.entity(entity).insert(PendingMove { direction: (dx2, dy2) });
+            }
         }
     }
 }

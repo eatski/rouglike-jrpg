@@ -31,29 +31,42 @@ pub fn ease_out_quad(t: f32) -> f32 {
 }
 
 /// 移動イベントを受け取って滑らか移動を開始（フィールド・洞窟共通）
+///
+/// 対角線移動サポート: 同フレームの2イベントを1つの斜め移動に統合する。
 pub fn start_smooth_move(
     mut commands: Commands,
     mut events: MessageReader<PlayerMovedEvent>,
     query: Query<&Transform, With<Player>>,
 ) {
+    let mut total_dx: i32 = 0;
+    let mut total_dy: i32 = 0;
+    let mut target_entity = None;
+
     for event in events.read() {
-        let Ok(transform) = query.get(event.entity) else {
-            continue;
-        };
-
-        let (dx, dy) = event.direction;
-        let current_pos = Vec2::new(transform.translation.x, transform.translation.y);
-        let target_pos = current_pos + Vec2::new(dx as f32 * TILE_SIZE, dy as f32 * TILE_SIZE);
-
-        commands.entity(event.entity).insert((
-            SmoothMove {
-                from: current_pos,
-                to: target_pos,
-                timer: Timer::from_seconds(MOVE_DURATION, TimerMode::Once),
-            },
-            MovementLocked,
-        ));
+        total_dx += event.direction.0;
+        total_dy += event.direction.1;
+        target_entity = Some(event.entity);
     }
+
+    let Some(entity) = target_entity else {
+        return;
+    };
+    let Ok(transform) = query.get(entity) else {
+        return;
+    };
+
+    let current_pos = Vec2::new(transform.translation.x, transform.translation.y);
+    let target_pos =
+        current_pos + Vec2::new(total_dx as f32 * TILE_SIZE, total_dy as f32 * TILE_SIZE);
+
+    commands.entity(entity).insert((
+        SmoothMove {
+            from: current_pos,
+            to: target_pos,
+            timer: Timer::from_seconds(MOVE_DURATION, TimerMode::Once),
+        },
+        MovementLocked,
+    ));
 }
 
 /// 滑らか移動アニメーションを更新（フィールド・洞窟共通）
