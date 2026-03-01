@@ -29,7 +29,10 @@ pub use components::{MovementLocked, PendingMove};
 pub use constants::*;
 pub use encounter::check_encounter_system;
 pub use events::{MovementBlockedEvent, PlayerMovedEvent, TileEnteredEvent};
-pub use execute::{apply_simple_move, execute_move, try_apply_second_move, ExecuteMoveResult};
+pub use execute::{
+    apply_input_move, apply_simple_move, execute_move, process_simple_move_completed,
+    try_apply_second_move, ExecuteMoveResult, SimpleMoveDone,
+};
 pub use input::{process_movement_input, MovementInput};
 pub use map_mode::{reset_map_mode_system, toggle_map_mode_system, MapModeState, NORMAL_ZOOM};
 pub use rendering::{load_tile_textures, spawn_boat_entities, BoatSpawnsResource, BossCaveWorldPos, TileTextures};

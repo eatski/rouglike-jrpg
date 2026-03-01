@@ -6,7 +6,7 @@ use terrain::Structure;
 use app_state::{BossBattlePending, OpenedChests, PartyState, SceneState};
 use field_core::{ActiveMap, Player, TilePosition};
 use field_walk_ui::{
-    apply_simple_move, process_movement_input, try_apply_second_move, ExecuteMoveResult,
+    apply_input_move, process_movement_input, process_simple_move_completed, SimpleMoveDone,
     MovementBlockedEvent, MovementLocked, MovementState,
     PendingMove, PlayerMovedEvent, TileEnteredEvent,
 };
@@ -56,25 +56,15 @@ pub fn cave_player_movement(
         return;
     };
 
-    if let ExecuteMoveResult::Success = apply_simple_move(
-        entity, &mut tile_pos, input.first_dx, input.first_dy,
+    apply_input_move(
+        &mut commands, entity, &mut tile_pos, &input,
         &active_map, &mut moved_events, &mut blocked_events,
-    ) {
-        if let Some((dx2, dy2)) = input.pending_direction {
-            if !try_apply_second_move(
-                entity, &mut tile_pos, dx2, dy2,
-                &active_map, &mut moved_events, &mut blocked_events,
-            ) {
-                commands.entity(entity).insert(PendingMove { direction: (dx2, dy2) });
-            }
-        }
-    }
+    );
 }
 
 /// 洞窟でのSmoothMove完了後の処理
 ///
-/// PendingMoveがあれば2回目の移動を試行し、なければロック解除＋到着判定。
-/// 梯子タイル上にいればフィールドに戻る。
+/// field-walk-uiの共通ロジックでPendingMoveを処理し、梯子判定を追加する。
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn handle_cave_move_completed(
     mut commands: Commands,
@@ -93,37 +83,32 @@ pub fn handle_cave_move_completed(
     mut tile_entered_events: MessageWriter<TileEnteredEvent>,
     mut next_state: ResMut<NextState<SceneState>>,
 ) {
-    if let Some(_entity) = move_state.move_just_completed.take() {
-        let Ok((entity, mut tile_pos, pending_move)) = query.single_mut() else {
-            return;
-        };
+    if move_state.move_just_completed.take().is_none() {
+        return;
+    }
+    let Ok((entity, mut tile_pos, pending_move)) = query.single_mut() else {
+        return;
+    };
 
-        if let Some(pending) = pending_move {
-            let (dx, dy) = pending.direction;
-            commands.entity(entity).remove::<PendingMove>();
+    let result = process_simple_move_completed(
+        &mut commands, entity, &mut tile_pos, pending_move,
+        &active_map, &mut moved_events, &mut blocked_events,
+    );
 
-            if let ExecuteMoveResult::Blocked = apply_simple_move(
-                entity, &mut tile_pos, dx, dy,
-                &active_map, &mut moved_events, &mut blocked_events,
-            ) {
-                // ワープゾーン上でPendingMoveがブロックされた場合にも
-                // 梯子判定を行う（MovementLockedはバウンスが解除）
-                if tile_pos.x < active_map.width && tile_pos.y < active_map.height
-                    && active_map.structure_at(tile_pos.x, tile_pos.y) == Structure::Ladder
-                {
-                    next_state.set(SceneState::Exploring);
-                }
-            }
-        } else {
-            commands.entity(entity).remove::<MovementLocked>();
-            let structure = active_map.structure_at(tile_pos.x, tile_pos.y);
-            if structure == Structure::Ladder {
-                // 梯子タイル上 → フィールドに戻る
+    match result {
+        SimpleMoveDone::Arrived | SimpleMoveDone::PendingBlocked => {
+            // 梯子判定: 到着時とPendingMoveブロック時に確認
+            if tile_pos.x < active_map.width && tile_pos.y < active_map.height
+                && active_map.structure_at(tile_pos.x, tile_pos.y) == Structure::Ladder
+            {
                 next_state.set(SceneState::Exploring);
                 return;
             }
-            tile_entered_events.write(TileEnteredEvent { entity });
+            if matches!(result, SimpleMoveDone::Arrived) {
+                tile_entered_events.write(TileEnteredEvent { entity });
+            }
         }
+        SimpleMoveDone::PendingMoved => {}
     }
 }
 
