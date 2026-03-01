@@ -39,10 +39,10 @@ pub enum SpellKind {
     // 全体回復
     Healall1,
     Healall2,
-    // 味方単体DEF↑
+    // 味方単体ブロック付与
     Shield1,
     Shield2,
-    // 味方全体DEF↑
+    // 味方全体ブロック付与
     Barrier1,
     Barrier2,
     // 味方単体ATK↑
@@ -80,7 +80,7 @@ pub enum SpellEffect {
     Damage,
     Heal,
     AttackBuff,
-    DefenseBuff,
+    Block,
     MpDrain,
     Ailment,
 }
@@ -154,10 +154,10 @@ impl SpellKind {
             SpellKind::Heal2 => 40,
             SpellKind::Healall1 => 10,
             SpellKind::Healall2 => 25,
-            SpellKind::Shield1 => 3,
-            SpellKind::Shield2 => 6,
-            SpellKind::Barrier1 => 2,
-            SpellKind::Barrier2 => 4,
+            SpellKind::Shield1 => 10,
+            SpellKind::Shield2 => 20,
+            SpellKind::Barrier1 => 6,
+            SpellKind::Barrier2 => 12,
             SpellKind::Boost1 => 3,
             SpellKind::Boost2 => 6,
             SpellKind::Rally1 => 2,
@@ -202,7 +202,7 @@ impl SpellKind {
                 SpellEffect::AttackBuff
             }
             SpellKind::Shield1 | SpellKind::Shield2 | SpellKind::Barrier1 | SpellKind::Barrier2 => {
-                SpellEffect::DefenseBuff
+                SpellEffect::Block
             }
             SpellKind::Drain1 | SpellKind::Drain2 | SpellKind::Siphon1 | SpellKind::Siphon2 => {
                 SpellEffect::MpDrain
@@ -347,7 +347,7 @@ mod tests {
                     assert!(!spell.is_offensive());
                     assert!(spell.is_usable_in_field());
                 }
-                SpellEffect::AttackBuff | SpellEffect::DefenseBuff => {
+                SpellEffect::AttackBuff | SpellEffect::Block => {
                     assert!(!spell.is_offensive());
                     assert!(!spell.is_usable_in_field());
                 }

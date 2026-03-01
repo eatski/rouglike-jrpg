@@ -2907,40 +2907,27 @@ fn bolga_buff_increases_attack_integration() {
 }
 
 // ============================================
-// DEFバフによる被ダメージ軽減テスト
+// ブロックによる被ダメージ吸収テスト
 // ============================================
 
 #[test]
-fn garde_def_buff_reduces_damage_taken_integration() {
+fn block_absorbs_damage_integration() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, SpellKind, ActorId, TurnResult};
     use party::PartyMember;
 
     let mut senshi = PartyMember::senshi();
     senshi.level = 4; // Shield1習得
-    let laios = PartyMember::laios();
+    let mut laios = PartyMember::laios();
+    laios.stats.hp = 999;
+    laios.stats.max_hp = 999;
 
     let mut wolf = Enemy::wolf();
     wolf.stats.attack = 20;
     wolf.stats.hp = 999;
     wolf.stats.max_hp = 999;
 
-    // バフなしの被ダメージを計測
-    let mut battle_unbuffed = BattleDomainState::new(vec![laios.clone()], vec![wolf.clone()]);
-    let commands_unbuffed = vec![
-        BattleAction::Attack { target: TargetId::Enemy(0) },
-    ];
-    let randoms = TurnRandomFactors {
-        damage_randoms: vec![1.0; 2],
-        flee_random: 1.0, spell_randoms: vec![1.0; 10],
-    };
-    let results_unbuffed = battle_unbuffed.execute_turn(&commands_unbuffed, &randoms);
-    let damage_unbuffed = results_unbuffed.iter().find_map(|r| {
-        if let TurnResult::Attack { attacker: ActorId::Enemy(0), damage, .. } = r { Some(*damage) } else { None }
-    }).unwrap();
-
-    // バフありの被ダメージを計測
-    let mut battle_buffed = BattleDomainState::new(vec![laios, senshi], vec![wolf]);
-    // まずShield1を付与
+    // Shield1を付与
+    let mut battle = BattleDomainState::new(vec![laios, senshi], vec![wolf]);
     let commands_buff = vec![
         BattleAction::Attack { target: TargetId::Enemy(0) },
         BattleAction::Spell { spell: SpellKind::Shield1, target: TargetId::Party(0) },
@@ -2949,9 +2936,13 @@ fn garde_def_buff_reduces_damage_taken_integration() {
         damage_randoms: vec![1.0; 3],
         flee_random: 1.0, spell_randoms: vec![1.0; 10],
     };
-    battle_buffed.execute_turn(&commands_buff, &randoms_buff);
+    battle.execute_turn(&commands_buff, &randoms_buff);
+
+    // ブロック値が半減後に残っていることを確認（Shield1 power=10 → 半減5）
+    assert_eq!(battle.party_buffs[0].block, 5, "ブロック半減後は5");
 
     // 次のターンで敵の攻撃を受ける
+    let hp_before = battle.party[0].stats.hp;
     let commands_next = vec![
         BattleAction::Attack { target: TargetId::Enemy(0) },
         BattleAction::Attack { target: TargetId::Enemy(0) },
@@ -2960,13 +2951,18 @@ fn garde_def_buff_reduces_damage_taken_integration() {
         damage_randoms: vec![1.0; 3],
         flee_random: 1.0, spell_randoms: vec![1.0; 10],
     };
-    let results_buffed = battle_buffed.execute_turn(&commands_next, &randoms_next);
-    let damage_buffed = results_buffed.iter().find_map(|r| {
-        if let TurnResult::Attack { attacker: ActorId::Enemy(0), damage, .. } = r { Some(*damage) } else { None }
+    let results = battle.execute_turn(&commands_next, &randoms_next);
+
+    // 敵の攻撃でブロックが発生していることを確認
+    let enemy_attack = results.iter().find_map(|r| {
+        if let TurnResult::Attack { attacker: ActorId::Enemy(0), damage, blocked, .. } = r {
+            Some((*damage, *blocked))
+        } else { None }
     }).unwrap();
 
-    assert!(damage_buffed < damage_unbuffed,
-        "DEF buff should reduce damage: buffed={} vs unbuffed={}", damage_buffed, damage_unbuffed);
+    assert!(enemy_attack.1 > 0, "ブロックが発生するはず: blocked={}", enemy_attack.1);
+    let hp_lost = hp_before - battle.party[0].stats.hp;
+    assert_eq!(hp_lost, enemy_attack.0, "実ダメージ分のみHP減少");
 }
 
 // ============================================

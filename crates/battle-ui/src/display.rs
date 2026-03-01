@@ -41,6 +41,12 @@ pub struct PartyMemberMpText {
     pub index: usize,
 }
 
+/// パーティメンバーブロック値テキストのマーカー
+#[derive(Component)]
+pub struct PartyMemberBlockText {
+    pub index: usize,
+}
+
 /// パーティメンバー名テキストのマーカー（味方選択時のハイライト用）
 #[derive(Component)]
 pub struct PartyMemberNameText {
@@ -88,6 +94,7 @@ pub fn battle_display_system(
     mut party_hp_query: Query<(&PartyMemberHpText, &mut Text), (Without<EnemyNameLabel>, Without<MessageText>, Without<CommandCursor>, Without<PartyMemberMpText>, Without<PartyMemberNameText>)>,
     mut party_mp_query: Query<(&PartyMemberMpText, &mut Text), (Without<EnemyNameLabel>, Without<MessageText>, Without<CommandCursor>, Without<PartyMemberHpText>, Without<PartyMemberNameText>)>,
     mut party_name_query: Query<(&PartyMemberNameText, &mut Text, &mut TextColor), (Without<EnemyNameLabel>, Without<MessageText>, Without<CommandCursor>, Without<PartyMemberHpText>, Without<PartyMemberMpText>)>,
+    mut party_block_query: Query<(&PartyMemberBlockText, &mut Text, &mut Node), (Without<EnemyNameLabel>, Without<MessageText>, Without<CommandCursor>, Without<PartyMemberHpText>, Without<PartyMemberMpText>, Without<PartyMemberNameText>, Without<PartyMemberHpBarFill>, Without<CommandScrollUp>, Without<CommandScrollDown>)>,
     mut party_bar_query: Query<(&PartyMemberHpBarFill, &mut Node, &mut BackgroundColor)>,
     mut command_query: Query<(&CommandCursor, &mut Text, &mut TextColor, &mut Visibility, &mut Node), (Without<EnemyNameLabel>, Without<MessageText>, Without<PartyMemberHpText>, Without<PartyMemberMpText>, Without<PartyMemberNameText>, Without<CommandScrollUp>, Without<CommandScrollDown>, Without<PartyMemberHpBarFill>)>,
     mut target_cursor_query: Query<(&TargetCursor, &mut Visibility), (Without<EnemySprite>, Without<EnemyNameLabel>, Without<CommandCursor>, Without<CommandScrollUp>, Without<CommandScrollDown>)>,
@@ -159,6 +166,19 @@ pub fn battle_display_system(
             let ratio = display_hp as f32 / max_hp as f32;
             node.width = Val::Percent(ratio * 100.0);
             *bg = BackgroundColor(hp_bar_color(ratio));
+        }
+    }
+
+    // パーティブロック値更新（block > 0のときのみ表示）
+    for (block_text, mut text, mut node) in &mut party_block_query {
+        if block_text.index < game_state.state.party_buffs.len() {
+            let block = game_state.state.party_buffs[block_text.index].block;
+            if block > 0 {
+                **text = format!("Block:{}", block);
+                node.display = Display::DEFAULT;
+            } else {
+                node.display = Display::None;
+            }
         }
     }
 

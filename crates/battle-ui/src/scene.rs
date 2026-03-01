@@ -5,8 +5,8 @@ use battle::{generate_enemy_group, BattleAction, BattleState, Enemy, ItemKind, S
 use app_state::{BossBattlePending, EncounterZone, PartyState, SceneState};
 
 use super::display::{
-    CommandCursor, EnemyNameLabel, MessageText, PartyMemberHpBarFill, PartyMemberHpText,
-    PartyMemberMpText, PartyMemberNameText, TargetCursor,
+    CommandCursor, EnemyNameLabel, MessageText, PartyMemberBlockText, PartyMemberHpBarFill,
+    PartyMemberHpText, PartyMemberMpText, PartyMemberNameText, TargetCursor,
 };
 
 /// 戦闘シーンのルートUIエンティティを識別するマーカー
@@ -559,6 +559,23 @@ fn build_bottom_area(
                                 TextColor(Color::srgb(0.6, 0.8, 1.0)),
                                 Node {
                                     margin: UiRect::bottom(Val::Px(2.0)),
+                                    ..default()
+                                },
+                            ));
+
+                            // ブロック値テキスト（block > 0のときのみ表示）
+                            member_col.spawn((
+                                PartyMemberBlockText { index: i },
+                                Text::new(""),
+                                TextFont {
+                                    font: font.clone(),
+                                    font_size: 13.0,
+                                    ..default()
+                                },
+                                TextColor(Color::srgb(0.9, 0.7, 0.2)),
+                                Node {
+                                    margin: UiRect::bottom(Val::Px(2.0)),
+                                    display: Display::None,
                                     ..default()
                                 },
                             ));
