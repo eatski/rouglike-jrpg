@@ -5,10 +5,10 @@ use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
 
 use cave::{generate_boss_cave_map, generate_cave_map, TreasureChest, TreasureContent, CAVE_HEIGHT, CAVE_WIDTH};
-use party::ItemKind;
+use party::{ItemKind, RecruitmentPath, RecruitmentStatus};
 use terrain::Structure;
 
-use app_state::{BossDefeated, ContinentCavePositions, ContinentMap, EncounterZone, OpenedChests};
+use app_state::{BossDefeated, ContinentCavePositions, ContinentMap, EncounterZone, OpenedChests, PartyState};
 use field_core::{ActiveMap, Boat, Player, TilePosition, WorldMapData, TILE_SIZE};
 use field_walk_ui::MovementState;
 
@@ -67,6 +67,7 @@ pub fn setup_cave_scene(
     mut map_mode_state: ResMut<MapModeState>,
     continent_caves: Res<ContinentCavePositions>,
     continent_map: Option<Res<ContinentMap>>,
+    party_state: Res<PartyState>,
 ) {
     // ワールドでマップモードがONのまま洞窟に入った場合にリセット
     map_mode_state.enabled = false;
@@ -122,11 +123,27 @@ pub fn setup_cave_scene(
             .find(|caves| caves.contains(&cave_world_pos))
         {
             let num_caves = caves.len();
-            let idx = caves.iter().position(|&c| c == cave_world_pos).unwrap();
+            let cave_idx = caves.iter().position(|&c| c == cave_world_pos).unwrap();
             let base = 3 / num_caves;
             let remainder = 3 % num_caves;
-            let count = base + if idx < remainder { 1 } else { 0 };
-            vec![TreasureContent::Item(ItemKind::MoonFragment); count]
+            let count = base + if cave_idx < remainder { 1 } else { 0 };
+            let mut items = vec![TreasureContent::Item(ItemKind::MoonFragment); count];
+
+            // 未加入の ItemTrade キャラ用アイテムを確定スポーン
+            for candidate in &party_state.candidates {
+                if candidate.status == RecruitmentStatus::Recruited {
+                    continue;
+                }
+                if let RecruitmentPath::ItemTrade { item } = candidate.kind.recruit_method() {
+                    // 大陸内の洞窟間で分散配置（候補インデックスを洞窟数で割る）
+                    let candidate_hash = candidate.kind as usize;
+                    if num_caves > 0 && candidate_hash % num_caves == cave_idx {
+                        items.push(TreasureContent::Item(item));
+                    }
+                }
+            }
+
+            items
         } else {
             vec![]
         };

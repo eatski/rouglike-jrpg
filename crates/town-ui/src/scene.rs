@@ -105,6 +105,8 @@ pub enum TownMenuPhase {
     BountyCharacterSelect { item: ItemKind, selected: usize },
     /// 買い取り依頼 — 結果メッセージ
     BountyMessage { message: String },
+    /// アイテム交換雇用 — キャラクター選択（誰のインベントリから渡すか）
+    ItemTradeCharacterSelect { kind: PartyMemberKind, item: ItemKind, selected: usize },
 }
 
 /// 町の状態管理リソース
@@ -146,6 +148,7 @@ impl SceneMenu for TownResource {
                 | TownMenuPhase::BountyCharacterSelect { .. }
                 | TownMenuPhase::ShopMessage { .. }
                 | TownMenuPhase::BountyMessage { .. }
+                | TownMenuPhase::ItemTradeCharacterSelect { .. }
         )
     }
 
@@ -446,6 +449,7 @@ pub fn town_extra_display_system(
         TownMenuPhase::ShopCharacterSelect { .. }
             | TownMenuPhase::SellCharacterSelect { .. }
             | TownMenuPhase::BountyCharacterSelect { .. }
+            | TownMenuPhase::ItemTradeCharacterSelect { .. }
     );
 
     // ショップパネル表示/非表示
@@ -474,6 +478,20 @@ pub fn town_extra_display_system(
 
     // キャラクター選択メニュー項目の更新（買い取り依頼）
     if let TownMenuPhase::BountyCharacterSelect { item, selected } = &town_res.phase {
+        for (char_item, mut text, mut color) in &mut char_item_query {
+            if char_item.index < party_state.members.len() {
+                let is_selected = char_item.index == *selected;
+                let prefix = if is_selected { "> " } else { "  " };
+                let member = &party_state.members[char_item.index];
+                let count = member.inventory.count(*item);
+                **text = format!("{}{} ({}個)", prefix, member.kind.name(), count);
+                *color = menu_style::menu_item_color(is_selected);
+            }
+        }
+    }
+
+    // キャラクター選択メニュー項目の更新（アイテム交換雇用）
+    if let TownMenuPhase::ItemTradeCharacterSelect { item, selected, .. } = &town_res.phase {
         for (char_item, mut text, mut color) in &mut char_item_query {
             if char_item.index < party_state.members.len() {
                 let is_selected = char_item.index == *selected;

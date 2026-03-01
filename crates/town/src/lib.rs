@@ -128,13 +128,13 @@ pub fn candidate_first_dialogue(kind: PartyMemberKind) -> String {
             "わたしは マルシル！\nまほうの ちからで たすけて あげる！\nつぎの まちで まっているわ。".to_string()
         }
         PartyMemberKind::Senshi => {
-            "わしは センシ。りょうりなら\nまかせておけ。\nつぎの まちで まっておる。".to_string()
+            "わしは センシ。りょうりなら\nまかせておけ。\nりゅうのウロコを もってきてくれ。".to_string()
         }
         PartyMemberKind::Falin => {
             "わたしは ファリン。\nかいふくまほうで みんなを\nたすけたいの。つぎの まちで まってるね。".to_string()
         }
         PartyMemberKind::Izutsumi => {
-            "……イヅツミだ。\nべつに いっしょに いきたい\nわけじゃないけど。つぎの まちにいる。".to_string()
+            "……イヅツミだ。\nいにしえのコインを もってきたら\nかんがえてやる。".to_string()
         }
         PartyMemberKind::Shuro => {
             "シュローと もうす。\nこの けんで おやくに たてよう。\nつぎの まちで おまちしている。".to_string()
@@ -200,6 +200,12 @@ pub fn hire_success_dialogue(kind: PartyMemberKind) -> String {
         }
         PartyMemberKind::Namari => {
             "ナマリが なかまに くわわった！\n「きんの きれめが えんの きれめだ。\nよろしく たのむ」".to_string()
+        }
+        PartyMemberKind::Senshi => {
+            "センシが なかまに くわわった！\n「よし、さっそく りょうりの\nしたくを しよう」".to_string()
+        }
+        PartyMemberKind::Izutsumi => {
+            "イヅツミが なかまに くわわった！\n「……やくそくだからな。\nかってに ついていくだけだ」".to_string()
         }
         _ => candidate_join_dialogue(kind),
     }
