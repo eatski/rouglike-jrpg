@@ -165,68 +165,44 @@ pub fn check_chest_system(
             }
 
             // アイテム/武器の取得処理
-            match treasure.content {
-                TreasureContent::Item(item) => {
-                    // 先頭メンバーから順にインベントリ追加を試みる
-                    let mut added = false;
-                    let mut receiver_name = String::new();
-                    for member in &mut party_state.members {
-                        if member.inventory.try_add(item, 1) {
-                            receiver_name = member.kind.name().to_string();
-                            added = true;
-                            break;
-                        }
-                    }
-                    if added {
-                        cave_message.message = Some(format!(
-                            "たからばこから {}を てにいれた！（{}）",
-                            item.name(),
-                            receiver_name,
-                        ));
-                        // 取得済みに記録
-                        opened_chests
-                            .chests
-                            .entry(cave_pos)
-                            .or_default()
-                            .insert(i);
-                    } else {
-                        cave_message.message =
-                            Some("もちものが いっぱいだ！".to_string());
-                        // 取得失敗 → 宝箱は残す（取得済みに記録しない）
-                        continue;
-                    }
+            let chest_item = match treasure.content {
+                TreasureContent::Item(item) => item,
+                TreasureContent::Weapon(weapon) => party::ItemKind::Weapon(weapon),
+            };
+
+            // 先頭メンバーから順にインベントリ追加を試みる
+            let mut added = false;
+            let mut receiver_name = String::new();
+            for member in &mut party_state.members {
+                if member.inventory.try_add(chest_item, 1) {
+                    receiver_name = member.kind.name().to_string();
+                    added = true;
+                    break;
                 }
-                TreasureContent::Weapon(weapon) => {
-                    // 先頭メンバーから順にインベントリ追加を試みる
-                    let weapon_item = party::ItemKind::Weapon(weapon);
-                    let mut added = false;
-                    let mut receiver_name = String::new();
-                    for member in &mut party_state.members {
-                        if member.inventory.try_add(weapon_item, 1) {
-                            receiver_name = member.kind.name().to_string();
-                            added = true;
-                            break;
-                        }
-                    }
-                    if added {
-                        cave_message.message = Some(format!(
-                            "たからばこから {}を てにいれた！（{}）",
-                            weapon.name(),
-                            receiver_name,
-                        ));
-                        // 取得済みに記録
-                        opened_chests
-                            .chests
-                            .entry(cave_pos)
-                            .or_default()
-                            .insert(i);
-                    } else {
-                        cave_message.message =
-                            Some("もちものが いっぱいだ！".to_string());
-                        // 取得失敗 → 宝箱は残す（取得済みに記録しない）
-                        continue;
-                    }
-                }
+            }
+            // 全員満杯 → 袋にフォールバック
+            if !added && party_state.bag.try_add(chest_item, 1) {
+                receiver_name = "ふくろ".to_string();
+                added = true;
+            }
+
+            if added {
+                cave_message.message = Some(format!(
+                    "たからばこから {}を てにいれた！（{}）",
+                    chest_item.name(),
+                    receiver_name,
+                ));
+                // 取得済みに記録
+                opened_chests
+                    .chests
+                    .entry(cave_pos)
+                    .or_default()
+                    .insert(i);
+            } else {
+                cave_message.message =
+                    Some("もちものも ふくろも いっぱいだ！".to_string());
+                // 取得失敗 → 宝箱は残す（取得済みに記録しない）
+                continue;
             }
 
             // structures を ChestOpen に変更し、タイルを再描画
