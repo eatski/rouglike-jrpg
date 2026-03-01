@@ -1,5 +1,4 @@
-use crate::equipment::Equipment;
-use crate::item::{Inventory, ItemKind};
+use item::{Equipment, Inventory, ItemKind};
 use crate::stats::{CombatStats, StatGrowth};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -445,7 +444,7 @@ mod tests {
 
     #[test]
     fn effective_attack_with_weapon() {
-        use crate::equipment::WeaponKind;
+        use item::WeaponKind;
         let mut laios = PartyMember::laios();
         laios.equipment.equip_weapon(WeaponKind::IronSword);
         assert_eq!(laios.effective_attack(), laios.stats.attack + 5);

@@ -97,5 +97,4 @@ mod tests {
         assert_eq!(prev, Some(WeaponKind::WoodenSword));
         assert_eq!(eq.attack_bonus(), 5);
     }
-
 }

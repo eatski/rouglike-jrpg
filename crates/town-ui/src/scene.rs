@@ -106,8 +106,8 @@ pub enum TownMenuPhase {
     BountyCharacterSelect { item: ItemKind, selected: usize },
     /// 買い取り依頼 — 結果メッセージ
     BountyMessage { message: String },
-    /// アイテム交換雇用 — キャラクター選択（誰のインベントリから渡すか）
-    ItemTradeCharacterSelect { kind: PartyMemberKind, item: ItemKind, selected: usize },
+    /// アイテム交換雇用 — はい/いいえ確認
+    ItemTradeConfirm { kind: PartyMemberKind, item: ItemKind, selected: usize },
 }
 
 /// 町の状態管理リソース
@@ -151,7 +151,7 @@ impl SceneMenu for TownResource {
                 | TownMenuPhase::BountyCharacterSelect { .. }
                 | TownMenuPhase::ShopMessage { .. }
                 | TownMenuPhase::BountyMessage { .. }
-                | TownMenuPhase::ItemTradeCharacterSelect { .. }
+                | TownMenuPhase::ItemTradeConfirm { .. }
         )
     }
 
@@ -458,13 +458,13 @@ pub fn town_extra_display_system(
         TownMenuPhase::ShopSelect { .. }
             | TownMenuPhase::ShopModeSelect { .. }
             | TownMenuPhase::SellItemSelect { .. }
+            | TownMenuPhase::ItemTradeConfirm { .. }
     );
     let in_char_select = matches!(
         &town_res.phase,
         TownMenuPhase::ShopCharacterSelect { .. }
             | TownMenuPhase::SellCharacterSelect { .. }
             | TownMenuPhase::BountyCharacterSelect { .. }
-            | TownMenuPhase::ItemTradeCharacterSelect { .. }
     );
 
     // ショップパネル表示/非表示
@@ -503,24 +503,6 @@ pub fn town_extra_display_system(
                 let member = &party_state.members[char_item.index];
                 let count = member.inventory.count(*item);
                 **text = format!("{}{} ({}個)", prefix, member.kind.name(), count);
-                *color = command_menu::menu_item_color(false);
-            }
-        }
-    }
-
-    // キャラクター選択メニュー項目の更新（アイテム交換雇用）
-    if let TownMenuPhase::ItemTradeCharacterSelect { item, selected, .. } = &town_res.phase {
-        for (char_item, mut text, mut color) in &mut char_item_query {
-            let is_selected = char_item.index == *selected;
-            let prefix = if is_selected { "> " } else { "  " };
-            if char_item.index < party_state.members.len() {
-                let member = &party_state.members[char_item.index];
-                let count = member.inventory.count(*item);
-                **text = format!("{}{} ({}個)", prefix, member.kind.name(), count);
-                *color = command_menu::menu_item_color(false);
-            } else if char_item.index == party_state.members.len() {
-                let count = party_state.bag.count(*item);
-                **text = format!("{}ふくろ ({}個)", prefix, count);
                 *color = command_menu::menu_item_color(false);
             }
         }
@@ -646,6 +628,24 @@ pub fn town_extra_display_system(
                             item.sell_price()
                         );
                     }
+                    *color = command_menu::menu_item_color(false);
+                    node.display = Display::Flex;
+                } else {
+                    **text = String::new();
+                    node.display = Display::None;
+                }
+            }
+        }
+        TownMenuPhase::ItemTradeConfirm { item, selected, .. } => {
+            let labels = [
+                format!("{}を わたす → はい", item.name()),
+                "いいえ".to_string(),
+            ];
+            for (shop_item, mut text, mut color, mut node) in &mut shop_item_query {
+                if shop_item.index < labels.len() {
+                    let is_selected = shop_item.index == *selected;
+                    let prefix = if is_selected { "> " } else { "  " };
+                    **text = format!("{}{}", prefix, labels[shop_item.index]);
                     *color = command_menu::menu_item_color(false);
                     node.display = Display::Flex;
                 } else {

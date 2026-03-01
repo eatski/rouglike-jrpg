@@ -1,7 +1,7 @@
 use rand::seq::SliceRandom;
 use rand::Rng;
 
-use party::{ItemKind, WeaponKind};
+use item::{ItemKind, WeaponKind};
 use terrain::{Structure, Terrain};
 
 pub const CAVE_WIDTH: usize = 30;

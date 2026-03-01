@@ -4,6 +4,23 @@ use std::collections::{HashMap, HashSet};
 
 use party::{default_candidates, initial_party, Inventory, ItemKind, PartyMember, RecruitCandidate, BAG_CAPACITY};
 
+impl PartyState {
+    /// パーティ全体（メンバー+ふくろ）で指定アイテムを持っているか
+    pub fn has_item(&self, item: ItemKind) -> bool {
+        self.members.iter().any(|m| m.inventory.count(item) > 0) || self.bag.count(item) > 0
+    }
+
+    /// メンバー→ふくろの順で指定アイテムを1つ消費する。成功したらtrue
+    pub fn consume_item(&mut self, item: ItemKind) -> bool {
+        for member in &mut self.members {
+            if member.inventory.remove_item(item) {
+                return true;
+            }
+        }
+        self.bag.remove_item(item)
+    }
+}
+
 /// パーティの永続的な状態を管理するリソース（戦闘間でHP/MPを引き継ぐ）
 #[derive(Resource)]
 pub struct PartyState {

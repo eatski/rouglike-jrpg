@@ -1775,7 +1775,7 @@ dependencies = [
 name = "cave"
 version = "0.1.0"
 dependencies = [
- "party",
+ "item",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "terrain",
@@ -3063,6 +3063,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "item"
+version = "0.1.0"
+
+[[package]]
 name = "itertools"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3895,6 +3899,7 @@ dependencies = [
 name = "party"
 version = "0.1.0"
 dependencies = [
+ "item",
  "spell",
 ]
 
