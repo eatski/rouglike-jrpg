@@ -2435,6 +2435,7 @@ version = "0.1.0"
 dependencies = [
  "app-state",
  "bevy",
+ "hud-ui",
  "input-ui",
  "party",
  "rand 0.8.5",
@@ -4463,6 +4464,7 @@ dependencies = [
  "battle",
  "battle-ui",
  "bevy",
+ "hud-ui",
  "screenshot-common",
 ]
 

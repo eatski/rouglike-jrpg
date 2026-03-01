@@ -1,10 +1,13 @@
 use bevy::prelude::*;
 
-use party::available_spells;
-use spell::{calculate_heal_amount, SpellKind, SpellTarget};
 use app_state::{FieldMenuOpen, InField, PartyState};
+use hud_ui::command_menu::{
+    self, CommandMenu, CommandMenuItem, CommandMenuScrollDown, CommandMenuScrollUp,
+};
 use input_ui::InputSystemSet;
+use party::available_spells;
 use party::{ItemEffect, ItemKind};
+use spell::{calculate_heal_amount, SpellKind, SpellTarget};
 
 /// ターゲット選択の文脈（呪文 or アイテム）
 #[derive(Debug, Clone)]
@@ -44,6 +47,148 @@ pub enum FieldMenuPhase {
 #[derive(Resource)]
 pub struct FieldMenuState {
     pub phase: FieldMenuPhase,
+    cached_labels: Vec<String>,
+    disabled_indices: Vec<usize>,
+}
+
+impl FieldMenuState {
+    pub fn new(phase: FieldMenuPhase, party_state: &PartyState) -> Self {
+        let mut s = Self {
+            phase,
+            cached_labels: Vec::new(),
+            disabled_indices: Vec::new(),
+        };
+        s.rebuild_cache(party_state);
+        s
+    }
+
+    fn set_phase(&mut self, phase: FieldMenuPhase, party_state: &PartyState) {
+        self.phase = phase;
+        self.rebuild_cache(party_state);
+    }
+
+    fn rebuild_cache(&mut self, party_state: &PartyState) {
+        self.cached_labels.clear();
+        self.disabled_indices.clear();
+        match &self.phase {
+            FieldMenuPhase::TopMenu { .. } => {
+                self.cached_labels = vec!["じゅもん".to_string(), "どうぐ".to_string()];
+            }
+            FieldMenuPhase::CasterSelect { candidates, .. } => {
+                for &idx in candidates {
+                    let m = &party_state.members[idx];
+                    self.cached_labels.push(format!(
+                        "{} HP:{}/{} MP:{}/{}",
+                        m.kind.name(),
+                        m.stats.hp,
+                        m.stats.max_hp,
+                        m.stats.mp,
+                        m.stats.max_mp,
+                    ));
+                }
+            }
+            FieldMenuPhase::SpellSelect { caster, spells, .. } => {
+                let caster_mp = party_state.members[*caster].stats.mp;
+                for (i, &spell) in spells.iter().enumerate() {
+                    self.cached_labels
+                        .push(format!("{} ({})", spell.name(), spell.mp_cost()));
+                    if caster_mp < spell.mp_cost() {
+                        self.disabled_indices.push(i);
+                    }
+                }
+            }
+            FieldMenuPhase::MemberSelect { candidates, .. } => {
+                for &idx in candidates {
+                    let m = &party_state.members[idx];
+                    self.cached_labels.push(format!(
+                        "{} HP:{}/{}",
+                        m.kind.name(),
+                        m.stats.hp,
+                        m.stats.max_hp,
+                    ));
+                }
+            }
+            FieldMenuPhase::ItemSelect { member, items, .. } => {
+                let member_data = &party_state.members[*member];
+                for &item in items {
+                    let count = member_data.inventory.count(item);
+                    if let Some(w) = item.as_weapon() {
+                        let equipped = member_data.equipment.weapon == Some(w);
+                        let equip_mark = if equipped { "E " } else { "" };
+                        self.cached_labels.push(format!(
+                            "{}{} ATK+{} x{}",
+                            equip_mark,
+                            item.name(),
+                            w.attack_bonus(),
+                            count
+                        ));
+                    } else {
+                        self.cached_labels
+                            .push(format!("{} x{}", item.name(), count));
+                    }
+                }
+            }
+            FieldMenuPhase::TargetSelect { candidates, .. } => {
+                for &idx in candidates {
+                    let m = &party_state.members[idx];
+                    self.cached_labels.push(format!(
+                        "{} HP:{}/{}",
+                        m.kind.name(),
+                        m.stats.hp,
+                        m.stats.max_hp,
+                    ));
+                }
+            }
+            FieldMenuPhase::ShowMessage { .. } => {}
+        }
+    }
+}
+
+impl CommandMenu for FieldMenuState {
+    fn menu_labels(&self) -> Vec<String> {
+        self.cached_labels.clone()
+    }
+
+    fn selected(&self) -> usize {
+        match &self.phase {
+            FieldMenuPhase::TopMenu { cursor }
+            | FieldMenuPhase::CasterSelect { cursor, .. }
+            | FieldMenuPhase::SpellSelect { cursor, .. }
+            | FieldMenuPhase::MemberSelect { cursor, .. }
+            | FieldMenuPhase::ItemSelect { cursor, .. }
+            | FieldMenuPhase::TargetSelect { cursor, .. } => *cursor,
+            FieldMenuPhase::ShowMessage { .. } => 0,
+        }
+    }
+
+    fn set_selected(&mut self, index: usize) {
+        match &mut self.phase {
+            FieldMenuPhase::TopMenu { cursor }
+            | FieldMenuPhase::CasterSelect { cursor, .. }
+            | FieldMenuPhase::SpellSelect { cursor, .. }
+            | FieldMenuPhase::MemberSelect { cursor, .. }
+            | FieldMenuPhase::ItemSelect { cursor, .. }
+            | FieldMenuPhase::TargetSelect { cursor, .. } => *cursor = index,
+            FieldMenuPhase::ShowMessage { .. } => {}
+        }
+    }
+
+    fn is_active(&self) -> bool {
+        !matches!(self.phase, FieldMenuPhase::ShowMessage { .. })
+    }
+
+    fn visible_items(&self) -> Option<usize> {
+        match &self.phase {
+            FieldMenuPhase::SpellSelect { .. } | FieldMenuPhase::ItemSelect { .. } => {
+                Some(VISIBLE_ITEMS)
+            }
+            _ => None,
+        }
+    }
+
+    fn is_disabled(&self, index: usize) -> bool {
+        self.disabled_indices.contains(&index)
+    }
 }
 
 /// フィールドメニューのUIルートマーカー
@@ -54,25 +199,8 @@ pub struct FieldMenuRoot;
 #[derive(Component)]
 pub struct FieldMenuTitle;
 
-/// フィールドメニューの選択肢アイテム
-#[derive(Component)]
-pub struct FieldMenuItem {
-    index: usize,
-}
-
 const MAX_MENU_ITEMS: usize = 16;
 const VISIBLE_ITEMS: usize = 6;
-const SELECTED_COLOR: Color = Color::srgb(1.0, 0.9, 0.2);
-const UNSELECTED_COLOR: Color = Color::srgb(0.8, 0.8, 0.8);
-const DISABLED_COLOR: Color = Color::srgb(0.4, 0.4, 0.4);
-
-/// フィールドメニューのスクロール上インジケータ
-#[derive(Component)]
-pub struct FieldMenuScrollUp;
-
-/// フィールドメニューのスクロール下インジケータ
-#[derive(Component)]
-pub struct FieldMenuScrollDown;
 
 pub struct FieldMenuPlugin;
 
@@ -84,20 +212,13 @@ impl Plugin for FieldMenuPlugin {
                 field_menu_input_system
                     .in_set(InputSystemSet::FieldMenuInput)
                     .after(InputSystemSet::MessageInput),
-                field_menu_display_system,
+                command_menu::command_menu_display_system::<FieldMenuState>,
+                field_menu_title_system,
             )
                 .chain()
                 .run_if(in_state(InField)),
         );
     }
-}
-
-fn scroll_offset(cursor: usize, total: usize, visible: usize) -> usize {
-    if total <= visible {
-        return 0;
-    }
-    let half = visible / 2;
-    cursor.saturating_sub(half).min(total - visible)
 }
 
 /// メニューUIをスポーンする
@@ -152,42 +273,42 @@ fn spawn_menu_ui(commands: &mut Commands, asset_server: &AssetServer) {
 
                     // ▲ スクロールインジケータ
                     menu_box.spawn((
-                        FieldMenuScrollUp,
+                        CommandMenuScrollUp,
                         Text::new("  ▲"),
                         TextFont {
                             font: font.clone(),
                             font_size: 14.0,
                             ..default()
                         },
-                        TextColor(UNSELECTED_COLOR),
+                        TextColor(Color::WHITE),
                         Visibility::Hidden,
                     ));
 
                     // メニューアイテム
                     for i in 0..MAX_MENU_ITEMS {
                         menu_box.spawn((
-                            FieldMenuItem { index: i },
+                            CommandMenuItem { index: i },
                             Text::new(""),
                             TextFont {
                                 font: font.clone(),
                                 font_size: 14.0,
                                 ..default()
                             },
-                            TextColor(UNSELECTED_COLOR),
+                            TextColor(Color::WHITE),
                             Visibility::Hidden,
                         ));
                     }
 
                     // ▼ スクロールインジケータ
                     menu_box.spawn((
-                        FieldMenuScrollDown,
+                        CommandMenuScrollDown,
                         Text::new("  ▼"),
                         TextFont {
                             font: font.clone(),
                             font_size: 14.0,
                             ..default()
                         },
-                        TextColor(UNSELECTED_COLOR),
+                        TextColor(Color::WHITE),
                         Visibility::Hidden,
                     ));
                 });
@@ -212,10 +333,7 @@ fn alive_member_indices(party_state: &PartyState) -> Vec<usize> {
         .collect()
 }
 
-fn close_menu(
-    commands: &mut Commands,
-    root_query: &Query<Entity, With<FieldMenuRoot>>,
-) {
+fn close_menu(commands: &mut Commands, root_query: &Query<Entity, With<FieldMenuRoot>>) {
     despawn_menu_ui(commands, root_query);
     commands.remove_resource::<FieldMenuState>();
     commands.remove_resource::<FieldMenuOpen>();
@@ -240,9 +358,10 @@ fn field_menu_input_system(
                 return;
             }
 
-            commands.insert_resource(FieldMenuState {
-                phase: FieldMenuPhase::TopMenu { cursor: 0 },
-            });
+            commands.insert_resource(FieldMenuState::new(
+                FieldMenuPhase::TopMenu { cursor: 0 },
+                &party_state,
+            ));
 
             spawn_menu_ui(&mut commands, &asset_server);
             commands.insert_resource(FieldMenuOpen);
@@ -254,29 +373,66 @@ fn field_menu_input_system(
 
     match state.phase.clone() {
         FieldMenuPhase::TopMenu { cursor } => {
-            handle_top_menu(&keyboard, &mut state, &party_state, &mut commands, &root_query, cursor);
+            handle_top_menu(
+                &keyboard,
+                &mut state,
+                &party_state,
+                &mut commands,
+                &root_query,
+                cursor,
+            );
         }
         FieldMenuPhase::CasterSelect { candidates, cursor } => {
             handle_caster_select(&keyboard, &mut state, &party_state, candidates, cursor);
         }
-        FieldMenuPhase::SpellSelect { caster, spells, cursor } => {
-            handle_spell_select(&keyboard, &mut state, &mut party_state, caster, spells, cursor);
+        FieldMenuPhase::SpellSelect {
+            caster,
+            spells,
+            cursor,
+        } => {
+            handle_spell_select(
+                &keyboard,
+                &mut state,
+                &mut party_state,
+                caster,
+                spells,
+                cursor,
+            );
         }
         FieldMenuPhase::MemberSelect { candidates, cursor } => {
             handle_member_select(&keyboard, &mut state, &party_state, candidates, cursor);
         }
-        FieldMenuPhase::ItemSelect { member, items, cursor } => {
-            handle_item_select(&keyboard, &mut state, &mut party_state, member, items, cursor);
+        FieldMenuPhase::ItemSelect {
+            member,
+            items,
+            cursor,
+        } => {
+            handle_item_select(
+                &keyboard,
+                &mut state,
+                &mut party_state,
+                member,
+                items,
+                cursor,
+            );
         }
-        FieldMenuPhase::TargetSelect { candidates, cursor, context } => {
+        FieldMenuPhase::TargetSelect {
+            candidates,
+            cursor,
+            context,
+        } => {
             handle_target_select(
-                &keyboard, &mut state, &mut party_state,
-                candidates, cursor, context,
+                &keyboard,
+                &mut state,
+                &mut party_state,
+                candidates,
+                cursor,
+                context,
             );
         }
         FieldMenuPhase::ShowMessage { .. } => {
             if input_ui::is_confirm_just_pressed(&keyboard) {
-                state.phase = FieldMenuPhase::TopMenu { cursor: 0 };
+                state.set_phase(FieldMenuPhase::TopMenu { cursor: 0 }, &party_state);
             }
             if input_ui::is_cancel_just_pressed(&keyboard) {
                 close_menu(&mut commands, &root_query);
@@ -310,11 +466,23 @@ fn handle_top_menu(
         if cursor == 0 {
             // じゅもん → CasterSelect
             let candidates = alive_member_indices(party_state);
-            state.phase = FieldMenuPhase::CasterSelect { candidates, cursor: 0 };
+            state.set_phase(
+                FieldMenuPhase::CasterSelect {
+                    candidates,
+                    cursor: 0,
+                },
+                party_state,
+            );
         } else {
             // どうぐ → MemberSelect
             let candidates = alive_member_indices(party_state);
-            state.phase = FieldMenuPhase::MemberSelect { candidates, cursor: 0 };
+            state.set_phase(
+                FieldMenuPhase::MemberSelect {
+                    candidates,
+                    cursor: 0,
+                },
+                party_state,
+            );
         }
     }
 }
@@ -333,26 +501,38 @@ fn handle_caster_select(
     if input_ui::is_down_just_pressed(keyboard) && cursor < count - 1 {
         cursor += 1;
     }
-    state.phase = FieldMenuPhase::CasterSelect { candidates: candidates.clone(), cursor };
+    state.phase = FieldMenuPhase::CasterSelect {
+        candidates: candidates.clone(),
+        cursor,
+    };
 
     if input_ui::is_cancel_just_pressed(keyboard) {
-        state.phase = FieldMenuPhase::TopMenu { cursor: 0 };
+        state.set_phase(FieldMenuPhase::TopMenu { cursor: 0 }, party_state);
         return;
     }
 
     if input_ui::is_confirm_just_pressed(keyboard) {
         let member_idx = candidates[cursor];
-        let spells = available_spells(party_state.members[member_idx].kind, party_state.members[member_idx].level);
+        let spells = available_spells(
+            party_state.members[member_idx].kind,
+            party_state.members[member_idx].level,
+        );
         if spells.is_empty() {
-            state.phase = FieldMenuPhase::ShowMessage {
-                message: "じゅもんを おぼえていない".to_string(),
-            };
+            state.set_phase(
+                FieldMenuPhase::ShowMessage {
+                    message: "じゅもんを おぼえていない".to_string(),
+                },
+                party_state,
+            );
         } else {
-            state.phase = FieldMenuPhase::SpellSelect {
-                caster: member_idx,
-                spells,
-                cursor: 0,
-            };
+            state.set_phase(
+                FieldMenuPhase::SpellSelect {
+                    caster: member_idx,
+                    spells,
+                    cursor: 0,
+                },
+                party_state,
+            );
         }
     }
 }
@@ -372,11 +552,21 @@ fn handle_spell_select(
     if input_ui::is_down_just_pressed(keyboard) && cursor < count - 1 {
         cursor += 1;
     }
-    state.phase = FieldMenuPhase::SpellSelect { caster, spells: spells.clone(), cursor };
+    state.phase = FieldMenuPhase::SpellSelect {
+        caster,
+        spells: spells.clone(),
+        cursor,
+    };
 
     if input_ui::is_cancel_just_pressed(keyboard) {
         let candidates = alive_member_indices(party_state);
-        state.phase = FieldMenuPhase::CasterSelect { candidates, cursor: 0 };
+        state.set_phase(
+            FieldMenuPhase::CasterSelect {
+                candidates,
+                cursor: 0,
+            },
+            party_state,
+        );
         return;
     }
 
@@ -389,24 +579,30 @@ fn handle_spell_select(
         }
 
         if !spell.is_usable_in_field() {
-            state.phase = FieldMenuPhase::ShowMessage {
-                message: "フィールドでは つかえない".to_string(),
-            };
+            state.set_phase(
+                FieldMenuPhase::ShowMessage {
+                    message: "フィールドでは つかえない".to_string(),
+                },
+                party_state,
+            );
         } else if spell.target_type() == SpellTarget::AllAllies {
             // 全体回復: ターゲット選択スキップ、全味方に一括実行
             execute_aoe_heal(state, party_state, caster, spell);
         } else {
             // 単体回復: ターゲット選択へ
             let target_candidates = alive_member_indices(party_state);
-            state.phase = FieldMenuPhase::TargetSelect {
-                candidates: target_candidates,
-                cursor: 0,
-                context: TargetContext::Spell {
-                    caster,
-                    spells,
-                    spell_cursor: cursor,
+            state.set_phase(
+                FieldMenuPhase::TargetSelect {
+                    candidates: target_candidates,
+                    cursor: 0,
+                    context: TargetContext::Spell {
+                        caster,
+                        spells,
+                        spell_cursor: cursor,
+                    },
                 },
-            };
+                party_state,
+            );
         }
     }
 }
@@ -425,10 +621,13 @@ fn handle_member_select(
     if input_ui::is_down_just_pressed(keyboard) && cursor < count - 1 {
         cursor += 1;
     }
-    state.phase = FieldMenuPhase::MemberSelect { candidates: candidates.clone(), cursor };
+    state.phase = FieldMenuPhase::MemberSelect {
+        candidates: candidates.clone(),
+        cursor,
+    };
 
     if input_ui::is_cancel_just_pressed(keyboard) {
-        state.phase = FieldMenuPhase::TopMenu { cursor: 0 };
+        state.set_phase(FieldMenuPhase::TopMenu { cursor: 0 }, party_state);
         return;
     }
 
@@ -436,15 +635,21 @@ fn handle_member_select(
         let member_idx = candidates[cursor];
         let items = party_state.members[member_idx].inventory.owned_items();
         if items.is_empty() {
-            state.phase = FieldMenuPhase::ShowMessage {
-                message: "もちものが ない".to_string(),
-            };
+            state.set_phase(
+                FieldMenuPhase::ShowMessage {
+                    message: "もちものが ない".to_string(),
+                },
+                party_state,
+            );
         } else {
-            state.phase = FieldMenuPhase::ItemSelect {
-                member: member_idx,
-                items,
-                cursor: 0,
-            };
+            state.set_phase(
+                FieldMenuPhase::ItemSelect {
+                    member: member_idx,
+                    items,
+                    cursor: 0,
+                },
+                party_state,
+            );
         }
     }
 }
@@ -464,11 +669,21 @@ fn handle_item_select(
     if input_ui::is_down_just_pressed(keyboard) && cursor < count - 1 {
         cursor += 1;
     }
-    state.phase = FieldMenuPhase::ItemSelect { member, items: items.clone(), cursor };
+    state.phase = FieldMenuPhase::ItemSelect {
+        member,
+        items: items.clone(),
+        cursor,
+    };
 
     if input_ui::is_cancel_just_pressed(keyboard) {
         let candidates = alive_member_indices(party_state);
-        state.phase = FieldMenuPhase::MemberSelect { candidates, cursor: 0 };
+        state.set_phase(
+            FieldMenuPhase::MemberSelect {
+                candidates,
+                cursor: 0,
+            },
+            party_state,
+        );
         return;
     }
 
@@ -477,15 +692,18 @@ fn handle_item_select(
         match item.effect() {
             ItemEffect::Heal { .. } => {
                 let target_candidates = alive_member_indices(party_state);
-                state.phase = FieldMenuPhase::TargetSelect {
-                    candidates: target_candidates,
-                    cursor: 0,
-                    context: TargetContext::Item {
-                        member,
-                        items,
-                        item_cursor: cursor,
+                state.set_phase(
+                    FieldMenuPhase::TargetSelect {
+                        candidates: target_candidates,
+                        cursor: 0,
+                        context: TargetContext::Item {
+                            member,
+                            items,
+                            item_cursor: cursor,
+                        },
                     },
-                };
+                    party_state,
+                );
             }
             ItemEffect::Equip => {
                 let weapon = item.as_weapon().expect("Equip effect must be Weapon");
@@ -496,18 +714,24 @@ fn handle_item_select(
                 if let Some(old_w) = old_weapon {
                     msg.push_str(&format!("\n{}を はずした", old_w.name()));
                 }
-                state.phase = FieldMenuPhase::ShowMessage { message: msg };
+                state.set_phase(
+                    FieldMenuPhase::ShowMessage { message: msg },
+                    party_state,
+                );
             }
             ItemEffect::KeyItem | ItemEffect::Material => {
                 let member_name = party_state.members[member].kind.name();
-                state.phase = FieldMenuPhase::ShowMessage {
-                    message: format!(
-                        "{}は {}を しらべた。\n{}",
-                        member_name,
-                        item.name(),
-                        item.description()
-                    ),
-                };
+                state.set_phase(
+                    FieldMenuPhase::ShowMessage {
+                        message: format!(
+                            "{}は {}を しらべた。\n{}",
+                            member_name,
+                            item.name(),
+                            item.description()
+                        ),
+                    },
+                    party_state,
+                );
             }
         }
     }
@@ -538,9 +762,12 @@ fn execute_aoe_heal(
         lines.push(format!("{}の HPが {}かいふく！", target_name, amount));
     }
 
-    state.phase = FieldMenuPhase::ShowMessage {
-        message: lines.join("\n"),
-    };
+    state.set_phase(
+        FieldMenuPhase::ShowMessage {
+            message: lines.join("\n"),
+        },
+        party_state,
+    );
 }
 
 fn handle_target_select(
@@ -566,11 +793,33 @@ fn handle_target_select(
 
     if input_ui::is_cancel_just_pressed(keyboard) {
         match context {
-            TargetContext::Item { member, items, item_cursor } => {
-                state.phase = FieldMenuPhase::ItemSelect { member, items, cursor: item_cursor };
+            TargetContext::Item {
+                member,
+                items,
+                item_cursor,
+            } => {
+                state.set_phase(
+                    FieldMenuPhase::ItemSelect {
+                        member,
+                        items,
+                        cursor: item_cursor,
+                    },
+                    party_state,
+                );
             }
-            TargetContext::Spell { caster, spells, spell_cursor } => {
-                state.phase = FieldMenuPhase::SpellSelect { caster, spells, cursor: spell_cursor };
+            TargetContext::Spell {
+                caster,
+                spells,
+                spell_cursor,
+            } => {
+                state.set_phase(
+                    FieldMenuPhase::SpellSelect {
+                        caster,
+                        spells,
+                        cursor: spell_cursor,
+                    },
+                    party_state,
+                );
             }
         }
         return;
@@ -580,7 +829,11 @@ fn handle_target_select(
         let target_idx = candidates[cursor];
 
         let message = match context {
-            TargetContext::Item { member, ref items, item_cursor } => {
+            TargetContext::Item {
+                member,
+                ref items,
+                item_cursor,
+            } => {
                 let item = items[item_cursor];
                 if let ItemEffect::Heal { power } = item.effect() {
                     let used = party_state.members[member].inventory.use_item(item);
@@ -607,7 +860,11 @@ fn handle_target_select(
                     return;
                 }
             }
-            TargetContext::Spell { caster, ref spells, spell_cursor } => {
+            TargetContext::Spell {
+                caster,
+                ref spells,
+                spell_cursor,
+            } => {
                 let spell = spells[spell_cursor];
 
                 let consumed = party_state.members[caster].stats.use_mp(spell.mp_cost());
@@ -632,26 +889,21 @@ fn handle_target_select(
                 )
             }
         };
-        state.phase = FieldMenuPhase::ShowMessage { message };
+        state.set_phase(
+            FieldMenuPhase::ShowMessage { message },
+            party_state,
+        );
     }
 }
 
-/// フィールドメニューの表示更新システム
-#[allow(clippy::type_complexity)]
-fn field_menu_display_system(
+/// フィールドメニューのタイトル・メッセージ表示システム
+fn field_menu_title_system(
     state: Option<Res<FieldMenuState>>,
     party_state: Res<PartyState>,
-    mut title_query: Query<&mut Text, (With<FieldMenuTitle>, Without<FieldMenuItem>, Without<FieldMenuScrollUp>, Without<FieldMenuScrollDown>)>,
-    mut item_query: Query<
-        (&FieldMenuItem, &mut Text, &mut TextColor, &mut Visibility, &mut Node),
-        (Without<FieldMenuTitle>, Without<FieldMenuScrollUp>, Without<FieldMenuScrollDown>),
-    >,
-    mut scroll_up_query: Query<(&mut Visibility, &mut Node), (With<FieldMenuScrollUp>, Without<FieldMenuTitle>, Without<FieldMenuItem>, Without<FieldMenuScrollDown>)>,
-    mut scroll_down_query: Query<(&mut Visibility, &mut Node), (With<FieldMenuScrollDown>, Without<FieldMenuTitle>, Without<FieldMenuItem>, Without<FieldMenuScrollUp>)>,
+    mut title_query: Query<&mut Text, (With<FieldMenuTitle>, Without<CommandMenuItem>)>,
 ) {
     let Some(state) = state else { return };
 
-    // タイトル更新
     for mut text in &mut title_query {
         match &state.phase {
             FieldMenuPhase::TopMenu { .. } => {
@@ -677,181 +929,6 @@ fn field_menu_display_system(
             FieldMenuPhase::ShowMessage { message } => {
                 **text = message.clone();
             }
-        }
-    }
-
-    // メニューアイテム更新
-    for (item, mut text, mut color, mut vis, mut node) in &mut item_query {
-        match &state.phase {
-            FieldMenuPhase::TopMenu { cursor } => {
-                let labels = ["じゅもん", "どうぐ"];
-                if item.index < labels.len() {
-                    let is_selected = item.index == *cursor;
-                    let prefix = if is_selected { "> " } else { "  " };
-                    **text = format!("{}{}", prefix, labels[item.index]);
-                    *color = if is_selected {
-                        TextColor(SELECTED_COLOR)
-                    } else {
-                        TextColor(UNSELECTED_COLOR)
-                    };
-                    *vis = Visibility::Inherited;
-                } else {
-                    *vis = Visibility::Hidden;
-                }
-            }
-            FieldMenuPhase::CasterSelect { candidates, cursor } => {
-                if item.index < candidates.len() {
-                    let member_idx = candidates[item.index];
-                    let member = &party_state.members[member_idx];
-                    let is_selected = item.index == *cursor;
-                    let prefix = if is_selected { "> " } else { "  " };
-                    **text = format!(
-                        "{}{} HP:{}/{} MP:{}/{}",
-                        prefix,
-                        member.kind.name(),
-                        member.stats.hp,
-                        member.stats.max_hp,
-                        member.stats.mp,
-                        member.stats.max_mp,
-                    );
-                    *color = if is_selected {
-                        TextColor(SELECTED_COLOR)
-                    } else {
-                        TextColor(UNSELECTED_COLOR)
-                    };
-                    *vis = Visibility::Inherited;
-                } else {
-                    *vis = Visibility::Hidden;
-                }
-            }
-            FieldMenuPhase::SpellSelect { caster, spells, cursor } => {
-                let offset = scroll_offset(*cursor, spells.len(), VISIBLE_ITEMS);
-                let data_index = offset + item.index;
-                if item.index < VISIBLE_ITEMS && data_index < spells.len() {
-                    let spell = spells[data_index];
-                    let is_selected = data_index == *cursor;
-                    let caster_mp = party_state.members[*caster].stats.mp;
-                    let can_use = caster_mp >= spell.mp_cost();
-                    let prefix = if is_selected { "> " } else { "  " };
-                    **text = format!("{}{} ({})", prefix, spell.name(), spell.mp_cost());
-                    *color = if !can_use {
-                        TextColor(DISABLED_COLOR)
-                    } else if is_selected {
-                        TextColor(SELECTED_COLOR)
-                    } else {
-                        TextColor(UNSELECTED_COLOR)
-                    };
-                    *vis = Visibility::Inherited;
-                } else {
-                    *vis = Visibility::Hidden;
-                }
-            }
-            FieldMenuPhase::MemberSelect { candidates, cursor } => {
-                if item.index < candidates.len() {
-                    let member_idx = candidates[item.index];
-                    let member = &party_state.members[member_idx];
-                    let is_selected = item.index == *cursor;
-                    let prefix = if is_selected { "> " } else { "  " };
-                    **text = format!(
-                        "{}{} HP:{}/{}",
-                        prefix,
-                        member.kind.name(),
-                        member.stats.hp,
-                        member.stats.max_hp,
-                    );
-                    *color = if is_selected {
-                        TextColor(SELECTED_COLOR)
-                    } else {
-                        TextColor(UNSELECTED_COLOR)
-                    };
-                    *vis = Visibility::Inherited;
-                } else {
-                    *vis = Visibility::Hidden;
-                }
-            }
-            FieldMenuPhase::ItemSelect { member, items, cursor } => {
-                let offset = scroll_offset(*cursor, items.len(), VISIBLE_ITEMS);
-                let data_index = offset + item.index;
-                if item.index < VISIBLE_ITEMS && data_index < items.len() {
-                    let item_kind = items[data_index];
-                    let count = party_state.members[*member]
-                        .inventory
-                        .count(item_kind);
-                    let is_selected = data_index == *cursor;
-                    let prefix = if is_selected { "> " } else { "  " };
-                    if let Some(w) = item_kind.as_weapon() {
-                        let equipped = party_state.members[*member].equipment.weapon == Some(w);
-                        let equip_mark = if equipped { "E " } else { "" };
-                        **text = format!("{}{}{} ATK+{} x{}", prefix, equip_mark, item_kind.name(), w.attack_bonus(), count);
-                    } else {
-                        **text = format!("{}{} x{}", prefix, item_kind.name(), count);
-                    }
-                    *color = if is_selected {
-                        TextColor(SELECTED_COLOR)
-                    } else {
-                        TextColor(UNSELECTED_COLOR)
-                    };
-                    *vis = Visibility::Inherited;
-                } else {
-                    *vis = Visibility::Hidden;
-                }
-            }
-            FieldMenuPhase::TargetSelect { candidates, cursor, .. } => {
-                if item.index < candidates.len() {
-                    let member_idx = candidates[item.index];
-                    let member = &party_state.members[member_idx];
-                    let is_selected = item.index == *cursor;
-                    let prefix = if is_selected { "> " } else { "  " };
-                    **text = format!(
-                        "{}{} HP:{}/{}",
-                        prefix,
-                        member.kind.name(),
-                        member.stats.hp,
-                        member.stats.max_hp,
-                    );
-                    *color = if is_selected {
-                        TextColor(SELECTED_COLOR)
-                    } else {
-                        TextColor(UNSELECTED_COLOR)
-                    };
-                    *vis = Visibility::Inherited;
-                } else {
-                    *vis = Visibility::Hidden;
-                }
-            }
-            FieldMenuPhase::ShowMessage { .. } => {
-                *vis = Visibility::Hidden;
-            }
-        }
-        // Display::NoneでレイアウトからもHiddenアイテムを除外
-        node.display = if *vis == Visibility::Hidden { Display::None } else { Display::DEFAULT };
-    }
-
-    // スクロールインジケータ更新
-    let (scroll_total, scroll_cursor) = match &state.phase {
-        FieldMenuPhase::SpellSelect { spells, cursor, .. } => (spells.len(), *cursor),
-        FieldMenuPhase::ItemSelect { items, cursor, .. } => (items.len(), *cursor),
-        _ => (0, 0),
-    };
-
-    if scroll_total > VISIBLE_ITEMS {
-        let offset = scroll_offset(scroll_cursor, scroll_total, VISIBLE_ITEMS);
-        for (mut vis, mut node) in &mut scroll_up_query {
-            *vis = if offset > 0 { Visibility::Inherited } else { Visibility::Hidden };
-            node.display = if *vis == Visibility::Hidden { Display::None } else { Display::DEFAULT };
-        }
-        for (mut vis, mut node) in &mut scroll_down_query {
-            *vis = if offset + VISIBLE_ITEMS < scroll_total { Visibility::Inherited } else { Visibility::Hidden };
-            node.display = if *vis == Visibility::Hidden { Display::None } else { Display::DEFAULT };
-        }
-    } else {
-        for (mut vis, mut node) in &mut scroll_up_query {
-            *vis = Visibility::Hidden;
-            node.display = Display::None;
-        }
-        for (mut vis, mut node) in &mut scroll_down_query {
-            *vis = Visibility::Hidden;
-            node.display = Display::None;
         }
     }
 }

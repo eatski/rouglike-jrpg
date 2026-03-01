@@ -1,3 +1,4 @@
+pub mod command_menu;
 pub mod menu_style;
 
 use bevy::prelude::*;
