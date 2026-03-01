@@ -107,7 +107,7 @@ pub fn check_chest_system(
             // アイテム/武器の取得処理
             let chest_item = match treasure.content {
                 TreasureContent::Item(item) => item,
-                TreasureContent::Weapon(weapon) => party::ItemKind::Weapon(weapon),
+                TreasureContent::Weapon(weapon) => item::ItemKind::Weapon(weapon),
             };
 
             // 先頭メンバーから順にインベントリ追加を試みる

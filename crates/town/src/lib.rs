@@ -1,4 +1,5 @@
-use party::{Inventory, ItemKind, PartyMember, PartyMemberKind, WeaponKind};
+use item::{Inventory, ItemKind, WeaponKind};
+use party::{PartyMember, PartyMemberKind};
 use terrain::{Structure, MAP_HEIGHT, MAP_WIDTH};
 
 /// 宿屋の宿泊料金
@@ -701,7 +702,7 @@ mod tests {
 
     #[test]
     fn buy_weapon_item_success() {
-        use party::{Inventory, WeaponKind};
+        use item::{Inventory, WeaponKind};
         let mut inv = Inventory::new();
         let result = buy_item(ItemKind::Weapon(WeaponKind::WoodenSword), 100, &mut inv);
         assert_eq!(
@@ -715,7 +716,7 @@ mod tests {
 
     #[test]
     fn buy_weapon_item_insufficient_gold() {
-        use party::{Inventory, WeaponKind};
+        use item::{Inventory, WeaponKind};
         let mut inv = Inventory::new();
         let result = buy_item(ItemKind::Weapon(WeaponKind::IronSword), 10, &mut inv);
         assert_eq!(result, BuyResult::InsufficientGold);
@@ -724,7 +725,7 @@ mod tests {
 
     #[test]
     fn buy_weapon_item_inventory_full() {
-        use party::{Inventory, WeaponKind};
+        use item::{Inventory, WeaponKind};
         let mut inv = Inventory::new();
         inv.add(ItemKind::Herb, 6); // 容量いっぱい
         let result = buy_item(ItemKind::Weapon(WeaponKind::IronSword), 100, &mut inv);

@@ -2,7 +2,8 @@ use bevy::prelude::*;
 
 use std::collections::{HashMap, HashSet};
 
-use party::{default_candidates, initial_party, Inventory, ItemKind, PartyMember, RecruitCandidate, BAG_CAPACITY};
+use item::{Inventory, ItemKind, BAG_CAPACITY};
+use party::{default_candidates, initial_party, PartyMember, RecruitCandidate};
 
 impl PartyState {
     /// パーティ全体（メンバー+ふくろ）で指定アイテムを持っているか

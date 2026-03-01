@@ -172,6 +172,7 @@ name = "app-state"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "item",
  "party",
 ]
 
@@ -326,6 +327,7 @@ checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 name = "battle"
 version = "0.1.0"
 dependencies = [
+ "item",
  "party",
  "spell",
 ]
@@ -339,6 +341,7 @@ dependencies = [
  "bevy",
  "hud-ui",
  "input-ui",
+ "item",
  "party",
  "rand 0.8.5",
  "spell",
@@ -1791,6 +1794,7 @@ dependencies = [
  "field-core",
  "field-walk-ui",
  "input-ui",
+ "item",
  "party",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
@@ -2437,6 +2441,7 @@ dependencies = [
  "bevy",
  "hud-ui",
  "input-ui",
+ "item",
  "party",
  "rand 0.8.5",
  "spell",
@@ -2965,6 +2970,7 @@ dependencies = [
  "field-core",
  "hud-ui",
  "input-ui",
+ "item",
  "party",
 ]
 
@@ -4363,6 +4369,7 @@ dependencies = [
  "field-walk",
  "field-walk-ui",
  "hokora-ui",
+ "item",
  "party",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
@@ -4516,7 +4523,7 @@ dependencies = [
  "app-state",
  "bevy",
  "hud-ui",
- "party",
+ "item",
  "screenshot-common",
  "town-ui",
 ]
@@ -4979,6 +4986,7 @@ dependencies = [
 name = "town"
 version = "0.1.0"
 dependencies = [
+ "item",
  "party",
  "terrain",
 ]
@@ -4992,6 +5000,7 @@ dependencies = [
  "field-core",
  "hud-ui",
  "input-ui",
+ "item",
  "party",
  "rand 0.8.5",
  "town",

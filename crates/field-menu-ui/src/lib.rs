@@ -6,7 +6,7 @@ use hud_ui::command_menu::{
 };
 use input_ui::InputSystemSet;
 use party::available_spells;
-use party::{Inventory, ItemEffect, ItemKind, BAG_CAPACITY, BAG_MEMBER_INDEX};
+use item::{Inventory, ItemEffect, ItemKind, BAG_CAPACITY, BAG_MEMBER_INDEX};
 use spell::{calculate_heal_amount, SpellKind, SpellTarget};
 
 /// ターゲット選択の文脈（呪文 or アイテム）

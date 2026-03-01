@@ -19,6 +19,7 @@ field-walk-ui = { path = "crates/field-walk-ui" }
 
 [dev-dependencies]
 rand_chacha = "0.3"
+item = { path = "crates/item" }
 party = { path = "crates/party" }
 cave = { path = "crates/cave" }
 town = { path = "crates/town" }

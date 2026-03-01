@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use app_state::PartyState;
-use party::ItemKind;
+use item::ItemKind;
 use screenshot_common::{setup_camera, ScreenshotAppBuilder};
 use town_ui::{
     setup_town_scene_with_config, town_extra_display_system, ShopGoods, TownMenuPhase,

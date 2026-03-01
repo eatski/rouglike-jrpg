@@ -8,6 +8,7 @@ bevy = "0.18"
 rand = "0.8"
 battle = { path = "../battle" }
 spell = { path = "../spell" }
+item = { path = "../item" }
 party = { path = "../party" }
 app-state = { path = "../app-state" }
 input-ui = { path = "../input-ui" }
