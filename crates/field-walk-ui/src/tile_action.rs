@@ -41,7 +41,7 @@ pub fn check_tile_action_system(
                 next_state.set(SceneState::Hokora);
                 return;
             }
-            TileAction::None => {}
+            TileAction::ExitCave | TileAction::None => {}
         }
     }
 }

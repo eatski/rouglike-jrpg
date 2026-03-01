@@ -115,20 +115,10 @@ pub fn apply_input_move(
     }
 }
 
-/// SmoothMove完了後のPendingMove処理結果
-pub enum SimpleMoveDone {
-    /// PendingMoveが成功 → 新しいSmoothMove開始
-    PendingMoved,
-    /// PendingMoveがブロック → バウンス開始
-    PendingBlocked,
-    /// PendingMoveなし → MovementLocked解除済み
-    Arrived,
-}
-
 /// SmoothMove完了後のPendingMove処理（船なし版）。
 ///
 /// PendingMoveがあれば2回目の移動を試行し、なければMovementLockedを解除する。
-/// TileEnteredEventは呼び出し元で発火すること（梯子等のシーン固有チェックのため）。
+/// 戻り値: プレイヤーがタイルに到着したか（true=到着、false=PendingMove成功で移動中）。
 pub fn process_simple_move_completed(
     commands: &mut Commands,
     entity: Entity,
@@ -137,17 +127,18 @@ pub fn process_simple_move_completed(
     active_map: &ActiveMap,
     moved_events: &mut MessageWriter<PlayerMovedEvent>,
     blocked_events: &mut MessageWriter<MovementBlockedEvent>,
-) -> SimpleMoveDone {
+) -> bool {
     if let Some(pending) = pending_move {
         let (dx, dy) = pending.direction;
         commands.entity(entity).remove::<PendingMove>();
-        match apply_simple_move(entity, tile_pos, dx, dy, active_map, moved_events, blocked_events) {
-            ExecuteMoveResult::Success => SimpleMoveDone::PendingMoved,
-            ExecuteMoveResult::Blocked => SimpleMoveDone::PendingBlocked,
-        }
+        // PendingMoveがブロック → 1回目の移動先に到着済み
+        matches!(
+            apply_simple_move(entity, tile_pos, dx, dy, active_map, moved_events, blocked_events),
+            ExecuteMoveResult::Blocked
+        )
     } else {
         commands.entity(entity).remove::<MovementLocked>();
-        SimpleMoveDone::Arrived
+        true
     }
 }
 

@@ -3,12 +3,12 @@ use bevy::prelude::*;
 use cave::TreasureContent;
 use terrain::Structure;
 
-use app_state::{BossBattlePending, OpenedChests, PartyState, SceneState};
+use app_state::{BossBattlePending, OpenedChests, PartyState};
 use field_core::{ActiveMap, Player, TilePosition};
 use field_walk_ui::{
-    apply_input_move, process_movement_input, process_simple_move_completed, SimpleMoveDone,
+    apply_input_move, process_movement_input,
     MovementBlockedEvent, MovementLocked, MovementState,
-    PendingMove, PlayerMovedEvent, TileEnteredEvent,
+    PlayerMovedEvent, TileEnteredEvent,
 };
 use app_state::FieldMenuOpen;
 
@@ -60,56 +60,6 @@ pub fn cave_player_movement(
         &mut commands, entity, &mut tile_pos, &input,
         &active_map, &mut moved_events, &mut blocked_events,
     );
-}
-
-/// 洞窟でのSmoothMove完了後の処理
-///
-/// field-walk-uiの共通ロジックでPendingMoveを処理し、梯子判定を追加する。
-#[allow(clippy::too_many_arguments, clippy::type_complexity)]
-pub fn handle_cave_move_completed(
-    mut commands: Commands,
-    mut move_state: ResMut<MovementState>,
-    active_map: Res<ActiveMap>,
-    mut query: Query<
-        (
-            Entity,
-            &mut TilePosition,
-            Option<&PendingMove>,
-        ),
-        With<Player>,
-    >,
-    mut moved_events: MessageWriter<PlayerMovedEvent>,
-    mut blocked_events: MessageWriter<MovementBlockedEvent>,
-    mut tile_entered_events: MessageWriter<TileEnteredEvent>,
-    mut next_state: ResMut<NextState<SceneState>>,
-) {
-    if move_state.move_just_completed.take().is_none() {
-        return;
-    }
-    let Ok((entity, mut tile_pos, pending_move)) = query.single_mut() else {
-        return;
-    };
-
-    let result = process_simple_move_completed(
-        &mut commands, entity, &mut tile_pos, pending_move,
-        &active_map, &mut moved_events, &mut blocked_events,
-    );
-
-    match result {
-        SimpleMoveDone::Arrived | SimpleMoveDone::PendingBlocked => {
-            // 梯子判定: 到着時とPendingMoveブロック時に確認
-            if tile_pos.x < active_map.width && tile_pos.y < active_map.height
-                && active_map.structure_at(tile_pos.x, tile_pos.y) == Structure::Ladder
-            {
-                next_state.set(SceneState::Exploring);
-                return;
-            }
-            if matches!(result, SimpleMoveDone::Arrived) {
-                tile_entered_events.write(TileEnteredEvent { entity });
-            }
-        }
-        SimpleMoveDone::PendingMoved => {}
-    }
 }
 
 /// 宝箱取得システム: プレイヤーが宝箱タイルに入ったらアイテムを取得
