@@ -59,10 +59,10 @@ pub fn cave_player_movement(
     if let ExecuteMoveResult::Success = apply_simple_move(
         entity, &mut tile_pos, input.first_dx, input.first_dy,
         &active_map, &mut moved_events, &mut blocked_events,
-    ) {
-        if let Some(dir) = input.pending_direction {
-            commands.entity(entity).insert(PendingMove { direction: dir });
-        }
+    )
+        && let Some(dir) = input.pending_direction
+    {
+        commands.entity(entity).insert(PendingMove { direction: dir });
     }
 }
 

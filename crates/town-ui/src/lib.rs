@@ -21,7 +21,7 @@ impl Plugin for TownPlugin {
                 Update,
                 (
                     town_input_system,
-                    menu_style::menu_display_system::<TownResource>,
+                    menu_style::scene_menu_display_system::<TownResource>,
                     town_extra_display_system,
                     hud_ui::update_hud,
                 )

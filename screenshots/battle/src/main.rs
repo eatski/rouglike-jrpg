@@ -3,7 +3,8 @@ use bevy::prelude::*;
 use app_state::PartyState;
 use battle::Enemy;
 use battle_ui::{
-    battle_display_system, setup_battle_scene_with_config, BattlePhase, BattleSceneConfig,
+    battle_status_display_system, battle_update_menu_cache, setup_battle_scene_with_config,
+    BattlePhase, BattleSceneConfig, BattleUIState,
 };
 use screenshot_common::{setup_camera, ScreenshotAppBuilder};
 
@@ -45,6 +46,14 @@ fn main() {
             Startup,
             (setup_camera, setup_battle_scene_with_config).chain(),
         )
-        .add_systems(Update, battle_display_system)
+        .add_systems(
+            Update,
+            (
+                battle_update_menu_cache,
+                hud_ui::command_menu::command_menu_display_system::<BattleUIState>,
+                battle_status_display_system,
+            )
+                .chain(),
+        )
         .run();
 }

@@ -1,10 +1,8 @@
 use bevy::prelude::*;
 
-use party::ItemEffect;
-
 use super::scene::{
     enemy_display_names, BattleGameState, BattlePhase, BattleSceneRoot, BattleUIState,
-    CommandScrollDown, CommandScrollUp, EnemySprite,
+    EnemySprite,
 };
 
 /// 敵名ラベルのマーカー
@@ -20,12 +18,6 @@ pub struct MessageText;
 /// パーティメンバーHP表示テキストのマーカー
 #[derive(Component)]
 pub struct PartyMemberHpText {
-    pub index: usize,
-}
-
-/// コマンドカーソルのマーカー（indexでどのコマンドかを識別）
-#[derive(Component)]
-pub struct CommandCursor {
     pub index: usize,
 }
 
@@ -64,35 +56,31 @@ fn hp_bar_color(ratio: f32) -> Color {
     }
 }
 
-const COMMAND_COLOR_SELECTED: Color = Color::srgb(1.0, 0.9, 0.2);
-const COMMAND_COLOR_UNSELECTED: Color = Color::srgb(0.6, 0.6, 0.6);
-const COMMAND_COLOR_DISABLED: Color = Color::srgb(0.35, 0.35, 0.35);
-const VISIBLE_ITEMS: usize = 6;
+/// 味方ターゲット選択時のハイライト色
+const ALLY_TARGET_HIGHLIGHT: Color = Color::srgb(1.0, 0.9, 0.2);
 
-fn scroll_offset(cursor: usize, total: usize, visible: usize) -> usize {
-    if total <= visible {
-        return 0;
-    }
-    let half = visible / 2;
-    cursor.saturating_sub(half).min(total - visible)
+/// CommandMenuキャッシュ更新システム（command_menu_display_systemの前に実行）
+pub fn battle_update_menu_cache(
+    game_state: Res<BattleGameState>,
+    mut ui_state: ResMut<BattleUIState>,
+) {
+    ui_state.rebuild_cache(&game_state);
 }
 
-/// 戦闘画面の表示を更新するシステム
+/// 戦闘画面のステータス表示を更新するシステム
+/// コマンド/呪文/アイテムリスト表示は command_menu_display_system に委譲
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
-pub fn battle_display_system(
+pub fn battle_status_display_system(
     game_state: Res<BattleGameState>,
     ui_state: Res<BattleUIState>,
-    mut enemy_name_query: Query<(&EnemyNameLabel, &mut Text, &mut Visibility), (Without<MessageText>, Without<PartyMemberHpText>, Without<CommandCursor>, Without<EnemySprite>, Without<TargetCursor>, Without<PartyMemberMpText>, Without<PartyMemberNameText>)>,
-    mut enemy_sprite_query: Query<(&EnemySprite, &mut Visibility), (Without<EnemyNameLabel>, Without<MessageText>, Without<PartyMemberHpText>, Without<CommandCursor>, Without<TargetCursor>, Without<PartyMemberMpText>, Without<PartyMemberNameText>)>,
-    mut message_query: Query<&mut Text, (With<MessageText>, Without<EnemyNameLabel>, Without<PartyMemberHpText>, Without<CommandCursor>, Without<PartyMemberMpText>, Without<PartyMemberNameText>)>,
-    mut party_hp_query: Query<(&PartyMemberHpText, &mut Text), (Without<EnemyNameLabel>, Without<MessageText>, Without<CommandCursor>, Without<PartyMemberMpText>, Without<PartyMemberNameText>)>,
-    mut party_mp_query: Query<(&PartyMemberMpText, &mut Text), (Without<EnemyNameLabel>, Without<MessageText>, Without<CommandCursor>, Without<PartyMemberHpText>, Without<PartyMemberNameText>)>,
-    mut party_name_query: Query<(&PartyMemberNameText, &mut Text, &mut TextColor), (Without<EnemyNameLabel>, Without<MessageText>, Without<CommandCursor>, Without<PartyMemberHpText>, Without<PartyMemberMpText>)>,
+    mut enemy_name_query: Query<(&EnemyNameLabel, &mut Text, &mut Visibility), (Without<MessageText>, Without<PartyMemberHpText>, Without<EnemySprite>, Without<TargetCursor>, Without<PartyMemberMpText>, Without<PartyMemberNameText>)>,
+    mut enemy_sprite_query: Query<(&EnemySprite, &mut Visibility), (Without<EnemyNameLabel>, Without<MessageText>, Without<PartyMemberHpText>, Without<TargetCursor>, Without<PartyMemberMpText>, Without<PartyMemberNameText>)>,
+    mut message_query: Query<&mut Text, (With<MessageText>, Without<EnemyNameLabel>, Without<PartyMemberHpText>, Without<PartyMemberMpText>, Without<PartyMemberNameText>)>,
+    mut party_hp_query: Query<(&PartyMemberHpText, &mut Text), (Without<EnemyNameLabel>, Without<MessageText>, Without<PartyMemberMpText>, Without<PartyMemberNameText>)>,
+    mut party_mp_query: Query<(&PartyMemberMpText, &mut Text), (Without<EnemyNameLabel>, Without<MessageText>, Without<PartyMemberHpText>, Without<PartyMemberNameText>)>,
+    mut party_name_query: Query<(&PartyMemberNameText, &mut Text, &mut TextColor), (Without<EnemyNameLabel>, Without<MessageText>, Without<PartyMemberHpText>, Without<PartyMemberMpText>)>,
     mut party_bar_query: Query<(&PartyMemberHpBarFill, &mut Node, &mut BackgroundColor)>,
-    mut command_query: Query<(&CommandCursor, &mut Text, &mut TextColor, &mut Visibility, &mut Node), (Without<EnemyNameLabel>, Without<MessageText>, Without<PartyMemberHpText>, Without<PartyMemberMpText>, Without<PartyMemberNameText>, Without<CommandScrollUp>, Without<CommandScrollDown>, Without<PartyMemberHpBarFill>)>,
-    mut target_cursor_query: Query<(&TargetCursor, &mut Visibility), (Without<EnemySprite>, Without<EnemyNameLabel>, Without<CommandCursor>, Without<CommandScrollUp>, Without<CommandScrollDown>)>,
-    mut cmd_scroll_up_query: Query<(&mut Visibility, &mut Node), (With<CommandScrollUp>, Without<CommandCursor>, Without<CommandScrollDown>, Without<EnemyNameLabel>, Without<EnemySprite>, Without<TargetCursor>, Without<PartyMemberHpBarFill>)>,
-    mut cmd_scroll_down_query: Query<(&mut Visibility, &mut Node), (With<CommandScrollDown>, Without<CommandCursor>, Without<CommandScrollUp>, Without<EnemyNameLabel>, Without<EnemySprite>, Without<TargetCursor>, Without<PartyMemberHpBarFill>)>,
+    mut target_cursor_query: Query<(&TargetCursor, &mut Visibility), (Without<EnemySprite>, Without<EnemyNameLabel>)>,
 ) {
     let display_names = enemy_display_names(&game_state.state.enemies);
     let enemy_count = game_state.state.enemies.len();
@@ -145,7 +133,7 @@ pub fn battle_display_system(
             **text = format!("{} Lv.{}", member.kind.name(), member.level);
         }
         if is_ally_target_select && alive_party.get(ui_state.ally_target_offset) == Some(&name_text.index) {
-            *color = TextColor(COMMAND_COLOR_SELECTED); // 黄色ハイライト
+            *color = TextColor(ALLY_TARGET_HIGHLIGHT);
         } else {
             *color = TextColor(Color::WHITE);
         }
@@ -206,148 +194,6 @@ pub fn battle_display_system(
             BattlePhase::BattleOver { message } => {
                 **text = message.clone();
             }
-        }
-    }
-
-    // コマンド/呪文/アイテム表示更新
-    let is_spell_select = matches!(ui_state.phase, BattlePhase::SpellSelect { .. });
-    let is_item_select = matches!(ui_state.phase, BattlePhase::ItemSelect { .. });
-    let show_commands = matches!(ui_state.phase, BattlePhase::CommandSelect { .. });
-
-    // 呪文選択フェーズ用: クラス別呪文リストと現在のキャラのMP
-    let (spell_list, current_member_mp) = match &ui_state.phase {
-        BattlePhase::SpellSelect { member_index } => {
-            let member = &game_state.state.party[*member_index];
-            (party::available_spells(member.kind, member.level), member.stats.mp)
-        }
-        _ => (vec![], 0),
-    };
-
-    // コマンド選択フェーズ用: 呪文なしクラスかどうか、アイテムなしかどうか
-    let (has_no_spells, has_no_items) = match &ui_state.phase {
-        BattlePhase::CommandSelect { member_index } => (
-            party::available_spells(game_state.state.party[*member_index].kind, game_state.state.party[*member_index].level).is_empty(),
-            game_state.state.party[*member_index].inventory.is_empty(),
-        ),
-        _ => (false, false),
-    };
-
-    // アイテム選択フェーズ用: 所持アイテム一覧
-    let owned_items = match &ui_state.phase {
-        BattlePhase::ItemSelect { member_index } => {
-            game_state.state.party[*member_index].inventory.owned_items()
-        }
-        _ => vec![],
-    };
-
-    let commands = ["たたかう", "じゅもん", "どうぐ", "にげる"];
-    for (cursor, mut text, mut color, mut vis, mut cmd_node) in &mut command_query {
-        if is_spell_select {
-            // 呪文選択モード: CommandCursorを呪文名に差し替え（スクロール対応）
-            let offset = scroll_offset(ui_state.selected_spell, spell_list.len(), VISIBLE_ITEMS);
-            let data_index = offset + cursor.index;
-            if cursor.index < VISIBLE_ITEMS && data_index < spell_list.len() {
-                let spell = spell_list[data_index];
-                let is_selected = data_index == ui_state.selected_spell;
-                let can_use = current_member_mp >= spell.mp_cost();
-                let prefix = if is_selected { "> " } else { "  " };
-                **text = format!("{}{} ({})", prefix, spell.name(), spell.mp_cost());
-                *color = if !can_use {
-                    TextColor(Color::srgb(0.4, 0.4, 0.4)) // 灰色（使用不可）
-                } else if is_selected {
-                    TextColor(COMMAND_COLOR_SELECTED)
-                } else {
-                    TextColor(COMMAND_COLOR_UNSELECTED)
-                };
-                *vis = Visibility::Inherited;
-            } else {
-                *vis = Visibility::Hidden;
-            }
-        } else if is_item_select {
-            // アイテム選択モード: CommandCursorをアイテム名+個数に差し替え（スクロール対応）
-            let offset = scroll_offset(ui_state.selected_item, owned_items.len(), VISIBLE_ITEMS);
-            let data_index = offset + cursor.index;
-            if cursor.index < VISIBLE_ITEMS && data_index < owned_items.len() {
-                let item = owned_items[data_index];
-                let count = match &ui_state.phase {
-                    BattlePhase::ItemSelect { member_index } => {
-                        game_state.state.party[*member_index].inventory.count(item)
-                    }
-                    _ => 0,
-                };
-                let is_selected = data_index == ui_state.selected_item;
-                let can_use = !matches!(item.effect(), ItemEffect::KeyItem | ItemEffect::Material | ItemEffect::Equip);
-                let prefix = if is_selected { "> " } else { "  " };
-                let equip_mark = if let Some(w) = item.as_weapon() {
-                    if let BattlePhase::ItemSelect { member_index } = &ui_state.phase {
-                        if game_state.state.party[*member_index].equipment.weapon == Some(w) { "E " } else { "" }
-                    } else { "" }
-                } else { "" };
-                **text = format!("{}{}{} x{}", prefix, equip_mark, item.name(), count);
-                *color = if !can_use {
-                    TextColor(COMMAND_COLOR_DISABLED)
-                } else if is_selected {
-                    TextColor(COMMAND_COLOR_SELECTED)
-                } else {
-                    TextColor(COMMAND_COLOR_UNSELECTED)
-                };
-                *vis = Visibility::Inherited;
-            } else {
-                *vis = Visibility::Hidden;
-            }
-        } else if show_commands {
-            if cursor.index < commands.len() {
-                let is_selected = cursor.index == ui_state.selected_command;
-                let prefix = if is_selected { "> " } else { "  " };
-                **text = format!("{}{}", prefix, commands[cursor.index]);
-                // 呪文なしクラスは「じゅもん」を灰色表示、アイテムなしは「どうぐ」を灰色表示
-                let is_disabled = (cursor.index == 1 && has_no_spells)
-                    || (cursor.index == 2 && has_no_items);
-                *color = if is_disabled {
-                    TextColor(Color::srgb(0.4, 0.4, 0.4))
-                } else if is_selected {
-                    TextColor(COMMAND_COLOR_SELECTED)
-                } else {
-                    TextColor(COMMAND_COLOR_UNSELECTED)
-                };
-                *vis = Visibility::Inherited;
-            }
-        } else if cursor.index < commands.len() {
-            **text = format!("  {}", commands[cursor.index]);
-            *color = TextColor(COMMAND_COLOR_UNSELECTED);
-            *vis = Visibility::Inherited;
-        }
-        // Display::NoneでレイアウトからもHiddenアイテムを除外
-        cmd_node.display = if *vis == Visibility::Hidden { Display::None } else { Display::DEFAULT };
-    }
-
-    // コマンドスクロールインジケータ更新
-    let (scroll_total, scroll_cursor) = if is_spell_select {
-        (spell_list.len(), ui_state.selected_spell)
-    } else if is_item_select {
-        (owned_items.len(), ui_state.selected_item)
-    } else {
-        (0, 0)
-    };
-
-    if scroll_total > VISIBLE_ITEMS {
-        let offset = scroll_offset(scroll_cursor, scroll_total, VISIBLE_ITEMS);
-        for (mut vis, mut node) in &mut cmd_scroll_up_query {
-            *vis = if offset > 0 { Visibility::Inherited } else { Visibility::Hidden };
-            node.display = if *vis == Visibility::Hidden { Display::None } else { Display::DEFAULT };
-        }
-        for (mut vis, mut node) in &mut cmd_scroll_down_query {
-            *vis = if offset + VISIBLE_ITEMS < scroll_total { Visibility::Inherited } else { Visibility::Hidden };
-            node.display = if *vis == Visibility::Hidden { Display::None } else { Display::DEFAULT };
-        }
-    } else {
-        for (mut vis, mut node) in &mut cmd_scroll_up_query {
-            *vis = Visibility::Hidden;
-            node.display = Display::None;
-        }
-        for (mut vis, mut node) in &mut cmd_scroll_down_query {
-            *vis = Visibility::Hidden;
-            node.display = Display::None;
         }
     }
 }

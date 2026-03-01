@@ -5,7 +5,7 @@ mod scene;
 use bevy::prelude::*;
 use app_state::BattleState;
 
-pub use display::{battle_blink_system, battle_display_system, battle_shake_system};
+pub use display::{battle_blink_system, battle_shake_system, battle_status_display_system, battle_update_menu_cache};
 pub use input::battle_input_system;
 pub use scene::{
     cleanup_battle_scene, init_battle_resources, setup_battle_scene, setup_battle_scene_with_config,
@@ -36,7 +36,9 @@ pub fn register_battle_all_systems(app: &mut App) {
         Update,
         (
             battle_input_system,
-            battle_display_system,
+            battle_update_menu_cache,
+            hud_ui::command_menu::command_menu_display_system::<BattleUIState>,
+            battle_status_display_system,
             battle_blink_system,
             battle_shake_system,
         )

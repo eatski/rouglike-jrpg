@@ -50,7 +50,7 @@ fn main() {
         .add_systems(
             Update,
             (
-                hud_ui::menu_style::menu_display_system::<TownResource>,
+                hud_ui::menu_style::scene_menu_display_system::<TownResource>,
                 town_extra_display_system,
                 hud_ui::update_hud,
             ),

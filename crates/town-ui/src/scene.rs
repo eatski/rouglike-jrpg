@@ -3,7 +3,8 @@ use bevy::prelude::*;
 use party::{shop_items, shop_weapons, ItemKind, PartyMemberKind, WeaponKind, INVENTORY_CAPACITY};
 use app_state::{PartyState, RecruitmentMap, TavernBounties};
 use field_core::{Player, TilePosition};
-use hud_ui::menu_style::{self, SceneMenu, PANEL_BG, PANEL_BORDER, SELECTED_COLOR, UNSELECTED_COLOR, FONT_PATH};
+use hud_ui::command_menu::{self, CommandMenu};
+use hud_ui::menu_style::{self, SceneMenu, PANEL_BG, PANEL_BORDER, FONT_PATH};
 
 /// 町メニューのコマンド
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -118,7 +119,7 @@ pub struct TownResource {
     pub commands: Vec<TownCommand>,
 }
 
-impl SceneMenu for TownResource {
+impl CommandMenu for TownResource {
     fn menu_labels(&self) -> Vec<String> {
         self.commands.iter().map(|c| c.label()).collect()
     }
@@ -131,10 +132,12 @@ impl SceneMenu for TownResource {
         self.selected_item = index;
     }
 
-    fn is_in_main_menu(&self) -> bool {
+    fn is_active(&self) -> bool {
         matches!(self.phase, TownMenuPhase::MenuSelect)
     }
+}
 
+impl SceneMenu for TownResource {
     fn show_main_menu(&self) -> bool {
         !matches!(
             self.phase,
@@ -338,10 +341,9 @@ fn setup_town_scene_inner(
                     let (label, color) = if i < shop_goods().len() {
                         let prefix = if i == 0 { "> " } else { "  " };
                         let label = format_goods_label(prefix, &shop_goods()[i]);
-                        let color = if i == 0 { SELECTED_COLOR } else { UNSELECTED_COLOR };
-                        (label, color)
+                        (label, Color::WHITE)
                     } else {
-                        (String::new(), UNSELECTED_COLOR)
+                        (String::new(), Color::WHITE)
                     };
                     shop.spawn((
                         ShopMenuItem { index: i },
@@ -385,11 +387,7 @@ fn setup_town_scene_inner(
                         member.inventory.total_count(),
                         INVENTORY_CAPACITY,
                     );
-                    let color = if i == 0 {
-                        SELECTED_COLOR
-                    } else {
-                        UNSELECTED_COLOR
-                    };
+                    let color = Color::WHITE;
                     char_panel.spawn((
                         ShopCharacterMenuItem { index: i },
                         Text::new(label),
@@ -467,7 +465,7 @@ pub fn town_extra_display_system(
                 let member = &party_state.members[char_item.index];
                 let detail = format!("{}/{}", member.inventory.total_count(), INVENTORY_CAPACITY);
                 **text = format!("{}{}  {}", prefix, member.kind.name(), detail);
-                *color = menu_style::menu_item_color(is_selected);
+                *color = command_menu::menu_item_color(false);
             }
         }
     }
@@ -481,7 +479,7 @@ pub fn town_extra_display_system(
                 let member = &party_state.members[char_item.index];
                 let count = member.inventory.count(*item);
                 **text = format!("{}{} ({}個)", prefix, member.kind.name(), count);
-                *color = menu_style::menu_item_color(is_selected);
+                *color = command_menu::menu_item_color(false);
             }
         }
     }
@@ -510,7 +508,7 @@ pub fn town_extra_display_system(
                     })
                     .sum();
                 **text = format!("{}{}  売却可: {}個", prefix, member.kind.name(), sellable_count);
-                *color = menu_style::menu_item_color(is_selected);
+                *color = command_menu::menu_item_color(false);
             }
         }
     }
@@ -524,7 +522,7 @@ pub fn town_extra_display_system(
                     let is_selected = shop_item.index == *selected;
                     let prefix = if is_selected { "> " } else { "  " };
                     **text = format_goods_label(prefix, &goods_list[shop_item.index]);
-                    *color = menu_style::menu_item_color(is_selected);
+                    *color = command_menu::menu_item_color(false);
                     node.display = Display::Flex;
                 } else {
                     **text = String::new();
@@ -539,7 +537,7 @@ pub fn town_extra_display_system(
                     let is_selected = shop_item.index == *selected;
                     let prefix = if is_selected { "> " } else { "  " };
                     **text = format!("{}{}", prefix, labels[shop_item.index]);
-                    *color = menu_style::menu_item_color(is_selected);
+                    *color = command_menu::menu_item_color(false);
                     node.display = Display::Flex;
                 } else {
                     **text = String::new();
@@ -598,7 +596,7 @@ pub fn town_extra_display_system(
                             item.sell_price()
                         );
                     }
-                    *color = menu_style::menu_item_color(is_selected);
+                    *color = command_menu::menu_item_color(false);
                     node.display = Display::Flex;
                 } else {
                     **text = String::new();

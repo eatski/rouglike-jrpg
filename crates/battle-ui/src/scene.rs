@@ -4,8 +4,10 @@ use battle::{generate_enemy_group, BattleAction, BattleState, Enemy, ItemKind, S
 
 use app_state::{BossBattlePending, EncounterZone, PartyState, SceneState};
 
+use hud_ui::command_menu::{CommandMenu, CommandMenuItem, CommandMenuScrollDown, CommandMenuScrollUp};
+
 use super::display::{
-    CommandCursor, EnemyNameLabel, MessageText, PartyMemberHpBarFill, PartyMemberHpText,
+    EnemyNameLabel, MessageText, PartyMemberHpBarFill, PartyMemberHpText,
     PartyMemberMpText, PartyMemberNameText, TargetCursor,
 };
 
@@ -109,6 +111,132 @@ pub struct BattleUIState {
     pub blink_timer: Option<Timer>,
     /// 点滅中の敵インデックス
     pub blink_enemy: Option<usize>,
+    /// CommandMenu用ラベルキャッシュ
+    pub(crate) cached_labels: Vec<String>,
+    /// CommandMenu用disabled判定キャッシュ
+    pub(crate) disabled_indices: Vec<usize>,
+}
+
+const VISIBLE_ITEMS: usize = 6;
+
+impl BattleUIState {
+    /// CommandMenu用のラベル・disabled情報を現在のphaseから再構築
+    pub(crate) fn rebuild_cache(&mut self, game_state: &BattleGameState) {
+        self.cached_labels.clear();
+        self.disabled_indices.clear();
+
+        match &self.phase {
+            BattlePhase::CommandSelect { member_index } => {
+                self.cached_labels = vec![
+                    "たたかう".to_string(),
+                    "じゅもん".to_string(),
+                    "どうぐ".to_string(),
+                    "にげる".to_string(),
+                ];
+                let member = &game_state.state.party[*member_index];
+                if party::available_spells(member.kind, member.level).is_empty() {
+                    self.disabled_indices.push(1);
+                }
+                if member.inventory.is_empty() {
+                    self.disabled_indices.push(2);
+                }
+            }
+            BattlePhase::SpellSelect { member_index } => {
+                let member = &game_state.state.party[*member_index];
+                let spells = party::available_spells(member.kind, member.level);
+                for (i, &spell) in spells.iter().enumerate() {
+                    self.cached_labels
+                        .push(format!("{} ({})", spell.name(), spell.mp_cost()));
+                    if member.stats.mp < spell.mp_cost() {
+                        self.disabled_indices.push(i);
+                    }
+                }
+            }
+            BattlePhase::ItemSelect { member_index } => {
+                let member = &game_state.state.party[*member_index];
+                let owned = member.inventory.owned_items();
+                for (i, &item) in owned.iter().enumerate() {
+                    let count = member.inventory.count(item);
+                    if let Some(w) = item.as_weapon() {
+                        let equipped = member.equipment.weapon == Some(w);
+                        let equip_mark = if equipped { "E " } else { "" };
+                        self.cached_labels.push(format!(
+                            "{}{} x{}",
+                            equip_mark,
+                            item.name(),
+                            count
+                        ));
+                    } else {
+                        self.cached_labels
+                            .push(format!("{} x{}", item.name(), count));
+                    }
+                    if matches!(
+                        item.effect(),
+                        party::ItemEffect::KeyItem
+                            | party::ItemEffect::Material
+                            | party::ItemEffect::Equip
+                    ) {
+                        self.disabled_indices.push(i);
+                    }
+                }
+            }
+            _ => {
+                // 非選択フェーズ: ベースコマンドを背景表示
+                self.cached_labels = vec![
+                    "たたかう".to_string(),
+                    "じゅもん".to_string(),
+                    "どうぐ".to_string(),
+                    "にげる".to_string(),
+                ];
+            }
+        }
+    }
+}
+
+impl CommandMenu for BattleUIState {
+    fn menu_labels(&self) -> Vec<String> {
+        self.cached_labels.clone()
+    }
+
+    fn selected(&self) -> usize {
+        match &self.phase {
+            BattlePhase::CommandSelect { .. } => self.selected_command,
+            BattlePhase::SpellSelect { .. } => self.selected_spell,
+            BattlePhase::ItemSelect { .. } => self.selected_item,
+            _ => usize::MAX, // 非選択フェーズ: 何も選択しない
+        }
+    }
+
+    fn set_selected(&mut self, index: usize) {
+        match &self.phase {
+            BattlePhase::CommandSelect { .. } => self.selected_command = index,
+            BattlePhase::SpellSelect { .. } => self.selected_spell = index,
+            BattlePhase::ItemSelect { .. } => self.selected_item = index,
+            _ => {}
+        }
+    }
+
+    fn is_active(&self) -> bool {
+        matches!(
+            self.phase,
+            BattlePhase::CommandSelect { .. }
+                | BattlePhase::SpellSelect { .. }
+                | BattlePhase::ItemSelect { .. }
+        )
+    }
+
+    fn visible_items(&self) -> Option<usize> {
+        match &self.phase {
+            BattlePhase::SpellSelect { .. } | BattlePhase::ItemSelect { .. } => {
+                Some(VISIBLE_ITEMS)
+            }
+            _ => None,
+        }
+    }
+
+    fn is_disabled(&self, index: usize) -> bool {
+        self.disabled_indices.contains(&index)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -135,13 +263,6 @@ pub struct EnemySprite {
     pub index: usize,
 }
 
-/// コマンドスクロール上インジケータ
-#[derive(Component)]
-pub struct CommandScrollUp;
-
-/// コマンドスクロール下インジケータ
-#[derive(Component)]
-pub struct CommandScrollDown;
 
 /// 同種・同段階の敵にサフィックスを付与した表示名を生成
 pub(crate) fn enemy_display_names(enemies: &[battle::Enemy]) -> Vec<String> {
@@ -249,6 +370,8 @@ pub fn init_battle_resources(
         shake_timer: None,
         blink_timer: None,
         blink_enemy: None,
+        cached_labels: Vec::new(),
+        disabled_indices: Vec::new(),
     };
 
     (game_state, ui_state)
@@ -318,8 +441,6 @@ fn setup_battle_scene_inner(
     let border_color = hud_ui::menu_style::PANEL_BORDER;
     let hp_bar_bg = Color::srgb(0.2, 0.2, 0.2);
     let hp_bar_green = Color::srgb(0.2, 0.8, 0.2);
-    let selected_color = hud_ui::menu_style::SELECTED_COLOR;
-    let unselected_color = hud_ui::menu_style::UNSELECTED_COLOR;
 
     // 全画面を覆う黒背景UI
     commands
@@ -349,8 +470,6 @@ fn setup_battle_scene_inner(
                 border_color,
                 hp_bar_bg,
                 hp_bar_green,
-                selected_color,
-                unselected_color,
                 &party_member_names,
             );
         });
@@ -472,7 +591,6 @@ fn build_message_area(
         });
 }
 
-#[allow(clippy::too_many_arguments)]
 fn build_bottom_area(
     parent: &mut ChildSpawnerCommands,
     font: &Handle<Font>,
@@ -480,8 +598,6 @@ fn build_bottom_area(
     border_color: Color,
     hp_bar_bg: Color,
     hp_bar_green: Color,
-    selected_color: Color,
-    unselected_color: Color,
     party_member_names: &[&str],
 ) {
     parent
@@ -600,56 +716,42 @@ fn build_bottom_area(
             .with_children(|cmd_area| {
                 // ▲ スクロールインジケータ
                 cmd_area.spawn((
-                    CommandScrollUp,
+                    CommandMenuScrollUp,
                     Text::new("  ▲"),
                     TextFont {
                         font: font.clone(),
                         font_size: 16.0,
                         ..default()
                     },
-                    TextColor(unselected_color),
+                    TextColor(Color::WHITE),
                     Visibility::Hidden,
                 ));
 
-                let labels = ["> たたかう", "  じゅもん", "  どうぐ", "  にげる"];
-                for (i, label) in labels.iter().enumerate() {
-                    let color = if i == 0 { selected_color } else { unselected_color };
+                // コマンド/呪文/アイテム選択用スロット(最大16)
+                for i in 0..16 {
                     cmd_area.spawn((
-                        CommandCursor { index: i },
-                        Text::new(*label),
-                        TextFont {
-                            font: font.clone(),
-                            font_size: 16.0,
-                            ..default()
-                        },
-                        TextColor(color),
-                    ));
-                }
-                // 呪文/アイテム選択用の追加スロット(最大16呪文対応)
-                for i in 4..16 {
-                    cmd_area.spawn((
-                        CommandCursor { index: i },
+                        CommandMenuItem { index: i },
                         Text::new(""),
                         TextFont {
                             font: font.clone(),
                             font_size: 16.0,
                             ..default()
                         },
-                        TextColor(unselected_color),
+                        TextColor(Color::WHITE),
                         Visibility::Hidden,
                     ));
                 }
 
                 // ▼ スクロールインジケータ
                 cmd_area.spawn((
-                    CommandScrollDown,
+                    CommandMenuScrollDown,
                     Text::new("  ▼"),
                     TextFont {
                         font: font.clone(),
                         font_size: 16.0,
                         ..default()
                     },
-                    TextColor(unselected_color),
+                    TextColor(Color::WHITE),
                     Visibility::Hidden,
                 ));
             });

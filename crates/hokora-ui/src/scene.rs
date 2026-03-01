@@ -2,6 +2,7 @@ use bevy::prelude::*;
 
 use app_state::HokoraPositions;
 use field_core::{Player, TilePosition};
+use hud_ui::command_menu::CommandMenu;
 use hud_ui::menu_style::{self, SceneMenu};
 
 /// 祠シーンのルートUIエンティティを識別するマーカー
@@ -34,7 +35,7 @@ pub struct HokoraResource {
 
 const HOKORA_LABELS: [&str; 3] = ["様子を見る", "扉を開ける", "出る"];
 
-impl SceneMenu for HokoraResource {
+impl CommandMenu for HokoraResource {
     fn menu_labels(&self) -> Vec<String> {
         HOKORA_LABELS.iter().map(|s| (*s).to_string()).collect()
     }
@@ -47,10 +48,12 @@ impl SceneMenu for HokoraResource {
         self.selected_item = index;
     }
 
-    fn is_in_main_menu(&self) -> bool {
+    fn is_active(&self) -> bool {
         matches!(self.phase, HokoraMenuPhase::MenuSelect)
     }
+}
 
+impl SceneMenu for HokoraResource {
     fn show_main_menu(&self) -> bool {
         true
     }

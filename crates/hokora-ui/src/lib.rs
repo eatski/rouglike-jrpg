@@ -15,7 +15,7 @@ impl Plugin for HokoraPlugin {
         app.add_systems(OnEnter(SceneState::Hokora), setup_hokora_scene)
             .add_systems(
                 Update,
-                (hokora_input_system, menu_style::menu_display_system::<HokoraResource>)
+                (hokora_input_system, menu_style::scene_menu_display_system::<HokoraResource>)
                     .chain()
                     .run_if(in_state(SceneState::Hokora)),
             )

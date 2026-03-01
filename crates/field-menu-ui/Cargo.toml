@@ -10,3 +10,4 @@ party = { path = "../party" }
 spell = { path = "../spell" }
 app-state = { path = "../app-state" }
 input-ui = { path = "../input-ui" }
+hud-ui = { path = "../hud-ui" }
