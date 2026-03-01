@@ -1,5 +1,5 @@
 use crate::equipment::Equipment;
-use crate::item::Inventory;
+use crate::item::{Inventory, ItemKind};
 use crate::stats::{CombatStats, StatGrowth};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -301,6 +301,8 @@ pub enum RecruitmentPath {
     TavernBond,
     /// 金を払って雇う
     GoldHire { cost: u32 },
+    /// アイテムと引き換えに仲間になる
+    ItemTrade { item: ItemKind },
 }
 
 impl PartyMemberKind {
@@ -308,6 +310,8 @@ impl PartyMemberKind {
         match self {
             PartyMemberKind::Namari => RecruitmentPath::GoldHire { cost: 200 },
             PartyMemberKind::Chilchuck => RecruitmentPath::GoldHire { cost: 200 },
+            PartyMemberKind::Senshi => RecruitmentPath::ItemTrade { item: ItemKind::DragonScale },
+            PartyMemberKind::Izutsumi => RecruitmentPath::ItemTrade { item: ItemKind::AncientCoin },
             _ => RecruitmentPath::TavernBond,
         }
     }

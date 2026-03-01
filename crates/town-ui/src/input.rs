@@ -89,7 +89,7 @@ pub fn town_input_system(
                                                             .insert(second_town, candidate_idx);
                                                     }
                                                 }
-                                                RecruitmentPath::GoldHire { .. } => {
+                                                RecruitmentPath::GoldHire { .. } | RecruitmentPath::ItemTrade { .. } => {
                                                     recruitment_map
                                                         .hire_available
                                                         .insert(town_pos, candidate_idx);
@@ -205,35 +205,45 @@ pub fn town_input_system(
                     }
                     TownCommand::HireCompanion(kind) => {
                         let kind = *kind;
-                        if let RecruitmentPath::GoldHire { cost } = kind.recruit_method() {
-                            if party_state.gold < cost {
-                                town_res.phase = TownMenuPhase::ShowMessage {
-                                    message: "おかねが たりない！".to_string(),
-                                };
-                            } else {
-                                party_state.gold -= cost;
-                                // パーティに追加
-                                party_state.members.push(PartyMember::from_kind(kind));
-                                // candidates のステータスを Recruited に更新
-                                if let Ok(pos) = player_query.single() {
-                                    let town_pos = (pos.x, pos.y);
-                                    if let Some(&candidate_idx) = recruitment_map.hire_available.get(&town_pos) {
-                                        party_state.candidates[candidate_idx].status = party::RecruitmentStatus::Recruited;
-                                        recruitment_map.hire_available.remove(&town_pos);
+                        match kind.recruit_method() {
+                            RecruitmentPath::GoldHire { cost } => {
+                                if party_state.gold < cost {
+                                    town_res.phase = TownMenuPhase::ShowMessage {
+                                        message: "おかねが たりない！".to_string(),
+                                    };
+                                } else {
+                                    party_state.gold -= cost;
+                                    // パーティに追加
+                                    party_state.members.push(PartyMember::from_kind(kind));
+                                    // candidates のステータスを Recruited に更新
+                                    if let Ok(pos) = player_query.single() {
+                                        let town_pos = (pos.x, pos.y);
+                                        if let Some(&candidate_idx) = recruitment_map.hire_available.get(&town_pos) {
+                                            party_state.candidates[candidate_idx].status = party::RecruitmentStatus::Recruited;
+                                            recruitment_map.hire_available.remove(&town_pos);
+                                        }
+                                        // メニュー再構築
+                                        let hire_candidates: Vec<_> = recruitment_map
+                                            .hire_available
+                                            .get(&town_pos)
+                                            .map(|&idx| party_state.candidates[idx].kind)
+                                            .into_iter()
+                                            .collect();
+                                        let bounty_item = tavern_bounties.active.get(&town_pos).copied();
+                                        town_res.commands = build_town_commands(bounty_item, &hire_candidates);
                                     }
-                                    // メニュー再構築
-                                    let hire_candidates: Vec<_> = recruitment_map
-                                        .hire_available
-                                        .get(&town_pos)
-                                        .map(|&idx| party_state.candidates[idx].kind)
-                                        .into_iter()
-                                        .collect();
-                                    let bounty_item = tavern_bounties.active.get(&town_pos).copied();
-                                    town_res.commands = build_town_commands(bounty_item, &hire_candidates);
+                                    let msg = hire_success_dialogue(kind);
+                                    town_res.phase = TownMenuPhase::RecruitMessage { message: msg };
                                 }
-                                let msg = hire_success_dialogue(kind);
-                                town_res.phase = TownMenuPhase::RecruitMessage { message: msg };
                             }
+                            RecruitmentPath::ItemTrade { item } => {
+                                town_res.phase = TownMenuPhase::ItemTradeCharacterSelect {
+                                    kind,
+                                    item,
+                                    selected: 0,
+                                };
+                            }
+                            _ => {}
                         }
                     }
                     TownCommand::Leave => {
@@ -349,6 +359,60 @@ pub fn town_input_system(
         TownMenuPhase::RecruitMessage { .. } => {
             if is_confirm_just_pressed(&keyboard) {
                 town_res.phase = TownMenuPhase::MenuSelect;
+            }
+        }
+        TownMenuPhase::ItemTradeCharacterSelect { kind, item, selected } => {
+            let max_index = party_state.members.len().saturating_sub(1);
+
+            if is_up_just_pressed(&keyboard) {
+                town_res.phase = TownMenuPhase::ItemTradeCharacterSelect {
+                    kind,
+                    item,
+                    selected: if selected > 0 { selected - 1 } else { max_index },
+                };
+            }
+            if is_down_just_pressed(&keyboard) {
+                town_res.phase = TownMenuPhase::ItemTradeCharacterSelect {
+                    kind,
+                    item,
+                    selected: if selected < max_index { selected + 1 } else { 0 },
+                };
+            }
+
+            if is_cancel_just_pressed(&keyboard) {
+                town_res.phase = TownMenuPhase::MenuSelect;
+                return;
+            }
+
+            if is_confirm_just_pressed(&keyboard) {
+                if party_state.members[selected].inventory.remove_item(item) {
+                    // アイテム消費成功 → パーティに追加
+                    party_state.members.push(PartyMember::from_kind(kind));
+                    // candidates のステータスを Recruited に更新
+                    if let Ok(pos) = player_query.single() {
+                        let town_pos = (pos.x, pos.y);
+                        if let Some(&candidate_idx) = recruitment_map.hire_available.get(&town_pos) {
+                            party_state.candidates[candidate_idx].status = party::RecruitmentStatus::Recruited;
+                            recruitment_map.hire_available.remove(&town_pos);
+                        }
+                        // メニュー再構築
+                        let hire_candidates: Vec<_> = recruitment_map
+                            .hire_available
+                            .get(&town_pos)
+                            .map(|&idx| party_state.candidates[idx].kind)
+                            .into_iter()
+                            .collect();
+                        let bounty_item = tavern_bounties.active.get(&town_pos).copied();
+                        town_res.commands = build_town_commands(bounty_item, &hire_candidates);
+                    }
+                    let msg = hire_success_dialogue(kind);
+                    town_res.phase = TownMenuPhase::RecruitMessage { message: msg };
+                } else {
+                    let name = party_state.members[selected].kind.name();
+                    town_res.phase = TownMenuPhase::RecruitMessage {
+                        message: format!("{} は {} を もっていない！", name, item.name()),
+                    };
+                }
             }
         }
         TownMenuPhase::BountyCharacterSelect { item, selected } => {
