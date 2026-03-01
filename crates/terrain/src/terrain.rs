@@ -7,6 +7,7 @@ pub enum TileAction {
     EnterCave,
     EnterBossCave,
     EnterHokora,
+    ExitCave,
     None,
 }
 
@@ -46,7 +47,8 @@ impl Structure {
             Structure::Cave => TileAction::EnterCave,
             Structure::BossCave => TileAction::EnterBossCave,
             Structure::Hokora => TileAction::EnterHokora,
-            Structure::None | Structure::Ladder | Structure::WarpZone | Structure::Chest | Structure::ChestOpen => TileAction::None,
+            Structure::Ladder => TileAction::ExitCave,
+            Structure::None | Structure::WarpZone | Structure::Chest | Structure::ChestOpen => TileAction::None,
         }
     }
 }

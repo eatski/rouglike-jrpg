@@ -31,7 +31,7 @@ pub use encounter::check_encounter_system;
 pub use events::{MovementBlockedEvent, PlayerMovedEvent, TileEnteredEvent};
 pub use execute::{
     apply_input_move, apply_simple_move, execute_move, process_simple_move_completed,
-    try_apply_second_move, ExecuteMoveResult, SimpleMoveDone,
+    try_apply_second_move, ExecuteMoveResult,
 };
 pub use input::{process_movement_input, MovementInput};
 pub use map_mode::{reset_map_mode_system, toggle_map_mode_system, MapModeState, NORMAL_ZOOM};
@@ -52,7 +52,7 @@ pub use exploration_data::{init_exploration_system, update_exploration_system, E
 pub use minimap::{init_minimap_system, toggle_minimap_visibility_system, update_minimap_texture_system};
 pub use player_input::{player_movement, sync_boat_with_player};
 pub use field_rendering::{spawn_field_map, spawn_field_map_with_rng, spawn_player};
-pub use field_smooth_move::handle_field_move_completed;
+pub use field_smooth_move::{handle_field_move_completed, handle_simple_move_completed};
 pub use tile_action::check_tile_action_system;
 pub use field_rendering::SpawnPosition;
 
