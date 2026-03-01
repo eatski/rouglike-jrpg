@@ -5,12 +5,10 @@ use bevy::prelude::*;
 use app_state::{BattleState, SceneState};
 use input_ui::InputSystemSet;
 use field_walk_ui::{start_bounce, start_smooth_move, update_bounce, update_smooth_move};
-use field_walk_ui::{camera_follow, check_encounter_system, handle_simple_move_completed, reset_map_mode_system, toggle_map_mode_system, update_simple_tiles};
+use field_walk_ui::{camera_follow, check_encounter_system, handle_simple_move_completed, player_movement, reset_map_mode_system, toggle_map_mode_system, update_simple_tiles};
+use field_walk_ui::{field_message_not_active, field_message_input_system, field_message_display_system};
 
-pub use input::{
-    cave_message_display_system, cave_message_input_system, cave_player_movement,
-    check_boss_proximity_system, check_chest_system,
-};
+pub use input::{check_boss_proximity_system, check_chest_system};
 pub use scene::{
     despawn_cave_entities, restore_field_from_cave, setup_boss_cave_scene, setup_cave_scene,
     BossCaveState,
@@ -32,7 +30,7 @@ impl Plugin for CavePlugin {
             Update,
             (
                 toggle_map_mode_system,
-                cave_player_movement,
+                player_movement.run_if(field_message_not_active),
                 start_smooth_move,
                 ApplyDeferred,
                 update_smooth_move,
@@ -42,8 +40,8 @@ impl Plugin for CavePlugin {
                 update_simple_tiles,
                 camera_follow,
                 check_chest_system,
-                cave_message_input_system.in_set(InputSystemSet::MessageInput),
-                cave_message_display_system,
+                field_message_input_system.in_set(InputSystemSet::MessageInput),
+                field_message_display_system,
                 check_encounter_system,
                 check_boss_proximity_system,
             )

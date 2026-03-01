@@ -21,6 +21,7 @@ mod hud;
 mod minimap;
 mod player_input;
 pub mod field_rendering;
+mod field_message;
 mod tile_action;
 
 pub use bounce::{start_bounce, update_bounce, Bounce};
@@ -52,6 +53,7 @@ pub use exploration_data::{init_exploration_system, update_exploration_system, E
 pub use minimap::{init_minimap_system, toggle_minimap_visibility_system, update_minimap_texture_system};
 pub use player_input::{player_movement, sync_boat_with_player};
 pub use field_rendering::{spawn_field_map, spawn_field_map_with_rng, spawn_player};
+pub use field_message::{field_message_not_active, field_message_input_system, field_message_display_system, FieldMessageState, FieldMessageUI};
 pub use field_smooth_move::{handle_field_move_completed, handle_simple_move_completed};
 pub use tile_action::check_tile_action_system;
 pub use field_rendering::SpawnPosition;

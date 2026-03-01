@@ -11,7 +11,7 @@ use terrain::Structure;
 
 use app_state::{BossDefeated, ContinentCavePositions, ContinentMap, EncounterZone, OpenedChests, PartyState};
 use field_core::{ActiveMap, Boat, Player, TilePosition, WorldMapData, TILE_SIZE};
-use field_walk_ui::MovementState;
+use field_walk_ui::{FieldMessageState, FieldMessageUI, MovementState};
 
 use field_walk_ui::{spawn_boat_entities, BoatSpawnsResource, BossCaveWorldPos, MapModeState, TileTextures};
 use field_walk_ui::{create_tile_pool, PooledTile, SimpleTile, SimpleTileMap, StructureOverlay, TilePool};
@@ -29,16 +29,6 @@ pub struct CaveTreasures {
     pub cave_pos: (usize, usize),
     pub treasures: Vec<TreasureChest>,
 }
-
-/// 洞窟内メッセージ表示の状態
-#[derive(Resource, Default)]
-pub struct CaveMessageState {
-    pub message: Option<String>,
-}
-
-/// 洞窟メッセージ表示用UIマーカー
-#[derive(Component)]
-pub struct CaveMessageUI;
 
 /// ボスエンティティのマーカー
 #[derive(Component)]
@@ -182,7 +172,7 @@ pub fn setup_cave_scene(
         cave_pos: cave_world_pos,
         treasures: cave_data.treasures,
     });
-    commands.insert_resource(CaveMessageState::default());
+    commands.insert_resource(FieldMessageState::default());
 
     // プレイヤーを洞窟のスポーン位置に移動（insert_resourceでmoveされる前に座標計算）
     tile_pos.x = spawn_x;
@@ -294,7 +284,7 @@ pub fn setup_boss_cave_scene(
         ));
     }
 
-    commands.insert_resource(CaveMessageState::default());
+    commands.insert_resource(FieldMessageState::default());
     commands.insert_resource(active_map_resource);
 
     // プレイヤーをスポーン位置に移動
@@ -319,7 +309,7 @@ pub fn despawn_cave_entities(
     mut commands: Commands,
     cave_tile_query: Query<Entity, With<SimpleTile>>,
     structure_overlay_query: Query<Entity, With<StructureOverlay>>,
-    message_ui_query: Query<Entity, With<CaveMessageUI>>,
+    message_ui_query: Query<Entity, With<FieldMessageUI>>,
     boss_query: Query<Entity, With<BossEntity>>,
 ) {
     for entity in &cave_tile_query {
@@ -336,7 +326,7 @@ pub fn despawn_cave_entities(
     }
     commands.remove_resource::<SimpleTileMap>();
     commands.remove_resource::<CaveTreasures>();
-    commands.remove_resource::<CaveMessageState>();
+    commands.remove_resource::<FieldMessageState>();
     commands.remove_resource::<BossCaveState>();
 }
 

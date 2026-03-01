@@ -5,62 +5,9 @@ use terrain::Structure;
 
 use app_state::{BossBattlePending, OpenedChests, PartyState};
 use field_core::{ActiveMap, Player, TilePosition};
-use field_walk_ui::{
-    apply_input_move, process_movement_input,
-    MovementBlockedEvent, MovementLocked, MovementState,
-    PlayerMovedEvent, TileEnteredEvent,
-};
-use app_state::FieldMenuOpen;
+use field_walk_ui::{FieldMessageState, SimpleTileMap, TileEnteredEvent};
 
-use field_walk_ui::{MapModeState, SimpleTileMap};
-
-use crate::scene::{BossCaveState, BossEntity, CaveMessageState, CaveMessageUI, CaveTreasures};
-
-/// 洞窟内のプレイヤー移動入力を処理
-#[allow(clippy::too_many_arguments)]
-pub fn cave_player_movement(
-    mut commands: Commands,
-    keyboard: Res<ButtonInput<KeyCode>>,
-    time: Res<Time>,
-    active_map: Res<ActiveMap>,
-    map_mode_state: Res<MapModeState>,
-    field_menu_open: Option<Res<FieldMenuOpen>>,
-    cave_message: Option<Res<CaveMessageState>>,
-    mut move_state: ResMut<MovementState>,
-    mut query: Query<
-        (Entity, &mut TilePosition, Option<&MovementLocked>),
-        With<Player>,
-    >,
-    mut blocked_events: MessageWriter<MovementBlockedEvent>,
-    mut moved_events: MessageWriter<PlayerMovedEvent>,
-) {
-    let Ok((entity, mut tile_pos, locked)) = query.single_mut() else {
-        return;
-    };
-
-    // ガード条件
-    if locked.is_some() {
-        return;
-    }
-    if map_mode_state.enabled {
-        return;
-    }
-    if field_menu_open.is_some() {
-        return;
-    }
-    if cave_message.is_some_and(|m| m.message.is_some()) {
-        return;
-    }
-
-    let Some(input) = process_movement_input(&keyboard, &time, &mut move_state) else {
-        return;
-    };
-
-    apply_input_move(
-        &mut commands, entity, &mut tile_pos, &input,
-        &active_map, &mut moved_events, &mut blocked_events,
-    );
-}
+use crate::scene::{BossCaveState, BossEntity, CaveTreasures};
 
 /// 宝箱取得システム: プレイヤーが宝箱タイルに入ったらアイテムを取得
 #[allow(clippy::too_many_arguments)]
@@ -71,7 +18,7 @@ pub fn check_chest_system(
     cave_treasures: Option<Res<CaveTreasures>>,
     mut opened_chests: ResMut<OpenedChests>,
     mut party_state: ResMut<PartyState>,
-    mut cave_message: ResMut<CaveMessageState>,
+    mut cave_message: ResMut<FieldMessageState>,
     mut active_map: ResMut<ActiveMap>,
     mut tile_map: ResMut<SimpleTileMap>,
 ) {
@@ -155,76 +102,6 @@ pub fn check_chest_system(
                 commands.entity(entity).despawn();
             }
             tile_map.last_player_pos = None;
-        }
-    }
-}
-
-/// メッセージ確認入力システム: 確認キーでメッセージをクリア
-pub fn cave_message_input_system(
-    mut keyboard: ResMut<ButtonInput<KeyCode>>,
-    mut cave_message: Option<ResMut<CaveMessageState>>,
-) {
-    let Some(ref mut cave_message) = cave_message else {
-        return;
-    };
-    if cave_message.message.is_none() {
-        return;
-    }
-    if input_ui::is_confirm_just_pressed(&keyboard) || input_ui::is_cancel_just_pressed(&keyboard) {
-        cave_message.message = None;
-        // フィールドメニューが同フレームで反応しないよう確認キーを消費
-        input_ui::clear_confirm_just_pressed(&mut keyboard);
-    }
-}
-
-/// メッセージ表示UIシステム
-pub fn cave_message_display_system(
-    mut commands: Commands,
-    cave_message: Option<Res<CaveMessageState>>,
-    existing_ui: Query<Entity, With<CaveMessageUI>>,
-) {
-    let Some(cave_message) = cave_message else {
-        // リソースがない場合はUI削除
-        for entity in &existing_ui {
-            commands.entity(entity).despawn();
-        }
-        return;
-    };
-
-    match &cave_message.message {
-        Some(msg) => {
-            // 既存UIがあれば削除して再生成
-            for entity in &existing_ui {
-                commands.entity(entity).despawn();
-            }
-
-            commands
-                .spawn((
-                    CaveMessageUI,
-                    Node {
-                        position_type: PositionType::Absolute,
-                        bottom: Val::Px(88.0),
-                        left: Val::Px(16.0),
-                        right: Val::Px(16.0),
-                        padding: UiRect::all(Val::Px(8.0)),
-                        ..default()
-                    },
-                    BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.85)),
-                    GlobalZIndex(60),
-                ))
-                .with_child((
-                    Text::new(msg.clone()),
-                    TextFont {
-                        font_size: 14.0,
-                        ..default()
-                    },
-                    TextColor(Color::WHITE),
-                ));
-        }
-        None => {
-            for entity in &existing_ui {
-                commands.entity(entity).despawn();
-            }
         }
     }
 }
