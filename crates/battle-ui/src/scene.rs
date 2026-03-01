@@ -172,9 +172,9 @@ impl BattleUIState {
                     }
                     if matches!(
                         item.effect(),
-                        party::ItemEffect::KeyItem
-                            | party::ItemEffect::Material
-                            | party::ItemEffect::Equip
+                        item::ItemEffect::KeyItem
+                            | item::ItemEffect::Material
+                            | item::ItemEffect::Equip
                     ) {
                         self.disabled_indices.push(i);
                     }

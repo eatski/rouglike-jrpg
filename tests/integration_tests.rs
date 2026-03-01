@@ -1108,7 +1108,8 @@ fn hero_has_all_16_spells_at_level_1() {
 #[test]
 fn equipped_weapon_increases_battle_damage() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult};
-    use party::{PartyMember, WeaponKind};
+    use item::WeaponKind;
+    use party::PartyMember;
 
     // 武器なしのライオス
     let hero_unarmed = PartyMember::laios();
@@ -1158,7 +1159,8 @@ fn equipped_weapon_increases_battle_damage() {
 #[test]
 fn herb_heals_in_battle() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult};
-    use party::{PartyMember, ItemKind};
+    use item::ItemKind;
+    use party::PartyMember;
 
     let mut hero = PartyMember::laios();
     hero.stats.hp = 5; // HPを低くしておく
@@ -1197,7 +1199,8 @@ fn herb_heals_in_battle() {
 #[test]
 fn copper_key_is_not_usable_in_battle() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult};
-    use party::{PartyMember, ItemKind};
+    use item::ItemKind;
+    use party::PartyMember;
 
     let mut hero = PartyMember::laios();
     hero.inventory.add(ItemKind::CopperKey, 1);
@@ -1235,7 +1238,8 @@ fn copper_key_is_not_usable_in_battle() {
 fn buy_herb_at_shop_then_use_in_battle() {
     use town::{buy_item, BuyResult};
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors};
-    use party::{PartyMember, ItemKind};
+    use item::ItemKind;
+    use party::PartyMember;
 
     let mut hero = PartyMember::laios();
     let mut gold = 100u32;
@@ -1279,7 +1283,8 @@ fn buy_herb_at_shop_then_use_in_battle() {
 fn buy_weapon_at_shop_then_equip_affects_battle() {
     use town::{buy_item, BuyResult};
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult};
-    use party::{PartyMember, ItemKind, WeaponKind};
+    use item::{ItemKind, WeaponKind};
+    use party::PartyMember;
 
     let mut hero = PartyMember::laios();
     let gold = 100u32;
@@ -1803,7 +1808,7 @@ fn party_wipe_ends_battle_mid_turn() {
 #[test]
 fn shop_rejects_purchase_when_inventory_full() {
     use town::{buy_item, BuyResult};
-    use party::{ItemKind, Inventory, INVENTORY_CAPACITY};
+    use item::{ItemKind, Inventory, INVENTORY_CAPACITY};
 
     let mut inv = Inventory::new();
     let gold = 1000u32;
@@ -2092,7 +2097,8 @@ fn heal_spell_does_not_exceed_max_hp() {
 #[test]
 fn item_heal_does_not_exceed_max_hp() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors};
-    use party::{PartyMember, ItemKind};
+    use item::ItemKind;
+    use party::PartyMember;
 
     // HPをmax_hpの1だけ下に。Herb power=25 → キャップなしなら max_hp+24
     let mut hero = PartyMember::laios();
@@ -2141,7 +2147,7 @@ fn take_damage_does_not_go_below_zero() {
 #[test]
 fn buy_item_succeeds_with_exact_gold() {
     use town::{buy_item, BuyResult};
-    use party::{Inventory, ItemKind};
+    use item::{Inventory, ItemKind};
 
     let mut inv = Inventory::new();
     // やくそうの価格は8ゴールド
@@ -2158,7 +2164,7 @@ fn buy_item_succeeds_with_exact_gold() {
 #[test]
 fn sell_key_item_is_rejected() {
     use town::{sell_item, SellResult};
-    use party::{Inventory, ItemKind};
+    use item::{Inventory, ItemKind};
 
     let mut inv = Inventory::new();
     inv.add(ItemKind::CopperKey, 1);
@@ -2171,7 +2177,7 @@ fn sell_key_item_is_rejected() {
 #[test]
 fn sell_material_item_succeeds() {
     use town::{sell_item, SellResult};
-    use party::{Inventory, ItemKind};
+    use item::{Inventory, ItemKind};
 
     let mut inv = Inventory::new();
     inv.add(ItemKind::MagicStone, 1);
@@ -2230,7 +2236,8 @@ fn battle_victory_leveling_unlocks_new_spell() {
 #[test]
 fn sync_from_battle_reflects_battle_state() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors};
-    use party::{PartyMember, ItemKind};
+    use item::ItemKind;
+    use party::PartyMember;
 
     // パーティ側（元データ）
     let mut original_hero = PartyMember::laios();
@@ -2331,7 +2338,8 @@ fn cave_treasure_sold_at_shop() {
 fn weapon_upgrade_replaces_old_and_changes_damage() {
     use town::{buy_item, BuyResult};
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult};
-    use party::{PartyMember, ItemKind, WeaponKind};
+    use item::{ItemKind, WeaponKind};
+    use party::PartyMember;
 
     let mut hero = PartyMember::laios();
     let gold = 500u32;
@@ -2414,7 +2422,7 @@ fn large_exp_gain_causes_multiple_level_ups() {
 #[test]
 fn sell_item_not_owned_returns_not_owned() {
     use town::{sell_item, SellResult};
-    use party::{Inventory, ItemKind};
+    use item::{Inventory, ItemKind};
 
     let mut inv = Inventory::new();
     // 所持していないアイテムを売却しようとする
@@ -2425,7 +2433,7 @@ fn sell_item_not_owned_returns_not_owned() {
 #[test]
 fn sell_herb_succeeds_at_half_price() {
     use town::{sell_item, SellResult};
-    use party::{Inventory, ItemKind};
+    use item::{Inventory, ItemKind};
 
     let mut inv = Inventory::new();
     inv.add(ItemKind::Herb, 1);
@@ -2516,7 +2524,7 @@ fn recruit_party_then_battle_together() {
 #[test]
 fn buy_item_fails_with_insufficient_gold() {
     use town::{buy_item, BuyResult};
-    use party::{Inventory, ItemKind};
+    use item::{Inventory, ItemKind};
 
     let mut inv = Inventory::new();
     // やくそうは8ゴールド
@@ -2528,7 +2536,8 @@ fn buy_item_fails_with_insufficient_gold() {
 #[test]
 fn buy_weapon_fails_with_insufficient_gold() {
     use town::{buy_item, BuyResult};
-    use party::{PartyMember, ItemKind, WeaponKind};
+    use item::{ItemKind, WeaponKind};
+    use party::PartyMember;
 
     let mut hero = PartyMember::laios();
     // 鉄の剣は50ゴールド
@@ -2540,7 +2549,8 @@ fn buy_weapon_fails_with_insufficient_gold() {
 #[test]
 fn buy_weapon_fails_with_full_inventory() {
     use town::{buy_item, BuyResult};
-    use party::{PartyMember, ItemKind, WeaponKind};
+    use item::{ItemKind, WeaponKind};
+    use party::PartyMember;
 
     let mut hero = PartyMember::laios();
     hero.inventory.add(ItemKind::Herb, 6); // 容量いっぱい
@@ -2555,7 +2565,8 @@ fn buy_weapon_fails_with_full_inventory() {
 #[test]
 fn high_herb_heals_more_than_regular_herb_in_battle() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult};
-    use party::{PartyMember, ItemKind};
+    use item::ItemKind;
+    use party::PartyMember;
 
     // ライオス1: やくそうで回復
     let mut hero1 = PartyMember::laios();
@@ -2602,7 +2613,7 @@ fn high_herb_heals_more_than_regular_herb_in_battle() {
 #[test]
 fn all_material_items_can_be_sold_with_correct_price() {
     use town::{sell_item, SellResult};
-    use party::{Inventory, ItemKind};
+    use item::{Inventory, ItemKind};
 
     let materials = [
         (ItemKind::MagicStone, 30),
@@ -2719,7 +2730,8 @@ fn multi_turn_battle_accumulates_turn_log() {
 fn full_town_equip_battle_levelup_flow() {
     use town::{buy_item, heal_party, BuyResult};
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors};
-    use party::{PartyMember, ItemKind, WeaponKind};
+    use item::{ItemKind, WeaponKind};
+    use party::PartyMember;
 
     let mut hero = PartyMember::laios();
     let mut gold = 500u32;
@@ -3150,7 +3162,7 @@ fn enemy_uses_drain_spell_on_party() {
 #[test]
 fn sell_equipped_weapon_only_one_is_rejected() {
     use town::{sell_item, SellResult};
-    use party::{Inventory, ItemKind, WeaponKind};
+    use item::{Inventory, ItemKind, WeaponKind};
 
     let mut inv = Inventory::new();
     inv.add(ItemKind::Weapon(WeaponKind::IronSword), 1);
@@ -3164,7 +3176,7 @@ fn sell_equipped_weapon_only_one_is_rejected() {
 #[test]
 fn sell_equipped_weapon_two_copies_allows_one_sale() {
     use town::{sell_item, SellResult};
-    use party::{Inventory, ItemKind, WeaponKind};
+    use item::{Inventory, ItemKind, WeaponKind};
 
     let mut inv = Inventory::new();
     inv.add(ItemKind::Weapon(WeaponKind::IronSword), 2);
@@ -3182,7 +3194,7 @@ fn sell_equipped_weapon_two_copies_allows_one_sale() {
 #[test]
 fn sell_unequipped_weapon_succeeds() {
     use town::{sell_item, SellResult};
-    use party::{Inventory, ItemKind, WeaponKind};
+    use item::{Inventory, ItemKind, WeaponKind};
 
     let mut inv = Inventory::new();
     inv.add(ItemKind::Weapon(WeaponKind::IronSword), 1);
@@ -3196,7 +3208,7 @@ fn sell_unequipped_weapon_succeeds() {
 #[test]
 fn sell_different_weapon_while_another_equipped() {
     use town::{sell_item, SellResult};
-    use party::{Inventory, ItemKind, WeaponKind};
+    use item::{Inventory, ItemKind, WeaponKind};
 
     let mut inv = Inventory::new();
     inv.add(ItemKind::Weapon(WeaponKind::WoodenSword), 1);

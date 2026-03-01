@@ -5,7 +5,8 @@ use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
 
 use cave::{generate_boss_cave_map, generate_cave_map, TreasureChest, TreasureContent, CAVE_HEIGHT, CAVE_WIDTH};
-use party::{ItemKind, RecruitmentPath, RecruitmentStatus};
+use item::ItemKind;
+use party::{RecruitmentPath, RecruitmentStatus};
 use terrain::Structure;
 
 use app_state::{BossDefeated, ContinentCavePositions, ContinentMap, EncounterZone, OpenedChests, PartyState};

@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use battle::{ActorId, BattleAction, SpellKind, SpellTarget, TargetId, TurnRandomFactors, TurnResult};
-use party::ItemEffect;
+use item::ItemEffect;
 
 use app_state::BattleState;
 

@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
-use party::{shop_items, shop_weapons, ItemKind, PartyMemberKind, WeaponKind, BAG_CAPACITY, INVENTORY_CAPACITY};
+use item::{shop_items, shop_weapons, ItemKind, WeaponKind, BAG_CAPACITY, INVENTORY_CAPACITY};
+use party::PartyMemberKind;
 use app_state::{PartyState, RecruitmentMap, TavernBounties};
 use field_core::{Player, TilePosition};
 use hud_ui::command_menu::{self, CommandMenu};

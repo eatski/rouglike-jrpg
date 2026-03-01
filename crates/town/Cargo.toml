@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 terrain = { path = "../terrain" }
+item = { path = "../item" }
 party = { path = "../party" }
 
 [dev-dependencies]

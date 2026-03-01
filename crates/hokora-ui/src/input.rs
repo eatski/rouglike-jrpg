@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use input_ui::{is_cancel_just_pressed, is_confirm_just_pressed};
-use party::ItemKind;
+use item::ItemKind;
 
 use app_state::{PartyState, SceneState};
 use field_core::{Player, TilePosition};
