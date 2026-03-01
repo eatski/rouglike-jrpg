@@ -3,6 +3,8 @@ use std::collections::HashMap;
 use crate::equipment::WeaponKind;
 
 pub const INVENTORY_CAPACITY: u32 = 6;
+pub const BAG_CAPACITY: u32 = 50;
+pub const BAG_MEMBER_INDEX: usize = usize::MAX;
 
 /// アイテム使用時の効果
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -139,12 +141,21 @@ pub fn all_items() -> Vec<ItemKind> {
 #[derive(Debug, Clone)]
 pub struct Inventory {
     items: HashMap<ItemKind, u32>,
+    capacity: u32,
 }
 
 impl Inventory {
     pub fn new() -> Self {
         Self {
             items: HashMap::new(),
+            capacity: INVENTORY_CAPACITY,
+        }
+    }
+
+    pub fn with_capacity(capacity: u32) -> Self {
+        Self {
+            items: HashMap::new(),
+            capacity,
         }
     }
 
@@ -159,7 +170,7 @@ impl Inventory {
 
     /// 指定個数を追加できるか（容量チェック）
     pub fn can_add(&self, count: u32) -> bool {
-        self.total_count() + count <= INVENTORY_CAPACITY
+        self.total_count() + count <= self.capacity
     }
 
     /// 容量チェック付き追加。成功したらtrue
@@ -281,5 +292,15 @@ mod tests {
         assert_eq!(inv.total_count(), 6);
         assert!(!inv.try_add(ItemKind::Herb, 1));
         assert_eq!(inv.total_count(), 6);
+    }
+
+    #[test]
+    fn inventory_with_capacity() {
+        let mut inv = Inventory::with_capacity(50);
+        assert!(inv.can_add(50));
+        assert!(!inv.can_add(51));
+        inv.add(ItemKind::Herb, 49);
+        assert!(inv.can_add(1));
+        assert!(!inv.can_add(2));
     }
 }

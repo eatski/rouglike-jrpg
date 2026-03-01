@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use party::{shop_items, shop_weapons, ItemKind, PartyMemberKind, WeaponKind, INVENTORY_CAPACITY};
+use party::{shop_items, shop_weapons, ItemKind, PartyMemberKind, WeaponKind, BAG_CAPACITY, INVENTORY_CAPACITY};
 use app_state::{PartyState, RecruitmentMap, TavernBounties};
 use field_core::{Player, TilePosition};
 use hud_ui::command_menu::{self, CommandMenu};
@@ -402,6 +402,23 @@ fn setup_town_scene_inner(
                         TextColor(color),
                     ));
                 }
+                // ふくろエントリ
+                let bag_index = party_state.members.len();
+                let bag_label = format!(
+                    "  ふくろ  {}/{}",
+                    party_state.bag.total_count(),
+                    BAG_CAPACITY,
+                );
+                char_panel.spawn((
+                    ShopCharacterMenuItem { index: bag_index },
+                    Text::new(bag_label),
+                    TextFont {
+                        font: font.clone(),
+                        font_size: 18.0,
+                        ..default()
+                    },
+                    TextColor(Color::WHITE),
+                ));
             });
     });
 
@@ -463,12 +480,15 @@ pub fn town_extra_display_system(
     // キャラクター選択メニュー項目の更新（購入）
     if let TownMenuPhase::ShopCharacterSelect { selected, .. } = &town_res.phase {
         for (char_item, mut text, mut color) in &mut char_item_query {
+            let is_selected = char_item.index == *selected;
+            let prefix = if is_selected { "> " } else { "  " };
             if char_item.index < party_state.members.len() {
-                let is_selected = char_item.index == *selected;
-                let prefix = if is_selected { "> " } else { "  " };
                 let member = &party_state.members[char_item.index];
                 let detail = format!("{}/{}", member.inventory.total_count(), INVENTORY_CAPACITY);
                 **text = format!("{}{}  {}", prefix, member.kind.name(), detail);
+                *color = command_menu::menu_item_color(false);
+            } else if char_item.index == party_state.members.len() {
+                **text = format!("{}ふくろ  {}/{}", prefix, party_state.bag.total_count(), BAG_CAPACITY);
                 *color = command_menu::menu_item_color(false);
             }
         }
@@ -477,9 +497,9 @@ pub fn town_extra_display_system(
     // キャラクター選択メニュー項目の更新（買い取り依頼）
     if let TownMenuPhase::BountyCharacterSelect { item, selected } = &town_res.phase {
         for (char_item, mut text, mut color) in &mut char_item_query {
+            let is_selected = char_item.index == *selected;
+            let prefix = if is_selected { "> " } else { "  " };
             if char_item.index < party_state.members.len() {
-                let is_selected = char_item.index == *selected;
-                let prefix = if is_selected { "> " } else { "  " };
                 let member = &party_state.members[char_item.index];
                 let count = member.inventory.count(*item);
                 **text = format!("{}{} ({}個)", prefix, member.kind.name(), count);
@@ -491,13 +511,17 @@ pub fn town_extra_display_system(
     // キャラクター選択メニュー項目の更新（アイテム交換雇用）
     if let TownMenuPhase::ItemTradeCharacterSelect { item, selected, .. } = &town_res.phase {
         for (char_item, mut text, mut color) in &mut char_item_query {
+            let is_selected = char_item.index == *selected;
+            let prefix = if is_selected { "> " } else { "  " };
             if char_item.index < party_state.members.len() {
-                let is_selected = char_item.index == *selected;
-                let prefix = if is_selected { "> " } else { "  " };
                 let member = &party_state.members[char_item.index];
                 let count = member.inventory.count(*item);
                 **text = format!("{}{} ({}個)", prefix, member.kind.name(), count);
-                *color = menu_style::menu_item_color(is_selected);
+                *color = command_menu::menu_item_color(false);
+            } else if char_item.index == party_state.members.len() {
+                let count = party_state.bag.count(*item);
+                **text = format!("{}ふくろ ({}個)", prefix, count);
+                *color = command_menu::menu_item_color(false);
             }
         }
     }
@@ -505,9 +529,9 @@ pub fn town_extra_display_system(
     // キャラクター選択メニュー項目の更新（売却）
     if let TownMenuPhase::SellCharacterSelect { selected } = &town_res.phase {
         for (char_item, mut text, mut color) in &mut char_item_query {
+            let is_selected = char_item.index == *selected;
+            let prefix = if is_selected { "> " } else { "  " };
             if char_item.index < party_state.members.len() {
-                let is_selected = char_item.index == *selected;
-                let prefix = if is_selected { "> " } else { "  " };
                 let member = &party_state.members[char_item.index];
                 let equipped_weapon = member.equipment.weapon;
                 let sellable_count: u32 = member
@@ -526,6 +550,15 @@ pub fn town_extra_display_system(
                     })
                     .sum();
                 **text = format!("{}{}  売却可: {}個", prefix, member.kind.name(), sellable_count);
+                *color = command_menu::menu_item_color(false);
+            } else if char_item.index == party_state.members.len() {
+                let sellable_count: u32 = party_state.bag
+                    .owned_items()
+                    .iter()
+                    .filter(|i| i.sell_price() > 0)
+                    .map(|i| party_state.bag.count(*i))
+                    .sum();
+                **text = format!("{}ふくろ  売却可: {}個", prefix, sellable_count);
                 *color = command_menu::menu_item_color(false);
             }
         }
@@ -567,31 +600,30 @@ pub fn town_extra_display_system(
             member_index,
             selected,
         } => {
-            let (sellable_items, equipped_weapon) = if *member_index < party_state.members.len() {
-                let member = &party_state.members[*member_index];
-                let eq_w = member.equipment.weapon;
-                let items: Vec<_> = member
-                    .inventory
-                    .owned_items()
-                    .into_iter()
-                    .filter(|i| {
-                        if i.sell_price() == 0 { return false; }
-                        if let Some(w) = i.as_weapon()
-                            && eq_w == Some(w)
-                        {
-                            return member.inventory.count(*i) > 1;
-                        }
-                        true
-                    })
-                    .collect();
-                (items, eq_w)
+            let is_bag = *member_index == party_state.members.len();
+            let (inventory, equipped_weapon) = if is_bag {
+                (&party_state.bag, None)
             } else {
-                (Vec::new(), None)
+                let member = &party_state.members[*member_index];
+                (&member.inventory, member.equipment.weapon)
             };
+            let sellable_items: Vec<_> = inventory
+                .owned_items()
+                .into_iter()
+                .filter(|i| {
+                    if i.sell_price() == 0 { return false; }
+                    if let Some(w) = i.as_weapon()
+                        && equipped_weapon == Some(w)
+                    {
+                        return inventory.count(*i) > 1;
+                    }
+                    true
+                })
+                .collect();
             for (shop_item, mut text, mut color, mut node) in &mut shop_item_query {
                 if shop_item.index < sellable_items.len() {
                     let item = sellable_items[shop_item.index];
-                    let count = party_state.members[*member_index].inventory.count(item);
+                    let count = inventory.count(item);
                     let is_selected = shop_item.index == *selected;
                     let prefix = if is_selected { "> " } else { "  " };
                     if let Some(w) = item.as_weapon() {

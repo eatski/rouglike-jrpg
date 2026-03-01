@@ -174,7 +174,8 @@ pub fn town_input_system(
                                         }
                                         TavernHintKind::Bounty => {
                                             let item = tavern_bounty_item(pos.x, pos.y);
-                                            let has_item = party_state.members.iter().any(|m| m.inventory.count(item) > 0);
+                                            let has_item = party_state.members.iter().any(|m| m.inventory.count(item) > 0)
+                                                || party_state.bag.count(item) > 0;
                                             tavern_bounties.active.insert(town_pos, item);
                                             let hire_candidates: Vec<_> = recruitment_map
                                                 .hire_available
@@ -416,7 +417,8 @@ pub fn town_input_system(
             }
         }
         TownMenuPhase::BountyCharacterSelect { item, selected } => {
-            let max_index = party_state.members.len().saturating_sub(1);
+            // メンバー + ふくろ（末尾）
+            let max_index = party_state.members.len(); // ふくろ含む
 
             if is_up_just_pressed(&keyboard) {
                 town_res.phase = TownMenuPhase::BountyCharacterSelect {
@@ -437,7 +439,13 @@ pub fn town_input_system(
             }
 
             if is_confirm_just_pressed(&keyboard) {
-                match sell_bounty_item(item, &mut party_state.members[selected].inventory) {
+                let is_bag = selected == party_state.members.len();
+                let inv = if is_bag {
+                    &mut party_state.bag
+                } else {
+                    &mut party_state.members[selected].inventory
+                };
+                match sell_bounty_item(item, inv) {
                     SellResult::Success { earned_gold } => {
                         party_state.gold += earned_gold;
                         town_res.phase = TownMenuPhase::BountyMessage {
@@ -445,7 +453,7 @@ pub fn town_input_system(
                         };
                     }
                     SellResult::NotOwned => {
-                        let name = party_state.members[selected].kind.name();
+                        let name = if is_bag { "ふくろ" } else { party_state.members[selected].kind.name() };
                         town_res.phase = TownMenuPhase::BountyMessage {
                             message: format!("{} は {} を もっていない！", name, item.name()),
                         };
@@ -499,7 +507,8 @@ fn handle_shop_character_select(
     goods: ShopGoods,
     selected: usize,
 ) {
-    let max_index = party_state.members.len().saturating_sub(1);
+    // メンバー + ふくろ（末尾）
+    let max_index = party_state.members.len(); // ふくろ含む
 
     // 上下でカーソル移動
     if is_up_just_pressed(keyboard) {
@@ -523,42 +532,57 @@ fn handle_shop_character_select(
 
     // 決定 → 購入処理
     if is_confirm_just_pressed(keyboard) {
-        let member_name = party_state.members[selected].kind.name();
-        match goods {
-            ShopGoods::Item(item) => {
-                match buy_item(item, party_state.gold, &mut party_state.members[selected].inventory) {
-                    BuyResult::Success { remaining_gold } => {
-                        party_state.gold = remaining_gold;
-                        town_res.phase = TownMenuPhase::ShopMessage {
-                            message: format!("{}が {} を てにいれた！", member_name, item.name()),
-                        };
-                    }
-                    BuyResult::InsufficientGold => {
-                        town_res.phase = TownMenuPhase::ShopMessage {
-                            message: "おかねが たりない！".to_string(),
-                        };
-                    }
-                    BuyResult::InventoryFull => {
-                        town_res.phase = TownMenuPhase::ShopMessage {
-                            message: format!("{}の もちものが いっぱいだ！", member_name),
-                        };
-                    }
-                }
+        let is_bag = selected == party_state.members.len();
+        let (buy_item_kind, display_name) = match goods {
+            ShopGoods::Item(item) => (item, item.name()),
+            ShopGoods::Weapon(weapon) => (ItemKind::Weapon(weapon), weapon.name()),
+        };
+        if is_bag {
+            // ふくろに直接購入
+            let price = buy_item_kind.price();
+            if party_state.gold < price {
+                town_res.phase = TownMenuPhase::ShopMessage {
+                    message: "おかねが たりない！".to_string(),
+                };
+            } else if !party_state.bag.can_add(1) {
+                town_res.phase = TownMenuPhase::ShopMessage {
+                    message: "ふくろが いっぱいだ！".to_string(),
+                };
+            } else {
+                party_state.gold -= price;
+                party_state.bag.add(buy_item_kind, 1);
+                town_res.phase = TownMenuPhase::ShopMessage {
+                    message: format!("{} を ふくろに いれた！", display_name),
+                };
             }
-            ShopGoods::Weapon(weapon) => {
-                match buy_item(ItemKind::Weapon(weapon), party_state.gold, &mut party_state.members[selected].inventory) {
-                    BuyResult::Success { remaining_gold } => {
-                        party_state.gold = remaining_gold;
+        } else {
+            let member_name = party_state.members[selected].kind.name();
+            match buy_item(buy_item_kind, party_state.gold, &mut party_state.members[selected].inventory) {
+                BuyResult::Success { remaining_gold } => {
+                    party_state.gold = remaining_gold;
+                    town_res.phase = TownMenuPhase::ShopMessage {
+                        message: format!("{}が {} を てにいれた！", member_name, display_name),
+                    };
+                }
+                BuyResult::InsufficientGold => {
+                    town_res.phase = TownMenuPhase::ShopMessage {
+                        message: "おかねが たりない！".to_string(),
+                    };
+                }
+                BuyResult::InventoryFull => {
+                    // メンバー満杯 → 袋にフォールバック
+                    let price = buy_item_kind.price();
+                    if party_state.bag.can_add(1) && party_state.gold >= price {
+                        party_state.gold -= price;
+                        party_state.bag.add(buy_item_kind, 1);
                         town_res.phase = TownMenuPhase::ShopMessage {
-                            message: format!("{}が {} を てにいれた！", member_name, weapon.name()),
+                            message: format!("{} を ふくろに いれた！", display_name),
                         };
-                    }
-                    BuyResult::InsufficientGold => {
+                    } else if !party_state.bag.can_add(1) {
                         town_res.phase = TownMenuPhase::ShopMessage {
-                            message: "おかねが たりない！".to_string(),
+                            message: "もちものも ふくろも いっぱいだ！".to_string(),
                         };
-                    }
-                    BuyResult::InventoryFull => {
+                    } else {
                         town_res.phase = TownMenuPhase::ShopMessage {
                             message: format!("{}の もちものが いっぱいだ！", member_name),
                         };
@@ -575,7 +599,8 @@ fn handle_sell_character_select(
     party_state: &PartyState,
     selected: usize,
 ) {
-    let max_index = party_state.members.len().saturating_sub(1);
+    // メンバー + ふくろ（末尾）
+    let max_index = party_state.members.len(); // ふくろ含むので len()
 
     if is_up_just_pressed(keyboard) {
         town_res.phase = TownMenuPhase::SellCharacterSelect {
@@ -594,9 +619,14 @@ fn handle_sell_character_select(
     }
 
     if is_confirm_just_pressed(keyboard) {
-        let equipped_weapon = party_state.members[selected].equipment.weapon;
-        let sellable: Vec<_> = party_state.members[selected]
-            .inventory
+        let is_bag = selected == party_state.members.len();
+        let inventory = if is_bag {
+            &party_state.bag
+        } else {
+            &party_state.members[selected].inventory
+        };
+        let equipped_weapon = if is_bag { None } else { party_state.members[selected].equipment.weapon };
+        let sellable: Vec<_> = inventory
             .owned_items()
             .into_iter()
             .filter(|i| {
@@ -604,7 +634,7 @@ fn handle_sell_character_select(
                 if let Some(w) = i.as_weapon()
                     && equipped_weapon == Some(w)
                 {
-                    return party_state.members[selected].inventory.count(*i) > 1;
+                    return inventory.count(*i) > 1;
                 }
                 true
             })
@@ -629,9 +659,14 @@ fn handle_sell_item_select(
     member_index: usize,
     selected: usize,
 ) {
-    let equipped_weapon = party_state.members[member_index].equipment.weapon;
-    let sellable: Vec<_> = party_state.members[member_index]
-        .inventory
+    let is_bag = member_index == party_state.members.len();
+    let inventory = if is_bag {
+        &party_state.bag
+    } else {
+        &party_state.members[member_index].inventory
+    };
+    let equipped_weapon = if is_bag { None } else { party_state.members[member_index].equipment.weapon };
+    let sellable: Vec<_> = inventory
         .owned_items()
         .into_iter()
         .filter(|i| {
@@ -639,7 +674,7 @@ fn handle_sell_item_select(
             if let Some(w) = i.as_weapon()
                 && equipped_weapon == Some(w)
             {
-                return party_state.members[member_index].inventory.count(*i) > 1;
+                return inventory.count(*i) > 1;
             }
             true
         })
@@ -672,7 +707,12 @@ fn handle_sell_item_select(
 
     if is_confirm_just_pressed(keyboard) {
         let item = sellable[selected];
-        match sell_item(item, &mut party_state.members[member_index].inventory, equipped_weapon) {
+        let inv = if is_bag {
+            &mut party_state.bag
+        } else {
+            &mut party_state.members[member_index].inventory
+        };
+        match sell_item(item, inv, equipped_weapon) {
             SellResult::Success { earned_gold } => {
                 party_state.gold += earned_gold;
                 town_res.phase = TownMenuPhase::ShopMessage {

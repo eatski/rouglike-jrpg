@@ -70,7 +70,8 @@ fn handle_open_door(
         .members
         .iter()
         .map(|m| m.inventory.count(ItemKind::MoonFragment))
-        .sum();
+        .sum::<u32>()
+        + party_state.bag.count(ItemKind::MoonFragment);
 
     if total_fragments < required {
         hokora_res.phase = HokoraMenuPhase::ShowMessage {

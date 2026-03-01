@@ -6,7 +6,7 @@ use hud_ui::command_menu::{
 };
 use input_ui::InputSystemSet;
 use party::available_spells;
-use party::{ItemEffect, ItemKind};
+use party::{Inventory, ItemEffect, ItemKind, BAG_CAPACITY, BAG_MEMBER_INDEX};
 use spell::{calculate_heal_amount, SpellKind, SpellTarget};
 
 /// ターゲット選択の文脈（呪文 or アイテム）
@@ -99,29 +99,46 @@ impl FieldMenuState {
             }
             FieldMenuPhase::MemberSelect { candidates, .. } => {
                 for &idx in candidates {
-                    let m = &party_state.members[idx];
-                    self.cached_labels.push(format!(
-                        "{} HP:{}/{}",
-                        m.kind.name(),
-                        m.stats.hp,
-                        m.stats.max_hp,
-                    ));
+                    if idx == BAG_MEMBER_INDEX {
+                        self.cached_labels.push(format!(
+                            "ふくろ  {}/{}",
+                            party_state.bag.total_count(),
+                            BAG_CAPACITY,
+                        ));
+                    } else {
+                        let m = &party_state.members[idx];
+                        self.cached_labels.push(format!(
+                            "{} HP:{}/{}",
+                            m.kind.name(),
+                            m.stats.hp,
+                            m.stats.max_hp,
+                        ));
+                    }
                 }
             }
             FieldMenuPhase::ItemSelect { member, items, .. } => {
-                let member_data = &party_state.members[*member];
+                let inv = get_inventory(party_state, *member);
                 for &item in items {
-                    let count = member_data.inventory.count(item);
+                    let count = inv.count(item);
                     if let Some(w) = item.as_weapon() {
-                        let equipped = member_data.equipment.weapon == Some(w);
-                        let equip_mark = if equipped { "E " } else { "" };
-                        self.cached_labels.push(format!(
-                            "{}{} ATK+{} x{}",
-                            equip_mark,
-                            item.name(),
-                            w.attack_bonus(),
-                            count
-                        ));
+                        if *member == BAG_MEMBER_INDEX {
+                            self.cached_labels.push(format!(
+                                "{} ATK+{} x{}",
+                                item.name(),
+                                w.attack_bonus(),
+                                count
+                            ));
+                        } else {
+                            let equipped = party_state.members[*member].equipment.weapon == Some(w);
+                            let equip_mark = if equipped { "E " } else { "" };
+                            self.cached_labels.push(format!(
+                                "{}{} ATK+{} x{}",
+                                equip_mark,
+                                item.name(),
+                                w.attack_bonus(),
+                                count
+                            ));
+                        }
                     } else {
                         self.cached_labels
                             .push(format!("{} x{}", item.name(), count));
@@ -474,8 +491,9 @@ fn handle_top_menu(
                 party_state,
             );
         } else {
-            // どうぐ → MemberSelect
-            let candidates = alive_member_indices(party_state);
+            // どうぐ → MemberSelect（末尾にふくろを追加）
+            let mut candidates = alive_member_indices(party_state);
+            candidates.push(BAG_MEMBER_INDEX);
             state.set_phase(
                 FieldMenuPhase::MemberSelect {
                     candidates,
@@ -633,7 +651,7 @@ fn handle_member_select(
 
     if input_ui::is_confirm_just_pressed(keyboard) {
         let member_idx = candidates[cursor];
-        let items = party_state.members[member_idx].inventory.owned_items();
+        let items = get_inventory(party_state, member_idx).owned_items();
         if items.is_empty() {
             state.set_phase(
                 FieldMenuPhase::ShowMessage {
@@ -676,7 +694,8 @@ fn handle_item_select(
     };
 
     if input_ui::is_cancel_just_pressed(keyboard) {
-        let candidates = alive_member_indices(party_state);
+        let mut candidates = alive_member_indices(party_state);
+        candidates.push(BAG_MEMBER_INDEX);
         state.set_phase(
             FieldMenuPhase::MemberSelect {
                 candidates,
@@ -706,26 +725,43 @@ fn handle_item_select(
                 );
             }
             ItemEffect::Equip => {
-                let weapon = item.as_weapon().expect("Equip effect must be Weapon");
-                let member_ref = &mut party_state.members[member];
-                let member_name = member_ref.kind.name();
-                let old_weapon = member_ref.equipment.equip_weapon(weapon);
-                let mut msg = format!("{}は {}を そうびした！", member_name, weapon.name());
-                if let Some(old_w) = old_weapon {
-                    msg.push_str(&format!("\n{}を はずした", old_w.name()));
+                if member == BAG_MEMBER_INDEX {
+                    // ふくろから装備 → 誰に装備するかターゲット選択
+                    let target_candidates = alive_member_indices(party_state);
+                    state.set_phase(
+                        FieldMenuPhase::TargetSelect {
+                            candidates: target_candidates,
+                            cursor: 0,
+                            context: TargetContext::Item {
+                                member,
+                                items,
+                                item_cursor: cursor,
+                            },
+                        },
+                        party_state,
+                    );
+                } else {
+                    let weapon = item.as_weapon().expect("Equip effect must be Weapon");
+                    let member_ref = &mut party_state.members[member];
+                    let member_name = member_ref.kind.name();
+                    let old_weapon = member_ref.equipment.equip_weapon(weapon);
+                    let mut msg = format!("{}は {}を そうびした！", member_name, weapon.name());
+                    if let Some(old_w) = old_weapon {
+                        msg.push_str(&format!("\n{}を はずした", old_w.name()));
+                    }
+                    state.set_phase(
+                        FieldMenuPhase::ShowMessage { message: msg },
+                        party_state,
+                    );
                 }
-                state.set_phase(
-                    FieldMenuPhase::ShowMessage { message: msg },
-                    party_state,
-                );
             }
             ItemEffect::KeyItem | ItemEffect::Material => {
-                let member_name = party_state.members[member].kind.name();
+                let name = member_name(party_state, member);
                 state.set_phase(
                     FieldMenuPhase::ShowMessage {
                         message: format!(
                             "{}は {}を しらべた。\n{}",
-                            member_name,
+                            name,
                             item.name(),
                             item.description()
                         ),
@@ -835,29 +871,52 @@ fn handle_target_select(
                 item_cursor,
             } => {
                 let item = items[item_cursor];
-                if let ItemEffect::Heal { power } = item.effect() {
-                    let used = party_state.members[member].inventory.use_item(item);
-                    if !used {
-                        return;
+                match item.effect() {
+                    ItemEffect::Heal { power } => {
+                        let used = get_inventory_mut(party_state, member).use_item(item);
+                        if !used {
+                            return;
+                        }
+
+                        let random_factor = 0.8 + rand::random::<f32>() * 0.4;
+                        let amount = calculate_heal_amount(power, random_factor);
+
+                        let target = &mut party_state.members[target_idx];
+                        target.stats.hp = (target.stats.hp + amount).min(target.stats.max_hp);
+
+                        let name = member_name(party_state, member);
+                        let target_name = party_state.members[target_idx].kind.name();
+                        format!(
+                            "{}は {}を つかった！\n{}の HPが {}かいふく！",
+                            name,
+                            item.name(),
+                            target_name,
+                            amount
+                        )
                     }
-
-                    let random_factor = 0.8 + rand::random::<f32>() * 0.4;
-                    let amount = calculate_heal_amount(power, random_factor);
-
-                    let target = &mut party_state.members[target_idx];
-                    target.stats.hp = (target.stats.hp + amount).min(target.stats.max_hp);
-
-                    let member_name = party_state.members[member].kind.name();
-                    let target_name = party_state.members[target_idx].kind.name();
-                    format!(
-                        "{}は {}を つかった！\n{}の HPが {}かいふく！",
-                        member_name,
-                        item.name(),
-                        target_name,
-                        amount
-                    )
-                } else {
-                    return;
+                    ItemEffect::Equip if member == BAG_MEMBER_INDEX => {
+                        let weapon = item.as_weapon().expect("Equip effect must be Weapon");
+                        let removed = party_state.bag.remove_item(item);
+                        if !removed {
+                            return;
+                        }
+                        let target_member = &mut party_state.members[target_idx];
+                        let target_name = target_member.kind.name().to_string();
+                        let old_weapon = target_member.equipment.equip_weapon(weapon);
+                        let mut msg = format!("{}は {}を そうびした！", target_name, weapon.name());
+                        if let Some(old_w) = old_weapon {
+                            // 旧武器をターゲットのインベントリへ、満杯なら袋へ
+                            let old_item = ItemKind::Weapon(old_w);
+                            if !party_state.members[target_idx].inventory.try_add(old_item, 1) {
+                                party_state.bag.add(old_item, 1);
+                                msg.push_str(&format!("\n{}を ふくろに しまった", old_w.name()));
+                            } else {
+                                msg.push_str(&format!("\n{}を はずした", old_w.name()));
+                            }
+                        }
+                        msg
+                    }
+                    _ => return,
                 }
             }
             TargetContext::Spell {
@@ -920,8 +979,12 @@ fn field_menu_title_system(
                 **text = "だれの どうぐを つかう？".to_string();
             }
             FieldMenuPhase::ItemSelect { member, .. } => {
-                let name = party_state.members[*member].kind.name();
-                **text = format!("{}の もちもの", name);
+                if *member == BAG_MEMBER_INDEX {
+                    **text = "ふくろの なかみ".to_string();
+                } else {
+                    let name = party_state.members[*member].kind.name();
+                    **text = format!("{}の もちもの", name);
+                }
             }
             FieldMenuPhase::TargetSelect { .. } => {
                 **text = "だれに つかう？".to_string();
@@ -930,5 +993,32 @@ fn field_menu_title_system(
                 **text = message.clone();
             }
         }
+    }
+}
+
+/// ふくろ/メンバーのインベントリ参照を取得するヘルパー
+fn get_inventory(party: &PartyState, idx: usize) -> &Inventory {
+    if idx == BAG_MEMBER_INDEX {
+        &party.bag
+    } else {
+        &party.members[idx].inventory
+    }
+}
+
+/// ふくろ/メンバーのインベントリ可変参照を取得するヘルパー
+fn get_inventory_mut(party: &mut PartyState, idx: usize) -> &mut Inventory {
+    if idx == BAG_MEMBER_INDEX {
+        &mut party.bag
+    } else {
+        &mut party.members[idx].inventory
+    }
+}
+
+/// ふくろ/メンバーの名前を返すヘルパー
+fn member_name(party: &PartyState, idx: usize) -> &str {
+    if idx == BAG_MEMBER_INDEX {
+        "ふくろ"
+    } else {
+        party.members[idx].kind.name()
     }
 }
