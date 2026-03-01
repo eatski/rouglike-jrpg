@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use battle::{ActorId, BattleAction, BuffStat, SpellKind, SpellTarget, TargetId, TurnRandomFactors, TurnResult};
+use battle::{ActorId, BattleAction, SpellKind, SpellTarget, TargetId, TurnRandomFactors, TurnResult};
 use party::ItemEffect;
 
 use app_state::BattleState;
@@ -520,15 +520,23 @@ fn results_to_messages(
                 attacker,
                 target,
                 damage,
+                blocked,
             } => {
                 last_aoe_caster_spell = None;
                 let attacker_name = actor_name(attacker, state, &enemy_names);
                 let target_name = target_name_str(target, state, &enemy_names);
                 let msg_index = messages.len();
-                messages.push(format!(
-                    "{}の こうげき！ {}に {}ダメージ！",
-                    attacker_name, target_name, damage
-                ));
+                if *blocked > 0 {
+                    messages.push(format!(
+                        "{}の こうげき！ {}に {}ダメージ！（{}ブロック！）",
+                        attacker_name, target_name, damage, blocked
+                    ));
+                } else {
+                    messages.push(format!(
+                        "{}の こうげき！ {}に {}ダメージ！",
+                        attacker_name, target_name, damage
+                    ));
+                }
 
                 match target {
                     TargetId::Enemy(i) => {
@@ -555,21 +563,29 @@ fn results_to_messages(
                 spell,
                 target,
                 damage,
+                blocked,
             } => {
                 let target_name = target_name_str(target, state, &enemy_names);
                 let msg_index = messages.len();
 
+                let block_suffix = if *blocked > 0 {
+                    format!("（{}ブロック！）", blocked)
+                } else {
+                    String::new()
+                };
+
                 let is_continuation = last_aoe_caster_spell == Some((*caster, *spell));
                 if is_continuation {
-                    messages.push(format!("{}に {}ダメージ！", target_name, damage));
+                    messages.push(format!("{}に {}ダメージ！{}", target_name, damage, block_suffix));
                 } else {
                     let caster_name = actor_name(caster, state, &enemy_names);
                     messages.push(format!(
-                        "{}は {}を となえた！ {}に {}ダメージ！",
+                        "{}は {}を となえた！ {}に {}ダメージ！{}",
                         caster_name,
                         spell.name(),
                         target_name,
-                        damage
+                        damage,
+                        block_suffix
                     ));
                 }
                 last_aoe_caster_spell = Some((*caster, *spell));
@@ -672,26 +688,37 @@ fn results_to_messages(
                 let target_name = target_name_str(target, state, &enemy_names);
                 let msg_index = messages.len();
 
-                let stat_name = match spell.effect() {
-                    battle::SpellEffect::AttackBuff => "こうげきりょく",
-                    battle::SpellEffect::DefenseBuff => "しゅびりょく",
-                    _ => "",
-                };
+                let is_block = spell.effect() == battle::SpellEffect::Block;
 
                 let is_continuation = last_aoe_caster_spell == Some((*caster, *spell));
-                if is_continuation {
+                if is_block {
+                    if is_continuation {
+                        messages.push(format!(
+                            "{}は {}ブロックを えた！",
+                            target_name, amount
+                        ));
+                    } else {
+                        let caster_name = actor_name(caster, state, &enemy_names);
+                        messages.push(format!(
+                            "{}は {}を となえた！ {}は {}ブロックを えた！",
+                            caster_name,
+                            spell.name(),
+                            target_name,
+                            amount
+                        ));
+                    }
+                } else if is_continuation {
                     messages.push(format!(
-                        "{}の {}が {}あがった！",
-                        target_name, stat_name, amount
+                        "{}の こうげきりょくが {}あがった！",
+                        target_name, amount
                     ));
                 } else {
                     let caster_name = actor_name(caster, state, &enemy_names);
                     messages.push(format!(
-                        "{}は {}を となえた！ {}の {}が {}あがった！",
+                        "{}は {}を となえた！ {}の こうげきりょくが {}あがった！",
                         caster_name,
                         spell.name(),
                         target_name,
-                        stat_name,
                         amount
                     ));
                 }
@@ -712,17 +739,28 @@ fn results_to_messages(
                     ));
                 }
             }
-            TurnResult::BuffExpired { target, stat } => {
+            TurnResult::BuffExpired { target, .. } => {
                 last_aoe_caster_spell = None;
                 let target_name = target_name_str(target, state, &enemy_names);
-                let stat_name = match stat {
-                    BuffStat::Attack => "こうげきりょく",
-                    BuffStat::Defense => "しゅびりょく",
-                };
                 messages.push(format!(
-                    "{}の {}アップの こうかが きれた！",
-                    target_name, stat_name
+                    "{}の こうげきりょくアップの こうかが きれた！",
+                    target_name
                 ));
+            }
+            TurnResult::BlockDecayed { target, remaining } => {
+                last_aoe_caster_spell = None;
+                let target_name = target_name_str(target, state, &enemy_names);
+                if *remaining > 0 {
+                    messages.push(format!(
+                        "{}の ブロックが {}にへった！",
+                        target_name, remaining
+                    ));
+                } else {
+                    messages.push(format!(
+                        "{}の ブロックが きえた！",
+                        target_name
+                    ));
+                }
             }
             TurnResult::ItemUsed {
                 user,

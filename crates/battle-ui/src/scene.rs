@@ -7,8 +7,8 @@ use app_state::{BossBattlePending, EncounterZone, PartyState, SceneState};
 use hud_ui::command_menu::{CommandMenu, CommandMenuItem, CommandMenuScrollDown, CommandMenuScrollUp};
 
 use super::display::{
-    EnemyNameLabel, MessageText, PartyMemberHpBarFill, PartyMemberHpText,
-    PartyMemberMpText, PartyMemberNameText, TargetCursor,
+    EnemyNameLabel, MessageText, PartyMemberBlockText, PartyMemberHpBarFill,
+    PartyMemberHpText, PartyMemberMpText, PartyMemberNameText, TargetCursor,
 };
 
 /// 戦闘シーンのルートUIエンティティを識別するマーカー
@@ -675,6 +675,23 @@ fn build_bottom_area(
                                 TextColor(Color::srgb(0.6, 0.8, 1.0)),
                                 Node {
                                     margin: UiRect::bottom(Val::Px(2.0)),
+                                    ..default()
+                                },
+                            ));
+
+                            // ブロック値テキスト（block > 0のときのみ表示）
+                            member_col.spawn((
+                                PartyMemberBlockText { index: i },
+                                Text::new(""),
+                                TextFont {
+                                    font: font.clone(),
+                                    font_size: 13.0,
+                                    ..default()
+                                },
+                                TextColor(Color::srgb(0.9, 0.7, 0.2)),
+                                Node {
+                                    margin: UiRect::bottom(Val::Px(2.0)),
+                                    display: Display::None,
                                     ..default()
                                 },
                             ));

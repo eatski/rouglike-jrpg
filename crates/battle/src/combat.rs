@@ -33,7 +33,8 @@ pub struct BuffState {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ActorBuffs {
     pub attack_up: Option<BuffState>,
-    pub defense_up: Option<BuffState>,
+    /// ブロック値（受けるダメージを肩代わりする。ターン終了時に半減）
+    pub block: i32,
 }
 
 pub const BUFF_DURATION: u32 = 5;
@@ -57,12 +58,14 @@ pub enum TurnResult {
         attacker: ActorId,
         target: TargetId,
         damage: i32,
+        blocked: i32,
     },
     SpellDamage {
         caster: ActorId,
         spell: SpellKind,
         target: TargetId,
         damage: i32,
+        blocked: i32,
     },
     Healed {
         caster: ActorId,
@@ -117,6 +120,10 @@ pub enum TurnResult {
         target: TargetId,
         ailment: Ailment,
     },
+    BlockDecayed {
+        target: TargetId,
+        remaining: i32,
+    },
     Fled,
     FleeFailed,
 }
@@ -125,7 +132,6 @@ pub enum TurnResult {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BuffStat {
     Attack,
-    Defense,
 }
 
 /// ターン実行に必要な乱数群
@@ -172,14 +178,15 @@ impl BattleState {
         base + buff_amount
     }
 
-    /// パーティメンバーの実効防御力（バフ込み）
-    pub fn effective_defense_with_buff(&self, party_idx: usize) -> i32 {
-        let base = self.party[party_idx].stats.defense;
-        let buff_amount = self.party_buffs[party_idx]
-            .defense_up
-            .map(|b| b.amount)
-            .unwrap_or(0);
-        base + buff_amount
+    /// ブロックでダメージを吸収し、(実ダメージ, ブロック吸収量)を返す
+    fn apply_block(&mut self, party_idx: usize, raw_damage: i32) -> (i32, i32) {
+        let block = self.party_buffs[party_idx].block;
+        if block <= 0 {
+            return (raw_damage, 0);
+        }
+        let absorbed = raw_damage.min(block);
+        self.party_buffs[party_idx].block -= absorbed;
+        (raw_damage - absorbed, absorbed)
     }
 
     /// パーティ全員分のコマンドを受け取り、素早さ順で一括実行
@@ -371,6 +378,7 @@ impl BattleState {
                                 spell,
                                 target: TargetId::Enemy(ei),
                                 damage,
+                                blocked: 0,
                             });
                             if !self.enemies[ei].stats.is_alive() {
                                 results.push(TurnResult::Defeated {
@@ -392,6 +400,7 @@ impl BattleState {
                                 spell,
                                 target: TargetId::Enemy(ei),
                                 damage,
+                                blocked: 0,
                             });
                             if !self.enemies[ei].stats.is_alive() {
                                 results.push(TurnResult::Defeated {
@@ -469,15 +478,12 @@ impl BattleState {
                     _ => {}
                 }
             }
-            SpellEffect::DefenseBuff => {
+            SpellEffect::Block => {
                 match spell.target_type() {
                     SpellTarget::SingleAlly => {
                         let actual_target = self.retarget_ally(target);
                         if let Some(TargetId::Party(pi)) = actual_target {
-                            self.party_buffs[pi].defense_up = Some(BuffState {
-                                amount: spell.power(),
-                                remaining_turns: BUFF_DURATION,
-                            });
+                            self.party_buffs[pi].block += spell.power();
                             results.push(TurnResult::Buffed {
                                 caster: ActorId::Party(caster_idx),
                                 spell,
@@ -488,10 +494,7 @@ impl BattleState {
                     }
                     SpellTarget::AllAllies => {
                         for pi in self.alive_party_indices() {
-                            self.party_buffs[pi].defense_up = Some(BuffState {
-                                amount: spell.power(),
-                                remaining_turns: BUFF_DURATION,
-                            });
+                            self.party_buffs[pi].block += spell.power();
                             results.push(TurnResult::Buffed {
                                 caster: ActorId::Party(caster_idx),
                                 spell,
@@ -653,6 +656,7 @@ impl BattleState {
                 attacker: ActorId::Party(party_idx),
                 target,
                 damage,
+                blocked: 0,
             });
             if !self.enemies[ei].stats.is_alive() {
                 results.push(TurnResult::Defeated { target });
@@ -706,17 +710,19 @@ impl BattleState {
                         // 敵から見て「敵」= パーティメンバー → 先頭の生存メンバーを攻撃
                         let alive_party = self.alive_party_indices();
                         if let Some(&pi) = alive_party.first() {
-                            let damage = calculate_spell_damage(
+                            let raw_damage = calculate_spell_damage(
                                 spell.power(),
-                                self.effective_defense_with_buff(pi),
+                                self.party[pi].stats.defense,
                                 random_factor,
                             );
+                            let (damage, blocked) = self.apply_block(pi, raw_damage);
                             self.party[pi].stats.take_damage(damage);
                             results.push(TurnResult::SpellDamage {
                                 caster: ActorId::Enemy(enemy_idx),
                                 spell,
                                 target: TargetId::Party(pi),
                                 damage,
+                                blocked,
                             });
                             if !self.party[pi].stats.is_alive() {
                                 results.push(TurnResult::Defeated {
@@ -728,17 +734,19 @@ impl BattleState {
                     SpellTarget::AllEnemies => {
                         // 敵から見て「全体敵」= パーティ全員
                         for pi in self.alive_party_indices() {
-                            let damage = calculate_spell_damage(
+                            let raw_damage = calculate_spell_damage(
                                 spell.power(),
-                                self.effective_defense_with_buff(pi),
+                                self.party[pi].stats.defense,
                                 random_factor,
                             );
+                            let (damage, blocked) = self.apply_block(pi, raw_damage);
                             self.party[pi].stats.take_damage(damage);
                             results.push(TurnResult::SpellDamage {
                                 caster: ActorId::Enemy(enemy_idx),
                                 spell,
                                 target: TargetId::Party(pi),
                                 damage,
+                                blocked,
                             });
                             if !self.party[pi].stats.is_alive() {
                                 results.push(TurnResult::Defeated {
@@ -856,17 +864,19 @@ impl BattleState {
         }
         // 簡易: 最初の生存パーティメンバーを攻撃
         let target_idx = alive_party[0];
-        let damage = CombatStats::calculate_damage(
+        let raw_damage = CombatStats::calculate_damage(
             self.enemies[enemy_idx].stats.attack,
-            self.effective_defense_with_buff(target_idx),
+            self.party[target_idx].stats.defense,
             random_factor,
         );
+        let (damage, blocked) = self.apply_block(target_idx, raw_damage);
         self.party[target_idx].stats.take_damage(damage);
         let target = TargetId::Party(target_idx);
         results.push(TurnResult::Attack {
             attacker: ActorId::Enemy(enemy_idx),
             target,
             damage,
+            blocked,
         });
         if !self.party[target_idx].stats.is_alive() {
             results.push(TurnResult::Defeated { target });
@@ -972,15 +982,12 @@ impl BattleState {
                     });
                 }
             }
-            if let Some(ref mut buff) = self.party_buffs[pi].defense_up {
-                buff.remaining_turns = buff.remaining_turns.saturating_sub(1);
-                if buff.remaining_turns == 0 {
-                    self.party_buffs[pi].defense_up = None;
-                    results.push(TurnResult::BuffExpired {
-                        target: TargetId::Party(pi),
-                        stat: BuffStat::Defense,
-                    });
-                }
+            if self.party_buffs[pi].block > 0 {
+                self.party_buffs[pi].block /= 2;
+                results.push(TurnResult::BlockDecayed {
+                    target: TargetId::Party(pi),
+                    remaining: self.party_buffs[pi].block,
+                });
             }
         }
 
@@ -1506,20 +1513,20 @@ mod tests {
     }
 
     #[test]
-    fn garde_buff_reduces_damage_taken() {
+    fn shield_adds_block() {
         let mut senshi = PartyMember::senshi();
-        senshi.level = 4; // Garde習得
+        senshi.level = 4; // Shield1習得
         let laios = PartyMember::laios();
 
         let party = vec![laios, senshi];
-        let mut wolf = Enemy::wolf();
-        wolf.stats.attack = 20;
-        wolf.stats.hp = 999;
-        wolf.stats.max_hp = 999;
-        let enemies = vec![wolf];
+        let mut slime = Enemy::slime();
+        slime.stats.hp = 999;
+        slime.stats.max_hp = 999;
+        slime.stats.attack = 0;
+        let enemies = vec![slime];
         let mut battle = BattleState::new(party, enemies);
 
-        let base_defense = battle.effective_defense_with_buff(0);
+        assert_eq!(battle.party_buffs[0].block, 0);
 
         let commands = vec![
             BattleAction::Attack {
@@ -1533,8 +1540,73 @@ mod tests {
         let randoms = make_random(vec![1.0; 3], 0.0);
         battle.execute_turn(&commands, &randoms);
 
-        let buffed_defense = battle.effective_defense_with_buff(0);
-        assert_eq!(buffed_defense, base_defense + 3, "DEF+3のはず");
+        // Shield1 power=10 → block=10 → tick_buffsで半減 → 5
+        assert_eq!(battle.party_buffs[0].block, 5, "ブロック値が半減して5のはず");
+    }
+
+    #[test]
+    fn block_absorbs_damage() {
+        let laios = PartyMember::laios();
+        let party = vec![laios];
+        let mut wolf = Enemy::wolf();
+        wolf.stats.attack = 20;
+        wolf.stats.hp = 999;
+        wolf.stats.max_hp = 999;
+        let enemies = vec![wolf];
+        let mut battle = BattleState::new(party, enemies);
+
+        // ブロックを直接設定
+        battle.party_buffs[0].block = 10;
+        let hp_before = battle.party[0].stats.hp;
+
+        let commands = vec![BattleAction::Attack {
+            target: TargetId::Enemy(0),
+        }];
+        let randoms = make_random(vec![1.0; 2], 0.0);
+        let results = battle.execute_turn(&commands, &randoms);
+
+        // 敵の攻撃結果を確認
+        let enemy_attack = results.iter().find_map(|r| {
+            if let TurnResult::Attack { attacker: ActorId::Enemy(0), damage, blocked, .. } = r {
+                Some((*damage, *blocked))
+            } else {
+                None
+            }
+        }).unwrap();
+
+        assert!(enemy_attack.1 > 0, "ブロックが発生するはず");
+        let total_raw = enemy_attack.0 + enemy_attack.1;
+        let hp_lost = hp_before - battle.party[0].stats.hp;
+        assert_eq!(hp_lost, enemy_attack.0, "実ダメージ分のみHP減少するはず");
+        assert!(hp_lost < total_raw, "ブロックによりダメージが軽減されるはず");
+    }
+
+    #[test]
+    fn block_stacks_additively() {
+        let mut senshi = PartyMember::senshi();
+        senshi.level = 4;
+        senshi.stats.mp = 99;
+        senshi.stats.max_mp = 99;
+        let party = vec![senshi];
+        let mut slime = Enemy::slime();
+        slime.stats.hp = 999;
+        slime.stats.max_hp = 999;
+        slime.stats.attack = 0;
+        let enemies = vec![slime];
+        let mut battle = BattleState::new(party, enemies);
+
+        // Shield1を2回唱える（2ターン）
+        for _ in 0..2 {
+            let commands = vec![BattleAction::Spell {
+                spell: SpellKind::Shield1,
+                target: TargetId::Party(0),
+            }];
+            let randoms = make_random(vec![1.0; 2], 0.0);
+            battle.execute_turn(&commands, &randoms);
+        }
+
+        // 1ターン目: +10 → 半減5 → 2ターン目: +10 = 15 → 半減7
+        assert_eq!(battle.party_buffs[0].block, 7, "ブロックが加算されて半減: (5+10)/2=7");
     }
 
     #[test]
