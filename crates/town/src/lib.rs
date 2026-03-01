@@ -122,7 +122,7 @@ fn distance_modifier(distance: i32) -> &'static str {
 pub fn candidate_first_dialogue(kind: PartyMemberKind) -> String {
     match kind {
         PartyMemberKind::Chilchuck => {
-            "おれは チルチャック。わなの かいじょと\nかぎあけが とくいだ。\nつぎの まちで まっているぜ。".to_string()
+            "おれは チルチャック。わなの かいじょと\nかぎあけが とくいだ。\n200G はらえば てを かしてやるぜ。".to_string()
         }
         PartyMemberKind::Marcille => {
             "わたしは マルシル！\nまほうの ちからで たすけて あげる！\nつぎの まちで まっているわ。".to_string()
@@ -195,6 +195,9 @@ pub fn candidate_join_dialogue(kind: PartyMemberKind) -> String {
 /// 雇用成功時のセリフ
 pub fn hire_success_dialogue(kind: PartyMemberKind) -> String {
     match kind {
+        PartyMemberKind::Chilchuck => {
+            "チルチャックが なかまに くわわった！\n「まあ きんの きれめが\nえんの きれめだけどな」".to_string()
+        }
         PartyMemberKind::Namari => {
             "ナマリが なかまに くわわった！\n「きんの きれめが えんの きれめだ。\nよろしく たのむ」".to_string()
         }

@@ -307,6 +307,7 @@ impl PartyMemberKind {
     pub fn recruit_method(self) -> RecruitmentPath {
         match self {
             PartyMemberKind::Namari => RecruitmentPath::GoldHire { cost: 200 },
+            PartyMemberKind::Chilchuck => RecruitmentPath::GoldHire { cost: 200 },
             _ => RecruitmentPath::TavernBond,
         }
     }
