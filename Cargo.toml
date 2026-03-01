@@ -6,48 +6,48 @@ edition = "2024"
 [dependencies]
 bevy = "0.18"
 rand = "0.8"
-app-state = { path = "crates/app-state" }
-battle = { path = "crates/battle" }
-battle-ui = { path = "crates/battle-ui" }
-cave-ui = { path = "crates/cave-ui" }
-field-menu-ui = { path = "crates/field-menu-ui" }
-hokora-ui = { path = "crates/hokora-ui" }
-field-core = { path = "crates/field-core" }
-terrain = { path = "crates/terrain" }
-town-ui = { path = "crates/town-ui" }
-field-walk-ui = { path = "crates/field-walk-ui" }
+app-state = { path = "app/app-state" }
+battle = { path = "app/battle" }
+battle-ui = { path = "app/battle-ui" }
+cave-ui = { path = "app/cave-ui" }
+field-menu-ui = { path = "app/field-menu-ui" }
+hokora-ui = { path = "app/hokora-ui" }
+field-core = { path = "app/field-core" }
+terrain = { path = "app/terrain" }
+town-ui = { path = "app/town-ui" }
+field-walk-ui = { path = "app/field-walk-ui" }
 
 [dev-dependencies]
 rand_chacha = "0.3"
-item = { path = "crates/item" }
-party = { path = "crates/party" }
-cave = { path = "crates/cave" }
-town = { path = "crates/town" }
-field-walk = { path = "crates/field-walk" }
-world-gen = { path = "crates/world-gen" }
+item = { path = "app/item" }
+party = { path = "app/party" }
+cave = { path = "app/cave" }
+town = { path = "app/town" }
+field-walk = { path = "app/field-walk" }
+world-gen = { path = "app/world-gen" }
 
 [workspace]
 members = [
-    "crates/terrain",
-    "crates/field-core",
-    "crates/field-walk",
-    "crates/field-walk-ui",
-    "crates/world-gen",
-    "crates/item",
-    "crates/party",
-    "crates/spell",
-    "crates/town",
-    "crates/cave",
-    "crates/battle",
-    "crates/app-state",
-    "crates/input-ui",
-    "crates/battle-ui",
-    "crates/town-ui",
+    "app/terrain",
+    "app/field-core",
+    "app/field-walk",
+    "app/field-walk-ui",
+    "app/world-gen",
+    "app/item",
+    "app/party",
+    "app/spell",
+    "app/town",
+    "app/cave",
+    "app/battle",
+    "app/app-state",
+    "app/input-ui",
+    "app/battle-ui",
+    "app/town-ui",
 
-    "crates/hud-ui",
-    "crates/cave-ui",
-    "crates/field-menu-ui",
-    "crates/hokora-ui",
+    "app/hud-ui",
+    "app/cave-ui",
+    "app/field-menu-ui",
+    "app/hokora-ui",
     "tools/generate_tiles",
     "tools/deps_mermaid",
     "tools/merge_work",

@@ -12,8 +12,8 @@ bevy = "0.18"
 rand = "0.8"
 rand_chacha = "0.3"
 screenshot-common = { path = "../common" }
-app-state = { path = "../../crates/app-state" }
-cave = { path = "../../crates/cave" }
-field-core = { path = "../../crates/field-core" }
-field-walk-ui = { path = "../../crates/field-walk-ui" }
-terrain = { path = "../../crates/terrain" }
+app-state = { path = "../../app/app-state" }
+cave = { path = "../../app/cave" }
+field-core = { path = "../../app/field-core" }
+field-walk-ui = { path = "../../app/field-walk-ui" }
+terrain = { path = "../../app/terrain" }

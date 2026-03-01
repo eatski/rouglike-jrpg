@@ -12,13 +12,13 @@ fn main() {
     let members = parse_workspace_members(&content);
     let root_name = parse_package_name(&content).unwrap_or_default();
 
-    // 全crateの名前を収集（crates/配下のみ）
+    // 全crateの名前を収集（app/配下のみ）
     let mut known_crates: BTreeSet<String> = BTreeSet::new();
     let mut member_tomls: Vec<(String, PathBuf)> = Vec::new();
 
     for member_dir in &members {
-        // crates/ 配下のみ含める
-        if !member_dir.starts_with("crates/") {
+        // app/ 配下のみ含める
+        if !member_dir.starts_with("app/") {
             continue;
         }
         let toml_path = root.join(member_dir).join("Cargo.toml");

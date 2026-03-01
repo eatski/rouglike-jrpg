@@ -10,7 +10,7 @@ path = "src/main.rs"
 [dependencies]
 bevy = "0.18"
 screenshot-common = { path = "../common" }
-app-state = { path = "../../crates/app-state" }
-battle = { path = "../../crates/battle" }
-battle-ui = { path = "../../crates/battle-ui" }
-hud-ui = { path = "../../crates/hud-ui" }
+app-state = { path = "../../app/app-state" }
+battle = { path = "../../app/battle" }
+battle-ui = { path = "../../app/battle-ui" }
+hud-ui = { path = "../../app/hud-ui" }

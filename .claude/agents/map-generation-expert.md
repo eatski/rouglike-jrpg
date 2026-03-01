@@ -48,13 +48,13 @@ Sea タイルの8隣接情報を8ビットマスクにエンコードし、47種
 - **ビットマスク**: N=1, NE=2, E=4, SE=8, S=16, SW=32, W=64, NW=128（陸隣接で立つ）
 - **対角ビットの正規化**: 対角方向は隣接する2カーディナル方位が両方陸の場合のみ有効（それ以外は無視）
 - **47ユニーク**: 正規化後の256通りのマスクが47種類に収まる
-- **ルックアップ配置**: `crates/world-ui/src/coast_lookup.rs`（build_lookup_table()、ビット定数）
+- **ルックアップ配置**: `app/world-ui/src/coast_lookup.rs`（build_lookup_table()、ビット定数）
 - **タイル生成**: `tools/generate_tiles/src/generators/terrains/coast.rs`（generate_coast_tiles()）
-- **描画**: `crates/world-ui/src/tile_pool.rs`（compute_coast_mask() でマスク計算、TileTextures.coast_tiles/coast_lookup で参照）
+- **描画**: `app/world-ui/src/tile_pool.rs`（compute_coast_mask() でマスク計算、TileTextures.coast_tiles/coast_lookup で参照）
 
 ### MapData 構造体
 
-`crates/world-gen/src/generation.rs` に定義。主要フィールド：
+`app/world-gen/src/generation.rs` に定義。主要フィールド：
 
 - `grid` — `Vec<Vec<Terrain>>` タイルグリッド
 - `spawn_position` — プレイヤー初期位置
@@ -74,8 +74,8 @@ Sea タイルの8隣接情報を8ビットマスクにエンコードし、47種
 
 ### コード配置
 
-- `crates/terrain/src/terrain.rs` — 地形定義（`Terrain` enum、`is_walkable()`）
-- `crates/world-gen/src/generation.rs` — 生成ロジック（各Phaseの関数、`MapData` 構造体）
-- `crates/world/src/map/islands.rs` — 島検出・海域検出・接続性検証・町/洞窟配置
-- `crates/app-state/src/resources.rs` — `ContinentMap`、`EncounterZone` リソース定義
-- `crates/world-ui/src/tile_action.rs` — `update_encounter_zone_system`
+- `app/terrain/src/terrain.rs` — 地形定義（`Terrain` enum、`is_walkable()`）
+- `app/world-gen/src/generation.rs` — 生成ロジック（各Phaseの関数、`MapData` 構造体）
+- `app/world/src/map/islands.rs` — 島検出・海域検出・接続性検証・町/洞窟配置
+- `app/app-state/src/resources.rs` — `ContinentMap`、`EncounterZone` リソース定義
+- `app/world-ui/src/tile_action.rs` — `update_encounter_zone_system`

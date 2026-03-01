@@ -26,4 +26,4 @@ Bevy 0.18では`ButtonInput::clear()`はpressed状態を維持する。キー入
 
 ### test_utils
 
-`crates/game/src/test_utils.rs` にテストグリッド生成ヘルパーがある。テスト内で手動で `vec![vec![...]; ...]` を書かず、`create_test_grid()` / `create_sized_grid()` を使うこと。
+`app/game/src/test_utils.rs` にテストグリッド生成ヘルパーがある。テスト内で手動で `vec![vec![...]; ...]` を書かず、`create_test_grid()` / `create_sized_grid()` を使うこと。
