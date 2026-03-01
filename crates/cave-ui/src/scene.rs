@@ -117,10 +117,11 @@ pub fn setup_cave_scene(
     let seed = tile_pos.x as u64 * 10007 + tile_pos.y as u64;
     let mut rng = ChaCha8Rng::seed_from_u64(seed);
     let guaranteed_items: Vec<TreasureContent> =
-        if let Some(caves) = continent_caves
+        if let Some((continent_idx, caves)) = continent_caves
             .caves_by_continent
             .iter()
-            .find(|caves| caves.contains(&cave_world_pos))
+            .enumerate()
+            .find(|(_, caves)| caves.contains(&cave_world_pos))
         {
             let num_caves = caves.len();
             let cave_idx = caves.iter().position(|&c| c == cave_world_pos).unwrap();
@@ -129,9 +130,12 @@ pub fn setup_cave_scene(
             let count = base + if cave_idx < remainder { 1 } else { 0 };
             let mut items = vec![TreasureContent::Item(ItemKind::MoonFragment); count];
 
-            // 未加入の ItemTrade キャラ用アイテムを確定スポーン
-            for candidate in &party_state.candidates {
+            // 未加入の ItemTrade キャラ用アイテムを確定スポーン（所属大陸のみ）
+            for (cand_idx, candidate) in party_state.candidates.iter().enumerate() {
                 if candidate.status == RecruitmentStatus::Recruited {
+                    continue;
+                }
+                if cand_idx / 3 != continent_idx {
                     continue;
                 }
                 if let RecruitmentPath::ItemTrade { item } = candidate.kind.recruit_method() {

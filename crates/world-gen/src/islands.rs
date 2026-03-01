@@ -482,21 +482,22 @@ pub fn place_extra_towns(
     placed
 }
 
-/// 仲間候補をスポーン大陸の街に割り当てる
+/// 仲間候補を大陸の街に割り当てる
 ///
 /// 各候補に first_town（初対面）と second_town（加入）を割り当てる。
+/// `candidate_indices` で割り当てる候補のインデックスを指定する。
 /// 候補数 + 1 以上の街が必要。
 pub fn assign_candidates_to_towns(
-    spawn_island_towns: &[(usize, usize)],
-    candidate_count: usize,
+    island_towns: &[(usize, usize)],
+    candidate_indices: &[usize],
     rng: &mut impl Rng,
 ) -> Vec<CandidatePlacement> {
     // 候補数 + 1 以上の街が必要
-    if spawn_island_towns.len() < candidate_count + 1 {
+    if island_towns.len() < candidate_indices.len() + 1 {
         return Vec::new();
     }
 
-    let mut towns: Vec<(usize, usize)> = spawn_island_towns.to_vec();
+    let mut towns: Vec<(usize, usize)> = island_towns.to_vec();
     towns.shuffle(rng);
 
     let mut placements = Vec::new();
@@ -505,9 +506,9 @@ pub fn assign_candidates_to_towns(
     // towns[0], towns[1] -> 候補0
     // towns[1], towns[2] -> 候補1
     // ...のようにスライドウィンドウで割り当てる
-    for i in 0..candidate_count {
+    for (i, &candidate_index) in candidate_indices.iter().enumerate() {
         placements.push(CandidatePlacement {
-            candidate_index: i,
+            candidate_index,
             first_town: towns[i],
             second_town: towns[i + 1],
         });
@@ -641,13 +642,29 @@ mod tests {
         let towns = vec![(5, 5), (10, 5), (15, 5)];
         let mut rng = create_rng(42);
 
-        let placements = assign_candidates_to_towns(&towns, 2, &mut rng);
+        let placements = assign_candidates_to_towns(&towns, &[0, 1], &mut rng);
 
         assert_eq!(placements.len(), 2);
         // 各候補のfirst_townとsecond_townが異なることを確認
         for p in &placements {
             assert_ne!(p.first_town, p.second_town);
         }
+        // candidate_indexが指定通りであることを確認
+        assert_eq!(placements[0].candidate_index, 0);
+        assert_eq!(placements[1].candidate_index, 1);
+    }
+
+    #[test]
+    fn assign_candidates_to_towns_with_custom_indices() {
+        let towns = vec![(5, 5), (10, 5), (15, 5), (20, 5)];
+        let mut rng = create_rng(42);
+
+        let placements = assign_candidates_to_towns(&towns, &[3, 4, 5], &mut rng);
+
+        assert_eq!(placements.len(), 3);
+        assert_eq!(placements[0].candidate_index, 3);
+        assert_eq!(placements[1].candidate_index, 4);
+        assert_eq!(placements[2].candidate_index, 5);
     }
 
     #[test]
@@ -655,7 +672,7 @@ mod tests {
         let towns = vec![(5, 5)]; // 街が1つだけ
         let mut rng = create_rng(42);
 
-        let placements = assign_candidates_to_towns(&towns, 2, &mut rng);
+        let placements = assign_candidates_to_towns(&towns, &[0, 1], &mut rng);
         assert!(placements.is_empty());
     }
 }

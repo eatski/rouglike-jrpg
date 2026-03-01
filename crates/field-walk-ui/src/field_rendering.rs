@@ -31,37 +31,59 @@ pub fn spawn_field_map_with_rng(
 
     let mut map_data = generate_connected_map(rng);
 
-    // スポーン大陸に仲間候補用の追加街を配置
-    let candidate_count = default_candidates().len();
-    place_extra_towns(
-        &map_data.grid,
-        &mut map_data.structures,
-        rng,
-        map_data.spawn_position,
-        candidate_count,
-    );
-
-    // スポーン大陸の座標を収集
     let islands = detect_islands(&map_data.grid);
-    let spawn_island: Vec<(usize, usize)> = islands
-        .iter()
-        .find(|island| island.contains(&map_data.spawn_position))
-        .cloned()
-        .unwrap_or_default();
-    let spawn_island_towns: Vec<(usize, usize)> = spawn_island
-        .iter()
-        .copied()
-        .filter(|&(x, y)| map_data.structures[y][x] == Structure::Town)
-        .collect();
+    let candidate_count = default_candidates().len();
 
-    // 仲間候補を街に割り当て
-    let placements = assign_candidates_to_towns(&spawn_island_towns, candidate_count, rng);
+    // 祠の位置を先に取得（大陸特定に使用）
+    let (hokora_pos_vec, warp_dest_vec): (Vec<_>, Vec<_>) =
+        map_data.hokora_spawns.iter().copied().unzip();
+
+    // 各大陸に仲間候補を3名ずつ分散配置
     let mut town_to_candidate = HashMap::new();
     let mut candidate_second_town = HashMap::new();
-    for p in &placements {
-        town_to_candidate.insert(p.first_town, p.candidate_index);
-        candidate_second_town.insert(p.candidate_index, p.second_town);
+    let candidates_per_continent = 3;
+    let num_continents = hokora_pos_vec.len().min(candidate_count / candidates_per_continent);
+
+    for (continent_idx, &continent_pos) in hokora_pos_vec.iter().enumerate().take(num_continents) {
+        let island = match islands.iter().find(|island| island.contains(&continent_pos)) {
+            Some(island) => island,
+            None => continue,
+        };
+
+        // 必要に応じて追加街を配置
+        let start = continent_idx * candidates_per_continent;
+        let end = (start + candidates_per_continent).min(candidate_count);
+        let needed = end - start;
+        let town_count = island
+            .iter()
+            .filter(|&&(x, y)| map_data.structures[y][x] == Structure::Town)
+            .count();
+        if town_count < needed + 1 {
+            place_extra_towns(
+                &map_data.grid,
+                &mut map_data.structures,
+                rng,
+                continent_pos,
+                needed,
+            );
+        }
+
+        // この大陸の街を収集
+        let island_towns: Vec<(usize, usize)> = island
+            .iter()
+            .copied()
+            .filter(|&(x, y)| map_data.structures[y][x] == Structure::Town)
+            .collect();
+
+        // 候補インデックスを割り当て
+        let candidate_indices: Vec<usize> = (start..end).collect();
+        let placements = assign_candidates_to_towns(&island_towns, &candidate_indices, rng);
+        for p in &placements {
+            town_to_candidate.insert(p.first_town, p.candidate_index);
+            candidate_second_town.insert(p.candidate_index, p.second_town);
+        }
     }
+
     commands.insert_resource(RecruitmentMap {
         town_to_candidate,
         candidate_second_town,
@@ -76,9 +98,7 @@ pub fn spawn_field_map_with_rng(
         y: map_data.spawn_position.1,
     });
 
-    // 祠の位置とワープ先を生成データから直接取得
-    let (hokora_pos_vec, warp_dest_vec): (Vec<_>, Vec<_>) =
-        map_data.hokora_spawns.iter().copied().unzip();
+    // 祠の位置とワープ先をリソースとして登録
     commands.insert_resource(HokoraPositions::new(hokora_pos_vec.clone(), warp_dest_vec));
 
     // 各祠が所属する大陸の洞窟座標を収集
