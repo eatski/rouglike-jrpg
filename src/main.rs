@@ -3,7 +3,7 @@ use std::time::Duration;
 use bevy::prelude::*;
 use bevy::window::{Window, WindowResolution};
 use bevy::winit::{UpdateMode, WinitSettings};
-use app_state::InField;
+use app_state::{InField, SpellParams};
 use field_core::WINDOW_SIZE;
 
 fn main() {
@@ -30,6 +30,7 @@ fn main() {
                     ..default()
                 }),
         )
+        .insert_resource(SpellParams(spell_data::spell_param_table()))
         .add_plugins((
             app_state::AppStatePlugin,
             field_walk_ui::MovementPlugin,

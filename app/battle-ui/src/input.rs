@@ -138,7 +138,7 @@ fn handle_spell_select(
         let member_mp = game_state.state.party[member_index].stats.mp;
 
         // MP不足チェック
-        if member_mp < spell.mp_cost() {
+        if member_mp < game_state.state.spell_params.mp_cost(spell) {
             return; // MP不足なら何もしない
         }
 
@@ -594,7 +594,7 @@ fn results_to_messages(
                 if !is_continuation
                     && let ActorId::Party(ci) = caster
                 {
-                    running_party_mp[*ci] = (running_party_mp[*ci] - spell.mp_cost()).max(0);
+                    running_party_mp[*ci] = (running_party_mp[*ci] - state.spell_params.mp_cost(*spell)).max(0);
                     effects.push((
                         msg_index,
                         MessageEffect::UpdatePartyMp {
@@ -656,7 +656,7 @@ fn results_to_messages(
                     && let ActorId::Party(ci) = caster
                 {
                     running_party_mp[*ci] =
-                        (running_party_mp[*ci] - spell.mp_cost()).max(0);
+                        (running_party_mp[*ci] - state.spell_params.mp_cost(*spell)).max(0);
                     effects.push((
                         msg_index,
                         MessageEffect::UpdatePartyMp {
@@ -688,7 +688,7 @@ fn results_to_messages(
                 let target_name = target_name_str(target, state, &enemy_names);
                 let msg_index = messages.len();
 
-                let is_block = spell.effect() == battle::SpellEffect::Block;
+                let is_block = matches!(state.spell_params.effect(*spell), battle::SpellEffect::Block { .. });
 
                 let is_continuation = last_aoe_caster_spell == Some((*caster, *spell));
                 if is_block {
@@ -729,7 +729,7 @@ fn results_to_messages(
                     && let ActorId::Party(ci) = caster
                 {
                     running_party_mp[*ci] =
-                        (running_party_mp[*ci] - spell.mp_cost()).max(0);
+                        (running_party_mp[*ci] - state.spell_params.mp_cost(*spell)).max(0);
                     effects.push((
                         msg_index,
                         MessageEffect::UpdatePartyMp {
@@ -824,7 +824,7 @@ fn results_to_messages(
                     && let ActorId::Party(ci) = caster
                 {
                     running_party_mp[*ci] =
-                        (running_party_mp[*ci] - spell.mp_cost()).max(0);
+                        (running_party_mp[*ci] - state.spell_params.mp_cost(*spell)).max(0);
                     effects.push((
                         msg_index,
                         MessageEffect::UpdatePartyMp {
@@ -904,7 +904,7 @@ fn results_to_messages(
                     && let ActorId::Party(ci) = caster
                 {
                     running_party_mp[*ci] =
-                        (running_party_mp[*ci] - spell.mp_cost()).max(0);
+                        (running_party_mp[*ci] - state.spell_params.mp_cost(*spell)).max(0);
                     effects.push((
                         msg_index,
                         MessageEffect::UpdatePartyMp {
@@ -951,7 +951,7 @@ fn results_to_messages(
                     && let ActorId::Party(ci) = caster
                 {
                     running_party_mp[*ci] =
-                        (running_party_mp[*ci] - spell.mp_cost()).max(0);
+                        (running_party_mp[*ci] - state.spell_params.mp_cost(*spell)).max(0);
                     effects.push((
                         msg_index,
                         MessageEffect::UpdatePartyMp {

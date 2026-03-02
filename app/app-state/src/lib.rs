@@ -1,12 +1,24 @@
 mod resources;
 
 use bevy::prelude::*;
+use std::ops::Deref;
 
 pub use resources::{
     BossBattlePending, BossDefeated, ContinentCavePositions, ContinentMap, EncounterZone,
     FieldMenuOpen, HeardTavernHints, HokoraPositions, OpenedChests, PartyState, RecruitmentMap,
     TavernBounties, TavernHintKind,
 };
+
+/// 呪文パラメータの Bevy Resource ラッパー
+#[derive(Resource, Clone)]
+pub struct SpellParams(pub spell::SpellParamTable);
+
+impl Deref for SpellParams {
+    type Target = spell::SpellParamTable;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 pub struct AppStatePlugin;
 

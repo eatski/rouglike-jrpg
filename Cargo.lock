@@ -174,6 +174,7 @@ dependencies = [
  "bevy",
  "item",
  "party",
+ "spell",
 ]
 
 [[package]]
@@ -4373,6 +4374,8 @@ dependencies = [
  "party",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
+ "spell",
+ "spell-data",
  "terrain",
  "town",
  "town-ui",
@@ -4478,6 +4481,7 @@ dependencies = [
  "bevy",
  "hud-ui",
  "screenshot-common",
+ "spell-data",
 ]
 
 [[package]]
@@ -4717,6 +4721,13 @@ dependencies = [
 [[package]]
 name = "spell"
 version = "0.1.0"
+
+[[package]]
+name = "spell-data"
+version = "0.1.0"
+dependencies = [
+ "spell",
+]
 
 [[package]]
 name = "spin"

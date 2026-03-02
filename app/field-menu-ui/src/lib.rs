@@ -1,13 +1,13 @@
 use bevy::prelude::*;
 
-use app_state::{FieldMenuOpen, InField, PartyState};
+use app_state::{FieldMenuOpen, InField, PartyState, SpellParams};
 use hud_ui::command_menu::{
     self, CommandMenu, CommandMenuItem, CommandMenuScrollDown, CommandMenuScrollUp,
 };
 use input_ui::InputSystemSet;
 use party::available_spells;
 use item::{Inventory, ItemEffect, ItemKind, BAG_CAPACITY, BAG_MEMBER_INDEX};
-use spell::{calculate_heal_amount, SpellKind, SpellTarget};
+use spell::{SpellEffect, SpellKind, SpellParamTable, SpellTarget};
 
 /// ターゲット選択の文脈（呪文 or アイテム）
 #[derive(Debug, Clone)]
@@ -52,22 +52,22 @@ pub struct FieldMenuState {
 }
 
 impl FieldMenuState {
-    pub fn new(phase: FieldMenuPhase, party_state: &PartyState) -> Self {
+    pub fn new(phase: FieldMenuPhase, party_state: &PartyState, spell_params: &SpellParams) -> Self {
         let mut s = Self {
             phase,
             cached_labels: Vec::new(),
             disabled_indices: Vec::new(),
         };
-        s.rebuild_cache(party_state);
+        s.rebuild_cache(party_state, spell_params);
         s
     }
 
-    fn set_phase(&mut self, phase: FieldMenuPhase, party_state: &PartyState) {
+    fn set_phase(&mut self, phase: FieldMenuPhase, party_state: &PartyState, spell_params: &SpellParams) {
         self.phase = phase;
-        self.rebuild_cache(party_state);
+        self.rebuild_cache(party_state, spell_params);
     }
 
-    fn rebuild_cache(&mut self, party_state: &PartyState) {
+    fn rebuild_cache(&mut self, party_state: &PartyState, spell_params: &SpellParams) {
         self.cached_labels.clear();
         self.disabled_indices.clear();
         match &self.phase {
@@ -91,8 +91,8 @@ impl FieldMenuState {
                 let caster_mp = party_state.members[*caster].stats.mp;
                 for (i, &spell) in spells.iter().enumerate() {
                     self.cached_labels
-                        .push(format!("{} ({})", spell.name(), spell.mp_cost()));
-                    if caster_mp < spell.mp_cost() {
+                        .push(format!("{} ({})", spell.name(), spell_params.mp_cost(spell)));
+                    if caster_mp < spell_params.mp_cost(spell) {
                         self.disabled_indices.push(i);
                     }
                 }
@@ -366,6 +366,7 @@ fn field_menu_input_system(
     mut party_state: ResMut<PartyState>,
     state: Option<ResMut<FieldMenuState>>,
     root_query: Query<Entity, With<FieldMenuRoot>>,
+    spell_params: Res<SpellParams>,
 ) {
     if menu_open.is_none() {
         // メニュー非表示: 確認キーで開く
@@ -378,6 +379,7 @@ fn field_menu_input_system(
             commands.insert_resource(FieldMenuState::new(
                 FieldMenuPhase::TopMenu { cursor: 0 },
                 &party_state,
+                &spell_params,
             ));
 
             spawn_menu_ui(&mut commands, &asset_server);
@@ -397,10 +399,11 @@ fn field_menu_input_system(
                 &mut commands,
                 &root_query,
                 cursor,
+                &spell_params,
             );
         }
         FieldMenuPhase::CasterSelect { candidates, cursor } => {
-            handle_caster_select(&keyboard, &mut state, &party_state, candidates, cursor);
+            handle_caster_select(&keyboard, &mut state, &party_state, candidates, cursor, &spell_params);
         }
         FieldMenuPhase::SpellSelect {
             caster,
@@ -414,10 +417,11 @@ fn field_menu_input_system(
                 caster,
                 spells,
                 cursor,
+                &spell_params,
             );
         }
         FieldMenuPhase::MemberSelect { candidates, cursor } => {
-            handle_member_select(&keyboard, &mut state, &party_state, candidates, cursor);
+            handle_member_select(&keyboard, &mut state, &party_state, candidates, cursor, &spell_params);
         }
         FieldMenuPhase::ItemSelect {
             member,
@@ -431,6 +435,7 @@ fn field_menu_input_system(
                 member,
                 items,
                 cursor,
+                &spell_params,
             );
         }
         FieldMenuPhase::TargetSelect {
@@ -445,11 +450,12 @@ fn field_menu_input_system(
                 candidates,
                 cursor,
                 context,
+                &spell_params,
             );
         }
         FieldMenuPhase::ShowMessage { .. } => {
             if input_ui::is_confirm_just_pressed(&keyboard) {
-                state.set_phase(FieldMenuPhase::TopMenu { cursor: 0 }, &party_state);
+                state.set_phase(FieldMenuPhase::TopMenu { cursor: 0 }, &party_state, &spell_params);
             }
             if input_ui::is_cancel_just_pressed(&keyboard) {
                 close_menu(&mut commands, &root_query);
@@ -465,6 +471,7 @@ fn handle_top_menu(
     commands: &mut Commands,
     root_query: &Query<Entity, With<FieldMenuRoot>>,
     mut cursor: usize,
+    spell_params: &SpellParams,
 ) {
     if input_ui::is_up_just_pressed(keyboard) && cursor > 0 {
         cursor -= 1;
@@ -489,6 +496,7 @@ fn handle_top_menu(
                     cursor: 0,
                 },
                 party_state,
+                spell_params,
             );
         } else {
             // どうぐ → MemberSelect（末尾にふくろを追加）
@@ -500,6 +508,7 @@ fn handle_top_menu(
                     cursor: 0,
                 },
                 party_state,
+                spell_params,
             );
         }
     }
@@ -511,6 +520,7 @@ fn handle_caster_select(
     party_state: &PartyState,
     candidates: Vec<usize>,
     mut cursor: usize,
+    spell_params: &SpellParams,
 ) {
     let count = candidates.len();
     if input_ui::is_up_just_pressed(keyboard) && cursor > 0 {
@@ -525,7 +535,7 @@ fn handle_caster_select(
     };
 
     if input_ui::is_cancel_just_pressed(keyboard) {
-        state.set_phase(FieldMenuPhase::TopMenu { cursor: 0 }, party_state);
+        state.set_phase(FieldMenuPhase::TopMenu { cursor: 0 }, party_state, spell_params);
         return;
     }
 
@@ -541,6 +551,7 @@ fn handle_caster_select(
                     message: "じゅもんを おぼえていない".to_string(),
                 },
                 party_state,
+                spell_params,
             );
         } else {
             state.set_phase(
@@ -550,6 +561,7 @@ fn handle_caster_select(
                     cursor: 0,
                 },
                 party_state,
+                spell_params,
             );
         }
     }
@@ -562,6 +574,7 @@ fn handle_spell_select(
     caster: usize,
     spells: Vec<SpellKind>,
     mut cursor: usize,
+    spell_params: &SpellParams,
 ) {
     let count = spells.len();
     if input_ui::is_up_just_pressed(keyboard) && cursor > 0 {
@@ -584,6 +597,7 @@ fn handle_spell_select(
                 cursor: 0,
             },
             party_state,
+            spell_params,
         );
         return;
     }
@@ -592,20 +606,21 @@ fn handle_spell_select(
         let spell = spells[cursor];
         let caster_member = &party_state.members[caster];
 
-        if caster_member.stats.mp < spell.mp_cost() {
+        if caster_member.stats.mp < spell_params.mp_cost(spell) {
             return;
         }
 
-        if !spell.is_usable_in_field() {
+        if !matches!(spell_params.effect(spell), SpellEffect::Heal { .. }) {
             state.set_phase(
                 FieldMenuPhase::ShowMessage {
                     message: "フィールドでは つかえない".to_string(),
                 },
                 party_state,
+                spell_params,
             );
         } else if spell.target_type() == SpellTarget::AllAllies {
             // 全体回復: ターゲット選択スキップ、全味方に一括実行
-            execute_aoe_heal(state, party_state, caster, spell);
+            execute_aoe_heal(state, party_state, caster, spell, spell_params);
         } else {
             // 単体回復: ターゲット選択へ
             let target_candidates = alive_member_indices(party_state);
@@ -620,6 +635,7 @@ fn handle_spell_select(
                     },
                 },
                 party_state,
+                spell_params,
             );
         }
     }
@@ -631,6 +647,7 @@ fn handle_member_select(
     party_state: &PartyState,
     candidates: Vec<usize>,
     mut cursor: usize,
+    spell_params: &SpellParams,
 ) {
     let count = candidates.len();
     if input_ui::is_up_just_pressed(keyboard) && cursor > 0 {
@@ -645,7 +662,7 @@ fn handle_member_select(
     };
 
     if input_ui::is_cancel_just_pressed(keyboard) {
-        state.set_phase(FieldMenuPhase::TopMenu { cursor: 0 }, party_state);
+        state.set_phase(FieldMenuPhase::TopMenu { cursor: 0 }, party_state, spell_params);
         return;
     }
 
@@ -658,6 +675,7 @@ fn handle_member_select(
                     message: "もちものが ない".to_string(),
                 },
                 party_state,
+                spell_params,
             );
         } else {
             state.set_phase(
@@ -667,6 +685,7 @@ fn handle_member_select(
                     cursor: 0,
                 },
                 party_state,
+                spell_params,
             );
         }
     }
@@ -679,6 +698,7 @@ fn handle_item_select(
     member: usize,
     items: Vec<ItemKind>,
     mut cursor: usize,
+    spell_params: &SpellParams,
 ) {
     let count = items.len();
     if input_ui::is_up_just_pressed(keyboard) && cursor > 0 {
@@ -702,6 +722,7 @@ fn handle_item_select(
                 cursor: 0,
             },
             party_state,
+            spell_params,
         );
         return;
     }
@@ -722,6 +743,7 @@ fn handle_item_select(
                         },
                     },
                     party_state,
+                    spell_params,
                 );
             }
             ItemEffect::Equip => {
@@ -739,6 +761,7 @@ fn handle_item_select(
                             },
                         },
                         party_state,
+                        spell_params,
                     );
                 } else {
                     let weapon = item.as_weapon().expect("Equip effect must be Weapon");
@@ -752,6 +775,7 @@ fn handle_item_select(
                     state.set_phase(
                         FieldMenuPhase::ShowMessage { message: msg },
                         party_state,
+                        spell_params,
                     );
                 }
             }
@@ -767,6 +791,7 @@ fn handle_item_select(
                         ),
                     },
                     party_state,
+                    spell_params,
                 );
             }
         }
@@ -779,8 +804,9 @@ fn execute_aoe_heal(
     party_state: &mut PartyState,
     caster: usize,
     spell: SpellKind,
+    spell_params: &SpellParams,
 ) {
-    let consumed = party_state.members[caster].stats.use_mp(spell.mp_cost());
+    let consumed = party_state.members[caster].stats.use_mp(spell_params.mp_cost(spell));
     if !consumed {
         return;
     }
@@ -789,9 +815,14 @@ fn execute_aoe_heal(
     let alive = alive_member_indices(party_state);
     let mut lines = vec![format!("{}は {}を となえた！", caster_name, spell.name())];
 
+    let base_heal = match spell_params.effect(spell) {
+        SpellEffect::Heal { base_heal } => *base_heal,
+        _ => return,
+    };
+
     for &pi in &alive {
         let random_factor = 0.8 + rand::random::<f32>() * 0.4;
-        let amount = calculate_heal_amount(spell.power(), random_factor);
+        let amount = SpellParamTable::heal_amount(base_heal, random_factor);
         let target = &mut party_state.members[pi];
         target.stats.hp = (target.stats.hp + amount).min(target.stats.max_hp);
         let target_name = party_state.members[pi].kind.name();
@@ -803,6 +834,7 @@ fn execute_aoe_heal(
             message: lines.join("\n"),
         },
         party_state,
+        spell_params,
     );
 }
 
@@ -813,6 +845,7 @@ fn handle_target_select(
     candidates: Vec<usize>,
     mut cursor: usize,
     context: TargetContext,
+    spell_params: &SpellParams,
 ) {
     let count = candidates.len();
     if input_ui::is_up_just_pressed(keyboard) && cursor > 0 {
@@ -841,6 +874,7 @@ fn handle_target_select(
                         cursor: item_cursor,
                     },
                     party_state,
+                    spell_params,
                 );
             }
             TargetContext::Spell {
@@ -855,6 +889,7 @@ fn handle_target_select(
                         cursor: spell_cursor,
                     },
                     party_state,
+                    spell_params,
                 );
             }
         }
@@ -879,7 +914,7 @@ fn handle_target_select(
                         }
 
                         let random_factor = 0.8 + rand::random::<f32>() * 0.4;
-                        let amount = calculate_heal_amount(power, random_factor);
+                        let amount = SpellParamTable::heal_amount(power, random_factor);
 
                         let target = &mut party_state.members[target_idx];
                         target.stats.hp = (target.stats.hp + amount).min(target.stats.max_hp);
@@ -926,13 +961,17 @@ fn handle_target_select(
             } => {
                 let spell = spells[spell_cursor];
 
-                let consumed = party_state.members[caster].stats.use_mp(spell.mp_cost());
+                let consumed = party_state.members[caster].stats.use_mp(spell_params.mp_cost(spell));
                 if !consumed {
                     return;
                 }
 
+                let base_heal = match spell_params.effect(spell) {
+                    SpellEffect::Heal { base_heal } => *base_heal,
+                    _ => return,
+                };
                 let random_factor = 0.8 + rand::random::<f32>() * 0.4;
-                let amount = calculate_heal_amount(spell.power(), random_factor);
+                let amount = SpellParamTable::heal_amount(base_heal, random_factor);
 
                 let target = &mut party_state.members[target_idx];
                 target.stats.hp = (target.stats.hp + amount).min(target.stats.max_hp);
@@ -951,6 +990,7 @@ fn handle_target_select(
         state.set_phase(
             FieldMenuPhase::ShowMessage { message },
             party_state,
+            spell_params,
         );
     }
 }
