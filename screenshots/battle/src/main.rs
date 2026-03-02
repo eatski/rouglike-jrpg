@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use app_state::PartyState;
+use app_state::{PartyState, SpellParams};
 use battle::Enemy;
 use battle_ui::{
     battle_status_display_system, battle_update_menu_cache, setup_battle_scene_with_config,
@@ -42,6 +42,7 @@ fn main() {
 
     app.insert_resource(make_config(variant))
         .init_resource::<PartyState>()
+        .insert_resource(SpellParams(spell_data::spell_param_table()))
         .add_systems(
             Startup,
             (setup_camera, setup_battle_scene_with_config).chain(),

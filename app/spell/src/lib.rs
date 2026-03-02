@@ -1,3 +1,79 @@
+/// 呪文の効果（データ付き）
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum SpellEffect {
+    Damage { base_damage: i32 },
+    Heal { base_heal: i32 },
+    AttackBuff { amount: i32 },
+    Block { amount: i32 },
+    MpDrain { base_drain: i32 },
+    Ailment { success_rate: i32 },
+}
+
+/// 1呪文のデータ
+#[derive(Debug, Clone, Copy)]
+pub struct SpellEntry {
+    pub mp_cost: i32,
+    pub effect: SpellEffect,
+}
+
+/// 全呪文パラメータテーブル
+#[derive(Debug, Clone)]
+pub struct SpellParamTable {
+    entries: Vec<SpellEntry>,
+    pub poison_damage: i32,
+    pub defense_divisor: f32,
+}
+
+impl SpellParamTable {
+    /// 全呪文を網羅する関数からテーブルを構築（match網羅性でコンパイル時検出）
+    pub fn from_fn(f: impl Fn(SpellKind) -> SpellEntry, poison_damage: i32, defense_divisor: f32) -> Self {
+        let spells = all_spells();
+        let entries: Vec<SpellEntry> = spells.iter().map(|&s| f(s)).collect();
+        Self { entries, poison_damage, defense_divisor }
+    }
+
+    pub fn mp_cost(&self, spell: SpellKind) -> i32 {
+        self.entries[spell_index(spell)].mp_cost
+    }
+
+    pub fn effect(&self, spell: SpellKind) -> &SpellEffect {
+        &self.entries[spell_index(spell)].effect
+    }
+
+    /// 呪文ダメージ = (base_damage - defense/defense_divisor) × random_factor、最小1
+    pub fn spell_damage(&self, base_damage: i32, defense: i32, random_factor: f32) -> i32 {
+        let base = base_damage as f32 - defense as f32 / self.defense_divisor;
+        let damage = (base * random_factor).round() as i32;
+        damage.max(1)
+    }
+
+    /// 回復量 = base_heal × random_factor、最小1
+    pub fn heal_amount(base_heal: i32, random_factor: f32) -> i32 {
+        let amount = (base_heal as f32 * random_factor).round() as i32;
+        amount.max(1)
+    }
+
+    /// MP減少量 = base_drain × random_factor、最小1
+    pub fn mp_drain_amount(base_drain: i32, random_factor: f32) -> i32 {
+        let amount = (base_drain as f32 * random_factor).round() as i32;
+        amount.max(1)
+    }
+
+    /// 状態異常の成功判定
+    pub fn ailment_success(success_rate: i32, random_factor: f32) -> bool {
+        random_factor * 100.0 < success_rate as f32
+    }
+
+    pub fn poison_damage(&self) -> i32 {
+        self.poison_damage
+    }
+}
+
+/// SpellKind → all_spells() 内のインデックス
+fn spell_index(spell: SpellKind) -> usize {
+    ALL_SPELLS.iter().position(|&s| s == spell).expect("unknown spell")
+}
+
 /// 状態異常の種類
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Ailment {
@@ -16,16 +92,7 @@ impl Ailment {
     }
 }
 
-/// 状態異常呪文の付与判定
-/// success_rate: 0~100の成功率、random_factor: 0.0~1.0の乱数
-pub fn calculate_ailment_success(success_rate: i32, random_factor: f32) -> bool {
-    random_factor * 100.0 < success_rate as f32
-}
-
-/// 毒の固定ダメージ
-pub const POISON_DAMAGE: i32 = 3;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SpellKind {
     // 単体攻撃
     Fire1,
@@ -75,16 +142,6 @@ pub enum SpellTarget {
     AllAllies,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum SpellEffect {
-    Damage,
-    Heal,
-    AttackBuff,
-    Block,
-    MpDrain,
-    Ailment,
-}
-
 impl SpellKind {
     pub fn name(self) -> &'static str {
         match self {
@@ -115,64 +172,6 @@ impl SpellKind {
         }
     }
 
-    pub fn mp_cost(self) -> i32 {
-        match self {
-            SpellKind::Fire1 => 3,
-            SpellKind::Fire2 => 7,
-            SpellKind::Blaze1 => 5,
-            SpellKind::Blaze2 => 10,
-            SpellKind::Heal1 => 3,
-            SpellKind::Heal2 => 7,
-            SpellKind::Healall1 => 6,
-            SpellKind::Healall2 => 12,
-            SpellKind::Shield1 => 3,
-            SpellKind::Shield2 => 6,
-            SpellKind::Barrier1 => 6,
-            SpellKind::Barrier2 => 10,
-            SpellKind::Boost1 => 3,
-            SpellKind::Boost2 => 6,
-            SpellKind::Rally1 => 6,
-            SpellKind::Rally2 => 10,
-            SpellKind::Drain1 => 4,
-            SpellKind::Drain2 => 8,
-            SpellKind::Siphon1 => 6,
-            SpellKind::Siphon2 => 10,
-            SpellKind::Sleep1 => 4,
-            SpellKind::Sleepall1 => 8,
-            SpellKind::Poison1 => 3,
-            SpellKind::Poisonall1 => 6,
-        }
-    }
-
-    pub fn power(self) -> i32 {
-        match self {
-            SpellKind::Fire1 => 12,
-            SpellKind::Fire2 => 25,
-            SpellKind::Blaze1 => 8,
-            SpellKind::Blaze2 => 18,
-            SpellKind::Heal1 => 15,
-            SpellKind::Heal2 => 40,
-            SpellKind::Healall1 => 10,
-            SpellKind::Healall2 => 25,
-            SpellKind::Shield1 => 10,
-            SpellKind::Shield2 => 20,
-            SpellKind::Barrier1 => 6,
-            SpellKind::Barrier2 => 12,
-            SpellKind::Boost1 => 3,
-            SpellKind::Boost2 => 6,
-            SpellKind::Rally1 => 2,
-            SpellKind::Rally2 => 4,
-            SpellKind::Drain1 => 8,
-            SpellKind::Drain2 => 18,
-            SpellKind::Siphon1 => 5,
-            SpellKind::Siphon2 => 12,
-            SpellKind::Sleep1 => 70,
-            SpellKind::Sleepall1 => 50,
-            SpellKind::Poison1 => 80,
-            SpellKind::Poisonall1 => 60,
-        }
-    }
-
     pub fn target_type(self) -> SpellTarget {
         match self {
             SpellKind::Fire1 | SpellKind::Fire2 => SpellTarget::SingleEnemy,
@@ -187,30 +186,6 @@ impl SpellKind {
             SpellKind::Siphon1 | SpellKind::Siphon2 => SpellTarget::AllEnemies,
             SpellKind::Sleep1 | SpellKind::Poison1 => SpellTarget::SingleEnemy,
             SpellKind::Sleepall1 | SpellKind::Poisonall1 => SpellTarget::AllEnemies,
-        }
-    }
-
-    pub fn effect(self) -> SpellEffect {
-        match self {
-            SpellKind::Fire1 | SpellKind::Fire2 | SpellKind::Blaze1 | SpellKind::Blaze2 => {
-                SpellEffect::Damage
-            }
-            SpellKind::Heal1 | SpellKind::Heal2 | SpellKind::Healall1 | SpellKind::Healall2 => {
-                SpellEffect::Heal
-            }
-            SpellKind::Boost1 | SpellKind::Boost2 | SpellKind::Rally1 | SpellKind::Rally2 => {
-                SpellEffect::AttackBuff
-            }
-            SpellKind::Shield1 | SpellKind::Shield2 | SpellKind::Barrier1 | SpellKind::Barrier2 => {
-                SpellEffect::Block
-            }
-            SpellKind::Drain1 | SpellKind::Drain2 | SpellKind::Siphon1 | SpellKind::Siphon2 => {
-                SpellEffect::MpDrain
-            }
-            SpellKind::Sleep1
-            | SpellKind::Sleepall1
-            | SpellKind::Poison1
-            | SpellKind::Poisonall1 => SpellEffect::Ailment,
         }
     }
 
@@ -230,102 +205,108 @@ impl SpellKind {
             SpellTarget::SingleEnemy | SpellTarget::AllEnemies
         )
     }
-
-    /// フィールドで使用可能か（回復呪文のみtrue）
-    pub fn is_usable_in_field(self) -> bool {
-        self.effect() == SpellEffect::Heal
-    }
-
-    /// 状態異常呪文かどうか
-    pub fn is_ailment(self) -> bool {
-        self.effect() == SpellEffect::Ailment
-    }
 }
 
-/// 呪文ダメージ = (power - defense/4) × random_factor、最小1
-pub fn calculate_spell_damage(power: i32, defense: i32, random_factor: f32) -> i32 {
-    let base = power as f32 - defense as f32 / 4.0;
-    let damage = (base * random_factor).round() as i32;
-    damage.max(1)
-}
-
-/// MP減少量 = power × random_factor、最小1
-pub fn calculate_mp_drain(power: i32, random_factor: f32) -> i32 {
-    let amount = (power as f32 * random_factor).round() as i32;
-    amount.max(1)
-}
-
-/// 回復量 = power × random_factor
-pub fn calculate_heal_amount(power: i32, random_factor: f32) -> i32 {
-    let amount = (power as f32 * random_factor).round() as i32;
-    amount.max(1)
-}
+static ALL_SPELLS: &[SpellKind] = &[
+    SpellKind::Fire1,
+    SpellKind::Fire2,
+    SpellKind::Blaze1,
+    SpellKind::Blaze2,
+    SpellKind::Heal1,
+    SpellKind::Heal2,
+    SpellKind::Healall1,
+    SpellKind::Healall2,
+    SpellKind::Shield1,
+    SpellKind::Shield2,
+    SpellKind::Barrier1,
+    SpellKind::Barrier2,
+    SpellKind::Boost1,
+    SpellKind::Boost2,
+    SpellKind::Rally1,
+    SpellKind::Rally2,
+    SpellKind::Drain1,
+    SpellKind::Drain2,
+    SpellKind::Siphon1,
+    SpellKind::Siphon2,
+    SpellKind::Sleep1,
+    SpellKind::Sleepall1,
+    SpellKind::Poison1,
+    SpellKind::Poisonall1,
+];
 
 /// 全呪文リストを返す
 pub fn all_spells() -> Vec<SpellKind> {
-    vec![
-        SpellKind::Fire1,
-        SpellKind::Fire2,
-        SpellKind::Blaze1,
-        SpellKind::Blaze2,
-        SpellKind::Heal1,
-        SpellKind::Heal2,
-        SpellKind::Healall1,
-        SpellKind::Healall2,
-        SpellKind::Shield1,
-        SpellKind::Shield2,
-        SpellKind::Barrier1,
-        SpellKind::Barrier2,
-        SpellKind::Boost1,
-        SpellKind::Boost2,
-        SpellKind::Rally1,
-        SpellKind::Rally2,
-        SpellKind::Drain1,
-        SpellKind::Drain2,
-        SpellKind::Siphon1,
-        SpellKind::Siphon2,
-        SpellKind::Sleep1,
-        SpellKind::Sleepall1,
-        SpellKind::Poison1,
-        SpellKind::Poisonall1,
-    ]
+    ALL_SPELLS.to_vec()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    fn test_table() -> SpellParamTable {
+        use SpellEffect::*;
+        SpellParamTable::from_fn(|spell| match spell {
+            SpellKind::Fire1 => SpellEntry { mp_cost: 3, effect: Damage { base_damage: 12 } },
+            SpellKind::Fire2 => SpellEntry { mp_cost: 7, effect: Damage { base_damage: 25 } },
+            SpellKind::Blaze1 => SpellEntry { mp_cost: 5, effect: Damage { base_damage: 8 } },
+            SpellKind::Blaze2 => SpellEntry { mp_cost: 10, effect: Damage { base_damage: 18 } },
+            SpellKind::Heal1 => SpellEntry { mp_cost: 3, effect: Heal { base_heal: 15 } },
+            SpellKind::Heal2 => SpellEntry { mp_cost: 7, effect: Heal { base_heal: 40 } },
+            SpellKind::Healall1 => SpellEntry { mp_cost: 6, effect: Heal { base_heal: 10 } },
+            SpellKind::Healall2 => SpellEntry { mp_cost: 12, effect: Heal { base_heal: 25 } },
+            SpellKind::Shield1 => SpellEntry { mp_cost: 3, effect: Block { amount: 10 } },
+            SpellKind::Shield2 => SpellEntry { mp_cost: 6, effect: Block { amount: 20 } },
+            SpellKind::Barrier1 => SpellEntry { mp_cost: 6, effect: Block { amount: 6 } },
+            SpellKind::Barrier2 => SpellEntry { mp_cost: 10, effect: Block { amount: 12 } },
+            SpellKind::Boost1 => SpellEntry { mp_cost: 3, effect: AttackBuff { amount: 3 } },
+            SpellKind::Boost2 => SpellEntry { mp_cost: 6, effect: AttackBuff { amount: 6 } },
+            SpellKind::Rally1 => SpellEntry { mp_cost: 6, effect: AttackBuff { amount: 2 } },
+            SpellKind::Rally2 => SpellEntry { mp_cost: 10, effect: AttackBuff { amount: 4 } },
+            SpellKind::Drain1 => SpellEntry { mp_cost: 4, effect: MpDrain { base_drain: 8 } },
+            SpellKind::Drain2 => SpellEntry { mp_cost: 8, effect: MpDrain { base_drain: 18 } },
+            SpellKind::Siphon1 => SpellEntry { mp_cost: 6, effect: MpDrain { base_drain: 5 } },
+            SpellKind::Siphon2 => SpellEntry { mp_cost: 10, effect: MpDrain { base_drain: 12 } },
+            SpellKind::Sleep1 => SpellEntry { mp_cost: 4, effect: Ailment { success_rate: 70 } },
+            SpellKind::Sleepall1 => SpellEntry { mp_cost: 8, effect: Ailment { success_rate: 50 } },
+            SpellKind::Poison1 => SpellEntry { mp_cost: 3, effect: Ailment { success_rate: 80 } },
+            SpellKind::Poisonall1 => SpellEntry { mp_cost: 6, effect: Ailment { success_rate: 60 } },
+        }, 3, 4.0)
+    }
+
     #[test]
     fn spell_damage_basic() {
-        // power=12, defense=4 → base = 12 - 1 = 11
-        let damage = calculate_spell_damage(12, 4, 1.0);
+        let table = test_table();
+        // base_damage=12, defense=4 → base = 12 - 1 = 11
+        let damage = table.spell_damage(12, 4, 1.0);
         assert_eq!(damage, 11);
     }
 
     #[test]
     fn spell_damage_with_random() {
-        let low = calculate_spell_damage(12, 4, 0.8);
-        let high = calculate_spell_damage(12, 4, 1.2);
+        let table = test_table();
+        let low = table.spell_damage(12, 4, 0.8);
+        let high = table.spell_damage(12, 4, 1.2);
         assert_eq!(low, 9); // 11 * 0.8 = 8.8 → 9
         assert_eq!(high, 13); // 11 * 1.2 = 13.2 → 13
     }
 
     #[test]
     fn spell_damage_minimum_is_one() {
-        let damage = calculate_spell_damage(1, 100, 0.8);
+        let table = test_table();
+        let damage = table.spell_damage(1, 100, 0.8);
         assert_eq!(damage, 1);
     }
 
     #[test]
     fn heal_amount_basic() {
-        let amount = calculate_heal_amount(15, 1.0);
+        let amount = SpellParamTable::heal_amount(15, 1.0);
         assert_eq!(amount, 15);
     }
 
     #[test]
     fn heal_amount_with_random() {
-        let low = calculate_heal_amount(15, 0.8);
-        let high = calculate_heal_amount(15, 1.2);
+        let low = SpellParamTable::heal_amount(15, 0.8);
+        let high = SpellParamTable::heal_amount(15, 1.2);
         assert_eq!(low, 12); // 15 * 0.8 = 12
         assert_eq!(high, 18); // 15 * 1.2 = 18
     }
@@ -337,27 +318,23 @@ mod tests {
 
     #[test]
     fn target_type_and_effect_consistency() {
+        let table = test_table();
         for spell in all_spells() {
-            match spell.effect() {
-                SpellEffect::Damage => {
+            match table.effect(spell) {
+                SpellEffect::Damage { .. } => {
                     assert!(spell.is_offensive());
-                    assert!(!spell.is_usable_in_field());
                 }
-                SpellEffect::Heal => {
+                SpellEffect::Heal { .. } => {
                     assert!(!spell.is_offensive());
-                    assert!(spell.is_usable_in_field());
                 }
-                SpellEffect::AttackBuff | SpellEffect::Block => {
+                SpellEffect::AttackBuff { .. } | SpellEffect::Block { .. } => {
                     assert!(!spell.is_offensive());
-                    assert!(!spell.is_usable_in_field());
                 }
-                SpellEffect::MpDrain => {
+                SpellEffect::MpDrain { .. } => {
                     assert!(spell.is_offensive());
-                    assert!(!spell.is_usable_in_field());
                 }
-                SpellEffect::Ailment => {
+                SpellEffect::Ailment { .. } => {
                     assert!(spell.is_offensive());
-                    assert!(!spell.is_usable_in_field());
                     assert!(spell.ailment().is_some());
                 }
             }
@@ -366,22 +343,21 @@ mod tests {
 
     #[test]
     fn mp_drain_basic() {
-        let amount = calculate_mp_drain(8, 1.0);
+        let amount = SpellParamTable::mp_drain_amount(8, 1.0);
         assert_eq!(amount, 8);
     }
 
     #[test]
     fn mp_drain_with_random() {
-        let low = calculate_mp_drain(8, 0.8);
-        let high = calculate_mp_drain(8, 1.2);
+        let low = SpellParamTable::mp_drain_amount(8, 0.8);
+        let high = SpellParamTable::mp_drain_amount(8, 1.2);
         assert_eq!(low, 6); // 8 * 0.8 = 6.4 → 6
         assert_eq!(high, 10); // 8 * 1.2 = 9.6 → 10
     }
 
     #[test]
     fn mp_drain_minimum_is_one() {
-        let amount = calculate_mp_drain(1, 0.1);
+        let amount = SpellParamTable::mp_drain_amount(1, 0.1);
         assert_eq!(amount, 1);
     }
-
 }
