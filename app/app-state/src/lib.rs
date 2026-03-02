@@ -20,6 +20,17 @@ impl Deref for SpellParams {
     }
 }
 
+/// アイテムパラメータの Bevy Resource ラッパー
+#[derive(Resource, Clone)]
+pub struct ItemParams(pub item::ItemParamTable);
+
+impl Deref for ItemParams {
+    type Target = item::ItemParamTable;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 /// キャラクターパラメータの Bevy Resource ラッパー
 #[derive(Resource)]
 pub struct CharacterParams(pub party::CharacterParamTable);

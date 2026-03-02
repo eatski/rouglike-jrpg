@@ -6,3 +6,6 @@ edition = "2024"
 [dependencies]
 item = { path = "../item" }
 spell = { path = "../spell" }
+
+[dev-dependencies]
+item-data = { path = "../item-data" }

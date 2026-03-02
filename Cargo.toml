@@ -9,6 +9,7 @@ rand = "0.8"
 app-state = { path = "app/app-state" }
 spell-data = { path = "app/spell-data" }
 party-data = { path = "app/party-data" }
+item-data = { path = "app/item-data" }
 battle = { path = "app/battle" }
 battle-ui = { path = "app/battle-ui" }
 cave-ui = { path = "app/cave-ui" }
@@ -42,6 +43,7 @@ members = [
     "app/spell",
     "app/spell-data",
     "app/party-data",
+    "app/item-data",
     "app/town",
     "app/cave",
     "app/battle",

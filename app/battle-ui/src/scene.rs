@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use battle::{generate_enemy_group, BattleAction, BattleState, Enemy, ItemKind, SpellKind};
 
-use app_state::{BossBattlePending, CharacterParams, EncounterZone, PartyState, SceneState, SpellParams};
+use app_state::{BossBattlePending, CharacterParams, EncounterZone, ItemParams, PartyState, SceneState, SpellParams};
 
 use hud_ui::command_menu::{CommandMenu, CommandMenuItem, CommandMenuScrollDown, CommandMenuScrollUp};
 
@@ -171,7 +171,7 @@ impl BattleUIState {
                             .push(format!("{} x{}", item.name(), count));
                     }
                     if matches!(
-                        item.effect(),
+                        game_state.state.item_params.effect(item),
                         item::ItemEffect::KeyItem
                             | item::ItemEffect::Material
                             | item::ItemEffect::Equip
@@ -326,6 +326,7 @@ pub fn init_battle_resources(
     enemies: Vec<battle::Enemy>,
     initial_phase: Option<BattlePhase>,
     spell_params: spell::SpellParamTable,
+    item_params: item::ItemParamTable,
 ) -> (BattleGameState, BattleUIState) {
     let display_names = enemy_display_names(&enemies);
 
@@ -340,7 +341,7 @@ pub fn init_battle_resources(
     };
 
     let enemy_count = enemies.len();
-    let battle_state = BattleState::new(party, enemies, spell_params);
+    let battle_state = BattleState::new(party, enemies, spell_params, item_params);
 
     let party_size = battle_state.party.len();
     let display_party_hp = battle_state.party.iter().map(|m| m.stats.hp).collect();
@@ -385,6 +386,7 @@ pub fn setup_battle_scene(
     boss_battle: Option<Res<BossBattlePending>>,
     encounter_zone: Option<Res<EncounterZone>>,
     spell_params: Res<SpellParams>,
+    item_params: Res<ItemParams>,
 ) {
     let config = if boss_battle.is_some() {
         commands.remove_resource::<BossBattlePending>();
@@ -397,7 +399,7 @@ pub fn setup_battle_scene(
         let zone = encounter_zone.as_deref().unwrap_or(&default_zone);
         BattleSceneConfig::from_zone(zone)
     };
-    setup_battle_scene_inner(&mut commands, &asset_server, &party_state, config, &spell_params);
+    setup_battle_scene_inner(&mut commands, &asset_server, &party_state, config, &spell_params, &item_params);
 }
 
 /// BattleSceneConfigリソースから設定を読んでシーンを構築するシステム
@@ -407,13 +409,14 @@ pub fn setup_battle_scene_with_config(
     party_state: Res<PartyState>,
     config: Res<BattleSceneConfig>,
     spell_params: Res<SpellParams>,
+    item_params: Res<ItemParams>,
 ) {
     let config = BattleSceneConfig {
         enemies: config.enemies.clone(),
         initial_phase: config.initial_phase.clone(),
     };
     commands.remove_resource::<BattleSceneConfig>();
-    setup_battle_scene_inner(&mut commands, &asset_server, &party_state, config, &spell_params);
+    setup_battle_scene_inner(&mut commands, &asset_server, &party_state, config, &spell_params, &item_params);
 }
 
 fn setup_battle_scene_inner(
@@ -422,6 +425,7 @@ fn setup_battle_scene_inner(
     party_state: &PartyState,
     config: BattleSceneConfig,
     spell_params: &SpellParams,
+    item_params: &ItemParams,
 ) {
     let party = party_state.members.clone();
     let enemies = config.enemies;
@@ -432,7 +436,7 @@ fn setup_battle_scene_inner(
         .map(|e| asset_server.load(e.kind.sprite_path()))
         .collect();
 
-    let (game_state, ui_state) = init_battle_resources(party, enemies, config.initial_phase, spell_params.0.clone());
+    let (game_state, ui_state) = init_battle_resources(party, enemies, config.initial_phase, spell_params.0.clone(), item_params.0.clone());
 
     let font: Handle<Font> = asset_server.load("fonts/NotoSansJP-Bold.ttf");
 

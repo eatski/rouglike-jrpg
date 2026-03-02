@@ -3074,6 +3074,13 @@ name = "item"
 version = "0.1.0"
 
 [[package]]
+name = "item-data"
+version = "0.1.0"
+dependencies = [
+ "item",
+]
+
+[[package]]
 name = "itertools"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3907,6 +3914,7 @@ name = "party"
 version = "0.1.0"
 dependencies = [
  "item",
+ "item-data",
  "spell",
 ]
 
@@ -4380,6 +4388,7 @@ dependencies = [
  "field-walk-ui",
  "hokora-ui",
  "item",
+ "item-data",
  "party",
  "party-data",
  "rand 0.8.5",

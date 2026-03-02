@@ -8,7 +8,7 @@ use town::{buy_item, candidate_first_dialogue, candidate_join_dialogue, cave_hin
 use town::{tavern_bounty_item, bounty_offer_dialogue, bounty_has_item_dialogue, bounty_sold_dialogue, sell_bounty_item};
 
 use app_state::SceneState;
-use app_state::CharacterParams;
+use app_state::{CharacterParams, ItemParams};
 use field_core::{ActiveMap, Player, TilePosition};
 use app_state::{ContinentMap, HeardTavernHints, PartyState, RecruitmentMap, TavernBounties, TavernHintKind};
 use hud_ui::menu_style;
@@ -29,6 +29,7 @@ pub fn town_input_system(
     continent_map: Option<Res<ContinentMap>>,
     mut tavern_bounties: ResMut<TavernBounties>,
     char_params: Res<CharacterParams>,
+    item_params: Res<ItemParams>,
 ) {
     match town_res.phase.clone() {
         TownMenuPhase::MenuSelect => {
@@ -186,9 +187,9 @@ pub fn town_input_system(
                                                 .collect();
                                             town_res.commands = build_town_commands(Some(item), &hire_candidates);
                                             if has_item {
-                                                bounty_has_item_dialogue(item)
+                                                bounty_has_item_dialogue(item, &item_params)
                                             } else {
-                                                bounty_offer_dialogue(item)
+                                                bounty_offer_dialogue(item, &item_params)
                                             }
                                         }
                                     };
@@ -296,7 +297,7 @@ pub fn town_input_system(
             }
         }
         TownMenuPhase::ShopSelect { selected } => {
-            let goods_list = shop_goods();
+            let goods_list = shop_goods(&item_params);
             let max_index = goods_list.len().saturating_sub(1);
 
             if is_up_just_pressed(&keyboard) {
@@ -317,7 +318,7 @@ pub fn town_input_system(
 
             if is_confirm_just_pressed(&keyboard) {
                 let goods = goods_list[selected];
-                if party_state.gold < goods.price() {
+                if party_state.gold < goods.price(&item_params) {
                     town_res.phase = TownMenuPhase::ShopMessage {
                         message: "おかねが たりない！".to_string(),
                     };
@@ -336,6 +337,7 @@ pub fn town_input_system(
                 &mut party_state,
                 goods,
                 selected,
+                &item_params,
             );
         }
         TownMenuPhase::ShopMessage { .. } => {
@@ -350,6 +352,7 @@ pub fn town_input_system(
                 &mut town_res,
                 &party_state,
                 selected,
+                &item_params,
             );
         }
         TownMenuPhase::SellItemSelect {
@@ -362,6 +365,7 @@ pub fn town_input_system(
                 &mut party_state,
                 member_index,
                 selected,
+                &item_params,
             );
         }
         TownMenuPhase::RecruitMessage { .. } => {
@@ -452,11 +456,11 @@ pub fn town_input_system(
                 } else {
                     &mut party_state.members[selected].inventory
                 };
-                match sell_bounty_item(item, inv) {
+                match sell_bounty_item(item, inv, &item_params) {
                     SellResult::Success { earned_gold } => {
                         party_state.gold += earned_gold;
                         town_res.phase = TownMenuPhase::BountyMessage {
-                            message: bounty_sold_dialogue(item),
+                            message: bounty_sold_dialogue(item, &item_params),
                         };
                     }
                     SellResult::NotOwned => {
@@ -513,6 +517,7 @@ fn handle_shop_character_select(
     party_state: &mut PartyState,
     goods: ShopGoods,
     selected: usize,
+    item_params: &item::ItemParamTable,
 ) {
     // メンバー + ふくろ（末尾）
     let max_index = party_state.members.len(); // ふくろ含む
@@ -546,7 +551,7 @@ fn handle_shop_character_select(
         };
         if is_bag {
             // ふくろに直接購入
-            let price = buy_item_kind.price();
+            let price = item_params.price(buy_item_kind);
             if party_state.gold < price {
                 town_res.phase = TownMenuPhase::ShopMessage {
                     message: "おかねが たりない！".to_string(),
@@ -564,7 +569,7 @@ fn handle_shop_character_select(
             }
         } else {
             let member_name = party_state.members[selected].kind.name();
-            match buy_item(buy_item_kind, party_state.gold, &mut party_state.members[selected].inventory) {
+            match buy_item(buy_item_kind, party_state.gold, &mut party_state.members[selected].inventory, item_params) {
                 BuyResult::Success { remaining_gold } => {
                     party_state.gold = remaining_gold;
                     town_res.phase = TownMenuPhase::ShopMessage {
@@ -578,7 +583,7 @@ fn handle_shop_character_select(
                 }
                 BuyResult::InventoryFull => {
                     // メンバー満杯 → 袋にフォールバック
-                    let price = buy_item_kind.price();
+                    let price = item_params.price(buy_item_kind);
                     if party_state.bag.can_add(1) && party_state.gold >= price {
                         party_state.gold -= price;
                         party_state.bag.add(buy_item_kind, 1);
@@ -605,6 +610,7 @@ fn handle_sell_character_select(
     town_res: &mut TownResource,
     party_state: &PartyState,
     selected: usize,
+    item_params: &item::ItemParamTable,
 ) {
     // メンバー + ふくろ（末尾）
     let max_index = party_state.members.len(); // ふくろ含むので len()
@@ -637,7 +643,7 @@ fn handle_sell_character_select(
             .owned_items()
             .into_iter()
             .filter(|i| {
-                if i.sell_price() == 0 { return false; }
+                if item_params.sell_price(*i) == 0 { return false; }
                 if let Some(w) = i.as_weapon()
                     && equipped_weapon == Some(w)
                 {
@@ -665,6 +671,7 @@ fn handle_sell_item_select(
     party_state: &mut PartyState,
     member_index: usize,
     selected: usize,
+    item_params: &item::ItemParamTable,
 ) {
     let is_bag = member_index == party_state.members.len();
     let inventory = if is_bag {
@@ -677,7 +684,7 @@ fn handle_sell_item_select(
         .owned_items()
         .into_iter()
         .filter(|i| {
-            if i.sell_price() == 0 { return false; }
+            if item_params.sell_price(*i) == 0 { return false; }
             if let Some(w) = i.as_weapon()
                 && equipped_weapon == Some(w)
             {
@@ -719,7 +726,7 @@ fn handle_sell_item_select(
         } else {
             &mut party_state.members[member_index].inventory
         };
-        match sell_item(item, inv, equipped_weapon) {
+        match sell_item(item, inv, equipped_weapon, item_params) {
             SellResult::Success { earned_gold } => {
                 party_state.gold += earned_gold;
                 town_res.phase = TownMenuPhase::ShopMessage {

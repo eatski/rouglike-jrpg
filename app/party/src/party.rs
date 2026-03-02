@@ -61,8 +61,8 @@ impl PartyMember {
     }
 
     /// 装備込みの実効攻撃力
-    pub fn effective_attack(&self) -> i32 {
-        self.stats.attack + self.equipment.attack_bonus()
+    pub fn effective_attack(&self, item_table: &item::ItemParamTable) -> i32 {
+        self.stats.attack + self.equipment.attack_bonus(item_table)
     }
 
     /// 経験値を獲得し、レベルアップがあれば回数を返す
@@ -258,16 +258,18 @@ mod tests {
     #[test]
     fn effective_attack_without_weapon() {
         let table = char_table();
+        let item_table = item_data::item_param_table();
         let laios = PartyMember::from_kind(PartyMemberKind::Laios, &table);
-        assert_eq!(laios.effective_attack(), laios.stats.attack);
+        assert_eq!(laios.effective_attack(&item_table), laios.stats.attack);
     }
 
     #[test]
     fn effective_attack_with_weapon() {
         use item::WeaponKind;
         let table = char_table();
+        let item_table = item_data::item_param_table();
         let mut laios = PartyMember::from_kind(PartyMemberKind::Laios, &table);
         laios.equipment.equip_weapon(WeaponKind::IronSword);
-        assert_eq!(laios.effective_attack(), laios.stats.attack + 5);
+        assert_eq!(laios.effective_attack(&item_table), laios.stats.attack + 5);
     }
 }

@@ -1,6 +1,6 @@
 use crate::enemy::Enemy;
 use spell::{Ailment, SpellEffect, SpellKind, SpellParamTable, SpellTarget};
-use item::{ItemEffect, ItemKind};
+use item::{ItemEffect, ItemKind, ItemParamTable};
 use party::{CombatStats, PartyMember};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -154,10 +154,11 @@ pub struct BattleState {
     pub party_ailments: Vec<ActorAilments>,
     pub enemy_ailments: Vec<ActorAilments>,
     pub spell_params: SpellParamTable,
+    pub item_params: ItemParamTable,
 }
 
 impl BattleState {
-    pub fn new(party: Vec<PartyMember>, enemies: Vec<Enemy>, spell_params: SpellParamTable) -> Self {
+    pub fn new(party: Vec<PartyMember>, enemies: Vec<Enemy>, spell_params: SpellParamTable, item_params: ItemParamTable) -> Self {
         let party_count = party.len();
         let enemy_count = enemies.len();
         Self {
@@ -168,12 +169,13 @@ impl BattleState {
             party_ailments: vec![ActorAilments::default(); party_count],
             enemy_ailments: vec![ActorAilments::default(); enemy_count],
             spell_params,
+            item_params,
         }
     }
 
     /// パーティメンバーの実効攻撃力（バフ込み）
     pub fn effective_attack_with_buff(&self, party_idx: usize) -> i32 {
-        let base = self.party[party_idx].effective_attack();
+        let base = self.party[party_idx].effective_attack(&self.item_params);
         let buff_amount = self.party_buffs[party_idx]
             .attack_up
             .map(|b| b.amount)
@@ -597,7 +599,7 @@ impl BattleState {
     ) -> Vec<TurnResult> {
         let mut results = Vec::new();
 
-        match item.effect() {
+        match self.item_params.effect(item) {
             ItemEffect::Heal { power } => {
                 if !self.party[user_idx].inventory.use_item(item) {
                     return results;
@@ -1146,6 +1148,26 @@ mod tests {
         }, 3, 4.0)
     }
 
+    fn test_item_params() -> ItemParamTable {
+        use item::{ItemEffect::*, ItemEntry, WeaponEntry, WeaponKind};
+        ItemParamTable::from_fn(
+            |item| match item {
+                ItemKind::Herb => ItemEntry { effect: Heal { power: 25 }, description: "", price: 8, sell_price: 4 },
+                ItemKind::HighHerb => ItemEntry { effect: Heal { power: 50 }, description: "", price: 24, sell_price: 12 },
+                _ => ItemEntry { effect: Material, description: "", price: 0, sell_price: 0 },
+            },
+            |weapon| match weapon {
+                WeaponKind::WoodenSword => WeaponEntry { attack_bonus: 2, price: 10, description: "" },
+                WeaponKind::IronSword => WeaponEntry { attack_bonus: 5, price: 50, description: "" },
+                WeaponKind::SteelSword => WeaponEntry { attack_bonus: 10, price: 150, description: "" },
+                WeaponKind::MageStaff => WeaponEntry { attack_bonus: 3, price: 30, description: "" },
+                WeaponKind::HolyStaff => WeaponEntry { attack_bonus: 4, price: 80, description: "" },
+            },
+            vec![],
+            vec![],
+        )
+    }
+
     fn make_random(damage_randoms: Vec<f32>, flee_random: f32) -> TurnRandomFactors {
         TurnRandomFactors {
             damage_randoms,
@@ -1171,7 +1193,7 @@ mod tests {
         let table = char_table();
         let party = default_party(&table);
         let enemies = vec![Enemy::slime(), Enemy::slime()];
-        let mut battle = BattleState::new(party, enemies, test_spell_params());
+        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
 
         let commands = vec![
             BattleAction::Attack {
@@ -1201,7 +1223,7 @@ mod tests {
         let party = default_party(&table);
         // Marcille(SPD7) > Laios(SPD5) > Falin(SPD4) > Slime(SPD3)
         let enemies = vec![Enemy::slime()];
-        let mut battle = BattleState::new(party, enemies, test_spell_params());
+        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
 
         let commands = vec![
             BattleAction::Attack {
@@ -1233,7 +1255,7 @@ mod tests {
         let table = char_table();
         let party = vec![PartyMember::from_kind(PartyMemberKind::Laios, &table), PartyMember::from_kind(PartyMemberKind::Marcille, &table)];
         let enemies = vec![Enemy::slime(), Enemy::slime()];
-        let mut battle = BattleState::new(party, enemies, test_spell_params());
+        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
 
         // 敵0を事前に倒す
         battle.enemies[0].stats.hp = 0;
@@ -1267,7 +1289,7 @@ mod tests {
         let table = char_table();
         let party = default_party(&table);
         let enemies = vec![Enemy::slime()];
-        let mut battle = BattleState::new(party, enemies, test_spell_params());
+        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
 
         let commands = vec![
             BattleAction::Flee,
@@ -1290,7 +1312,7 @@ mod tests {
         let table = char_table();
         let party = default_party(&table);
         let enemies = vec![Enemy::slime()];
-        let mut battle = BattleState::new(party, enemies, test_spell_params());
+        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
 
         let commands = vec![
             BattleAction::Flee,
@@ -1327,7 +1349,7 @@ mod tests {
         let table = char_table();
         let party = default_party(&table);
         let enemies = vec![Enemy::slime()];
-        let mut battle = BattleState::new(party, enemies, test_spell_params());
+        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
 
         // 敵を倒す
         battle.enemies[0].stats.hp = 0;
@@ -1341,7 +1363,7 @@ mod tests {
         let table = char_table();
         let party = default_party(&table);
         let enemies = vec![Enemy::slime()];
-        let mut battle = BattleState::new(party, enemies, test_spell_params());
+        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
 
         // 全員倒す
         for member in &mut battle.party {
@@ -1357,7 +1379,7 @@ mod tests {
         let table = char_table();
         let party = default_party(&table);
         let enemies = vec![Enemy::slime()];
-        let mut battle = BattleState::new(party, enemies, test_spell_params());
+        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
 
         let mage_mp_before = battle.party[1].stats.mp;
         let commands = vec![
@@ -1395,7 +1417,7 @@ mod tests {
         slime.stats.hp = 999;
         slime.stats.max_hp = 999;
         let enemies = vec![slime];
-        let mut battle = BattleState::new(party, enemies, test_spell_params());
+        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
 
         // ライオスのHPを減らす
         battle.party[0].stats.hp = 10;
@@ -1432,7 +1454,7 @@ mod tests {
         let table = char_table();
         let party = default_party(&table);
         let enemies = vec![Enemy::slime()];
-        let mut battle = BattleState::new(party, enemies, test_spell_params());
+        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
 
         // ライオスを倒す
         battle.party[0].stats.hp = 0;
@@ -1465,7 +1487,7 @@ mod tests {
         slime.stats.hp = 999;
         slime.stats.max_hp = 999;
         let enemies = vec![slime];
-        let mut battle = BattleState::new(party, enemies, test_spell_params());
+        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
 
         // ライオスを倒す
         battle.party[0].stats.hp = 0;
@@ -1532,7 +1554,7 @@ mod tests {
         let table = char_table();
         let party = vec![PartyMember::from_kind(PartyMemberKind::Marcille, &table)];
         let enemies = vec![Enemy::slime(), Enemy::slime(), Enemy::slime()];
-        let mut battle = BattleState::new(party, enemies, test_spell_params());
+        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
 
         let commands = vec![BattleAction::Spell {
             spell: SpellKind::Blaze1,
@@ -1566,7 +1588,7 @@ mod tests {
         slime.stats.max_hp = 999;
         slime.stats.attack = 0;
         let enemies = vec![slime];
-        let mut battle = BattleState::new(party, enemies, test_spell_params());
+        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
 
         let commands = vec![
             BattleAction::Attack {
@@ -1603,7 +1625,7 @@ mod tests {
         slime.stats.max_hp = 999;
         slime.stats.attack = 0;
         let enemies = vec![slime];
-        let mut battle = BattleState::new(party, enemies, test_spell_params());
+        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
 
         let base_attack = battle.effective_attack_with_buff(0);
 
@@ -1643,7 +1665,7 @@ mod tests {
         slime.stats.max_hp = 999;
         slime.stats.attack = 0;
         let enemies = vec![slime];
-        let mut battle = BattleState::new(party, enemies, test_spell_params());
+        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
 
         assert_eq!(battle.party_buffs[0].block, 0);
 
@@ -1673,7 +1695,7 @@ mod tests {
         wolf.stats.hp = 999;
         wolf.stats.max_hp = 999;
         let enemies = vec![wolf];
-        let mut battle = BattleState::new(party, enemies, test_spell_params());
+        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
 
         // ブロックを直接設定
         battle.party_buffs[0].block = 10;
@@ -1714,7 +1736,7 @@ mod tests {
         slime.stats.max_hp = 999;
         slime.stats.attack = 0;
         let enemies = vec![slime];
-        let mut battle = BattleState::new(party, enemies, test_spell_params());
+        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
 
         // Shield1を2回唱える（2ターン）
         for _ in 0..2 {
@@ -1741,7 +1763,7 @@ mod tests {
         slime.stats.max_hp = 999;
         slime.stats.attack = 0;
         let enemies = vec![slime];
-        let mut battle = BattleState::new(party, enemies, test_spell_params());
+        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
 
         // ターン1: バフ付与
         let commands = vec![BattleAction::Spell {
@@ -1787,7 +1809,7 @@ mod tests {
         slime.stats.max_hp = 999;
         slime.stats.attack = 0;
         let enemies = vec![slime];
-        let mut battle = BattleState::new(party, enemies, test_spell_params());
+        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
 
         // Bolga(ATK+3)を付与
         let commands = vec![BattleAction::Spell {
@@ -1828,7 +1850,7 @@ mod tests {
         let party = vec![PartyMember::from_kind(PartyMemberKind::Laios, &table)];
         let ghost = Enemy::ghost();
         let enemies = vec![ghost];
-        let mut battle = BattleState::new(party, enemies, test_spell_params());
+        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
 
         let hp_before = battle.party[0].stats.hp;
 
@@ -1854,7 +1876,7 @@ mod tests {
         let mut ghost = Enemy::ghost();
         ghost.stats.mp = 0; // MP枯渇
         let enemies = vec![ghost];
-        let mut battle = BattleState::new(party, enemies, test_spell_params());
+        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
 
         let commands = vec![BattleAction::Attack {
             target: TargetId::Enemy(0),
@@ -1877,7 +1899,7 @@ mod tests {
         let mut dark_lord = Enemy::dark_lord();
         dark_lord.stats.hp = 50; // HPを減らす
         let enemies = vec![dark_lord];
-        let mut battle = BattleState::new(party, enemies, test_spell_params());
+        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
 
         // DarkLordの呪文: [Blaze2, Fire2, Heal2] — 最初のMP足りるものを使う
         // Heal2(MP7)を使わせるために、Blaze2(MP10)とFire2(MP7)のMPを消費させる
@@ -1907,7 +1929,7 @@ mod tests {
         let party = vec![PartyMember::from_kind(PartyMemberKind::Laios, &table), PartyMember::from_kind(PartyMemberKind::Marcille, &table), PartyMember::from_kind(PartyMemberKind::Falin, &table)];
         let dragon = Enemy::new(EnemyKind::Dragon, 1);
         let enemies = vec![dragon];
-        let mut battle = BattleState::new(party, enemies, test_spell_params());
+        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
 
         let commands = vec![
             BattleAction::Attack { target: TargetId::Enemy(0) },
@@ -1934,7 +1956,7 @@ mod tests {
         slime.stats.max_hp = 999;
         slime.stats.attack = 0;
         let enemies = vec![slime];
-        let mut battle = BattleState::new(party, enemies, test_spell_params());
+        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
 
         // ライオスを眠り状態にする
         battle.party_ailments[0].sleep = true;
@@ -1966,7 +1988,7 @@ mod tests {
         slime.stats.max_hp = 999;
         slime.stats.speed = 99; // 敵が先に行動するようにする
         let enemies = vec![slime];
-        let mut battle = BattleState::new(party, enemies, test_spell_params());
+        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
 
         // 敵を眠り状態にする
         battle.enemy_ailments[0].sleep = true;
@@ -1998,7 +2020,7 @@ mod tests {
         slime.stats.max_hp = 999;
         slime.stats.attack = 0;
         let enemies = vec![slime];
-        let mut battle = BattleState::new(party, enemies, test_spell_params());
+        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
 
         // ライオスを毒状態にする
         battle.party_ailments[0].poison = true;
@@ -2030,7 +2052,7 @@ mod tests {
         slime.stats.max_hp = 999;
         slime.stats.attack = 0;
         let enemies = vec![slime];
-        let mut battle = BattleState::new(party, enemies, test_spell_params());
+        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
 
         // 敵を毒状態にする
         battle.enemy_ailments[0].poison = true;
@@ -2056,7 +2078,7 @@ mod tests {
         slime.stats.max_hp = 999;
         slime.stats.attack = 0;
         let enemies = vec![slime];
-        let mut battle = BattleState::new(party, enemies, test_spell_params());
+        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
 
         // 敵を眠り状態にする
         battle.enemy_ailments[0].sleep = true;
@@ -2093,7 +2115,7 @@ mod tests {
         slime.stats.max_hp = 999;
         slime.stats.attack = 0;
         let enemies = vec![slime];
-        let mut battle = BattleState::new(party, enemies, test_spell_params());
+        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
 
         // Sleep1 power=70 → random_factor < 0.7 で成功
         // Party(0): 成功ケース (random=0.5 → 0.5*100=50 < 70 → 成功)
