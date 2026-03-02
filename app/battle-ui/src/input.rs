@@ -3,7 +3,7 @@ use bevy::prelude::*;
 use battle::{ActorId, BattleAction, SpellKind, SpellTarget, TargetId, TurnRandomFactors, TurnResult};
 use item::ItemEffect;
 
-use app_state::BattleState;
+use app_state::{BattleState, CharacterParams};
 
 use super::scene::{
     enemy_display_names, BattleGameState, BattlePhase, BattleUIState, MessageEffect,
@@ -15,22 +15,23 @@ pub fn battle_input_system(
     mut game_state: ResMut<BattleGameState>,
     mut ui_state: ResMut<BattleUIState>,
     mut next_state: ResMut<NextState<BattleState>>,
+    char_params: Res<CharacterParams>,
 ) {
     match ui_state.phase.clone() {
         BattlePhase::CommandSelect { member_index } => {
-            handle_command_select(&keyboard, &mut game_state, &mut ui_state, member_index);
+            handle_command_select(&keyboard, &mut game_state, &mut ui_state, member_index, &char_params);
         }
         BattlePhase::SpellSelect { member_index } => {
-            handle_spell_select(&keyboard, &mut game_state, &mut ui_state, member_index);
+            handle_spell_select(&keyboard, &mut game_state, &mut ui_state, member_index, &char_params);
         }
         BattlePhase::ItemSelect { member_index } => {
             handle_item_select(&keyboard, &game_state, &mut ui_state, member_index);
         }
         BattlePhase::TargetSelect { member_index } => {
-            handle_target_select(&keyboard, &mut game_state, &mut ui_state, member_index);
+            handle_target_select(&keyboard, &mut game_state, &mut ui_state, member_index, &char_params);
         }
         BattlePhase::AllyTargetSelect { member_index } => {
-            handle_ally_target_select(&keyboard, &mut game_state, &mut ui_state, member_index);
+            handle_ally_target_select(&keyboard, &mut game_state, &mut ui_state, member_index, &char_params);
         }
         BattlePhase::ShowMessage { messages, index } => {
             handle_show_message(&keyboard, &game_state, &mut ui_state, index, messages.len());
@@ -46,6 +47,7 @@ fn handle_command_select(
     game_state: &mut BattleGameState,
     ui_state: &mut BattleUIState,
     member_index: usize,
+    char_params: &CharacterParams,
 ) {
     // 上下でカーソル移動 (0=たたかう, 1=じゅもん, 2=どうぐ, 3=にげる)
     if input_ui::is_up_just_pressed(keyboard) {
@@ -80,7 +82,7 @@ fn handle_command_select(
             1 => {
                 // じゅもん → 呪文がないクラスは遷移しない
                 let member_kind = game_state.state.party[member_index].kind;
-                let spells = party::available_spells(member_kind, game_state.state.party[member_index].level);
+                let spells = party::available_spells(member_kind, game_state.state.party[member_index].level, char_params);
                 if spells.is_empty() {
                     return;
                 }
@@ -101,7 +103,7 @@ fn handle_command_select(
                 for i in 0..game_state.state.party.len() {
                     ui_state.pending_commands.set(i, BattleAction::Flee);
                 }
-                execute_turn(game_state, ui_state);
+                execute_turn(game_state, ui_state, char_params);
             }
         }
         ui_state.selected_command = 0;
@@ -113,9 +115,10 @@ fn handle_spell_select(
     game_state: &mut BattleGameState,
     ui_state: &mut BattleUIState,
     member_index: usize,
+    char_params: &CharacterParams,
 ) {
     let member_kind = game_state.state.party[member_index].kind;
-    let spells = party::available_spells(member_kind, game_state.state.party[member_index].level);
+    let spells = party::available_spells(member_kind, game_state.state.party[member_index].level, char_params);
     let spell_count = spells.len();
 
     // 上下でカーソル移動
@@ -160,7 +163,7 @@ fn handle_spell_select(
                         target: TargetId::Enemy(0),
                     },
                 );
-                advance_to_next_member(game_state, ui_state, member_index);
+                advance_to_next_member(game_state, ui_state, member_index, char_params);
             }
             SpellTarget::SingleAlly => {
                 // 単体味方 → 味方選択へ
@@ -177,7 +180,7 @@ fn handle_spell_select(
                         target: TargetId::Party(0),
                     },
                 );
-                advance_to_next_member(game_state, ui_state, member_index);
+                advance_to_next_member(game_state, ui_state, member_index, char_params);
             }
         }
     }
@@ -188,6 +191,7 @@ fn advance_to_next_member(
     game_state: &mut BattleGameState,
     ui_state: &mut BattleUIState,
     current_member: usize,
+    char_params: &CharacterParams,
 ) {
     let next = find_next_alive_member(game_state, current_member);
     if let Some(next_idx) = next {
@@ -197,7 +201,7 @@ fn advance_to_next_member(
         };
     } else {
         // 全員入力完了 → ターン実行
-        execute_turn(game_state, ui_state);
+        execute_turn(game_state, ui_state, char_params);
     }
 }
 
@@ -250,6 +254,7 @@ fn handle_target_select(
     game_state: &mut BattleGameState,
     ui_state: &mut BattleUIState,
     member_index: usize,
+    char_params: &CharacterParams,
 ) {
     let alive_enemies = game_state.state.alive_enemy_indices();
     if alive_enemies.is_empty() {
@@ -308,7 +313,7 @@ fn handle_target_select(
             };
         } else {
             // 全員入力完了 → ターン実行
-            execute_turn(game_state, ui_state);
+            execute_turn(game_state, ui_state, char_params);
         }
     }
 }
@@ -318,6 +323,7 @@ fn handle_ally_target_select(
     game_state: &mut BattleGameState,
     ui_state: &mut BattleUIState,
     member_index: usize,
+    char_params: &CharacterParams,
 ) {
     let alive_party = game_state.state.alive_party_indices();
     if alive_party.is_empty() {
@@ -375,7 +381,7 @@ fn handle_ally_target_select(
             };
         } else {
             // 全員入力完了 → ターン実行
-            execute_turn(game_state, ui_state);
+            execute_turn(game_state, ui_state, char_params);
         }
     }
 }
@@ -393,7 +399,7 @@ fn find_prev_alive_member(game_state: &BattleGameState, current: usize) -> Optio
 }
 
 /// ターンを実行してメッセージフェーズに遷移
-fn execute_turn(game_state: &mut BattleGameState, ui_state: &mut BattleUIState) {
+fn execute_turn(game_state: &mut BattleGameState, ui_state: &mut BattleUIState, char_params: &CharacterParams) {
     let party_count = game_state.state.party.len();
     let enemy_count = game_state.state.enemies.len();
     let total_actors = party_count + enemy_count;
@@ -437,7 +443,7 @@ fn execute_turn(game_state: &mut BattleGameState, ui_state: &mut BattleUIState) 
         for &i in &alive {
             let member = &mut game_state.state.party[i];
             let old_level = member.level;
-            let level_ups = member.gain_exp(total_exp);
+            let level_ups = member.gain_exp(total_exp, char_params);
             if level_ups > 0 {
                 messages.push(format!(
                     "{}は レベル{}に あがった！",
@@ -446,7 +452,7 @@ fn execute_turn(game_state: &mut BattleGameState, ui_state: &mut BattleUIState) 
                 ));
                 // レベルアップで新しく習得した呪文をチェック
                 for lvl in (old_level + 1)..=member.level {
-                    for spell in party::spells_learned_at_level(member.kind, lvl) {
+                    for spell in party::spells_learned_at_level(member.kind, lvl, char_params) {
                         messages.push(format!(
                             "{}は {}を おぼえた！",
                             member.kind.name(),

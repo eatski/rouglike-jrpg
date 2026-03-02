@@ -9,7 +9,7 @@ use item::ItemKind;
 use party::{RecruitmentPath, RecruitmentStatus};
 use terrain::Structure;
 
-use app_state::{BossDefeated, ContinentCavePositions, ContinentMap, EncounterZone, OpenedChests, PartyState};
+use app_state::{BossDefeated, CharacterParams, ContinentCavePositions, ContinentMap, EncounterZone, OpenedChests, PartyState};
 use field_core::{ActiveMap, Boat, Player, TilePosition, WorldMapData, TILE_SIZE};
 use field_walk_ui::MovementState;
 
@@ -69,6 +69,7 @@ pub fn setup_cave_scene(
     continent_caves: Res<ContinentCavePositions>,
     continent_map: Option<Res<ContinentMap>>,
     party_state: Res<PartyState>,
+    char_params: Res<CharacterParams>,
 ) {
     // ワールドでマップモードがONのまま洞窟に入った場合にリセット
     map_mode_state.enabled = false;
@@ -139,11 +140,11 @@ pub fn setup_cave_scene(
                 if cand_idx / 3 != continent_idx {
                     continue;
                 }
-                if let RecruitmentPath::ItemTrade { item } = candidate.kind.recruit_method() {
+                if let RecruitmentPath::ItemTrade { item } = char_params.recruit_method(candidate.kind) {
                     // 大陸内の洞窟間で分散配置（候補インデックスを洞窟数で割る）
                     let candidate_hash = candidate.kind as usize;
                     if num_caves > 0 && candidate_hash % num_caves == cave_idx {
-                        items.push(TreasureContent::Item(item));
+                        items.push(TreasureContent::Item(*item));
                     }
                 }
             }

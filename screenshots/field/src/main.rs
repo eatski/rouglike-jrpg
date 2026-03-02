@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use app_state::PartyState;
+use app_state::{CharacterParams, PartyState};
 use field_core::{ActiveMap, Player, TilePosition};
 use screenshot_common::{screenshot_app, ScreenshotRng};
 use terrain::Terrain;
@@ -54,8 +54,13 @@ fn move_player_to_coast(
 
 fn main() {
     let mut app = screenshot_app("field");
+
+    let char_table = party_data::character_param_table();
+    let party_state = PartyState::new(&char_table);
+
     app.init_resource::<MapModeState>()
-        .init_resource::<PartyState>()
+        .insert_resource(CharacterParams(char_table))
+        .insert_resource(party_state)
         .add_systems(
             Startup,
             (

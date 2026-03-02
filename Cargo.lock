@@ -3911,6 +3911,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "party-data"
+version = "0.1.0"
+dependencies = [
+ "item",
+ "party",
+ "spell",
+]
+
+[[package]]
 name = "paste"
 version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4372,6 +4381,7 @@ dependencies = [
  "hokora-ui",
  "item",
  "party",
+ "party-data",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "spell",
@@ -4480,6 +4490,7 @@ dependencies = [
  "battle-ui",
  "bevy",
  "hud-ui",
+ "party-data",
  "screenshot-common",
  "spell-data",
 ]
@@ -4516,6 +4527,7 @@ dependencies = [
  "bevy",
  "field-core",
  "field-walk-ui",
+ "party-data",
  "screenshot-common",
  "terrain",
 ]
@@ -4528,6 +4540,7 @@ dependencies = [
  "bevy",
  "hud-ui",
  "item",
+ "party-data",
  "screenshot-common",
  "town-ui",
 ]

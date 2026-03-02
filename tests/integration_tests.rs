@@ -8,7 +8,8 @@
 
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
-use battle::{default_party, Enemy};
+use battle::Enemy;
+use party::default_party;
 use terrain::{Terrain, MAP_HEIGHT, MAP_WIDTH};
 use world_gen::generate_map;
 use rand::SeedableRng;
@@ -24,6 +25,11 @@ use field_walk_ui::{
 use app_state::PartyState;
 use field_walk_ui::MapModeState;
 use field_walk_ui::SpawnPosition;
+use party::CharacterParamTable;
+
+fn char_table() -> CharacterParamTable {
+    party_data::character_param_table()
+}
 
 fn test_spell_params() -> spell::SpellParamTable {
     use spell::{SpellEffect::*, SpellEntry, SpellKind, SpellParamTable};
@@ -137,7 +143,7 @@ fn setup_test_app_with_map(grid: Vec<Vec<Terrain>>, spawn_x: usize, spawn_y: usi
     app.insert_resource(MovementState::default());
     app.insert_resource(EventCounters::default());
     app.insert_resource(MapModeState::default());
-    app.init_resource::<PartyState>();
+    app.insert_resource(PartyState::new(&char_table()));
     app.init_resource::<ButtonInput<KeyCode>>();
 
     // イベントを登録
@@ -750,7 +756,9 @@ fn setup_battle_test_app() -> App {
 
     // cleanup_battle_sceneが必要とするリソース
     app.insert_resource(MovementState::default());
-    app.init_resource::<PartyState>();
+    let table = char_table();
+    app.insert_resource(app_state::CharacterParams(table));
+    app.insert_resource(PartyState::new(&char_table()));
     app.insert_resource(ActiveMap {
         grid: vec![vec![Terrain::Plains; 1]; 1],
         structures: vec![vec![terrain::Structure::None; 1]; 1],
@@ -773,7 +781,8 @@ fn setup_battle_test_app() -> App {
 /// これにより、遷移時に実行されるbattle_input_systemがリソースを参照できる。
 fn insert_battle_resource(app: &mut App, phase: BattlePhase) {
     // 本番と同じロジックでリソース生成
-    let party = default_party();
+    let table = char_table();
+    let party = default_party(&table);
     let enemies = vec![Enemy::slime()];
     let (game_state, mut ui_state) = battle_ui::init_battle_resources(party, enemies, None, test_spell_params());
 
@@ -1032,8 +1041,9 @@ fn battle_victory_grants_exp_and_levels_up_party() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors};
     use party::default_party;
 
+    let table = char_table();
     // 弱い敵1体 vs デフォルトパーティ
-    let party = default_party();
+    let party = default_party(&table);
     let enemies = vec![Enemy::slime()];
     let mut battle = BattleDomainState::new(party.clone(), enemies, test_spell_params());
 
@@ -1058,7 +1068,7 @@ fn battle_victory_grants_exp_and_levels_up_party() {
 
     // パーティ全員に経験値を分配（ゲームの仕様通り）
     for member in &mut battle.party {
-        member.gain_exp(total_exp);
+        member.gain_exp(total_exp, &table);
     }
 
     // Lv1→2に必要な経験値は10なので、3expではレベルアップしない
@@ -1092,7 +1102,7 @@ fn battle_victory_grants_exp_and_levels_up_party() {
         assert_eq!(exp2, 16, "Two wolves give 16 exp");
 
         for member in &mut battle2.party {
-            member.gain_exp(exp2);
+            member.gain_exp(exp2, &table);
             // 累計 3+16=19 exp >= 10 (Lv1→2)なのでレベルアップ
             assert!(member.level >= 2, "Should reach at least level 2, got {}", member.level);
         }
@@ -1105,19 +1115,21 @@ fn mage_learns_fire1_at_level_1_and_fire2_at_level_5() {
     use party::{available_spells, spells_learned_at_level};
     use party::PartyMemberKind;
 
+    let table = char_table();
+
     // Lv1のマルシルはFire1を知っている
-    let spells = available_spells(PartyMemberKind::Marcille, 1);
+    let spells = available_spells(PartyMemberKind::Marcille, 1, &table);
     assert_eq!(spells, vec![SpellKind::Fire1]);
 
     // Lv4まではFire2は未習得
-    let spells4 = available_spells(PartyMemberKind::Marcille, 4);
+    let spells4 = available_spells(PartyMemberKind::Marcille, 4, &table);
     assert_eq!(spells4, vec![SpellKind::Fire1, SpellKind::Blaze1]);
 
     // Lv5でFire2を習得
-    let learned = spells_learned_at_level(PartyMemberKind::Marcille, 5);
+    let learned = spells_learned_at_level(PartyMemberKind::Marcille, 5, &table);
     assert_eq!(learned, vec![SpellKind::Fire2]);
 
-    let spells5 = available_spells(PartyMemberKind::Marcille, 5);
+    let spells5 = available_spells(PartyMemberKind::Marcille, 5, &table);
     assert_eq!(spells5, vec![SpellKind::Fire1, SpellKind::Blaze1, SpellKind::Fire2]);
 }
 
@@ -1126,8 +1138,9 @@ fn hero_has_all_16_spells_at_level_1() {
     use party::available_spells;
     use party::PartyMemberKind;
 
+    let table = char_table();
     // ライオスはLv1で全24呪文を使える
-    let spells = available_spells(PartyMemberKind::Laios, 1);
+    let spells = available_spells(PartyMemberKind::Laios, 1, &table);
     assert_eq!(spells.len(), 24);
 }
 
@@ -1139,14 +1152,15 @@ fn hero_has_all_16_spells_at_level_1() {
 fn equipped_weapon_increases_battle_damage() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult};
     use item::WeaponKind;
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
+    let table = char_table();
     // 武器なしのライオス
-    let hero_unarmed = PartyMember::laios();
+    let hero_unarmed = PartyMember::from_kind(PartyMemberKind::Laios, &table);
     let unarmed_attack = hero_unarmed.effective_attack();
 
     // 武器装備のライオス
-    let mut hero_armed = PartyMember::laios();
+    let mut hero_armed = PartyMember::from_kind(PartyMemberKind::Laios, &table);
     hero_armed.equipment.equip_weapon(WeaponKind::SteelSword);
     let armed_attack = hero_armed.effective_attack();
 
@@ -1190,9 +1204,10 @@ fn equipped_weapon_increases_battle_damage() {
 fn herb_heals_in_battle() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult};
     use item::ItemKind;
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
-    let mut hero = PartyMember::laios();
+    let table = char_table();
+    let mut hero = PartyMember::from_kind(PartyMemberKind::Laios, &table);
     hero.stats.hp = 5; // HPを低くしておく
     hero.inventory.add(ItemKind::Herb, 1);
 
@@ -1230,9 +1245,10 @@ fn herb_heals_in_battle() {
 fn copper_key_is_not_usable_in_battle() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult};
     use item::ItemKind;
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
-    let mut hero = PartyMember::laios();
+    let table = char_table();
+    let mut hero = PartyMember::from_kind(PartyMemberKind::Laios, &table);
     hero.inventory.add(ItemKind::CopperKey, 1);
 
     let mut slime = Enemy::slime();
@@ -1269,9 +1285,10 @@ fn buy_herb_at_shop_then_use_in_battle() {
     use town::{buy_item, BuyResult};
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors};
     use item::ItemKind;
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
-    let mut hero = PartyMember::laios();
+    let table = char_table();
+    let mut hero = PartyMember::from_kind(PartyMemberKind::Laios, &table);
     let mut gold = 100u32;
 
     // 街でやくそうを購入
@@ -1314,9 +1331,10 @@ fn buy_weapon_at_shop_then_equip_affects_battle() {
     use town::{buy_item, BuyResult};
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult};
     use item::{ItemKind, WeaponKind};
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
-    let mut hero = PartyMember::laios();
+    let table = char_table();
+    let mut hero = PartyMember::from_kind(PartyMemberKind::Laios, &table);
     let gold = 100u32;
 
     // 武器購入前の攻撃力を記録
@@ -1369,7 +1387,8 @@ fn inn_heals_party_before_battle() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors};
     use party::default_party;
 
-    let mut party = default_party();
+    let table = char_table();
+    let mut party = default_party(&table);
 
     // 全員のHPを1にする
     for member in &mut party {
@@ -1414,7 +1433,8 @@ fn full_recruitment_flow_undiscovered_to_recruited() {
         PartyMember, PartyMemberKind, RecruitmentStatus, TalkResult,
     };
 
-    let mut party = initial_party(); // ライオスのみ
+    let table = char_table();
+    let mut party = initial_party(&table); // ライオスのみ
     assert_eq!(party.len(), 1);
 
     let mut candidates = default_candidates(); // 9人の仲間候補
@@ -1431,7 +1451,7 @@ fn full_recruitment_flow_undiscovered_to_recruited() {
     assert_eq!(candidates[0].status, RecruitmentStatus::Recruited);
 
     // パーティにチルチャックを追加
-    party.push(PartyMember::from_kind(candidates[0].kind));
+    party.push(PartyMember::from_kind(candidates[0].kind, &table));
     assert_eq!(party.len(), 2);
     assert_eq!(party[1].kind, PartyMemberKind::Chilchuck);
 
@@ -1442,7 +1462,7 @@ fn full_recruitment_flow_undiscovered_to_recruited() {
     let result = talk_to_candidate(&mut candidates[1]);
     assert_eq!(result, TalkResult::Recruited);
 
-    party.push(PartyMember::from_kind(candidates[1].kind));
+    party.push(PartyMember::from_kind(candidates[1].kind, &table));
     assert_eq!(party.len(), 3);
     assert_eq!(party[2].kind, PartyMemberKind::Marcille);
 
@@ -1552,8 +1572,9 @@ fn cave_treasure_adds_to_inventory() {
     use terrain::Structure;
     use rand::SeedableRng;
     use rand_chacha::ChaCha8Rng;
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
+    let table = char_table();
     let mut rng = ChaCha8Rng::seed_from_u64(42);
     let cave = generate_cave_map(&mut rng, &[]);
 
@@ -1567,7 +1588,7 @@ fn cave_treasure_adds_to_inventory() {
         );
     }
 
-    let mut hero = PartyMember::laios();
+    let mut hero = PartyMember::from_kind(PartyMemberKind::Laios, &table);
     assert!(hero.inventory.is_empty());
 
     // 宝箱を開ける（ドメインロジックとして直接追加）
@@ -1696,11 +1717,16 @@ fn generated_map_spawn_is_on_walkable_connected_island() {
 #[test]
 fn battle_action_order_respects_speed() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult, ActorId};
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
+    let table = char_table();
     // 速度が異なるキャラクターを用意
     // Marcille(SPD7) > Bat(SPD6) > Laios(SPD5) > Falin(SPD4)
-    let party = vec![PartyMember::laios(), PartyMember::marcille(), PartyMember::falin()];
+    let party = vec![
+        PartyMember::from_kind(PartyMemberKind::Laios, &table),
+        PartyMember::from_kind(PartyMemberKind::Marcille, &table),
+        PartyMember::from_kind(PartyMemberKind::Falin, &table),
+    ];
 
     // 敵のHPを高くして戦闘が終わらないようにする
     let mut bat = Enemy::bat();
@@ -1767,9 +1793,10 @@ fn total_exp_reward_sums_defeated_enemies_only() {
 #[test]
 fn spell_fails_silently_when_mp_insufficient() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult, SpellKind};
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
-    let mut mage = PartyMember::marcille();
+    let table = char_table();
+    let mut mage = PartyMember::from_kind(PartyMemberKind::Marcille, &table);
     mage.stats.mp = 0; // MP枯渇
 
     let mut slime = Enemy::slime();
@@ -1800,10 +1827,11 @@ fn spell_fails_silently_when_mp_insufficient() {
 #[test]
 fn party_wipe_ends_battle_mid_turn() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult};
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
+    let table = char_table();
     // HP1のライオス1人 vs 強い敵2体
-    let mut hero = PartyMember::laios();
+    let mut hero = PartyMember::from_kind(PartyMemberKind::Laios, &table);
     hero.stats.hp = 1;
     hero.stats.speed = 1; // 敵より遅くして先に倒されるようにする
 
@@ -1863,17 +1891,18 @@ fn shop_rejects_purchase_when_inventory_full() {
 
 #[test]
 fn level_up_applies_correct_stat_growth_per_class() {
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
+    let table = char_table();
     // ライオスのレベルアップ
-    let mut hero = PartyMember::laios();
+    let mut hero = PartyMember::from_kind(PartyMemberKind::Laios, &table);
     let base_hp = hero.stats.max_hp;
     let base_attack = hero.stats.attack;
     let base_defense = hero.stats.defense;
     let base_speed = hero.stats.speed;
     let base_mp = hero.stats.max_mp;
 
-    let level_ups = hero.gain_exp(10); // Lv1→2
+    let level_ups = hero.gain_exp(10, &table); // Lv1→2
     assert_eq!(level_ups, 1);
     assert_eq!(hero.stats.max_hp, base_hp + 5); // Laios: hp+5
     assert_eq!(hero.stats.attack, base_attack + 2); // Laios: attack+2
@@ -1885,21 +1914,21 @@ fn level_up_applies_correct_stat_growth_per_class() {
     assert_eq!(hero.stats.mp, hero.stats.max_mp);
 
     // マルシルのレベルアップ
-    let mut mage = PartyMember::marcille();
+    let mut mage = PartyMember::from_kind(PartyMemberKind::Marcille, &table);
     let base_hp = mage.stats.max_hp;
     let base_mp = mage.stats.max_mp;
 
-    let level_ups = mage.gain_exp(10);
+    let level_ups = mage.gain_exp(10, &table);
     assert_eq!(level_ups, 1);
     assert_eq!(mage.stats.max_hp, base_hp + 3); // Marcille: hp+3
     assert_eq!(mage.stats.max_mp, base_mp + 3); // Marcille: mp+3
 
     // ファリンのレベルアップ
-    let mut priest = PartyMember::falin();
+    let mut priest = PartyMember::from_kind(PartyMemberKind::Falin, &table);
     let base_hp = priest.stats.max_hp;
     let base_mp = priest.stats.max_mp;
 
-    let level_ups = priest.gain_exp(10);
+    let level_ups = priest.gain_exp(10, &table);
     assert_eq!(level_ups, 1);
     assert_eq!(priest.stats.max_hp, base_hp + 4); // Falin: hp+4
     assert_eq!(priest.stats.max_mp, base_mp + 2); // Falin: mp+2
@@ -1955,7 +1984,8 @@ fn flee_succeeds_when_random_below_threshold() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult};
     use party::default_party;
 
-    let party = default_party();
+    let table = char_table();
+    let party = default_party(&table);
     let mut slime = Enemy::slime();
     slime.stats.hp = 999;
     slime.stats.max_hp = 999;
@@ -1983,7 +2013,8 @@ fn flee_fails_when_random_above_threshold() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult, ActorId};
     use party::default_party;
 
-    let party = default_party();
+    let table = char_table();
+    let party = default_party(&table);
     let mut slime = Enemy::slime();
     slime.stats.hp = 999;
     slime.stats.max_hp = 999;
@@ -2062,9 +2093,10 @@ fn spell_damage_formula_uses_quarter_defense() {
 #[test]
 fn spell_succeeds_when_mp_exactly_equals_cost() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult, SpellKind};
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
-    let mut mage = PartyMember::marcille();
+    let table = char_table();
+    let mut mage = PartyMember::from_kind(PartyMemberKind::Marcille, &table);
     mage.stats.mp = 3; // Fire1 のMP消費量ちょうど
 
     let mut slime = Enemy::slime();
@@ -2096,11 +2128,12 @@ fn spell_succeeds_when_mp_exactly_equals_cost() {
 #[test]
 fn heal_spell_does_not_exceed_max_hp() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors};
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
+    let table = char_table();
     // ファリンのHPをmax_hpの1だけ下に設定
     // Heal1 power=15 → 回復量15。キャップなしなら max_hp+14 になる
-    let mut priest = PartyMember::falin();
+    let mut priest = PartyMember::from_kind(PartyMemberKind::Falin, &table);
     priest.stats.hp = priest.stats.max_hp - 1;
 
     let mut slime = Enemy::slime();
@@ -2128,10 +2161,11 @@ fn heal_spell_does_not_exceed_max_hp() {
 fn item_heal_does_not_exceed_max_hp() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors};
     use item::ItemKind;
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
+    let table = char_table();
     // HPをmax_hpの1だけ下に。Herb power=25 → キャップなしなら max_hp+24
-    let mut hero = PartyMember::laios();
+    let mut hero = PartyMember::from_kind(PartyMemberKind::Laios, &table);
     hero.stats.hp = hero.stats.max_hp - 1;
     hero.inventory.add(ItemKind::Herb, 1);
 
@@ -2228,9 +2262,10 @@ fn battle_victory_leveling_unlocks_new_spell() {
     use party::{available_spells, spells_learned_at_level};
     use party::{PartyMember, PartyMemberKind};
 
+    let table = char_table();
     // マルシルLv1: Fire1のみ習得
-    let mut mage = PartyMember::marcille();
-    let spells_lv1 = available_spells(PartyMemberKind::Marcille, mage.level);
+    let mut mage = PartyMember::from_kind(PartyMemberKind::Marcille, &table);
+    let spells_lv1 = available_spells(PartyMemberKind::Marcille, mage.level, &table);
     assert_eq!(spells_lv1, vec![SpellKind::Fire1]);
 
     // 十分な経験値を得るために複数回戦闘
@@ -2247,15 +2282,15 @@ fn battle_victory_leveling_unlocks_new_spell() {
     let total_exp = battle.total_exp_reward();
     assert_eq!(total_exp, 40);
 
-    let level_ups = mage.gain_exp(total_exp);
+    let level_ups = mage.gain_exp(total_exp, &table);
     assert!(level_ups >= 2, "Should level up at least twice with 40 exp, got {} level ups", level_ups);
     assert!(mage.level >= 3, "Should reach at least level 3, got {}", mage.level);
 
     // Lv3でマルシルはBlaze1を習得
-    let learned = spells_learned_at_level(PartyMemberKind::Marcille, 3);
+    let learned = spells_learned_at_level(PartyMemberKind::Marcille, 3, &table);
     assert_eq!(learned, vec![SpellKind::Blaze1]);
 
-    let spells = available_spells(PartyMemberKind::Marcille, mage.level);
+    let spells = available_spells(PartyMemberKind::Marcille, mage.level, &table);
     assert!(spells.contains(&SpellKind::Blaze1), "Marcille at level {} should know Blaze1", mage.level);
 }
 
@@ -2267,10 +2302,11 @@ fn battle_victory_leveling_unlocks_new_spell() {
 fn sync_from_battle_reflects_battle_state() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors};
     use item::ItemKind;
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
+    let table = char_table();
     // パーティ側（元データ）
-    let mut original_hero = PartyMember::laios();
+    let mut original_hero = PartyMember::from_kind(PartyMemberKind::Laios, &table);
     original_hero.inventory.add(ItemKind::Herb, 2);
     // 戦闘用コピー
     let battle_hero = original_hero.clone();
@@ -2317,12 +2353,13 @@ fn cave_treasure_sold_at_shop() {
     use town::{sell_item, SellResult};
     use rand::SeedableRng;
     use rand_chacha::ChaCha8Rng;
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
+    let table = char_table();
     let mut rng = ChaCha8Rng::seed_from_u64(42);
     let cave = generate_cave_map(&mut rng, &[]);
 
-    let mut hero = PartyMember::laios();
+    let mut hero = PartyMember::from_kind(PartyMemberKind::Laios, &table);
     // 洞窟の宝箱からアイテムを入手
     for chest in &cave.treasures {
         if let TreasureContent::Item(item) = chest.content {
@@ -2369,9 +2406,10 @@ fn weapon_upgrade_replaces_old_and_changes_damage() {
     use town::{buy_item, BuyResult};
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult};
     use item::{ItemKind, WeaponKind};
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
-    let mut hero = PartyMember::laios();
+    let table = char_table();
+    let mut hero = PartyMember::from_kind(PartyMemberKind::Laios, &table);
     let gold = 500u32;
 
     // 鉄の剣を購入して装備（+5）— 武器はインベントリに残る
@@ -2423,16 +2461,17 @@ fn weapon_upgrade_replaces_old_and_changes_damage() {
 
 #[test]
 fn large_exp_gain_causes_multiple_level_ups() {
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
-    let mut hero = PartyMember::laios();
+    let table = char_table();
+    let mut hero = PartyMember::from_kind(PartyMemberKind::Laios, &table);
     assert_eq!(hero.level, 1);
 
     let base_max_hp = hero.stats.max_hp;
     let base_attack = hero.stats.attack;
 
     // 100exp → Lv1→2(10exp) + Lv2→3(25exp) + Lv3→4(50exp) = 85exp消費 → Lv4到達
-    let level_ups = hero.gain_exp(100);
+    let level_ups = hero.gain_exp(100, &table);
     assert!(level_ups >= 3, "Should gain at least 3 levels with 100 exp, got {}", level_ups);
     assert!(hero.level >= 4, "Should reach at least level 4, got {}", hero.level);
 
@@ -2481,10 +2520,11 @@ fn sell_herb_succeeds_at_half_price() {
 #[test]
 fn heal_party_restores_to_increased_max_after_level_up() {
     use town::heal_party;
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
-    let mut hero = PartyMember::laios();
-    hero.gain_exp(10); // Lv1→2, max_hp増加
+    let table = char_table();
+    let mut hero = PartyMember::from_kind(PartyMemberKind::Laios, &table);
+    hero.gain_exp(10, &table); // Lv1→2, max_hp増加
     let new_max_hp = hero.stats.max_hp;
     let new_max_mp = hero.stats.max_mp;
 
@@ -2508,8 +2548,9 @@ fn recruit_party_then_battle_together() {
     use party::{initial_party, default_candidates, talk_to_candidate, PartyMember, PartyMemberKind, TalkResult};
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult, ActorId};
 
+    let table = char_table();
     // ライオスのみでスタート
-    let mut party = initial_party();
+    let mut party = initial_party(&table);
     assert_eq!(party.len(), 1);
     assert_eq!(party[0].kind, PartyMemberKind::Laios);
 
@@ -2518,7 +2559,7 @@ fn recruit_party_then_battle_together() {
     talk_to_candidate(&mut candidates[0]); // Acquaintance
     let result = talk_to_candidate(&mut candidates[0]); // Recruited
     assert_eq!(result, TalkResult::Recruited);
-    party.push(PartyMember::from_kind(candidates[0].kind));
+    party.push(PartyMember::from_kind(candidates[0].kind, &table));
 
     assert_eq!(party.len(), 2);
 
@@ -2567,9 +2608,10 @@ fn buy_item_fails_with_insufficient_gold() {
 fn buy_weapon_fails_with_insufficient_gold() {
     use town::{buy_item, BuyResult};
     use item::{ItemKind, WeaponKind};
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
-    let mut hero = PartyMember::laios();
+    let table = char_table();
+    let mut hero = PartyMember::from_kind(PartyMemberKind::Laios, &table);
     // 鉄の剣は50ゴールド
     let result = buy_item(ItemKind::Weapon(WeaponKind::IronSword), 49, &mut hero.inventory);
     assert_eq!(result, BuyResult::InsufficientGold, "Should fail with 49 gold for 50-gold sword");
@@ -2580,9 +2622,10 @@ fn buy_weapon_fails_with_insufficient_gold() {
 fn buy_weapon_fails_with_full_inventory() {
     use town::{buy_item, BuyResult};
     use item::{ItemKind, WeaponKind};
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
-    let mut hero = PartyMember::laios();
+    let table = char_table();
+    let mut hero = PartyMember::from_kind(PartyMemberKind::Laios, &table);
     hero.inventory.add(ItemKind::Herb, 6); // 容量いっぱい
     let result = buy_item(ItemKind::Weapon(WeaponKind::IronSword), 100, &mut hero.inventory);
     assert_eq!(result, BuyResult::InventoryFull, "Should fail when inventory is full");
@@ -2596,10 +2639,11 @@ fn buy_weapon_fails_with_full_inventory() {
 fn high_herb_heals_more_than_regular_herb_in_battle() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult};
     use item::ItemKind;
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
+    let table = char_table();
     // ライオス1: やくそうで回復
-    let mut hero1 = PartyMember::laios();
+    let mut hero1 = PartyMember::from_kind(PartyMemberKind::Laios, &table);
     hero1.stats.hp = 1;
     hero1.inventory.add(ItemKind::Herb, 1);
 
@@ -2617,7 +2661,7 @@ fn high_herb_heals_more_than_regular_herb_in_battle() {
     }).unwrap();
 
     // ライオス2: 上やくそうで回復
-    let mut hero2 = PartyMember::laios();
+    let mut hero2 = PartyMember::from_kind(PartyMemberKind::Laios, &table);
     hero2.stats.hp = 1;
     hero2.inventory.add(ItemKind::HighHerb, 1);
 
@@ -2673,11 +2717,12 @@ fn generated_enemy_group_battle_to_victory_and_exp() {
     use battle::enemy::generate_enemy_group;
     use party::default_party;
 
+    let table = char_table();
     // ランダムな敵グループを生成
     let enemies = generate_enemy_group(0, false, 0.5, 0.3); // 大陸0フィールドで2匹のグループ
     assert!(!enemies.is_empty());
 
-    let party = default_party();
+    let party = default_party(&table);
     let mut battle = BattleDomainState::new(party, enemies, test_spell_params());
 
     // 全敵を全員で攻撃して勝利を目指す
@@ -2704,7 +2749,7 @@ fn generated_enemy_group_battle_to_victory_and_exp() {
         // 経験値をパーティに分配
         for member in &mut battle.party {
             if member.stats.is_alive() {
-                member.gain_exp(total_exp);
+                member.gain_exp(total_exp, &table);
                 assert!(member.exp > 0, "Party member should have exp after battle");
             }
         }
@@ -2720,7 +2765,8 @@ fn multi_turn_battle_accumulates_turn_log() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors};
     use party::default_party;
 
-    let party = default_party();
+    let table = char_table();
+    let party = default_party(&table);
     let mut wolf = Enemy::wolf();
     wolf.stats.hp = 999;
     wolf.stats.max_hp = 999;
@@ -2761,9 +2807,10 @@ fn full_town_equip_battle_levelup_flow() {
     use town::{buy_item, heal_party, BuyResult};
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors};
     use item::{ItemKind, WeaponKind};
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
-    let mut hero = PartyMember::laios();
+    let table = char_table();
+    let mut hero = PartyMember::from_kind(PartyMemberKind::Laios, &table);
     let mut gold = 500u32;
 
     // 1. 街で武器を買って装備する（武器はインベントリに残る）
@@ -2794,7 +2841,7 @@ fn full_town_equip_battle_levelup_flow() {
         let exp = battle.total_exp_reward();
         assert_eq!(exp, 30);
 
-        let level_ups = battle.party[0].gain_exp(exp);
+        let level_ups = battle.party[0].gain_exp(exp, &table);
         assert!(level_ups >= 1, "Should level up at least once");
 
         // 5. レベルアップ後、やどやで回復
@@ -2811,10 +2858,11 @@ fn full_town_equip_battle_levelup_flow() {
 #[test]
 fn same_speed_party_acts_before_enemy() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult, ActorId};
-    use party::{PartyMember, CombatStats};
+    use party::{PartyMember, PartyMemberKind, CombatStats};
 
+    let table = char_table();
     // ライオスと敵を同じ速度にする
-    let mut hero = PartyMember::laios();
+    let mut hero = PartyMember::from_kind(PartyMemberKind::Laios, &table);
     hero.stats = CombatStats::new(100, 20, 5, 10, 0); // speed=10
 
     let mut enemy = Enemy::slime();
@@ -2847,10 +2895,11 @@ fn same_speed_party_acts_before_enemy() {
 #[test]
 fn neld_aoe_damages_all_enemies_integration() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult, SpellKind};
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
+    let table = char_table();
     // マルシルLv3以上でBlaze1を習得
-    let mut mage = PartyMember::marcille();
+    let mut mage = PartyMember::from_kind(PartyMemberKind::Marcille, &table);
     mage.level = 3;
     let mage_max_mp = mage.stats.max_mp;
 
@@ -2880,13 +2929,14 @@ fn neld_aoe_damages_all_enemies_integration() {
 #[test]
 fn panam_aoe_heals_all_allies_integration() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult, SpellKind};
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
-    let mut falin = PartyMember::falin();
+    let table = char_table();
+    let mut falin = PartyMember::from_kind(PartyMemberKind::Falin, &table);
     falin.level = 3; // Healall1習得
-    let mut laios = PartyMember::laios();
+    let mut laios = PartyMember::from_kind(PartyMemberKind::Laios, &table);
     laios.stats.hp = 5;
-    let mut marcille = PartyMember::marcille();
+    let mut marcille = PartyMember::from_kind(PartyMemberKind::Marcille, &table);
     marcille.stats.hp = 5;
     falin.stats.hp = 5;
 
@@ -2919,11 +2969,12 @@ fn panam_aoe_heals_all_allies_integration() {
 #[test]
 fn bolga_buff_increases_attack_integration() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult, SpellKind};
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
-    let mut rinsha = PartyMember::rinsha();
+    let table = char_table();
+    let mut rinsha = PartyMember::from_kind(PartyMemberKind::Rinsha, &table);
     rinsha.level = 5; // Boost1習得
-    let laios = PartyMember::laios();
+    let laios = PartyMember::from_kind(PartyMemberKind::Laios, &table);
 
     let mut slime = Enemy::slime();
     slime.stats.hp = 999;
@@ -2955,11 +3006,12 @@ fn bolga_buff_increases_attack_integration() {
 #[test]
 fn block_absorbs_damage_integration() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, SpellKind, ActorId, TurnResult};
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
-    let mut senshi = PartyMember::senshi();
+    let table = char_table();
+    let mut senshi = PartyMember::from_kind(PartyMemberKind::Senshi, &table);
     senshi.level = 4; // Shield1習得
-    let mut laios = PartyMember::laios();
+    let mut laios = PartyMember::from_kind(PartyMemberKind::Laios, &table);
     laios.stats.hp = 999;
     laios.stats.max_hp = 999;
 
@@ -3014,9 +3066,10 @@ fn block_absorbs_damage_integration() {
 #[test]
 fn buff_expires_after_5_turns_integration() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, SpellKind};
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
-    let mut rinsha = PartyMember::rinsha();
+    let table = char_table();
+    let mut rinsha = PartyMember::from_kind(PartyMemberKind::Rinsha, &table);
     rinsha.level = 5; // Boost1習得
     rinsha.stats.mp = 99;
     rinsha.stats.max_mp = 99;
@@ -3051,9 +3104,10 @@ fn buff_expires_after_5_turns_integration() {
 #[test]
 fn buff_overwrite_resets_duration_integration() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, SpellKind};
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
-    let mut rinsha = PartyMember::rinsha();
+    let table = char_table();
+    let mut rinsha = PartyMember::from_kind(PartyMemberKind::Rinsha, &table);
     rinsha.level = 7; // Boost2(ATK+6)も習得
     rinsha.stats.mp = 99;
     rinsha.stats.max_mp = 99;
@@ -3096,9 +3150,10 @@ fn buff_overwrite_resets_duration_integration() {
 #[test]
 fn drain_spell_reduces_enemy_mp() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult, SpellKind};
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
-    let mut laios = PartyMember::laios();
+    let table = char_table();
+    let mut laios = PartyMember::from_kind(PartyMemberKind::Laios, &table);
     laios.stats.mp = 99;
     laios.stats.max_mp = 99;
 
@@ -3124,9 +3179,10 @@ fn drain_spell_reduces_enemy_mp() {
 #[test]
 fn siphon_spell_reduces_all_enemies_mp() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult, SpellKind};
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
-    let mut laios = PartyMember::laios();
+    let table = char_table();
+    let mut laios = PartyMember::from_kind(PartyMemberKind::Laios, &table);
     laios.stats.mp = 99;
     laios.stats.max_mp = 99;
 
@@ -3156,9 +3212,10 @@ fn siphon_spell_reduces_all_enemies_mp() {
 #[test]
 fn enemy_uses_drain_spell_on_party() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult};
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
-    let mut marcille = PartyMember::marcille();
+    let table = char_table();
+    let mut marcille = PartyMember::from_kind(PartyMemberKind::Marcille, &table);
     marcille.stats.mp = 20;
     marcille.stats.max_mp = 20;
 

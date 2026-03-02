@@ -20,6 +20,17 @@ impl Deref for SpellParams {
     }
 }
 
+/// キャラクターパラメータの Bevy Resource ラッパー
+#[derive(Resource)]
+pub struct CharacterParams(pub party::CharacterParamTable);
+
+impl Deref for CharacterParams {
+    type Target = party::CharacterParamTable;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 pub struct AppStatePlugin;
 
 impl Plugin for AppStatePlugin {
@@ -27,7 +38,6 @@ impl Plugin for AppStatePlugin {
         app.init_state::<SceneState>()
             .init_state::<BattleState>()
             .add_computed_state::<InField>()
-            .init_resource::<PartyState>()
             .init_resource::<OpenedChests>()
             .init_resource::<TavernBounties>();
     }

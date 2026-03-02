@@ -1,5 +1,7 @@
 use bevy::prelude::*;
 
+use app_state::CharacterParams;
+
 use super::scene::{
     enemy_display_names, BattleGameState, BattlePhase, BattleSceneRoot, BattleUIState,
     EnemySprite,
@@ -69,8 +71,9 @@ const ALLY_TARGET_HIGHLIGHT: Color = Color::srgb(1.0, 0.9, 0.2);
 pub fn battle_update_menu_cache(
     game_state: Res<BattleGameState>,
     mut ui_state: ResMut<BattleUIState>,
+    char_params: Res<CharacterParams>,
 ) {
-    ui_state.rebuild_cache(&game_state);
+    ui_state.rebuild_cache(&game_state, &char_params);
 }
 
 /// 戦闘画面のステータス表示を更新するシステム

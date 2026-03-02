@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use battle::{generate_enemy_group, BattleAction, BattleState, Enemy, ItemKind, SpellKind};
 
-use app_state::{BossBattlePending, EncounterZone, PartyState, SceneState, SpellParams};
+use app_state::{BossBattlePending, CharacterParams, EncounterZone, PartyState, SceneState, SpellParams};
 
 use hud_ui::command_menu::{CommandMenu, CommandMenuItem, CommandMenuScrollDown, CommandMenuScrollUp};
 
@@ -121,7 +121,7 @@ const VISIBLE_ITEMS: usize = 6;
 
 impl BattleUIState {
     /// CommandMenu用のラベル・disabled情報を現在のphaseから再構築
-    pub(crate) fn rebuild_cache(&mut self, game_state: &BattleGameState) {
+    pub(crate) fn rebuild_cache(&mut self, game_state: &BattleGameState, char_params: &CharacterParams) {
         self.cached_labels.clear();
         self.disabled_indices.clear();
 
@@ -134,7 +134,7 @@ impl BattleUIState {
                     "にげる".to_string(),
                 ];
                 let member = &game_state.state.party[*member_index];
-                if party::available_spells(member.kind, member.level).is_empty() {
+                if party::available_spells(member.kind, member.level, char_params).is_empty() {
                     self.disabled_indices.push(1);
                 }
                 if member.inventory.is_empty() {
@@ -143,7 +143,7 @@ impl BattleUIState {
             }
             BattlePhase::SpellSelect { member_index } => {
                 let member = &game_state.state.party[*member_index];
-                let spells = party::available_spells(member.kind, member.level);
+                let spells = party::available_spells(member.kind, member.level, char_params);
                 for (i, &spell) in spells.iter().enumerate() {
                     self.cached_labels
                         .push(format!("{} ({})", spell.name(), game_state.state.spell_params.mp_cost(spell)));

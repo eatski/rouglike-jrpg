@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use app_state::{FieldMenuOpen, InField, PartyState, SpellParams};
+use app_state::{CharacterParams, FieldMenuOpen, InField, PartyState, SpellParams};
 use hud_ui::command_menu::{
     self, CommandMenu, CommandMenuItem, CommandMenuScrollDown, CommandMenuScrollUp,
 };
@@ -367,6 +367,7 @@ fn field_menu_input_system(
     state: Option<ResMut<FieldMenuState>>,
     root_query: Query<Entity, With<FieldMenuRoot>>,
     spell_params: Res<SpellParams>,
+    char_params: Res<CharacterParams>,
 ) {
     if menu_open.is_none() {
         // メニュー非表示: 確認キーで開く
@@ -403,7 +404,7 @@ fn field_menu_input_system(
             );
         }
         FieldMenuPhase::CasterSelect { candidates, cursor } => {
-            handle_caster_select(&keyboard, &mut state, &party_state, candidates, cursor, &spell_params);
+            handle_caster_select(&keyboard, &mut state, &party_state, candidates, cursor, &spell_params, &char_params);
         }
         FieldMenuPhase::SpellSelect {
             caster,
@@ -521,6 +522,7 @@ fn handle_caster_select(
     candidates: Vec<usize>,
     mut cursor: usize,
     spell_params: &SpellParams,
+    char_params: &CharacterParams,
 ) {
     let count = candidates.len();
     if input_ui::is_up_just_pressed(keyboard) && cursor > 0 {
@@ -544,6 +546,7 @@ fn handle_caster_select(
         let spells = available_spells(
             party_state.members[member_idx].kind,
             party_state.members[member_idx].level,
+            char_params,
         );
         if spells.is_empty() {
             state.set_phase(

@@ -8,6 +8,7 @@ use town::{buy_item, candidate_first_dialogue, candidate_join_dialogue, cave_hin
 use town::{tavern_bounty_item, bounty_offer_dialogue, bounty_has_item_dialogue, bounty_sold_dialogue, sell_bounty_item};
 
 use app_state::SceneState;
+use app_state::CharacterParams;
 use field_core::{ActiveMap, Player, TilePosition};
 use app_state::{ContinentMap, HeardTavernHints, PartyState, RecruitmentMap, TavernBounties, TavernHintKind};
 use hud_ui::menu_style;
@@ -27,6 +28,7 @@ pub fn town_input_system(
     mut heard_hints: ResMut<HeardTavernHints>,
     continent_map: Option<Res<ContinentMap>>,
     mut tavern_bounties: ResMut<TavernBounties>,
+    char_params: Res<CharacterParams>,
 ) {
     match town_res.phase.clone() {
         TownMenuPhase::MenuSelect => {
@@ -79,7 +81,7 @@ pub fn town_input_system(
                                         TalkResult::BecameAcquaintance => {
                                             let msg = candidate_first_dialogue(kind);
                                             recruitment_map.town_to_candidate.remove(&town_pos);
-                                            match kind.recruit_method() {
+                                            match char_params.recruit_method(kind) {
                                                 RecruitmentPath::TavernBond => {
                                                     if let Some(&second_town) =
                                                         recruitment_map.candidate_second_town.get(&candidate_idx)
@@ -107,7 +109,7 @@ pub fn town_input_system(
                                                 TownMenuPhase::RecruitMessage { message: msg };
                                         }
                                         TalkResult::Recruited => {
-                                            party_state.members.push(PartyMember::from_kind(kind));
+                                            party_state.members.push(PartyMember::from_kind(kind, &char_params));
                                             recruitment_map.town_to_candidate.remove(&town_pos);
                                             recruitment_map.candidate_second_town.remove(&candidate_idx);
                                             let msg = candidate_join_dialogue(kind);
@@ -205,16 +207,16 @@ pub fn town_input_system(
                     }
                     TownCommand::HireCompanion(kind) => {
                         let kind = *kind;
-                        match kind.recruit_method() {
+                        match char_params.recruit_method(kind) {
                             RecruitmentPath::GoldHire { cost } => {
-                                if party_state.gold < cost {
+                                if party_state.gold < *cost {
                                     town_res.phase = TownMenuPhase::ShowMessage {
                                         message: "おかねが たりない！".to_string(),
                                     };
                                 } else {
-                                    party_state.gold -= cost;
+                                    party_state.gold -= *cost;
                                     // パーティに追加
-                                    party_state.members.push(PartyMember::from_kind(kind));
+                                    party_state.members.push(PartyMember::from_kind(kind, &char_params));
                                     // candidates のステータスを Recruited に更新
                                     if let Ok(pos) = player_query.single() {
                                         let town_pos = (pos.x, pos.y);
@@ -237,14 +239,14 @@ pub fn town_input_system(
                                 }
                             }
                             RecruitmentPath::ItemTrade { item } => {
-                                if !party_state.has_item(item) {
+                                if !party_state.has_item(*item) {
                                     town_res.phase = TownMenuPhase::ShowMessage {
                                         message: format!("{}を もっていない！", item.name()),
                                     };
                                 } else {
                                     town_res.phase = TownMenuPhase::ItemTradeConfirm {
                                         kind,
-                                        item,
+                                        item: *item,
                                         selected: 0,
                                     };
                                 }
@@ -392,7 +394,7 @@ pub fn town_input_system(
                 if selected == 0 {
                     // はい → アイテム消費して雇用
                     if party_state.consume_item(item) {
-                        party_state.members.push(PartyMember::from_kind(kind));
+                        party_state.members.push(PartyMember::from_kind(kind, &char_params));
                         if let Ok(pos) = player_query.single() {
                             let town_pos = (pos.x, pos.y);
                             if let Some(&candidate_idx) = recruitment_map.hire_available.get(&town_pos) {

@@ -404,9 +404,24 @@ mod tests {
     use super::*;
     use party::default_party;
 
+    fn char_table() -> party::CharacterParamTable {
+        party::CharacterParamTable::from_fn(|kind| party::CharacterEntry {
+            initial_stats: match kind {
+                party::PartyMemberKind::Laios => party::CombatStats::new(30, 8, 3, 5, 5),
+                party::PartyMemberKind::Marcille => party::CombatStats::new(20, 2, 2, 7, 15),
+                party::PartyMemberKind::Falin => party::CombatStats::new(25, 5, 4, 4, 12),
+                _ => party::CombatStats::new(20, 5, 2, 5, 0),
+            },
+            stat_growth: party::StatGrowth { hp: 3, mp: 1, attack: 1, defense: 1, speed: 1 },
+            recruit_method: party::RecruitmentPath::TavernBond,
+            spell_learn_table: &[],
+        })
+    }
+
     #[test]
     fn heal_party_restores_full_hp_mp() {
-        let mut party = default_party();
+        let table = char_table();
+        let mut party = default_party(&table);
         // ダメージを与える
         party[0].stats.hp = 1;
         party[0].stats.mp = 0;
