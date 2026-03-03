@@ -12,6 +12,7 @@ bevy = "0.18"
 screenshot-common = { path = "../common" }
 app-state = { path = "../../app/app-state" }
 spell-data = { path = "../../app/spell-data" }
+party-data = { path = "../../app/party-data" }
 battle = { path = "../../app/battle" }
 battle-ui = { path = "../../app/battle-ui" }
 hud-ui = { path = "../../app/hud-ui" }

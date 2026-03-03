@@ -8,7 +8,8 @@
 
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
-use battle::{default_party, Enemy};
+use battle::Enemy;
+use party::default_party;
 use terrain::{Terrain, MAP_HEIGHT, MAP_WIDTH};
 use world_gen::generate_map;
 use rand::SeedableRng;
@@ -24,6 +25,15 @@ use field_walk_ui::{
 use app_state::PartyState;
 use field_walk_ui::MapModeState;
 use field_walk_ui::SpawnPosition;
+use party::CharacterParamTable;
+
+fn char_table() -> CharacterParamTable {
+    party_data::character_param_table()
+}
+
+fn test_item_params() -> item::ItemParamTable {
+    item_data::item_param_table()
+}
 
 fn test_spell_params() -> spell::SpellParamTable {
     use spell::{SpellEffect::*, SpellEntry, SpellKind, SpellParamTable};
@@ -137,7 +147,7 @@ fn setup_test_app_with_map(grid: Vec<Vec<Terrain>>, spawn_x: usize, spawn_y: usi
     app.insert_resource(MovementState::default());
     app.insert_resource(EventCounters::default());
     app.insert_resource(MapModeState::default());
-    app.init_resource::<PartyState>();
+    app.insert_resource(PartyState::new(&char_table()));
     app.init_resource::<ButtonInput<KeyCode>>();
 
     // イベントを登録
@@ -750,7 +760,9 @@ fn setup_battle_test_app() -> App {
 
     // cleanup_battle_sceneが必要とするリソース
     app.insert_resource(MovementState::default());
-    app.init_resource::<PartyState>();
+    let table = char_table();
+    app.insert_resource(app_state::CharacterParams(table));
+    app.insert_resource(PartyState::new(&char_table()));
     app.insert_resource(ActiveMap {
         grid: vec![vec![Terrain::Plains; 1]; 1],
         structures: vec![vec![terrain::Structure::None; 1]; 1],
@@ -773,9 +785,10 @@ fn setup_battle_test_app() -> App {
 /// これにより、遷移時に実行されるbattle_input_systemがリソースを参照できる。
 fn insert_battle_resource(app: &mut App, phase: BattlePhase) {
     // 本番と同じロジックでリソース生成
-    let party = default_party();
+    let table = char_table();
+    let party = default_party(&table);
     let enemies = vec![Enemy::slime()];
-    let (game_state, mut ui_state) = battle_ui::init_battle_resources(party, enemies, None, test_spell_params());
+    let (game_state, mut ui_state) = battle_ui::init_battle_resources(party, enemies, None, test_spell_params(), test_item_params());
 
     // テスト用にphaseを上書き
     ui_state.phase = phase;
@@ -1032,10 +1045,11 @@ fn battle_victory_grants_exp_and_levels_up_party() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors};
     use party::default_party;
 
+    let table = char_table();
     // 弱い敵1体 vs デフォルトパーティ
-    let party = default_party();
+    let party = default_party(&table);
     let enemies = vec![Enemy::slime()];
-    let mut battle = BattleDomainState::new(party.clone(), enemies, test_spell_params());
+    let mut battle = BattleDomainState::new(party.clone(), enemies, test_spell_params(), test_item_params());
 
     // 全員でスライムを攻撃（乱数最大で確実に倒す）
     let commands = vec![
@@ -1058,7 +1072,7 @@ fn battle_victory_grants_exp_and_levels_up_party() {
 
     // パーティ全員に経験値を分配（ゲームの仕様通り）
     for member in &mut battle.party {
-        member.gain_exp(total_exp);
+        member.gain_exp(total_exp, &table);
     }
 
     // Lv1→2に必要な経験値は10なので、3expではレベルアップしない
@@ -1069,7 +1083,7 @@ fn battle_victory_grants_exp_and_levels_up_party() {
 
     // もう1回戦って合計経験値を10以上にすれば、レベルアップする
     let enemies2 = vec![Enemy::wolf(), Enemy::wolf()]; // 8exp x 2 = 16exp
-    let mut battle2 = BattleDomainState::new(battle.party.clone(), enemies2, test_spell_params());
+    let mut battle2 = BattleDomainState::new(battle.party.clone(), enemies2, test_spell_params(), test_item_params());
 
     // ライオスの強力な攻撃で倒す（乱数最大）
     let commands2 = vec![
@@ -1092,7 +1106,7 @@ fn battle_victory_grants_exp_and_levels_up_party() {
         assert_eq!(exp2, 16, "Two wolves give 16 exp");
 
         for member in &mut battle2.party {
-            member.gain_exp(exp2);
+            member.gain_exp(exp2, &table);
             // 累計 3+16=19 exp >= 10 (Lv1→2)なのでレベルアップ
             assert!(member.level >= 2, "Should reach at least level 2, got {}", member.level);
         }
@@ -1105,19 +1119,21 @@ fn mage_learns_fire1_at_level_1_and_fire2_at_level_5() {
     use party::{available_spells, spells_learned_at_level};
     use party::PartyMemberKind;
 
+    let table = char_table();
+
     // Lv1のマルシルはFire1を知っている
-    let spells = available_spells(PartyMemberKind::Marcille, 1);
+    let spells = available_spells(PartyMemberKind::Marcille, 1, &table);
     assert_eq!(spells, vec![SpellKind::Fire1]);
 
     // Lv4まではFire2は未習得
-    let spells4 = available_spells(PartyMemberKind::Marcille, 4);
+    let spells4 = available_spells(PartyMemberKind::Marcille, 4, &table);
     assert_eq!(spells4, vec![SpellKind::Fire1, SpellKind::Blaze1]);
 
     // Lv5でFire2を習得
-    let learned = spells_learned_at_level(PartyMemberKind::Marcille, 5);
+    let learned = spells_learned_at_level(PartyMemberKind::Marcille, 5, &table);
     assert_eq!(learned, vec![SpellKind::Fire2]);
 
-    let spells5 = available_spells(PartyMemberKind::Marcille, 5);
+    let spells5 = available_spells(PartyMemberKind::Marcille, 5, &table);
     assert_eq!(spells5, vec![SpellKind::Fire1, SpellKind::Blaze1, SpellKind::Fire2]);
 }
 
@@ -1126,8 +1142,9 @@ fn hero_has_all_16_spells_at_level_1() {
     use party::available_spells;
     use party::PartyMemberKind;
 
+    let table = char_table();
     // ライオスはLv1で全24呪文を使える
-    let spells = available_spells(PartyMemberKind::Laios, 1);
+    let spells = available_spells(PartyMemberKind::Laios, 1, &table);
     assert_eq!(spells.len(), 24);
 }
 
@@ -1139,16 +1156,17 @@ fn hero_has_all_16_spells_at_level_1() {
 fn equipped_weapon_increases_battle_damage() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult};
     use item::WeaponKind;
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
+    let table = char_table();
     // 武器なしのライオス
-    let hero_unarmed = PartyMember::laios();
-    let unarmed_attack = hero_unarmed.effective_attack();
+    let hero_unarmed = PartyMember::from_kind(PartyMemberKind::Laios, &table);
+    let unarmed_attack = hero_unarmed.effective_attack(&test_item_params());
 
     // 武器装備のライオス
-    let mut hero_armed = PartyMember::laios();
+    let mut hero_armed = PartyMember::from_kind(PartyMemberKind::Laios, &table);
     hero_armed.equipment.equip_weapon(WeaponKind::SteelSword);
-    let armed_attack = hero_armed.effective_attack();
+    let armed_attack = hero_armed.effective_attack(&test_item_params());
 
     assert_eq!(armed_attack, unarmed_attack + 10, "SteelSword should add 10 attack");
 
@@ -1158,8 +1176,8 @@ fn equipped_weapon_increases_battle_damage() {
     slime1.stats.max_hp = 999;
     let slime2 = slime1.clone();
 
-    let mut battle_unarmed = BattleDomainState::new(vec![hero_unarmed], vec![slime1], test_spell_params());
-    let mut battle_armed = BattleDomainState::new(vec![hero_armed], vec![slime2], test_spell_params());
+    let mut battle_unarmed = BattleDomainState::new(vec![hero_unarmed], vec![slime1], test_spell_params(), test_item_params());
+    let mut battle_armed = BattleDomainState::new(vec![hero_armed], vec![slime2], test_spell_params(), test_item_params());
 
     let commands = vec![BattleAction::Attack { target: TargetId::Enemy(0) }];
     let randoms = TurnRandomFactors {
@@ -1190,9 +1208,10 @@ fn equipped_weapon_increases_battle_damage() {
 fn herb_heals_in_battle() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult};
     use item::ItemKind;
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
-    let mut hero = PartyMember::laios();
+    let table = char_table();
+    let mut hero = PartyMember::from_kind(PartyMemberKind::Laios, &table);
     hero.stats.hp = 5; // HPを低くしておく
     hero.inventory.add(ItemKind::Herb, 1);
 
@@ -1202,7 +1221,7 @@ fn herb_heals_in_battle() {
     slime.stats.max_hp = 999;
     slime.stats.attack = 0; // 敵の攻撃を0にして干渉を防ぐ
 
-    let mut battle = BattleDomainState::new(vec![hero], vec![slime], test_spell_params());
+    let mut battle = BattleDomainState::new(vec![hero], vec![slime], test_spell_params(), test_item_params());
 
     let commands = vec![
         BattleAction::UseItem { item: ItemKind::Herb, target: TargetId::Party(0) },
@@ -1230,9 +1249,10 @@ fn herb_heals_in_battle() {
 fn copper_key_is_not_usable_in_battle() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult};
     use item::ItemKind;
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
-    let mut hero = PartyMember::laios();
+    let table = char_table();
+    let mut hero = PartyMember::from_kind(PartyMemberKind::Laios, &table);
     hero.inventory.add(ItemKind::CopperKey, 1);
 
     let mut slime = Enemy::slime();
@@ -1240,7 +1260,7 @@ fn copper_key_is_not_usable_in_battle() {
     slime.stats.max_hp = 999;
     slime.stats.attack = 0;
 
-    let mut battle = BattleDomainState::new(vec![hero], vec![slime], test_spell_params());
+    let mut battle = BattleDomainState::new(vec![hero], vec![slime], test_spell_params(), test_item_params());
 
     let commands = vec![
         BattleAction::UseItem { item: ItemKind::CopperKey, target: TargetId::Party(0) },
@@ -1269,13 +1289,14 @@ fn buy_herb_at_shop_then_use_in_battle() {
     use town::{buy_item, BuyResult};
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors};
     use item::ItemKind;
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
-    let mut hero = PartyMember::laios();
+    let table = char_table();
+    let mut hero = PartyMember::from_kind(PartyMemberKind::Laios, &table);
     let mut gold = 100u32;
 
     // 街でやくそうを購入
-    let result = buy_item(ItemKind::Herb, gold, &mut hero.inventory);
+    let result = buy_item(ItemKind::Herb, gold, &mut hero.inventory, &test_item_params());
     match result {
         BuyResult::Success { remaining_gold } => {
             gold = remaining_gold;
@@ -1293,7 +1314,7 @@ fn buy_herb_at_shop_then_use_in_battle() {
     slime.stats.max_hp = 999;
     slime.stats.attack = 0;
 
-    let mut battle = BattleDomainState::new(vec![hero], vec![slime], test_spell_params());
+    let mut battle = BattleDomainState::new(vec![hero], vec![slime], test_spell_params(), test_item_params());
 
     // やくそうを使う
     let commands = vec![
@@ -1314,16 +1335,17 @@ fn buy_weapon_at_shop_then_equip_affects_battle() {
     use town::{buy_item, BuyResult};
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult};
     use item::{ItemKind, WeaponKind};
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
-    let mut hero = PartyMember::laios();
+    let table = char_table();
+    let mut hero = PartyMember::from_kind(PartyMemberKind::Laios, &table);
     let gold = 100u32;
 
     // 武器購入前の攻撃力を記録
-    let attack_before = hero.effective_attack();
+    let attack_before = hero.effective_attack(&test_item_params());
 
     // 街で鉄の剣を購入（インベントリに入る）
-    let result = buy_item(ItemKind::Weapon(WeaponKind::IronSword), gold, &mut hero.inventory);
+    let result = buy_item(ItemKind::Weapon(WeaponKind::IronSword), gold, &mut hero.inventory, &test_item_params());
     match result {
         BuyResult::Success { remaining_gold } => {
             assert_eq!(remaining_gold, 50); // 100 - 50 = 50
@@ -1335,7 +1357,7 @@ fn buy_weapon_at_shop_then_equip_affects_battle() {
     hero.equipment.equip_weapon(WeaponKind::IronSword);
 
     // 攻撃力が上がっていることを確認
-    let attack_after = hero.effective_attack();
+    let attack_after = hero.effective_attack(&test_item_params());
     assert_eq!(attack_after, attack_before + 5, "IronSword should add 5 attack");
     assert_eq!(hero.inventory.count(ItemKind::Weapon(WeaponKind::IronSword)), 1, "Weapon stays in inventory");
 
@@ -1344,7 +1366,7 @@ fn buy_weapon_at_shop_then_equip_affects_battle() {
     slime.stats.hp = 999;
     slime.stats.max_hp = 999;
 
-    let mut battle = BattleDomainState::new(vec![hero], vec![slime], test_spell_params());
+    let mut battle = BattleDomainState::new(vec![hero], vec![slime], test_spell_params(), test_item_params());
     let commands = vec![BattleAction::Attack { target: TargetId::Enemy(0) }];
     let randoms = TurnRandomFactors {
         damage_randoms: vec![1.0; 2],
@@ -1369,7 +1391,8 @@ fn inn_heals_party_before_battle() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors};
     use party::default_party;
 
-    let mut party = default_party();
+    let table = char_table();
+    let mut party = default_party(&table);
 
     // 全員のHPを1にする
     for member in &mut party {
@@ -1387,7 +1410,7 @@ fn inn_heals_party_before_battle() {
 
     // 回復後に戦闘
     let enemies = vec![Enemy::slime()];
-    let mut battle = BattleDomainState::new(party, enemies, test_spell_params());
+    let mut battle = BattleDomainState::new(party, enemies, test_spell_params(), test_item_params());
 
     let commands = vec![
         BattleAction::Attack { target: TargetId::Enemy(0) },
@@ -1414,7 +1437,8 @@ fn full_recruitment_flow_undiscovered_to_recruited() {
         PartyMember, PartyMemberKind, RecruitmentStatus, TalkResult,
     };
 
-    let mut party = initial_party(); // ライオスのみ
+    let table = char_table();
+    let mut party = initial_party(&table); // ライオスのみ
     assert_eq!(party.len(), 1);
 
     let mut candidates = default_candidates(); // 9人の仲間候補
@@ -1431,7 +1455,7 @@ fn full_recruitment_flow_undiscovered_to_recruited() {
     assert_eq!(candidates[0].status, RecruitmentStatus::Recruited);
 
     // パーティにチルチャックを追加
-    party.push(PartyMember::from_kind(candidates[0].kind));
+    party.push(PartyMember::from_kind(candidates[0].kind, &table));
     assert_eq!(party.len(), 2);
     assert_eq!(party[1].kind, PartyMemberKind::Chilchuck);
 
@@ -1442,7 +1466,7 @@ fn full_recruitment_flow_undiscovered_to_recruited() {
     let result = talk_to_candidate(&mut candidates[1]);
     assert_eq!(result, TalkResult::Recruited);
 
-    party.push(PartyMember::from_kind(candidates[1].kind));
+    party.push(PartyMember::from_kind(candidates[1].kind, &table));
     assert_eq!(party.len(), 3);
     assert_eq!(party[2].kind, PartyMemberKind::Marcille);
 
@@ -1552,8 +1576,9 @@ fn cave_treasure_adds_to_inventory() {
     use terrain::Structure;
     use rand::SeedableRng;
     use rand_chacha::ChaCha8Rng;
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
+    let table = char_table();
     let mut rng = ChaCha8Rng::seed_from_u64(42);
     let cave = generate_cave_map(&mut rng, &[]);
 
@@ -1567,7 +1592,7 @@ fn cave_treasure_adds_to_inventory() {
         );
     }
 
-    let mut hero = PartyMember::laios();
+    let mut hero = PartyMember::from_kind(PartyMemberKind::Laios, &table);
     assert!(hero.inventory.is_empty());
 
     // 宝箱を開ける（ドメインロジックとして直接追加）
@@ -1696,18 +1721,23 @@ fn generated_map_spawn_is_on_walkable_connected_island() {
 #[test]
 fn battle_action_order_respects_speed() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult, ActorId};
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
+    let table = char_table();
     // 速度が異なるキャラクターを用意
     // Marcille(SPD7) > Bat(SPD6) > Laios(SPD5) > Falin(SPD4)
-    let party = vec![PartyMember::laios(), PartyMember::marcille(), PartyMember::falin()];
+    let party = vec![
+        PartyMember::from_kind(PartyMemberKind::Laios, &table),
+        PartyMember::from_kind(PartyMemberKind::Marcille, &table),
+        PartyMember::from_kind(PartyMemberKind::Falin, &table),
+    ];
 
     // 敵のHPを高くして戦闘が終わらないようにする
     let mut bat = Enemy::bat();
     bat.stats.hp = 999;
     bat.stats.max_hp = 999;
 
-    let mut battle = BattleDomainState::new(party, vec![bat], test_spell_params());
+    let mut battle = BattleDomainState::new(party, vec![bat], test_spell_params(), test_item_params());
 
     let commands = vec![
         BattleAction::Attack { target: TargetId::Enemy(0) },
@@ -1742,7 +1772,7 @@ fn total_exp_reward_sums_defeated_enemies_only() {
     use battle::{BattleState as BattleDomainState, Enemy};
 
     let enemies = vec![Enemy::slime(), Enemy::goblin(), Enemy::ghost()]; // 3+6+10 = 19
-    let mut battle = BattleDomainState::new(vec![], enemies, test_spell_params());
+    let mut battle = BattleDomainState::new(vec![], enemies, test_spell_params(), test_item_params());
 
     // まだ誰も倒していない
     assert_eq!(battle.total_exp_reward(), 0, "No exp when no enemies defeated");
@@ -1767,9 +1797,10 @@ fn total_exp_reward_sums_defeated_enemies_only() {
 #[test]
 fn spell_fails_silently_when_mp_insufficient() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult, SpellKind};
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
-    let mut mage = PartyMember::marcille();
+    let table = char_table();
+    let mut mage = PartyMember::from_kind(PartyMemberKind::Marcille, &table);
     mage.stats.mp = 0; // MP枯渇
 
     let mut slime = Enemy::slime();
@@ -1777,7 +1808,7 @@ fn spell_fails_silently_when_mp_insufficient() {
     slime.stats.max_hp = 999;
     slime.stats.attack = 0;
 
-    let mut battle = BattleDomainState::new(vec![mage], vec![slime], test_spell_params());
+    let mut battle = BattleDomainState::new(vec![mage], vec![slime], test_spell_params(), test_item_params());
 
     let commands = vec![
         BattleAction::Spell { spell: SpellKind::Fire1, target: TargetId::Enemy(0) },
@@ -1800,10 +1831,11 @@ fn spell_fails_silently_when_mp_insufficient() {
 #[test]
 fn party_wipe_ends_battle_mid_turn() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult};
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
+    let table = char_table();
     // HP1のライオス1人 vs 強い敵2体
-    let mut hero = PartyMember::laios();
+    let mut hero = PartyMember::from_kind(PartyMemberKind::Laios, &table);
     hero.stats.hp = 1;
     hero.stats.speed = 1; // 敵より遅くして先に倒されるようにする
 
@@ -1812,7 +1844,7 @@ fn party_wipe_ends_battle_mid_turn() {
     let mut wolf2 = Enemy::wolf();
     wolf2.stats.attack = 100;
 
-    let mut battle = BattleDomainState::new(vec![hero], vec![wolf1, wolf2], test_spell_params());
+    let mut battle = BattleDomainState::new(vec![hero], vec![wolf1, wolf2], test_spell_params(), test_item_params());
 
     let commands = vec![
         BattleAction::Attack { target: TargetId::Enemy(0) },
@@ -1845,14 +1877,14 @@ fn shop_rejects_purchase_when_inventory_full() {
 
     // 容量いっぱいまでやくそうを購入
     for i in 0..INVENTORY_CAPACITY {
-        let result = buy_item(ItemKind::Herb, gold, &mut inv);
+        let result = buy_item(ItemKind::Herb, gold, &mut inv, &test_item_params());
         assert!(matches!(result, BuyResult::Success { .. }), "Purchase {} should succeed", i);
     }
 
     assert_eq!(inv.total_count(), INVENTORY_CAPACITY);
 
     // 容量いっぱいの状態でさらに購入しようとする
-    let result = buy_item(ItemKind::Herb, gold, &mut inv);
+    let result = buy_item(ItemKind::Herb, gold, &mut inv, &test_item_params());
     assert_eq!(result, BuyResult::InventoryFull, "Should reject when inventory is full");
     assert_eq!(inv.total_count(), INVENTORY_CAPACITY);
 }
@@ -1863,17 +1895,18 @@ fn shop_rejects_purchase_when_inventory_full() {
 
 #[test]
 fn level_up_applies_correct_stat_growth_per_class() {
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
+    let table = char_table();
     // ライオスのレベルアップ
-    let mut hero = PartyMember::laios();
+    let mut hero = PartyMember::from_kind(PartyMemberKind::Laios, &table);
     let base_hp = hero.stats.max_hp;
     let base_attack = hero.stats.attack;
     let base_defense = hero.stats.defense;
     let base_speed = hero.stats.speed;
     let base_mp = hero.stats.max_mp;
 
-    let level_ups = hero.gain_exp(10); // Lv1→2
+    let level_ups = hero.gain_exp(10, &table); // Lv1→2
     assert_eq!(level_ups, 1);
     assert_eq!(hero.stats.max_hp, base_hp + 5); // Laios: hp+5
     assert_eq!(hero.stats.attack, base_attack + 2); // Laios: attack+2
@@ -1885,21 +1918,21 @@ fn level_up_applies_correct_stat_growth_per_class() {
     assert_eq!(hero.stats.mp, hero.stats.max_mp);
 
     // マルシルのレベルアップ
-    let mut mage = PartyMember::marcille();
+    let mut mage = PartyMember::from_kind(PartyMemberKind::Marcille, &table);
     let base_hp = mage.stats.max_hp;
     let base_mp = mage.stats.max_mp;
 
-    let level_ups = mage.gain_exp(10);
+    let level_ups = mage.gain_exp(10, &table);
     assert_eq!(level_ups, 1);
     assert_eq!(mage.stats.max_hp, base_hp + 3); // Marcille: hp+3
     assert_eq!(mage.stats.max_mp, base_mp + 3); // Marcille: mp+3
 
     // ファリンのレベルアップ
-    let mut priest = PartyMember::falin();
+    let mut priest = PartyMember::from_kind(PartyMemberKind::Falin, &table);
     let base_hp = priest.stats.max_hp;
     let base_mp = priest.stats.max_mp;
 
-    let level_ups = priest.gain_exp(10);
+    let level_ups = priest.gain_exp(10, &table);
     assert_eq!(level_ups, 1);
     assert_eq!(priest.stats.max_hp, base_hp + 4); // Falin: hp+4
     assert_eq!(priest.stats.max_mp, base_mp + 2); // Falin: mp+2
@@ -1955,12 +1988,13 @@ fn flee_succeeds_when_random_below_threshold() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult};
     use party::default_party;
 
-    let party = default_party();
+    let table = char_table();
+    let party = default_party(&table);
     let mut slime = Enemy::slime();
     slime.stats.hp = 999;
     slime.stats.max_hp = 999;
     let enemies = vec![slime];
-    let mut battle = BattleDomainState::new(party, enemies, test_spell_params());
+    let mut battle = BattleDomainState::new(party, enemies, test_spell_params(), test_item_params());
 
     let commands = vec![
         BattleAction::Flee,
@@ -1983,12 +2017,13 @@ fn flee_fails_when_random_above_threshold() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult, ActorId};
     use party::default_party;
 
-    let party = default_party();
+    let table = char_table();
+    let party = default_party(&table);
     let mut slime = Enemy::slime();
     slime.stats.hp = 999;
     slime.stats.max_hp = 999;
     let enemies = vec![slime];
-    let mut battle = BattleDomainState::new(party, enemies, test_spell_params());
+    let mut battle = BattleDomainState::new(party, enemies, test_spell_params(), test_item_params());
 
     let commands = vec![
         BattleAction::Flee,
@@ -2062,9 +2097,10 @@ fn spell_damage_formula_uses_quarter_defense() {
 #[test]
 fn spell_succeeds_when_mp_exactly_equals_cost() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult, SpellKind};
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
-    let mut mage = PartyMember::marcille();
+    let table = char_table();
+    let mut mage = PartyMember::from_kind(PartyMemberKind::Marcille, &table);
     mage.stats.mp = 3; // Fire1 のMP消費量ちょうど
 
     let mut slime = Enemy::slime();
@@ -2072,7 +2108,7 @@ fn spell_succeeds_when_mp_exactly_equals_cost() {
     slime.stats.max_hp = 999;
     slime.stats.attack = 0;
 
-    let mut battle = BattleDomainState::new(vec![mage], vec![slime], test_spell_params());
+    let mut battle = BattleDomainState::new(vec![mage], vec![slime], test_spell_params(), test_item_params());
 
     let commands = vec![
         BattleAction::Spell { spell: SpellKind::Fire1, target: TargetId::Enemy(0) },
@@ -2096,11 +2132,12 @@ fn spell_succeeds_when_mp_exactly_equals_cost() {
 #[test]
 fn heal_spell_does_not_exceed_max_hp() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors};
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
+    let table = char_table();
     // ファリンのHPをmax_hpの1だけ下に設定
     // Heal1 power=15 → 回復量15。キャップなしなら max_hp+14 になる
-    let mut priest = PartyMember::falin();
+    let mut priest = PartyMember::from_kind(PartyMemberKind::Falin, &table);
     priest.stats.hp = priest.stats.max_hp - 1;
 
     let mut slime = Enemy::slime();
@@ -2108,7 +2145,7 @@ fn heal_spell_does_not_exceed_max_hp() {
     slime.stats.max_hp = 999;
     slime.stats.attack = 0; // 最低ダメージ1は発生するがHP超過の判定には影響しない
 
-    let mut battle = BattleDomainState::new(vec![priest], vec![slime], test_spell_params());
+    let mut battle = BattleDomainState::new(vec![priest], vec![slime], test_spell_params(), test_item_params());
 
     let commands = vec![
         BattleAction::Spell { spell: battle::SpellKind::Heal1, target: TargetId::Party(0) },
@@ -2128,10 +2165,11 @@ fn heal_spell_does_not_exceed_max_hp() {
 fn item_heal_does_not_exceed_max_hp() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors};
     use item::ItemKind;
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
+    let table = char_table();
     // HPをmax_hpの1だけ下に。Herb power=25 → キャップなしなら max_hp+24
-    let mut hero = PartyMember::laios();
+    let mut hero = PartyMember::from_kind(PartyMemberKind::Laios, &table);
     hero.stats.hp = hero.stats.max_hp - 1;
     hero.inventory.add(ItemKind::Herb, 1);
 
@@ -2140,7 +2178,7 @@ fn item_heal_does_not_exceed_max_hp() {
     slime.stats.max_hp = 999;
     slime.stats.attack = 0;
 
-    let mut battle = BattleDomainState::new(vec![hero], vec![slime], test_spell_params());
+    let mut battle = BattleDomainState::new(vec![hero], vec![slime], test_spell_params(), test_item_params());
 
     let commands = vec![
         BattleAction::UseItem { item: ItemKind::Herb, target: TargetId::Party(0) },
@@ -2181,7 +2219,7 @@ fn buy_item_succeeds_with_exact_gold() {
 
     let mut inv = Inventory::new();
     // やくそうの価格は8ゴールド
-    let result = buy_item(ItemKind::Herb, 8, &mut inv);
+    let result = buy_item(ItemKind::Herb, 8, &mut inv, &test_item_params());
     assert_eq!(result, BuyResult::Success { remaining_gold: 0 },
         "Should succeed when gold exactly equals price");
     assert_eq!(inv.count(ItemKind::Herb), 1);
@@ -2199,7 +2237,7 @@ fn sell_key_item_is_rejected() {
     let mut inv = Inventory::new();
     inv.add(ItemKind::CopperKey, 1);
 
-    let result = sell_item(ItemKind::CopperKey, &mut inv, None);
+    let result = sell_item(ItemKind::CopperKey, &mut inv, None, &test_item_params());
     assert_eq!(result, SellResult::CannotSell, "Key items should not be sellable");
     assert_eq!(inv.count(ItemKind::CopperKey), 1, "Key item should remain in inventory");
 }
@@ -2212,7 +2250,7 @@ fn sell_material_item_succeeds() {
     let mut inv = Inventory::new();
     inv.add(ItemKind::MagicStone, 1);
 
-    let result = sell_item(ItemKind::MagicStone, &mut inv, None);
+    let result = sell_item(ItemKind::MagicStone, &mut inv, None, &test_item_params());
     assert_eq!(result, SellResult::Success { earned_gold: 30 },
         "Material item should sell for its sell_price");
     assert_eq!(inv.count(ItemKind::MagicStone), 0, "Item should be removed after selling");
@@ -2228,16 +2266,17 @@ fn battle_victory_leveling_unlocks_new_spell() {
     use party::{available_spells, spells_learned_at_level};
     use party::{PartyMember, PartyMemberKind};
 
+    let table = char_table();
     // マルシルLv1: Fire1のみ習得
-    let mut mage = PartyMember::marcille();
-    let spells_lv1 = available_spells(PartyMemberKind::Marcille, mage.level);
+    let mut mage = PartyMember::from_kind(PartyMemberKind::Marcille, &table);
+    let spells_lv1 = available_spells(PartyMemberKind::Marcille, mage.level, &table);
     assert_eq!(spells_lv1, vec![SpellKind::Fire1]);
 
     // 十分な経験値を得るために複数回戦闘
     // exp_to_next_level(1)=10, exp_to_next_level(2)=25 → Lv3到達に累計35必要
     // Ghost×4 = 10×4 = 40exp per battle
     let enemies = vec![Enemy::ghost(), Enemy::ghost(), Enemy::ghost(), Enemy::ghost()];
-    let mut battle = BattleDomainState::new(vec![mage.clone()], enemies, test_spell_params());
+    let mut battle = BattleDomainState::new(vec![mage.clone()], enemies, test_spell_params(), test_item_params());
 
     for enemy in &mut battle.enemies {
         enemy.stats.hp = 0;
@@ -2247,15 +2286,15 @@ fn battle_victory_leveling_unlocks_new_spell() {
     let total_exp = battle.total_exp_reward();
     assert_eq!(total_exp, 40);
 
-    let level_ups = mage.gain_exp(total_exp);
+    let level_ups = mage.gain_exp(total_exp, &table);
     assert!(level_ups >= 2, "Should level up at least twice with 40 exp, got {} level ups", level_ups);
     assert!(mage.level >= 3, "Should reach at least level 3, got {}", mage.level);
 
     // Lv3でマルシルはBlaze1を習得
-    let learned = spells_learned_at_level(PartyMemberKind::Marcille, 3);
+    let learned = spells_learned_at_level(PartyMemberKind::Marcille, 3, &table);
     assert_eq!(learned, vec![SpellKind::Blaze1]);
 
-    let spells = available_spells(PartyMemberKind::Marcille, mage.level);
+    let spells = available_spells(PartyMemberKind::Marcille, mage.level, &table);
     assert!(spells.contains(&SpellKind::Blaze1), "Marcille at level {} should know Blaze1", mage.level);
 }
 
@@ -2267,10 +2306,11 @@ fn battle_victory_leveling_unlocks_new_spell() {
 fn sync_from_battle_reflects_battle_state() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors};
     use item::ItemKind;
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
+    let table = char_table();
     // パーティ側（元データ）
-    let mut original_hero = PartyMember::laios();
+    let mut original_hero = PartyMember::from_kind(PartyMemberKind::Laios, &table);
     original_hero.inventory.add(ItemKind::Herb, 2);
     // 戦闘用コピー
     let battle_hero = original_hero.clone();
@@ -2281,7 +2321,7 @@ fn sync_from_battle_reflects_battle_state() {
     slime.stats.max_hp = 999;
     slime.stats.attack = 0;
 
-    let mut battle = BattleDomainState::new(vec![battle_hero], vec![slime], test_spell_params());
+    let mut battle = BattleDomainState::new(vec![battle_hero], vec![slime], test_spell_params(), test_item_params());
 
     // HPを減らしてやくそうを使用
     battle.party[0].stats.hp = 5;
@@ -2317,12 +2357,13 @@ fn cave_treasure_sold_at_shop() {
     use town::{sell_item, SellResult};
     use rand::SeedableRng;
     use rand_chacha::ChaCha8Rng;
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
+    let table = char_table();
     let mut rng = ChaCha8Rng::seed_from_u64(42);
     let cave = generate_cave_map(&mut rng, &[]);
 
-    let mut hero = PartyMember::laios();
+    let mut hero = PartyMember::from_kind(PartyMemberKind::Laios, &table);
     // 洞窟の宝箱からアイテムを入手
     for chest in &cave.treasures {
         if let TreasureContent::Item(item) = chest.content {
@@ -2336,14 +2377,15 @@ fn cave_treasure_sold_at_shop() {
     for item in &owned {
         // 同じアイテムが複数ある場合に全て売却
         while hero.inventory.count(*item) > 0 {
-            let result = sell_item(*item, &mut hero.inventory, None);
+            let result = sell_item(*item, &mut hero.inventory, None, &test_item_params());
             match result {
                 SellResult::Success { earned_gold } => {
                     total_earned += earned_gold;
                     assert!(earned_gold > 0, "Sold item should earn gold");
                 }
                 SellResult::CannotSell => {
-                    assert_eq!(item.sell_price(), 0, "CannotSell should only happen for items with sell_price=0");
+                    let table = test_item_params();
+                    assert_eq!(table.sell_price(*item), 0, "CannotSell should only happen for items with sell_price=0");
                     break;
                 }
                 _ => break,
@@ -2352,8 +2394,9 @@ fn cave_treasure_sold_at_shop() {
     }
 
     // 売却可能なアイテムはすべてインベントリから消えている
+    let table = test_item_params();
     for item in &owned {
-        if item.sell_price() > 0 {
+        if table.sell_price(*item) > 0 {
             assert_eq!(hero.inventory.count(*item), 0, "{} should be removed after selling", item.name());
         }
     }
@@ -2369,13 +2412,14 @@ fn weapon_upgrade_replaces_old_and_changes_damage() {
     use town::{buy_item, BuyResult};
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult};
     use item::{ItemKind, WeaponKind};
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
-    let mut hero = PartyMember::laios();
+    let table = char_table();
+    let mut hero = PartyMember::from_kind(PartyMemberKind::Laios, &table);
     let gold = 500u32;
 
     // 鉄の剣を購入して装備（+5）— 武器はインベントリに残る
-    let result = buy_item(ItemKind::Weapon(WeaponKind::IronSword), gold, &mut hero.inventory);
+    let result = buy_item(ItemKind::Weapon(WeaponKind::IronSword), gold, &mut hero.inventory, &test_item_params());
     let remaining = match result {
         BuyResult::Success { remaining_gold } => remaining_gold,
         _ => panic!("Should buy IronSword"),
@@ -2383,13 +2427,13 @@ fn weapon_upgrade_replaces_old_and_changes_damage() {
     hero.equipment.equip_weapon(WeaponKind::IronSword);
     assert_eq!(hero.equipment.weapon, Some(WeaponKind::IronSword));
     assert_eq!(hero.inventory.count(ItemKind::Weapon(WeaponKind::IronSword)), 1);
-    let attack_with_iron = hero.effective_attack();
+    let attack_with_iron = hero.effective_attack(&test_item_params());
 
     // HP999の敵にダメージを与えて記録
     let mut slime = Enemy::slime();
     slime.stats.hp = 999;
     slime.stats.max_hp = 999;
-    let mut battle1 = BattleDomainState::new(vec![hero.clone()], vec![slime.clone()], test_spell_params());
+    let mut battle1 = BattleDomainState::new(vec![hero.clone()], vec![slime.clone()], test_spell_params(), test_item_params());
     let commands = vec![BattleAction::Attack { target: TargetId::Enemy(0) }];
     let randoms = TurnRandomFactors { damage_randoms: vec![1.0; 2], flee_random: 1.0, spell_randoms: vec![1.0; 10] };
     let results1 = battle1.execute_turn(&commands, &randoms);
@@ -2398,17 +2442,17 @@ fn weapon_upgrade_replaces_old_and_changes_damage() {
     }).unwrap();
 
     // 鋼の剣を購入して装備（+10）— 旧武器もインベントリに残る
-    let result = buy_item(ItemKind::Weapon(WeaponKind::SteelSword), remaining, &mut hero.inventory);
+    let result = buy_item(ItemKind::Weapon(WeaponKind::SteelSword), remaining, &mut hero.inventory, &test_item_params());
     assert!(matches!(result, BuyResult::Success { .. }));
     hero.equipment.equip_weapon(WeaponKind::SteelSword);
     assert_eq!(hero.equipment.weapon, Some(WeaponKind::SteelSword));
     assert_eq!(hero.inventory.count(ItemKind::Weapon(WeaponKind::IronSword)), 1, "Old weapon stays in inventory");
     assert_eq!(hero.inventory.count(ItemKind::Weapon(WeaponKind::SteelSword)), 1);
-    let attack_with_steel = hero.effective_attack();
+    let attack_with_steel = hero.effective_attack(&test_item_params());
     assert_eq!(attack_with_steel, attack_with_iron + 5, "SteelSword(+10) should be 5 more than IronSword(+5)");
 
     // 同じ敵に同じ乱数で攻撃→ダメージが増えている
-    let mut battle2 = BattleDomainState::new(vec![hero], vec![slime], test_spell_params());
+    let mut battle2 = BattleDomainState::new(vec![hero], vec![slime], test_spell_params(), test_item_params());
     let results2 = battle2.execute_turn(&commands, &randoms);
     let damage_steel = results2.iter().find_map(|r| {
         if let TurnResult::Attack { attacker: battle::ActorId::Party(0), damage, .. } = r { Some(*damage) } else { None }
@@ -2423,16 +2467,17 @@ fn weapon_upgrade_replaces_old_and_changes_damage() {
 
 #[test]
 fn large_exp_gain_causes_multiple_level_ups() {
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
-    let mut hero = PartyMember::laios();
+    let table = char_table();
+    let mut hero = PartyMember::from_kind(PartyMemberKind::Laios, &table);
     assert_eq!(hero.level, 1);
 
     let base_max_hp = hero.stats.max_hp;
     let base_attack = hero.stats.attack;
 
     // 100exp → Lv1→2(10exp) + Lv2→3(25exp) + Lv3→4(50exp) = 85exp消費 → Lv4到達
-    let level_ups = hero.gain_exp(100);
+    let level_ups = hero.gain_exp(100, &table);
     assert!(level_ups >= 3, "Should gain at least 3 levels with 100 exp, got {}", level_ups);
     assert!(hero.level >= 4, "Should reach at least level 4, got {}", hero.level);
 
@@ -2456,7 +2501,7 @@ fn sell_item_not_owned_returns_not_owned() {
 
     let mut inv = Inventory::new();
     // 所持していないアイテムを売却しようとする
-    let result = sell_item(ItemKind::Herb, &mut inv, None);
+    let result = sell_item(ItemKind::Herb, &mut inv, None, &test_item_params());
     assert_eq!(result, SellResult::NotOwned, "Selling unowned item should return NotOwned");
 }
 
@@ -2469,7 +2514,7 @@ fn sell_herb_succeeds_at_half_price() {
     inv.add(ItemKind::Herb, 1);
 
     // やくそうは売却可能（sell_price=4、購入価格8の半額）
-    let result = sell_item(ItemKind::Herb, &mut inv, None);
+    let result = sell_item(ItemKind::Herb, &mut inv, None, &test_item_params());
     assert_eq!(result, SellResult::Success { earned_gold: 4 }, "Herb should sell for 4 gold");
     assert_eq!(inv.count(ItemKind::Herb), 0, "Herb should be removed after selling");
 }
@@ -2481,10 +2526,11 @@ fn sell_herb_succeeds_at_half_price() {
 #[test]
 fn heal_party_restores_to_increased_max_after_level_up() {
     use town::heal_party;
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
-    let mut hero = PartyMember::laios();
-    hero.gain_exp(10); // Lv1→2, max_hp増加
+    let table = char_table();
+    let mut hero = PartyMember::from_kind(PartyMemberKind::Laios, &table);
+    hero.gain_exp(10, &table); // Lv1→2, max_hp増加
     let new_max_hp = hero.stats.max_hp;
     let new_max_mp = hero.stats.max_mp;
 
@@ -2508,8 +2554,9 @@ fn recruit_party_then_battle_together() {
     use party::{initial_party, default_candidates, talk_to_candidate, PartyMember, PartyMemberKind, TalkResult};
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult, ActorId};
 
+    let table = char_table();
     // ライオスのみでスタート
-    let mut party = initial_party();
+    let mut party = initial_party(&table);
     assert_eq!(party.len(), 1);
     assert_eq!(party[0].kind, PartyMemberKind::Laios);
 
@@ -2518,7 +2565,7 @@ fn recruit_party_then_battle_together() {
     talk_to_candidate(&mut candidates[0]); // Acquaintance
     let result = talk_to_candidate(&mut candidates[0]); // Recruited
     assert_eq!(result, TalkResult::Recruited);
-    party.push(PartyMember::from_kind(candidates[0].kind));
+    party.push(PartyMember::from_kind(candidates[0].kind, &table));
 
     assert_eq!(party.len(), 2);
 
@@ -2528,7 +2575,7 @@ fn recruit_party_then_battle_together() {
     wolf.stats.max_hp = 999;
     wolf.stats.attack = 0;
     let enemies = vec![wolf];
-    let mut battle = BattleDomainState::new(party, enemies, test_spell_params());
+    let mut battle = BattleDomainState::new(party, enemies, test_spell_params(), test_item_params());
 
     let commands = vec![
         BattleAction::Attack { target: TargetId::Enemy(0) },
@@ -2558,7 +2605,7 @@ fn buy_item_fails_with_insufficient_gold() {
 
     let mut inv = Inventory::new();
     // やくそうは8ゴールド
-    let result = buy_item(ItemKind::Herb, 7, &mut inv);
+    let result = buy_item(ItemKind::Herb, 7, &mut inv, &test_item_params());
     assert_eq!(result, BuyResult::InsufficientGold, "Should fail with 7 gold for 8-gold herb");
     assert_eq!(inv.count(ItemKind::Herb), 0, "No herb should be added");
 }
@@ -2567,11 +2614,12 @@ fn buy_item_fails_with_insufficient_gold() {
 fn buy_weapon_fails_with_insufficient_gold() {
     use town::{buy_item, BuyResult};
     use item::{ItemKind, WeaponKind};
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
-    let mut hero = PartyMember::laios();
+    let table = char_table();
+    let mut hero = PartyMember::from_kind(PartyMemberKind::Laios, &table);
     // 鉄の剣は50ゴールド
-    let result = buy_item(ItemKind::Weapon(WeaponKind::IronSword), 49, &mut hero.inventory);
+    let result = buy_item(ItemKind::Weapon(WeaponKind::IronSword), 49, &mut hero.inventory, &test_item_params());
     assert_eq!(result, BuyResult::InsufficientGold, "Should fail with 49 gold for 50-gold sword");
     assert_eq!(hero.inventory.count(ItemKind::Weapon(WeaponKind::IronSword)), 0, "No weapon should be in inventory");
 }
@@ -2580,11 +2628,12 @@ fn buy_weapon_fails_with_insufficient_gold() {
 fn buy_weapon_fails_with_full_inventory() {
     use town::{buy_item, BuyResult};
     use item::{ItemKind, WeaponKind};
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
-    let mut hero = PartyMember::laios();
+    let table = char_table();
+    let mut hero = PartyMember::from_kind(PartyMemberKind::Laios, &table);
     hero.inventory.add(ItemKind::Herb, 6); // 容量いっぱい
-    let result = buy_item(ItemKind::Weapon(WeaponKind::IronSword), 100, &mut hero.inventory);
+    let result = buy_item(ItemKind::Weapon(WeaponKind::IronSword), 100, &mut hero.inventory, &test_item_params());
     assert_eq!(result, BuyResult::InventoryFull, "Should fail when inventory is full");
 }
 
@@ -2596,10 +2645,11 @@ fn buy_weapon_fails_with_full_inventory() {
 fn high_herb_heals_more_than_regular_herb_in_battle() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult};
     use item::ItemKind;
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
+    let table = char_table();
     // ライオス1: やくそうで回復
-    let mut hero1 = PartyMember::laios();
+    let mut hero1 = PartyMember::from_kind(PartyMemberKind::Laios, &table);
     hero1.stats.hp = 1;
     hero1.inventory.add(ItemKind::Herb, 1);
 
@@ -2608,7 +2658,7 @@ fn high_herb_heals_more_than_regular_herb_in_battle() {
     slime1.stats.max_hp = 999;
     slime1.stats.attack = 0;
 
-    let mut battle1 = BattleDomainState::new(vec![hero1], vec![slime1], test_spell_params());
+    let mut battle1 = BattleDomainState::new(vec![hero1], vec![slime1], test_spell_params(), test_item_params());
     let commands = vec![BattleAction::UseItem { item: ItemKind::Herb, target: TargetId::Party(0) }];
     let randoms = TurnRandomFactors { damage_randoms: vec![1.0; 2], flee_random: 1.0, spell_randoms: vec![1.0; 10] };
     let results1 = battle1.execute_turn(&commands, &randoms);
@@ -2617,7 +2667,7 @@ fn high_herb_heals_more_than_regular_herb_in_battle() {
     }).unwrap();
 
     // ライオス2: 上やくそうで回復
-    let mut hero2 = PartyMember::laios();
+    let mut hero2 = PartyMember::from_kind(PartyMemberKind::Laios, &table);
     hero2.stats.hp = 1;
     hero2.inventory.add(ItemKind::HighHerb, 1);
 
@@ -2626,7 +2676,7 @@ fn high_herb_heals_more_than_regular_herb_in_battle() {
     slime2.stats.max_hp = 999;
     slime2.stats.attack = 0;
 
-    let mut battle2 = BattleDomainState::new(vec![hero2], vec![slime2], test_spell_params());
+    let mut battle2 = BattleDomainState::new(vec![hero2], vec![slime2], test_spell_params(), test_item_params());
     let commands2 = vec![BattleAction::UseItem { item: ItemKind::HighHerb, target: TargetId::Party(0) }];
     let results2 = battle2.execute_turn(&commands2, &randoms);
     let heal_high = results2.iter().find_map(|r| {
@@ -2656,7 +2706,7 @@ fn all_material_items_can_be_sold_with_correct_price() {
         let mut inv = Inventory::new();
         inv.add(*item, 1);
 
-        let result = sell_item(*item, &mut inv, None);
+        let result = sell_item(*item, &mut inv, None, &test_item_params());
         assert_eq!(result, SellResult::Success { earned_gold: *expected_price },
             "{} should sell for {} gold", item.name(), expected_price);
         assert_eq!(inv.count(*item), 0, "{} should be removed after selling", item.name());
@@ -2673,12 +2723,13 @@ fn generated_enemy_group_battle_to_victory_and_exp() {
     use battle::enemy::generate_enemy_group;
     use party::default_party;
 
+    let table = char_table();
     // ランダムな敵グループを生成
     let enemies = generate_enemy_group(0, false, 0.5, 0.3); // 大陸0フィールドで2匹のグループ
     assert!(!enemies.is_empty());
 
-    let party = default_party();
-    let mut battle = BattleDomainState::new(party, enemies, test_spell_params());
+    let party = default_party(&table);
+    let mut battle = BattleDomainState::new(party, enemies, test_spell_params(), test_item_params());
 
     // 全敵を全員で攻撃して勝利を目指す
     let commands = vec![
@@ -2704,7 +2755,7 @@ fn generated_enemy_group_battle_to_victory_and_exp() {
         // 経験値をパーティに分配
         for member in &mut battle.party {
             if member.stats.is_alive() {
-                member.gain_exp(total_exp);
+                member.gain_exp(total_exp, &table);
                 assert!(member.exp > 0, "Party member should have exp after battle");
             }
         }
@@ -2720,13 +2771,14 @@ fn multi_turn_battle_accumulates_turn_log() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors};
     use party::default_party;
 
-    let party = default_party();
+    let table = char_table();
+    let party = default_party(&table);
     let mut wolf = Enemy::wolf();
     wolf.stats.hp = 999;
     wolf.stats.max_hp = 999;
     wolf.stats.attack = 0; // パーティを倒さない
 
-    let mut battle = BattleDomainState::new(party, vec![wolf], test_spell_params());
+    let mut battle = BattleDomainState::new(party, vec![wolf], test_spell_params(), test_item_params());
 
     let commands = vec![
         BattleAction::Attack { target: TargetId::Enemy(0) },
@@ -2761,25 +2813,26 @@ fn full_town_equip_battle_levelup_flow() {
     use town::{buy_item, heal_party, BuyResult};
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors};
     use item::{ItemKind, WeaponKind};
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
-    let mut hero = PartyMember::laios();
+    let table = char_table();
+    let mut hero = PartyMember::from_kind(PartyMemberKind::Laios, &table);
     let mut gold = 500u32;
 
     // 1. 街で武器を買って装備する（武器はインベントリに残る）
-    if let BuyResult::Success { remaining_gold } = buy_item(ItemKind::Weapon(WeaponKind::IronSword), gold, &mut hero.inventory) {
+    if let BuyResult::Success { remaining_gold } = buy_item(ItemKind::Weapon(WeaponKind::IronSword), gold, &mut hero.inventory, &test_item_params()) {
         gold = remaining_gold;
         hero.equipment.equip_weapon(WeaponKind::IronSword);
     }
 
     // 2. やくそうを買う
-    if let BuyResult::Success { remaining_gold } = buy_item(ItemKind::Herb, gold, &mut hero.inventory) {
+    if let BuyResult::Success { remaining_gold } = buy_item(ItemKind::Herb, gold, &mut hero.inventory, &test_item_params()) {
         let _gold = remaining_gold;
     }
 
     // 3. 戦闘に入る（ゴースト3体 = 30exp）
     let enemies = vec![Enemy::ghost(), Enemy::ghost(), Enemy::ghost()];
-    let mut battle = BattleDomainState::new(vec![hero], enemies, test_spell_params());
+    let mut battle = BattleDomainState::new(vec![hero], enemies, test_spell_params(), test_item_params());
 
     let commands = vec![BattleAction::Attack { target: TargetId::Enemy(0) }];
     let randoms = TurnRandomFactors { damage_randoms: vec![1.2; 4], flee_random: 1.0, spell_randoms: vec![1.0; 10] };
@@ -2794,7 +2847,7 @@ fn full_town_equip_battle_levelup_flow() {
         let exp = battle.total_exp_reward();
         assert_eq!(exp, 30);
 
-        let level_ups = battle.party[0].gain_exp(exp);
+        let level_ups = battle.party[0].gain_exp(exp, &table);
         assert!(level_ups >= 1, "Should level up at least once");
 
         // 5. レベルアップ後、やどやで回復
@@ -2811,16 +2864,17 @@ fn full_town_equip_battle_levelup_flow() {
 #[test]
 fn same_speed_party_acts_before_enemy() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult, ActorId};
-    use party::{PartyMember, CombatStats};
+    use party::{PartyMember, PartyMemberKind, CombatStats};
 
+    let table = char_table();
     // ライオスと敵を同じ速度にする
-    let mut hero = PartyMember::laios();
+    let mut hero = PartyMember::from_kind(PartyMemberKind::Laios, &table);
     hero.stats = CombatStats::new(100, 20, 5, 10, 0); // speed=10
 
     let mut enemy = Enemy::slime();
     enemy.stats = CombatStats::new(999, 5, 2, 10, 0); // speed=10 (同速)
 
-    let mut battle = BattleDomainState::new(vec![hero], vec![enemy], test_spell_params());
+    let mut battle = BattleDomainState::new(vec![hero], vec![enemy], test_spell_params(), test_item_params());
 
     let commands = vec![
         BattleAction::Attack { target: TargetId::Enemy(0) },
@@ -2847,15 +2901,16 @@ fn same_speed_party_acts_before_enemy() {
 #[test]
 fn neld_aoe_damages_all_enemies_integration() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult, SpellKind};
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
+    let table = char_table();
     // マルシルLv3以上でBlaze1を習得
-    let mut mage = PartyMember::marcille();
+    let mut mage = PartyMember::from_kind(PartyMemberKind::Marcille, &table);
     mage.level = 3;
     let mage_max_mp = mage.stats.max_mp;
 
     let enemies = vec![Enemy::slime(), Enemy::slime(), Enemy::slime()];
-    let mut battle = BattleDomainState::new(vec![mage], enemies, test_spell_params());
+    let mut battle = BattleDomainState::new(vec![mage], enemies, test_spell_params(), test_item_params());
 
     let commands = vec![
         BattleAction::Spell { spell: SpellKind::Blaze1, target: TargetId::Enemy(0) },
@@ -2880,13 +2935,14 @@ fn neld_aoe_damages_all_enemies_integration() {
 #[test]
 fn panam_aoe_heals_all_allies_integration() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult, SpellKind};
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
-    let mut falin = PartyMember::falin();
+    let table = char_table();
+    let mut falin = PartyMember::from_kind(PartyMemberKind::Falin, &table);
     falin.level = 3; // Healall1習得
-    let mut laios = PartyMember::laios();
+    let mut laios = PartyMember::from_kind(PartyMemberKind::Laios, &table);
     laios.stats.hp = 5;
-    let mut marcille = PartyMember::marcille();
+    let mut marcille = PartyMember::from_kind(PartyMemberKind::Marcille, &table);
     marcille.stats.hp = 5;
     falin.stats.hp = 5;
 
@@ -2895,7 +2951,7 @@ fn panam_aoe_heals_all_allies_integration() {
     slime.stats.max_hp = 999;
     slime.stats.attack = 0;
 
-    let mut battle = BattleDomainState::new(vec![laios, marcille, falin], vec![slime], test_spell_params());
+    let mut battle = BattleDomainState::new(vec![laios, marcille, falin], vec![slime], test_spell_params(), test_item_params());
 
     let commands = vec![
         BattleAction::Attack { target: TargetId::Enemy(0) },
@@ -2919,18 +2975,19 @@ fn panam_aoe_heals_all_allies_integration() {
 #[test]
 fn bolga_buff_increases_attack_integration() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult, SpellKind};
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
-    let mut rinsha = PartyMember::rinsha();
+    let table = char_table();
+    let mut rinsha = PartyMember::from_kind(PartyMemberKind::Rinsha, &table);
     rinsha.level = 5; // Boost1習得
-    let laios = PartyMember::laios();
+    let laios = PartyMember::from_kind(PartyMemberKind::Laios, &table);
 
     let mut slime = Enemy::slime();
     slime.stats.hp = 999;
     slime.stats.max_hp = 999;
     slime.stats.attack = 0;
 
-    let mut battle = BattleDomainState::new(vec![laios, rinsha], vec![slime], test_spell_params());
+    let mut battle = BattleDomainState::new(vec![laios, rinsha], vec![slime], test_spell_params(), test_item_params());
     let base_attack = battle.effective_attack_with_buff(0);
 
     let commands = vec![
@@ -2955,11 +3012,12 @@ fn bolga_buff_increases_attack_integration() {
 #[test]
 fn block_absorbs_damage_integration() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, SpellKind, ActorId, TurnResult};
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
-    let mut senshi = PartyMember::senshi();
+    let table = char_table();
+    let mut senshi = PartyMember::from_kind(PartyMemberKind::Senshi, &table);
     senshi.level = 4; // Shield1習得
-    let mut laios = PartyMember::laios();
+    let mut laios = PartyMember::from_kind(PartyMemberKind::Laios, &table);
     laios.stats.hp = 999;
     laios.stats.max_hp = 999;
 
@@ -2969,7 +3027,7 @@ fn block_absorbs_damage_integration() {
     wolf.stats.max_hp = 999;
 
     // Shield1を付与
-    let mut battle = BattleDomainState::new(vec![laios, senshi], vec![wolf], test_spell_params());
+    let mut battle = BattleDomainState::new(vec![laios, senshi], vec![wolf], test_spell_params(), test_item_params());
     let commands_buff = vec![
         BattleAction::Attack { target: TargetId::Enemy(0) },
         BattleAction::Spell { spell: SpellKind::Shield1, target: TargetId::Party(0) },
@@ -3014,9 +3072,10 @@ fn block_absorbs_damage_integration() {
 #[test]
 fn buff_expires_after_5_turns_integration() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, SpellKind};
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
-    let mut rinsha = PartyMember::rinsha();
+    let table = char_table();
+    let mut rinsha = PartyMember::from_kind(PartyMemberKind::Rinsha, &table);
     rinsha.level = 5; // Boost1習得
     rinsha.stats.mp = 99;
     rinsha.stats.max_mp = 99;
@@ -3026,7 +3085,7 @@ fn buff_expires_after_5_turns_integration() {
     slime.stats.max_hp = 999;
     slime.stats.attack = 0;
 
-    let mut battle = BattleDomainState::new(vec![rinsha], vec![slime], test_spell_params());
+    let mut battle = BattleDomainState::new(vec![rinsha], vec![slime], test_spell_params(), test_item_params());
 
     // ターン1: バフ付与
     let commands = vec![BattleAction::Spell { spell: SpellKind::Boost1, target: TargetId::Party(0) }];
@@ -3051,9 +3110,10 @@ fn buff_expires_after_5_turns_integration() {
 #[test]
 fn buff_overwrite_resets_duration_integration() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, SpellKind};
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
-    let mut rinsha = PartyMember::rinsha();
+    let table = char_table();
+    let mut rinsha = PartyMember::from_kind(PartyMemberKind::Rinsha, &table);
     rinsha.level = 7; // Boost2(ATK+6)も習得
     rinsha.stats.mp = 99;
     rinsha.stats.max_mp = 99;
@@ -3063,7 +3123,7 @@ fn buff_overwrite_resets_duration_integration() {
     slime.stats.max_hp = 999;
     slime.stats.attack = 0;
 
-    let mut battle = BattleDomainState::new(vec![rinsha], vec![slime], test_spell_params());
+    let mut battle = BattleDomainState::new(vec![rinsha], vec![slime], test_spell_params(), test_item_params());
 
     // Boost1(ATK+3)付与
     let commands = vec![BattleAction::Spell { spell: SpellKind::Boost1, target: TargetId::Party(0) }];
@@ -3096,9 +3156,10 @@ fn buff_overwrite_resets_duration_integration() {
 #[test]
 fn drain_spell_reduces_enemy_mp() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult, SpellKind};
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
-    let mut laios = PartyMember::laios();
+    let table = char_table();
+    let mut laios = PartyMember::from_kind(PartyMemberKind::Laios, &table);
     laios.stats.mp = 99;
     laios.stats.max_mp = 99;
 
@@ -3107,7 +3168,7 @@ fn drain_spell_reduces_enemy_mp() {
     ghost.stats.max_hp = 999;
     let initial_mp = ghost.stats.mp; // Ghost has 8 MP
 
-    let mut battle = BattleDomainState::new(vec![laios], vec![ghost], test_spell_params());
+    let mut battle = BattleDomainState::new(vec![laios], vec![ghost], test_spell_params(), test_item_params());
 
     let commands = vec![BattleAction::Spell { spell: SpellKind::Drain1, target: TargetId::Enemy(0) }];
     let randoms = TurnRandomFactors { damage_randoms: vec![1.0; 2], flee_random: 1.0, spell_randoms: vec![1.0; 10] };
@@ -3124,9 +3185,10 @@ fn drain_spell_reduces_enemy_mp() {
 #[test]
 fn siphon_spell_reduces_all_enemies_mp() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult, SpellKind};
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
-    let mut laios = PartyMember::laios();
+    let table = char_table();
+    let mut laios = PartyMember::from_kind(PartyMemberKind::Laios, &table);
     laios.stats.mp = 99;
     laios.stats.max_mp = 99;
 
@@ -3138,7 +3200,7 @@ fn siphon_spell_reduces_all_enemies_mp() {
     ghost2.stats.max_hp = 999;
     let initial_mp = ghost1.stats.mp;
 
-    let mut battle = BattleDomainState::new(vec![laios], vec![ghost1, ghost2], test_spell_params());
+    let mut battle = BattleDomainState::new(vec![laios], vec![ghost1, ghost2], test_spell_params(), test_item_params());
 
     let commands = vec![BattleAction::Spell { spell: SpellKind::Siphon1, target: TargetId::Enemy(0) }];
     let randoms = TurnRandomFactors { damage_randoms: vec![1.0; 3], flee_random: 1.0, spell_randoms: vec![1.0; 10] };
@@ -3156,9 +3218,10 @@ fn siphon_spell_reduces_all_enemies_mp() {
 #[test]
 fn enemy_uses_drain_spell_on_party() {
     use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult};
-    use party::PartyMember;
+    use party::{PartyMember, PartyMemberKind};
 
-    let mut marcille = PartyMember::marcille();
+    let table = char_table();
+    let mut marcille = PartyMember::from_kind(PartyMemberKind::Marcille, &table);
     marcille.stats.mp = 20;
     marcille.stats.max_mp = 20;
 
@@ -3168,7 +3231,7 @@ fn enemy_uses_drain_spell_on_party() {
     ghost.stats.max_hp = 999;
     ghost.stats.mp = 20; // Drain1(cost=4)を使えるだけのMP
 
-    let mut battle = BattleDomainState::new(vec![marcille], vec![ghost], test_spell_params());
+    let mut battle = BattleDomainState::new(vec![marcille], vec![ghost], test_spell_params(), test_item_params());
 
     // パーティは通常攻撃、敵が呪文を使う（spell_random=0.0 < 0.5で呪文使用）
     let commands = vec![BattleAction::Attack { target: TargetId::Enemy(0) }];
@@ -3198,7 +3261,7 @@ fn sell_equipped_weapon_only_one_is_rejected() {
     inv.add(ItemKind::Weapon(WeaponKind::IronSword), 1);
 
     // 装備中の武器が1本のみ → 売却不可
-    let result = sell_item(ItemKind::Weapon(WeaponKind::IronSword), &mut inv, Some(WeaponKind::IronSword));
+    let result = sell_item(ItemKind::Weapon(WeaponKind::IronSword), &mut inv, Some(WeaponKind::IronSword), &test_item_params());
     assert_eq!(result, SellResult::CannotSell, "Equipped weapon (only 1) should not be sellable");
     assert_eq!(inv.count(ItemKind::Weapon(WeaponKind::IronSword)), 1, "Weapon should remain");
 }
@@ -3212,12 +3275,12 @@ fn sell_equipped_weapon_two_copies_allows_one_sale() {
     inv.add(ItemKind::Weapon(WeaponKind::IronSword), 2);
 
     // 同じ武器2本持ち、1本装備中 → 1本は売却可能
-    let result = sell_item(ItemKind::Weapon(WeaponKind::IronSword), &mut inv, Some(WeaponKind::IronSword));
+    let result = sell_item(ItemKind::Weapon(WeaponKind::IronSword), &mut inv, Some(WeaponKind::IronSword), &test_item_params());
     assert_eq!(result, SellResult::Success { earned_gold: 25 }, "Should sell one copy of equipped weapon");
     assert_eq!(inv.count(ItemKind::Weapon(WeaponKind::IronSword)), 1, "One copy should remain");
 
     // 残り1本は装備中なので売却不可
-    let result2 = sell_item(ItemKind::Weapon(WeaponKind::IronSword), &mut inv, Some(WeaponKind::IronSword));
+    let result2 = sell_item(ItemKind::Weapon(WeaponKind::IronSword), &mut inv, Some(WeaponKind::IronSword), &test_item_params());
     assert_eq!(result2, SellResult::CannotSell, "Last equipped weapon should not be sellable");
 }
 
@@ -3230,7 +3293,7 @@ fn sell_unequipped_weapon_succeeds() {
     inv.add(ItemKind::Weapon(WeaponKind::IronSword), 1);
 
     // 装備していない武器は売却可能
-    let result = sell_item(ItemKind::Weapon(WeaponKind::IronSword), &mut inv, None);
+    let result = sell_item(ItemKind::Weapon(WeaponKind::IronSword), &mut inv, None, &test_item_params());
     assert_eq!(result, SellResult::Success { earned_gold: 25 }, "Unequipped weapon should be sellable");
     assert_eq!(inv.count(ItemKind::Weapon(WeaponKind::IronSword)), 0);
 }
@@ -3244,7 +3307,7 @@ fn sell_different_weapon_while_another_equipped() {
     inv.add(ItemKind::Weapon(WeaponKind::WoodenSword), 1);
 
     // 鉄の剣を装備中、木の剣は装備していないので売却可能
-    let result = sell_item(ItemKind::Weapon(WeaponKind::WoodenSword), &mut inv, Some(WeaponKind::IronSword));
+    let result = sell_item(ItemKind::Weapon(WeaponKind::WoodenSword), &mut inv, Some(WeaponKind::IronSword), &test_item_params());
     assert_eq!(result, SellResult::Success { earned_gold: 5 }, "Non-equipped weapon should be sellable");
     assert_eq!(inv.count(ItemKind::Weapon(WeaponKind::WoodenSword)), 0);
 }

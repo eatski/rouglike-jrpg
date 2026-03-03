@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::equipment::WeaponKind;
+use crate::equipment::{WeaponEntry, WeaponKind};
 
 pub const INVENTORY_CAPACITY: u32 = 6;
 pub const BAG_CAPACITY: u32 = 50;
@@ -47,39 +47,6 @@ impl ItemKind {
         }
     }
 
-    pub fn effect(self) -> ItemEffect {
-        match self {
-            ItemKind::Herb => ItemEffect::Heal { power: 25 },
-            ItemKind::HighHerb => ItemEffect::Heal { power: 50 },
-            ItemKind::CopperKey => ItemEffect::KeyItem,
-            ItemKind::MoonFragment
-            | ItemKind::MagicStone
-            | ItemKind::SilverOre
-            | ItemKind::AncientCoin
-            | ItemKind::DragonScale => ItemEffect::Material,
-            ItemKind::Weapon(_) => ItemEffect::Equip,
-        }
-    }
-
-    pub fn description(self) -> &'static str {
-        match self {
-            ItemKind::Herb => "HPを かいふくする やくそう",
-            ItemKind::HighHerb => "HPを おおきく かいふくする",
-            ItemKind::CopperKey => "どこかの とびらを あけるカギ",
-            ItemKind::MoonFragment => "ほこらの とびらを ひらく ふしぎな かけら",
-            ItemKind::MagicStone => "ふしぎな ちからを もつ いし",
-            ItemKind::SilverOre => "きれいな ぎんいろの こうせき",
-            ItemKind::AncientCoin => "おおむかしの きんか",
-            ItemKind::DragonScale => "りゅうの からだを おおう ウロコ",
-            ItemKind::Weapon(w) => w.description(),
-        }
-    }
-
-    /// 使用時に消費されるか
-    pub fn is_consumable(self) -> bool {
-        matches!(self.effect(), ItemEffect::Heal { .. })
-    }
-
     /// 武器バリアントの場合、WeaponKindを返す
     pub fn as_weapon(self) -> Option<WeaponKind> {
         match self {
@@ -88,54 +55,134 @@ impl ItemKind {
         }
     }
 
-    /// 買値（0 = 購入不可）
-    pub fn price(self) -> u32 {
-        match self {
-            ItemKind::Herb => 8,
-            ItemKind::HighHerb => 24,
-            ItemKind::CopperKey => 0,
-            ItemKind::MoonFragment => 50,
-            ItemKind::MagicStone => 0,
-            ItemKind::SilverOre => 0,
-            ItemKind::AncientCoin => 0,
-            ItemKind::DragonScale => 0,
-            ItemKind::Weapon(w) => w.price(),
-        }
-    }
-
-    /// 売値（0 = 売却不可）
-    pub fn sell_price(self) -> u32 {
-        match self {
-            ItemKind::Herb => 4,
-            ItemKind::HighHerb => 12,
-            ItemKind::CopperKey => 0,
-            ItemKind::MoonFragment => 25,
-            ItemKind::MagicStone => 30,
-            ItemKind::SilverOre => 60,
-            ItemKind::AncientCoin => 120,
-            ItemKind::DragonScale => 250,
-            ItemKind::Weapon(w) => w.price() / 2,
-        }
-    }
 }
 
-/// 道具屋で購入可能なアイテム一覧
-pub fn shop_items() -> Vec<ItemKind> {
-    vec![ItemKind::Herb, ItemKind::HighHerb, ItemKind::MoonFragment]
-}
+pub static ALL_ITEMS: &[ItemKind] = &[
+    ItemKind::Herb,
+    ItemKind::HighHerb,
+    ItemKind::CopperKey,
+    ItemKind::MoonFragment,
+    ItemKind::MagicStone,
+    ItemKind::SilverOre,
+    ItemKind::AncientCoin,
+    ItemKind::DragonScale,
+];
 
 /// 全アイテムリストを返す
-pub fn all_items() -> Vec<ItemKind> {
-    vec![
-        ItemKind::Herb,
-        ItemKind::HighHerb,
-        ItemKind::CopperKey,
-        ItemKind::MoonFragment,
-        ItemKind::MagicStone,
-        ItemKind::SilverOre,
-        ItemKind::AncientCoin,
-        ItemKind::DragonScale,
-    ]
+pub fn all_items() -> &'static [ItemKind] {
+    ALL_ITEMS
+}
+
+/// アイテムパラメータエントリ
+#[derive(Clone)]
+pub struct ItemEntry {
+    pub effect: ItemEffect,
+    pub description: &'static str,
+    pub price: u32,
+    pub sell_price: u32,
+}
+
+/// アイテムパラメータテーブル
+#[derive(Clone)]
+pub struct ItemParamTable {
+    item_entries: Vec<ItemEntry>,
+    weapon_entries: Vec<WeaponEntry>,
+    shop_items: Vec<ItemKind>,
+    shop_weapons: Vec<WeaponKind>,
+}
+
+impl std::fmt::Debug for ItemParamTable {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ItemParamTable").finish()
+    }
+}
+
+impl ItemParamTable {
+    pub fn from_fn(
+        item_fn: impl Fn(ItemKind) -> ItemEntry,
+        weapon_fn: impl Fn(WeaponKind) -> WeaponEntry,
+        shop_items: Vec<ItemKind>,
+        shop_weapons: Vec<WeaponKind>,
+    ) -> Self {
+        let item_entries: Vec<ItemEntry> = ALL_ITEMS.iter().map(|&k| item_fn(k)).collect();
+        let weapon_entries: Vec<WeaponEntry> =
+            crate::equipment::ALL_WEAPONS.iter().map(|&k| weapon_fn(k)).collect();
+        Self {
+            item_entries,
+            weapon_entries,
+            shop_items,
+            shop_weapons,
+        }
+    }
+
+    fn item_index(item: ItemKind) -> usize {
+        ALL_ITEMS.iter().position(|&k| k == item).expect("unknown ItemKind")
+    }
+
+    fn weapon_index(weapon: WeaponKind) -> usize {
+        crate::equipment::ALL_WEAPONS
+            .iter()
+            .position(|&k| k == weapon)
+            .expect("unknown WeaponKind")
+    }
+
+    // --- ItemKind アクセサ ---
+
+    pub fn effect(&self, item: ItemKind) -> ItemEffect {
+        match item {
+            ItemKind::Weapon(_) => ItemEffect::Equip,
+            _ => self.item_entries[Self::item_index(item)].effect,
+        }
+    }
+
+    pub fn description(&self, item: ItemKind) -> &str {
+        match item {
+            ItemKind::Weapon(w) => self.weapon_entries[Self::weapon_index(w)].description,
+            _ => self.item_entries[Self::item_index(item)].description,
+        }
+    }
+
+    pub fn price(&self, item: ItemKind) -> u32 {
+        match item {
+            ItemKind::Weapon(w) => self.weapon_entries[Self::weapon_index(w)].price,
+            _ => self.item_entries[Self::item_index(item)].price,
+        }
+    }
+
+    pub fn sell_price(&self, item: ItemKind) -> u32 {
+        match item {
+            ItemKind::Weapon(w) => self.weapon_entries[Self::weapon_index(w)].price / 2,
+            _ => self.item_entries[Self::item_index(item)].sell_price,
+        }
+    }
+
+    pub fn is_consumable(&self, item: ItemKind) -> bool {
+        matches!(self.effect(item), ItemEffect::Heal { .. })
+    }
+
+    // --- WeaponKind アクセサ ---
+
+    pub fn weapon_attack_bonus(&self, weapon: WeaponKind) -> i32 {
+        self.weapon_entries[Self::weapon_index(weapon)].attack_bonus
+    }
+
+    pub fn weapon_price(&self, weapon: WeaponKind) -> u32 {
+        self.weapon_entries[Self::weapon_index(weapon)].price
+    }
+
+    pub fn weapon_description(&self, weapon: WeaponKind) -> &str {
+        self.weapon_entries[Self::weapon_index(weapon)].description
+    }
+
+    // --- ショップデータ ---
+
+    pub fn shop_items(&self) -> &[ItemKind] {
+        &self.shop_items
+    }
+
+    pub fn shop_weapons(&self) -> &[WeaponKind] {
+        &self.shop_weapons
+    }
 }
 
 #[derive(Debug, Clone)]

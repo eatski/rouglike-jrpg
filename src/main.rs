@@ -3,7 +3,7 @@ use std::time::Duration;
 use bevy::prelude::*;
 use bevy::window::{Window, WindowResolution};
 use bevy::winit::{UpdateMode, WinitSettings};
-use app_state::{InField, SpellParams};
+use app_state::{CharacterParams, InField, ItemParams, PartyState, SpellParams};
 use field_core::WINDOW_SIZE;
 
 fn main() {
@@ -11,6 +11,9 @@ fn main() {
         .nth(1)
         .map(|name| format!("Roguelike JRPG [{}]", name))
         .unwrap_or_else(|| "Roguelike JRPG".to_string());
+
+    let char_table = party_data::character_param_table();
+    let party_state = PartyState::new(&char_table);
 
     App::new()
         .insert_resource(WinitSettings {
@@ -30,7 +33,10 @@ fn main() {
                     ..default()
                 }),
         )
+        .insert_resource(CharacterParams(char_table))
+        .insert_resource(party_state)
         .insert_resource(SpellParams(spell_data::spell_param_table()))
+        .insert_resource(ItemParams(item_data::item_param_table()))
         .add_plugins((
             app_state::AppStatePlugin,
             field_walk_ui::MovementPlugin,

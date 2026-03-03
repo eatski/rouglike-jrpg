@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use app_state::PartyState;
+use app_state::{CharacterParams, PartyState};
 use item::ItemKind;
 use screenshot_common::{setup_camera, ScreenshotAppBuilder};
 use town_ui::{
@@ -41,8 +41,12 @@ fn main() {
     let output_name = format!("town_{}", variant);
     let mut app = ScreenshotAppBuilder::new(&output_name).build();
 
+    let char_table = party_data::character_param_table();
+    let party_state = PartyState::new(&char_table);
+
     app.insert_resource(make_config(variant))
-        .init_resource::<PartyState>()
+        .insert_resource(CharacterParams(char_table))
+        .insert_resource(party_state)
         .add_systems(
             Startup,
             (setup_camera, setup_town_scene_with_config, hud_ui::setup_hud).chain(),

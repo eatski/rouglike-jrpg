@@ -1,5 +1,6 @@
 use item::{Equipment, Inventory, ItemKind};
-use crate::stats::{CombatStats, StatGrowth};
+use crate::character_table::CharacterParamTable;
+use crate::stats::CombatStats;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PartyMemberKind {
@@ -60,238 +61,46 @@ impl PartyMember {
     }
 
     /// 装備込みの実効攻撃力
-    pub fn effective_attack(&self) -> i32 {
-        self.stats.attack + self.equipment.attack_bonus()
+    pub fn effective_attack(&self, item_table: &item::ItemParamTable) -> i32 {
+        self.stats.attack + self.equipment.attack_bonus(item_table)
     }
 
     /// 経験値を獲得し、レベルアップがあれば回数を返す
-    pub fn gain_exp(&mut self, amount: u32) -> u32 {
+    pub fn gain_exp(&mut self, amount: u32, table: &CharacterParamTable) -> u32 {
         self.exp += amount;
         let mut level_ups = 0;
         while self.exp >= exp_to_next_level(self.level) {
             self.level += 1;
             level_ups += 1;
-            let growth = self.kind.stat_growth();
-            self.stats.apply_growth(&growth);
+            let growth = table.stat_growth(self.kind);
+            self.stats.apply_growth(growth);
         }
         level_ups
     }
 
-    pub fn laios() -> Self {
+    pub fn from_kind(kind: PartyMemberKind, table: &CharacterParamTable) -> Self {
         Self {
-            kind: PartyMemberKind::Laios,
+            kind,
             level: 1,
             exp: 0,
-            stats: CombatStats::new(30, 8, 3, 5, 5),
+            stats: table.initial_stats(kind),
             inventory: Inventory::new(),
             equipment: Equipment::new(),
-        }
-    }
-
-    pub fn chilchuck() -> Self {
-        Self {
-            kind: PartyMemberKind::Chilchuck,
-            level: 1,
-            exp: 0,
-            stats: CombatStats::new(22, 6, 2, 9, 0),
-            inventory: Inventory::new(),
-            equipment: Equipment::new(),
-        }
-    }
-
-    pub fn marcille() -> Self {
-        Self {
-            kind: PartyMemberKind::Marcille,
-            level: 1,
-            exp: 0,
-            stats: CombatStats::new(20, 2, 2, 7, 15),
-            inventory: Inventory::new(),
-            equipment: Equipment::new(),
-        }
-    }
-
-    pub fn senshi() -> Self {
-        Self {
-            kind: PartyMemberKind::Senshi,
-            level: 1,
-            exp: 0,
-            stats: CombatStats::new(40, 7, 6, 2, 3),
-            inventory: Inventory::new(),
-            equipment: Equipment::new(),
-        }
-    }
-
-    pub fn falin() -> Self {
-        Self {
-            kind: PartyMemberKind::Falin,
-            level: 1,
-            exp: 0,
-            stats: CombatStats::new(25, 5, 4, 4, 12),
-            inventory: Inventory::new(),
-            equipment: Equipment::new(),
-        }
-    }
-
-    pub fn izutsumi() -> Self {
-        Self {
-            kind: PartyMemberKind::Izutsumi,
-            level: 1,
-            exp: 0,
-            stats: CombatStats::new(20, 7, 1, 10, 3),
-            inventory: Inventory::new(),
-            equipment: Equipment::new(),
-        }
-    }
-
-    pub fn shuro() -> Self {
-        Self {
-            kind: PartyMemberKind::Shuro,
-            level: 1,
-            exp: 0,
-            stats: CombatStats::new(28, 10, 3, 7, 0),
-            inventory: Inventory::new(),
-            equipment: Equipment::new(),
-        }
-    }
-
-    pub fn namari() -> Self {
-        Self {
-            kind: PartyMemberKind::Namari,
-            level: 1,
-            exp: 0,
-            stats: CombatStats::new(35, 6, 5, 3, 0),
-            inventory: Inventory::new(),
-            equipment: Equipment::new(),
-        }
-    }
-
-    pub fn kabru() -> Self {
-        Self {
-            kind: PartyMemberKind::Kabru,
-            level: 1,
-            exp: 0,
-            stats: CombatStats::new(26, 7, 3, 6, 5),
-            inventory: Inventory::new(),
-            equipment: Equipment::new(),
-        }
-    }
-
-    pub fn rinsha() -> Self {
-        Self {
-            kind: PartyMemberKind::Rinsha,
-            level: 1,
-            exp: 0,
-            stats: CombatStats::new(24, 5, 3, 6, 8),
-            inventory: Inventory::new(),
-            equipment: Equipment::new(),
-        }
-    }
-
-    pub fn from_kind(kind: PartyMemberKind) -> Self {
-        match kind {
-            PartyMemberKind::Laios => Self::laios(),
-            PartyMemberKind::Chilchuck => Self::chilchuck(),
-            PartyMemberKind::Marcille => Self::marcille(),
-            PartyMemberKind::Senshi => Self::senshi(),
-            PartyMemberKind::Falin => Self::falin(),
-            PartyMemberKind::Izutsumi => Self::izutsumi(),
-            PartyMemberKind::Shuro => Self::shuro(),
-            PartyMemberKind::Namari => Self::namari(),
-            PartyMemberKind::Kabru => Self::kabru(),
-            PartyMemberKind::Rinsha => Self::rinsha(),
         }
     }
 }
 
-impl PartyMemberKind {
-    /// キャラ別のレベルアップ時ステータス成長値
-    pub fn stat_growth(self) -> StatGrowth {
-        match self {
-            PartyMemberKind::Laios => StatGrowth {
-                hp: 5,
-                mp: 1,
-                attack: 2,
-                defense: 1,
-                speed: 1,
-            },
-            PartyMemberKind::Chilchuck => StatGrowth {
-                hp: 3,
-                mp: 0,
-                attack: 2,
-                defense: 1,
-                speed: 2,
-            },
-            PartyMemberKind::Marcille => StatGrowth {
-                hp: 3,
-                mp: 3,
-                attack: 1,
-                defense: 1,
-                speed: 1,
-            },
-            PartyMemberKind::Senshi => StatGrowth {
-                hp: 6,
-                mp: 0,
-                attack: 2,
-                defense: 2,
-                speed: 0,
-            },
-            PartyMemberKind::Falin => StatGrowth {
-                hp: 4,
-                mp: 2,
-                attack: 1,
-                defense: 1,
-                speed: 1,
-            },
-            PartyMemberKind::Izutsumi => StatGrowth {
-                hp: 3,
-                mp: 1,
-                attack: 2,
-                defense: 0,
-                speed: 2,
-            },
-            PartyMemberKind::Shuro => StatGrowth {
-                hp: 4,
-                mp: 0,
-                attack: 3,
-                defense: 1,
-                speed: 1,
-            },
-            PartyMemberKind::Namari => StatGrowth {
-                hp: 5,
-                mp: 0,
-                attack: 2,
-                defense: 2,
-                speed: 0,
-            },
-            PartyMemberKind::Kabru => StatGrowth {
-                hp: 4,
-                mp: 1,
-                attack: 2,
-                defense: 1,
-                speed: 1,
-            },
-            PartyMemberKind::Rinsha => StatGrowth {
-                hp: 3,
-                mp: 2,
-                attack: 1,
-                defense: 1,
-                speed: 1,
-            },
-        }
-    }
-}
-
-pub fn default_party() -> Vec<PartyMember> {
+pub fn default_party(table: &CharacterParamTable) -> Vec<PartyMember> {
     vec![
-        PartyMember::laios(),
-        PartyMember::marcille(),
-        PartyMember::falin(),
+        PartyMember::from_kind(PartyMemberKind::Laios, table),
+        PartyMember::from_kind(PartyMemberKind::Marcille, table),
+        PartyMember::from_kind(PartyMemberKind::Falin, table),
     ]
 }
 
 /// ゲーム開始時の初期パーティ（ライオスのみ）
-pub fn initial_party() -> Vec<PartyMember> {
-    vec![PartyMember::laios()]
+pub fn initial_party(table: &CharacterParamTable) -> Vec<PartyMember> {
+    vec![PartyMember::from_kind(PartyMemberKind::Laios, table)]
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -302,18 +111,6 @@ pub enum RecruitmentPath {
     GoldHire { cost: u32 },
     /// アイテムと引き換えに仲間になる
     ItemTrade { item: ItemKind },
-}
-
-impl PartyMemberKind {
-    pub fn recruit_method(self) -> RecruitmentPath {
-        match self {
-            PartyMemberKind::Namari => RecruitmentPath::GoldHire { cost: 200 },
-            PartyMemberKind::Chilchuck => RecruitmentPath::GoldHire { cost: 200 },
-            PartyMemberKind::Senshi => RecruitmentPath::ItemTrade { item: ItemKind::DragonScale },
-            PartyMemberKind::Izutsumi => RecruitmentPath::ItemTrade { item: ItemKind::AncientCoin },
-            _ => RecruitmentPath::TavernBond,
-        }
-    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -399,6 +196,25 @@ pub fn consume_item(members: &mut [PartyMember], bag: &mut Inventory, item: Item
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::character_table::{CharacterEntry, CharacterParamTable};
+    use crate::stats::StatGrowth;
+
+    fn char_table() -> CharacterParamTable {
+        CharacterParamTable::from_fn(|kind| match kind {
+            PartyMemberKind::Laios => CharacterEntry {
+                initial_stats: CombatStats::new(30, 8, 3, 5, 5),
+                stat_growth: StatGrowth { hp: 5, mp: 1, attack: 2, defense: 1, speed: 1 },
+                recruit_method: RecruitmentPath::TavernBond,
+                spell_learn_table: &[],
+            },
+            _ => CharacterEntry {
+                initial_stats: CombatStats::new(20, 5, 2, 5, 5),
+                stat_growth: StatGrowth { hp: 3, mp: 1, attack: 1, defense: 1, speed: 1 },
+                recruit_method: RecruitmentPath::TavernBond,
+                spell_learn_table: &[],
+            },
+        })
+    }
 
     #[test]
     fn exp_to_next_level_values() {
@@ -409,8 +225,9 @@ mod tests {
 
     #[test]
     fn gain_exp_levels_up() {
-        let mut laios = PartyMember::laios();
-        let level_ups = laios.gain_exp(10); // ちょうどLv2に
+        let table = char_table();
+        let mut laios = PartyMember::from_kind(PartyMemberKind::Laios, &table);
+        let level_ups = laios.gain_exp(10, &table); // ちょうどLv2に
         assert_eq!(level_ups, 1);
         assert_eq!(laios.level, 2);
         assert_eq!(laios.exp, 10);
@@ -420,16 +237,18 @@ mod tests {
 
     #[test]
     fn gain_exp_multiple_level_ups() {
-        let mut laios = PartyMember::laios();
-        let level_ups = laios.gain_exp(60); // Lv1→2(10) → Lv2→3(30) → Lv3→4(60)
+        let table = char_table();
+        let mut laios = PartyMember::from_kind(PartyMemberKind::Laios, &table);
+        let level_ups = laios.gain_exp(60, &table); // Lv1→2(10) → Lv2→3(30) → Lv3→4(60)
         assert_eq!(level_ups, 3);
         assert_eq!(laios.level, 4);
     }
 
     #[test]
     fn gain_exp_no_level_up() {
-        let mut laios = PartyMember::laios();
-        let level_ups = laios.gain_exp(5);
+        let table = char_table();
+        let mut laios = PartyMember::from_kind(PartyMemberKind::Laios, &table);
+        let level_ups = laios.gain_exp(5, &table);
         assert_eq!(level_ups, 0);
         assert_eq!(laios.level, 1);
         assert_eq!(laios.exp, 5);
@@ -498,15 +317,19 @@ mod tests {
 
     #[test]
     fn effective_attack_without_weapon() {
-        let laios = PartyMember::laios();
-        assert_eq!(laios.effective_attack(), laios.stats.attack);
+        let table = char_table();
+        let item_table = item_data::item_param_table();
+        let laios = PartyMember::from_kind(PartyMemberKind::Laios, &table);
+        assert_eq!(laios.effective_attack(&item_table), laios.stats.attack);
     }
 
     #[test]
     fn effective_attack_with_weapon() {
         use item::WeaponKind;
-        let mut laios = PartyMember::laios();
+        let table = char_table();
+        let item_table = item_data::item_param_table();
+        let mut laios = PartyMember::from_kind(PartyMemberKind::Laios, &table);
         laios.equipment.equip_weapon(WeaponKind::IronSword);
-        assert_eq!(laios.effective_attack(), laios.stats.attack + 5);
+        assert_eq!(laios.effective_attack(&item_table), laios.stats.attack + 5);
     }
 }

@@ -11,6 +11,7 @@ path = "src/main.rs"
 bevy = "0.18"
 screenshot-common = { path = "../common" }
 app-state = { path = "../../app/app-state" }
+party-data = { path = "../../app/party-data" }
 item = { path = "../../app/item" }
 town-ui = { path = "../../app/town-ui" }
 hud-ui = { path = "../../app/hud-ui" }

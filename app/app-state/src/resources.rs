@@ -3,7 +3,7 @@ use bevy::prelude::*;
 use std::collections::{HashMap, HashSet};
 
 use item::{Inventory, ItemKind, BAG_CAPACITY};
-use party::{default_candidates, initial_party, PartyMember, RecruitCandidate};
+use party::{default_candidates, initial_party, CharacterParamTable, PartyMember, RecruitCandidate};
 
 /// パーティの永続的な状態を管理するリソース（戦闘間でHP/MPを引き継ぐ）
 #[derive(Resource)]
@@ -16,9 +16,9 @@ pub struct PartyState {
     pub bag: Inventory,
 }
 
-impl Default for PartyState {
-    fn default() -> Self {
-        let mut members = initial_party();
+impl PartyState {
+    pub fn new(table: &CharacterParamTable) -> Self {
+        let mut members = initial_party(table);
         members[0].inventory.add(ItemKind::Herb, 2);
         Self {
             members,

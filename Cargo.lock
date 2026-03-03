@@ -3075,6 +3075,13 @@ name = "item"
 version = "0.1.0"
 
 [[package]]
+name = "item-data"
+version = "0.1.0"
+dependencies = [
+ "item",
+]
+
+[[package]]
 name = "itertools"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3908,6 +3915,16 @@ name = "party"
 version = "0.1.0"
 dependencies = [
  "item",
+ "item-data",
+ "spell",
+]
+
+[[package]]
+name = "party-data"
+version = "0.1.0"
+dependencies = [
+ "item",
+ "party",
  "spell",
 ]
 
@@ -4372,7 +4389,9 @@ dependencies = [
  "field-walk-ui",
  "hokora-ui",
  "item",
+ "item-data",
  "party",
+ "party-data",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "spell",
@@ -4481,6 +4500,7 @@ dependencies = [
  "battle-ui",
  "bevy",
  "hud-ui",
+ "party-data",
  "screenshot-common",
  "spell-data",
 ]
@@ -4517,6 +4537,7 @@ dependencies = [
  "bevy",
  "field-core",
  "field-walk-ui",
+ "party-data",
  "screenshot-common",
  "terrain",
 ]
@@ -4529,6 +4550,7 @@ dependencies = [
  "bevy",
  "hud-ui",
  "item",
+ "party-data",
  "screenshot-common",
  "town-ui",
 ]

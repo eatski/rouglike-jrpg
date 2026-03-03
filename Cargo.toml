@@ -8,6 +8,8 @@ bevy = "0.18"
 rand = "0.8"
 app-state = { path = "app/app-state" }
 spell-data = { path = "app/spell-data" }
+party-data = { path = "app/party-data" }
+item-data = { path = "app/item-data" }
 battle = { path = "app/battle" }
 battle-ui = { path = "app/battle-ui" }
 cave-ui = { path = "app/cave-ui" }
@@ -22,6 +24,7 @@ field-walk-ui = { path = "app/field-walk-ui" }
 rand_chacha = "0.3"
 item = { path = "app/item" }
 party = { path = "app/party" }
+party-data = { path = "app/party-data" }
 spell = { path = "app/spell" }
 cave = { path = "app/cave" }
 town = { path = "app/town" }
@@ -39,6 +42,8 @@ members = [
     "app/party",
     "app/spell",
     "app/spell-data",
+    "app/party-data",
+    "app/item-data",
     "app/town",
     "app/cave",
     "app/battle",
