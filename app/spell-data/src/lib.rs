@@ -45,7 +45,7 @@ pub enum SpellKind {
 }
 
 impl SpellKind {
-    pub fn name(self) -> &'static str {
+    pub const fn name(self) -> &'static str {
         match self {
             SpellKind::Fire1 => "Fire1",
             SpellKind::Fire2 => "Fire2",
@@ -74,7 +74,7 @@ impl SpellKind {
         }
     }
 
-    pub fn target_type(self) -> SpellTarget {
+    pub const fn target_type(self) -> SpellTarget {
         match self {
             SpellKind::Fire1 | SpellKind::Fire2 => SpellTarget::SingleEnemy,
             SpellKind::Blaze1 | SpellKind::Blaze2 => SpellTarget::AllEnemies,
@@ -92,7 +92,7 @@ impl SpellKind {
     }
 
     /// 状態異常呪文が付与するAilmentを返す
-    pub fn ailment(self) -> Option<Ailment> {
+    pub const fn ailment(self) -> Option<Ailment> {
         match self {
             SpellKind::Sleep1 | SpellKind::Sleepall1 => Some(Ailment::Sleep),
             SpellKind::Poison1 | SpellKind::Poisonall1 => Some(Ailment::Poison),
@@ -101,22 +101,22 @@ impl SpellKind {
     }
 
     /// target_type()から導出
-    pub fn is_offensive(self) -> bool {
+    pub const fn is_offensive(self) -> bool {
         matches!(
             self.target_type(),
             SpellTarget::SingleEnemy | SpellTarget::AllEnemies
         )
     }
 
-    pub fn mp_cost(self) -> i32 {
+    pub const fn mp_cost(self) -> i32 {
         self.mp_cost_value()
     }
 
-    pub fn effect(self) -> SpellEffect {
+    pub const fn effect(self) -> SpellEffect {
         self.effect_value()
     }
 
-    pub fn entry(self) -> SpellEntry {
+    pub const fn entry(self) -> SpellEntry {
         SpellEntry {
             name: self.name(),
             mp_cost: self.mp_cost_value(),
@@ -126,15 +126,15 @@ impl SpellKind {
         }
     }
 
-    fn mp_cost_value(self) -> i32 {
+    const fn mp_cost_value(self) -> i32 {
         self.effect_and_cost().0
     }
 
-    fn effect_value(self) -> SpellEffect {
+    const fn effect_value(self) -> SpellEffect {
         self.effect_and_cost().1
     }
 
-    fn effect_and_cost(self) -> (i32, SpellEffect) {
+    const fn effect_and_cost(self) -> (i32, SpellEffect) {
         use SpellEffect::*;
         match self {
             // 単体攻撃

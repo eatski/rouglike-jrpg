@@ -1,13 +1,13 @@
 use crate::party::{PartyMemberKind, RecruitmentPath};
 use crate::stats::{CombatStats, StatGrowth};
-use spell_data::SpellKind;
+use spell::SpellEntry;
 
 /// 1キャラクターのデータエントリ
 pub struct CharacterEntry {
     pub initial_stats: CombatStats,
     pub stat_growth: StatGrowth,
     pub recruit_method: RecruitmentPath,
-    pub spell_learn_table: &'static [(u32, SpellKind)],
+    pub spell_learn_table: &'static [(u32, SpellEntry)],
 }
 
 /// 全キャラのデータテーブル
@@ -61,7 +61,7 @@ impl CharacterParamTable {
         &self.entries[kind_index(kind)].recruit_method
     }
 
-    pub fn spell_learn_table(&self, kind: PartyMemberKind) -> &'static [(u32, SpellKind)] {
+    pub fn spell_learn_table(&self, kind: PartyMemberKind) -> &'static [(u32, SpellEntry)] {
         self.entries[kind_index(kind)].spell_learn_table
     }
 }
