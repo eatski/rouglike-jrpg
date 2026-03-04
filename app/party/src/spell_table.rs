@@ -26,7 +26,7 @@ mod tests {
     use crate::character_table::{CharacterEntry, CharacterParamTable};
     use crate::party::RecruitmentPath;
     use crate::stats::{CombatStats, StatGrowth};
-    use spell_data::SpellKind;
+    
 
     fn char_table() -> CharacterParamTable {
         CharacterParamTable::from_fn(|kind| match kind {
@@ -35,13 +35,13 @@ mod tests {
                 stat_growth: StatGrowth { hp: 3, mp: 3, attack: 1, defense: 1, speed: 1 },
                 recruit_method: RecruitmentPath::TavernBond,
                 spell_learn_table: const { &[
-                    (1, SpellKind::Fire1.entry()),
-                    (3, SpellKind::Blaze1.entry()),
-                    (5, SpellKind::Fire2.entry()),
-                    (7, SpellKind::Blaze2.entry()),
-                    (8, SpellKind::Sleep1.entry()),
-                    (9, SpellKind::Drain1.entry()),
-                    (10, SpellKind::Sleepall1.entry()),
+                    (1, spell_data::FIRE1),
+                    (3, spell_data::BLAZE1),
+                    (5, spell_data::FIRE2),
+                    (7, spell_data::BLAZE2),
+                    (8, spell_data::SLEEP1),
+                    (9, spell_data::DRAIN1),
+                    (10, spell_data::SLEEPALL1),
                 ] },
             },
             PartyMemberKind::Falin => CharacterEntry {
@@ -49,12 +49,12 @@ mod tests {
                 stat_growth: StatGrowth { hp: 4, mp: 2, attack: 1, defense: 1, speed: 1 },
                 recruit_method: RecruitmentPath::TavernBond,
                 spell_learn_table: const { &[
-                    (1, SpellKind::Heal1.entry()),
-                    (3, SpellKind::Healall1.entry()),
-                    (5, SpellKind::Heal2.entry()),
-                    (7, SpellKind::Shield2.entry()),
-                    (9, SpellKind::Healall2.entry()),
-                    (10, SpellKind::Barrier2.entry()),
+                    (1, spell_data::HEAL1),
+                    (3, spell_data::HEALALL1),
+                    (5, spell_data::HEAL2),
+                    (7, spell_data::SHIELD2),
+                    (9, spell_data::HEALALL2),
+                    (10, spell_data::BARRIER2),
                 ] },
             },
             PartyMemberKind::Rinsha => CharacterEntry {
@@ -62,13 +62,13 @@ mod tests {
                 stat_growth: StatGrowth { hp: 3, mp: 2, attack: 1, defense: 1, speed: 1 },
                 recruit_method: RecruitmentPath::TavernBond,
                 spell_learn_table: const { &[
-                    (1, SpellKind::Fire1.entry()),
-                    (3, SpellKind::Heal1.entry()),
-                    (5, SpellKind::Boost1.entry()),
-                    (6, SpellKind::Drain1.entry()),
-                    (7, SpellKind::Boost2.entry()),
-                    (8, SpellKind::Poison1.entry()),
-                    (9, SpellKind::Rally2.entry()),
+                    (1, spell_data::FIRE1),
+                    (3, spell_data::HEAL1),
+                    (5, spell_data::BOOST1),
+                    (6, spell_data::DRAIN1),
+                    (7, spell_data::BOOST2),
+                    (8, spell_data::POISON1),
+                    (9, spell_data::RALLY2),
                 ] },
             },
             PartyMemberKind::Kabru => CharacterEntry {
@@ -76,12 +76,12 @@ mod tests {
                 stat_growth: StatGrowth { hp: 4, mp: 1, attack: 2, defense: 1, speed: 1 },
                 recruit_method: RecruitmentPath::TavernBond,
                 spell_learn_table: const { &[
-                    (3, SpellKind::Heal1.entry()),
-                    (5, SpellKind::Shield1.entry()),
-                    (6, SpellKind::Siphon1.entry()),
-                    (7, SpellKind::Barrier1.entry()),
-                    (8, SpellKind::Poisonall1.entry()),
-                    (9, SpellKind::Rally1.entry()),
+                    (3, spell_data::HEAL1),
+                    (5, spell_data::SHIELD1),
+                    (6, spell_data::SIPHON1),
+                    (7, spell_data::BARRIER1),
+                    (8, spell_data::POISONALL1),
+                    (9, spell_data::RALLY1),
                 ] },
             },
             PartyMemberKind::Laios => CharacterEntry {
@@ -89,18 +89,18 @@ mod tests {
                 stat_growth: StatGrowth { hp: 5, mp: 1, attack: 2, defense: 1, speed: 1 },
                 recruit_method: RecruitmentPath::TavernBond,
                 spell_learn_table: const { &[
-                    (1, SpellKind::Heal1.entry()), (1, SpellKind::Boost1.entry()),
-                    (1, SpellKind::Fire1.entry()), (1, SpellKind::Fire2.entry()),
-                    (1, SpellKind::Blaze1.entry()), (1, SpellKind::Blaze2.entry()),
-                    (1, SpellKind::Heal2.entry()), (1, SpellKind::Healall1.entry()),
-                    (1, SpellKind::Healall2.entry()), (1, SpellKind::Shield1.entry()),
-                    (1, SpellKind::Shield2.entry()), (1, SpellKind::Barrier1.entry()),
-                    (1, SpellKind::Barrier2.entry()), (1, SpellKind::Boost2.entry()),
-                    (1, SpellKind::Rally1.entry()), (1, SpellKind::Rally2.entry()),
-                    (1, SpellKind::Drain1.entry()), (1, SpellKind::Drain2.entry()),
-                    (1, SpellKind::Siphon1.entry()), (1, SpellKind::Siphon2.entry()),
-                    (1, SpellKind::Sleep1.entry()), (1, SpellKind::Sleepall1.entry()),
-                    (1, SpellKind::Poison1.entry()), (1, SpellKind::Poisonall1.entry()),
+                    (1, spell_data::HEAL1), (1, spell_data::BOOST1),
+                    (1, spell_data::FIRE1), (1, spell_data::FIRE2),
+                    (1, spell_data::BLAZE1), (1, spell_data::BLAZE2),
+                    (1, spell_data::HEAL2), (1, spell_data::HEALALL1),
+                    (1, spell_data::HEALALL2), (1, spell_data::SHIELD1),
+                    (1, spell_data::SHIELD2), (1, spell_data::BARRIER1),
+                    (1, spell_data::BARRIER2), (1, spell_data::BOOST2),
+                    (1, spell_data::RALLY1), (1, spell_data::RALLY2),
+                    (1, spell_data::DRAIN1), (1, spell_data::DRAIN2),
+                    (1, spell_data::SIPHON1), (1, spell_data::SIPHON2),
+                    (1, spell_data::SLEEP1), (1, spell_data::SLEEPALL1),
+                    (1, spell_data::POISON1), (1, spell_data::POISONALL1),
                 ] },
             },
             PartyMemberKind::Izutsumi => CharacterEntry {
@@ -108,8 +108,8 @@ mod tests {
                 stat_growth: StatGrowth { hp: 3, mp: 1, attack: 2, defense: 0, speed: 2 },
                 recruit_method: RecruitmentPath::TavernBond,
                 spell_learn_table: const { &[
-                    (5, SpellKind::Fire1.entry()),
-                    (8, SpellKind::Boost1.entry()),
+                    (5, spell_data::FIRE1),
+                    (8, spell_data::BOOST1),
                 ] },
             },
             PartyMemberKind::Senshi => CharacterEntry {
@@ -117,7 +117,7 @@ mod tests {
                 stat_growth: StatGrowth { hp: 6, mp: 0, attack: 2, defense: 2, speed: 0 },
                 recruit_method: RecruitmentPath::TavernBond,
                 spell_learn_table: const { &[
-                    (4, SpellKind::Shield1.entry()),
+                    (4, spell_data::SHIELD1),
                 ] },
             },
             _ => CharacterEntry {
@@ -140,14 +140,14 @@ mod tests {
     fn marcille_learns_fire1_at_level_1() {
         let table = char_table();
         let spells = available_spells(PartyMemberKind::Marcille, 1, &table);
-        assert_eq!(spells, vec![SpellKind::Fire1.entry()]);
+        assert_eq!(spells, vec![spell_data::FIRE1]);
     }
 
     #[test]
     fn marcille_learns_blaze1_at_level_3() {
         let table = char_table();
         let spells = available_spells(PartyMemberKind::Marcille, 3, &table);
-        assert_eq!(spells, vec![SpellKind::Fire1.entry(), SpellKind::Blaze1.entry()]);
+        assert_eq!(spells, vec![spell_data::FIRE1, spell_data::BLAZE1]);
     }
 
     #[test]
@@ -156,7 +156,7 @@ mod tests {
         let spells = available_spells(PartyMemberKind::Marcille, 5, &table);
         assert_eq!(
             spells,
-            vec![SpellKind::Fire1.entry(), SpellKind::Blaze1.entry(), SpellKind::Fire2.entry()]
+            vec![spell_data::FIRE1, spell_data::BLAZE1, spell_data::FIRE2]
         );
     }
 
@@ -164,7 +164,7 @@ mod tests {
     fn falin_learns_heal1_at_level_1() {
         let table = char_table();
         let spells = available_spells(PartyMemberKind::Falin, 1, &table);
-        assert_eq!(spells, vec![SpellKind::Heal1.entry()]);
+        assert_eq!(spells, vec![spell_data::HEAL1]);
     }
 
     #[test]
@@ -179,11 +179,11 @@ mod tests {
         let table = char_table();
         assert_eq!(
             spells_learned_at_level(PartyMemberKind::Marcille, 1, &table),
-            vec![SpellKind::Fire1.entry()]
+            vec![spell_data::FIRE1]
         );
         assert_eq!(
             spells_learned_at_level(PartyMemberKind::Marcille, 3, &table),
-            vec![SpellKind::Blaze1.entry()]
+            vec![spell_data::BLAZE1]
         );
         assert!(spells_learned_at_level(PartyMemberKind::Marcille, 2, &table).is_empty());
     }
@@ -192,7 +192,7 @@ mod tests {
     fn senshi_learns_shield1_at_level_4() {
         let table = char_table();
         let spells = available_spells(PartyMemberKind::Senshi, 4, &table);
-        assert_eq!(spells, vec![SpellKind::Shield1.entry()]);
+        assert_eq!(spells, vec![spell_data::SHIELD1]);
     }
 
     #[test]
@@ -207,22 +207,22 @@ mod tests {
     fn marcille_learns_drain1_at_level_9() {
         let table = char_table();
         let spells = available_spells(PartyMemberKind::Marcille, 9, &table);
-        assert!(spells.contains(&SpellKind::Drain1.entry()));
+        assert!(spells.contains(&spell_data::DRAIN1));
     }
 
     #[test]
     fn rinsha_learns_drain1_at_level_6() {
         let table = char_table();
         let spells = available_spells(PartyMemberKind::Rinsha, 6, &table);
-        assert!(spells.contains(&SpellKind::Drain1.entry()));
-        assert!(!available_spells(PartyMemberKind::Rinsha, 5, &table).contains(&SpellKind::Drain1.entry()));
+        assert!(spells.contains(&spell_data::DRAIN1));
+        assert!(!available_spells(PartyMemberKind::Rinsha, 5, &table).contains(&spell_data::DRAIN1));
     }
 
     #[test]
     fn kabru_learns_siphon1_at_level_6() {
         let table = char_table();
         let spells = available_spells(PartyMemberKind::Kabru, 6, &table);
-        assert!(spells.contains(&SpellKind::Siphon1.entry()));
-        assert!(!available_spells(PartyMemberKind::Kabru, 5, &table).contains(&SpellKind::Siphon1.entry()));
+        assert!(spells.contains(&spell_data::SIPHON1));
+        assert!(!available_spells(PartyMemberKind::Kabru, 5, &table).contains(&spell_data::SIPHON1));
     }
 }

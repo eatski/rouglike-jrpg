@@ -1,6 +1,6 @@
-use spell::SpellEntry;
-use spell_data::SpellKind;
 use party::CombatStats;
+use spell::SpellEntry;
+use spell_data::{BLAZE1, BLAZE2, DRAIN1, DRAIN2, FIRE1, FIRE2, HEAL2, POISONALL1, SIPHON2, SLEEP1, SLEEPALL1};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum EnemyKind {
@@ -81,20 +81,15 @@ impl EnemyKind {
     }
 
     /// 使用可能な呪文テーブル
-    pub fn spells(self) -> &'static [SpellKind] {
+    pub fn spells(self) -> &'static [SpellEntry] {
         match self {
-            EnemyKind::Ghost => &[SpellKind::Fire1, SpellKind::Drain1, SpellKind::Sleep1],
-            EnemyKind::Demon => &[SpellKind::Fire1, SpellKind::Blaze1],
-            EnemyKind::Wraith => &[SpellKind::Fire2, SpellKind::Blaze1, SpellKind::Drain2, SpellKind::Sleepall1],
-            EnemyKind::Dragon => &[SpellKind::Blaze2],
-            EnemyKind::DarkLord => &[SpellKind::Blaze2, SpellKind::Fire2, SpellKind::Heal2, SpellKind::Siphon2, SpellKind::Poisonall1],
+            EnemyKind::Ghost => &[FIRE1, DRAIN1, SLEEP1],
+            EnemyKind::Demon => &[FIRE1, BLAZE1],
+            EnemyKind::Wraith => &[FIRE2, BLAZE1, DRAIN2, SLEEPALL1],
+            EnemyKind::Dragon => &[BLAZE2],
+            EnemyKind::DarkLord => &[BLAZE2, FIRE2, HEAL2, SIPHON2, POISONALL1],
             _ => &[],
         }
-    }
-
-    /// SpellEntry に変換した呪文リスト
-    fn spell_entries(self) -> Vec<SpellEntry> {
-        self.spells().iter().map(|s| s.entry()).collect()
     }
 
     /// Tier 1 の基本ステータス (max_hp, attack, defense, speed, max_mp)
@@ -149,7 +144,7 @@ impl Enemy {
                 (spd as f32 * m).round() as i32,
                 (mp as f32 * m).round() as i32,
             ),
-            spells: kind.spell_entries(),
+            spells: kind.spells().to_vec(),
         }
     }
 

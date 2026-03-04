@@ -2,212 +2,59 @@ pub use spell::{Ailment, SpellEffect, SpellEntry, SpellTarget};
 pub use spell::{ailment_success, heal_amount, mp_drain_amount, spell_damage};
 pub use spell::{DEFENSE_DIVISOR, POISON_DAMAGE};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum SpellKind {
-    // 単体攻撃
-    Fire1,
-    Fire2,
-    // 全体攻撃
-    Blaze1,
-    Blaze2,
-    // 単体回復
-    Heal1,
-    Heal2,
-    // 全体回復
-    Healall1,
-    Healall2,
-    // 味方単体ブロック付与
-    Shield1,
-    Shield2,
-    // 味方全体ブロック付与
-    Barrier1,
-    Barrier2,
-    // 味方単体ATK↑
-    Boost1,
-    Boost2,
-    // 味方全体ATK↑
-    Rally1,
-    Rally2,
-    // 単体MP減少
-    Drain1,
-    Drain2,
-    // 全体MP減少
-    Siphon1,
-    Siphon2,
-    // 単体眠り
-    Sleep1,
-    // 全体眠り
-    Sleepall1,
-    // 単体毒
-    Poison1,
-    // 全体毒
-    Poisonall1,
-}
+use SpellEffect::*;
+use SpellTarget::*;
 
-impl SpellKind {
-    pub const fn name(self) -> &'static str {
-        match self {
-            SpellKind::Fire1 => "Fire1",
-            SpellKind::Fire2 => "Fire2",
-            SpellKind::Blaze1 => "Blaze1",
-            SpellKind::Blaze2 => "Blaze2",
-            SpellKind::Heal1 => "Heal1",
-            SpellKind::Heal2 => "Heal2",
-            SpellKind::Healall1 => "Healall1",
-            SpellKind::Healall2 => "Healall2",
-            SpellKind::Shield1 => "Shield1",
-            SpellKind::Shield2 => "Shield2",
-            SpellKind::Barrier1 => "Barrier1",
-            SpellKind::Barrier2 => "Barrier2",
-            SpellKind::Boost1 => "Boost1",
-            SpellKind::Boost2 => "Boost2",
-            SpellKind::Rally1 => "Rally1",
-            SpellKind::Rally2 => "Rally2",
-            SpellKind::Drain1 => "Drain1",
-            SpellKind::Drain2 => "Drain2",
-            SpellKind::Siphon1 => "Siphon1",
-            SpellKind::Siphon2 => "Siphon2",
-            SpellKind::Sleep1 => "Sleep1",
-            SpellKind::Sleepall1 => "Sleepall1",
-            SpellKind::Poison1 => "Poison1",
-            SpellKind::Poisonall1 => "Poisonall1",
-        }
-    }
+// 単体攻撃
+pub const FIRE1: SpellEntry = SpellEntry { name: "Fire1", mp_cost: 3, effect: Damage { base_damage: 12 }, target_type: SingleEnemy, ailment: None };
+pub const FIRE2: SpellEntry = SpellEntry { name: "Fire2", mp_cost: 7, effect: Damage { base_damage: 25 }, target_type: SingleEnemy, ailment: None };
+// 全体攻撃
+pub const BLAZE1: SpellEntry = SpellEntry { name: "Blaze1", mp_cost: 5, effect: Damage { base_damage: 8 }, target_type: AllEnemies, ailment: None };
+pub const BLAZE2: SpellEntry = SpellEntry { name: "Blaze2", mp_cost: 10, effect: Damage { base_damage: 18 }, target_type: AllEnemies, ailment: None };
+// 単体回復
+pub const HEAL1: SpellEntry = SpellEntry { name: "Heal1", mp_cost: 3, effect: Heal { base_heal: 15 }, target_type: SingleAlly, ailment: None };
+pub const HEAL2: SpellEntry = SpellEntry { name: "Heal2", mp_cost: 7, effect: Heal { base_heal: 40 }, target_type: SingleAlly, ailment: None };
+// 全体回復
+pub const HEALALL1: SpellEntry = SpellEntry { name: "Healall1", mp_cost: 6, effect: Heal { base_heal: 10 }, target_type: AllAllies, ailment: None };
+pub const HEALALL2: SpellEntry = SpellEntry { name: "Healall2", mp_cost: 12, effect: Heal { base_heal: 25 }, target_type: AllAllies, ailment: None };
+// 味方単体ブロック
+pub const SHIELD1: SpellEntry = SpellEntry { name: "Shield1", mp_cost: 3, effect: Block { amount: 10 }, target_type: SingleAlly, ailment: None };
+pub const SHIELD2: SpellEntry = SpellEntry { name: "Shield2", mp_cost: 6, effect: Block { amount: 20 }, target_type: SingleAlly, ailment: None };
+// 味方全体ブロック
+pub const BARRIER1: SpellEntry = SpellEntry { name: "Barrier1", mp_cost: 6, effect: Block { amount: 6 }, target_type: AllAllies, ailment: None };
+pub const BARRIER2: SpellEntry = SpellEntry { name: "Barrier2", mp_cost: 10, effect: Block { amount: 12 }, target_type: AllAllies, ailment: None };
+// 味方単体ATK↑
+pub const BOOST1: SpellEntry = SpellEntry { name: "Boost1", mp_cost: 3, effect: AttackBuff { amount: 3 }, target_type: SingleAlly, ailment: None };
+pub const BOOST2: SpellEntry = SpellEntry { name: "Boost2", mp_cost: 6, effect: AttackBuff { amount: 6 }, target_type: SingleAlly, ailment: None };
+// 味方全体ATK↑
+pub const RALLY1: SpellEntry = SpellEntry { name: "Rally1", mp_cost: 6, effect: AttackBuff { amount: 2 }, target_type: AllAllies, ailment: None };
+pub const RALLY2: SpellEntry = SpellEntry { name: "Rally2", mp_cost: 10, effect: AttackBuff { amount: 4 }, target_type: AllAllies, ailment: None };
+// 単体MP減少
+pub const DRAIN1: SpellEntry = SpellEntry { name: "Drain1", mp_cost: 4, effect: MpDrain { base_drain: 8 }, target_type: SingleEnemy, ailment: None };
+pub const DRAIN2: SpellEntry = SpellEntry { name: "Drain2", mp_cost: 8, effect: MpDrain { base_drain: 18 }, target_type: SingleEnemy, ailment: None };
+// 全体MP減少
+pub const SIPHON1: SpellEntry = SpellEntry { name: "Siphon1", mp_cost: 6, effect: MpDrain { base_drain: 5 }, target_type: AllEnemies, ailment: None };
+pub const SIPHON2: SpellEntry = SpellEntry { name: "Siphon2", mp_cost: 10, effect: MpDrain { base_drain: 12 }, target_type: AllEnemies, ailment: None };
+// 単体眠り
+pub const SLEEP1: SpellEntry = SpellEntry { name: "Sleep1", mp_cost: 4, effect: SpellEffect::Ailment { success_rate: 70 }, target_type: SingleEnemy, ailment: Some(spell::Ailment::Sleep) };
+// 全体眠り
+pub const SLEEPALL1: SpellEntry = SpellEntry { name: "Sleepall1", mp_cost: 8, effect: SpellEffect::Ailment { success_rate: 50 }, target_type: AllEnemies, ailment: Some(spell::Ailment::Sleep) };
+// 単体毒
+pub const POISON1: SpellEntry = SpellEntry { name: "Poison1", mp_cost: 3, effect: SpellEffect::Ailment { success_rate: 80 }, target_type: SingleEnemy, ailment: Some(spell::Ailment::Poison) };
+// 全体毒
+pub const POISONALL1: SpellEntry = SpellEntry { name: "Poisonall1", mp_cost: 6, effect: SpellEffect::Ailment { success_rate: 60 }, target_type: AllEnemies, ailment: Some(spell::Ailment::Poison) };
 
-    pub const fn target_type(self) -> SpellTarget {
-        match self {
-            SpellKind::Fire1 | SpellKind::Fire2 => SpellTarget::SingleEnemy,
-            SpellKind::Blaze1 | SpellKind::Blaze2 => SpellTarget::AllEnemies,
-            SpellKind::Heal1 | SpellKind::Heal2 => SpellTarget::SingleAlly,
-            SpellKind::Healall1 | SpellKind::Healall2 => SpellTarget::AllAllies,
-            SpellKind::Shield1 | SpellKind::Shield2 => SpellTarget::SingleAlly,
-            SpellKind::Barrier1 | SpellKind::Barrier2 => SpellTarget::AllAllies,
-            SpellKind::Boost1 | SpellKind::Boost2 => SpellTarget::SingleAlly,
-            SpellKind::Rally1 | SpellKind::Rally2 => SpellTarget::AllAllies,
-            SpellKind::Drain1 | SpellKind::Drain2 => SpellTarget::SingleEnemy,
-            SpellKind::Siphon1 | SpellKind::Siphon2 => SpellTarget::AllEnemies,
-            SpellKind::Sleep1 | SpellKind::Poison1 => SpellTarget::SingleEnemy,
-            SpellKind::Sleepall1 | SpellKind::Poisonall1 => SpellTarget::AllEnemies,
-        }
-    }
-
-    /// 状態異常呪文が付与するAilmentを返す
-    pub const fn ailment(self) -> Option<Ailment> {
-        match self {
-            SpellKind::Sleep1 | SpellKind::Sleepall1 => Some(Ailment::Sleep),
-            SpellKind::Poison1 | SpellKind::Poisonall1 => Some(Ailment::Poison),
-            _ => None,
-        }
-    }
-
-    /// target_type()から導出
-    pub const fn is_offensive(self) -> bool {
-        matches!(
-            self.target_type(),
-            SpellTarget::SingleEnemy | SpellTarget::AllEnemies
-        )
-    }
-
-    pub const fn mp_cost(self) -> i32 {
-        self.mp_cost_value()
-    }
-
-    pub const fn effect(self) -> SpellEffect {
-        self.effect_value()
-    }
-
-    pub const fn entry(self) -> SpellEntry {
-        SpellEntry {
-            name: self.name(),
-            mp_cost: self.mp_cost_value(),
-            effect: self.effect_value(),
-            target_type: self.target_type(),
-            ailment: self.ailment(),
-        }
-    }
-
-    const fn mp_cost_value(self) -> i32 {
-        self.effect_and_cost().0
-    }
-
-    const fn effect_value(self) -> SpellEffect {
-        self.effect_and_cost().1
-    }
-
-    const fn effect_and_cost(self) -> (i32, SpellEffect) {
-        use SpellEffect::*;
-        match self {
-            // 単体攻撃
-            SpellKind::Fire1 => (3, Damage { base_damage: 12 }),
-            SpellKind::Fire2 => (7, Damage { base_damage: 25 }),
-            // 全体攻撃
-            SpellKind::Blaze1 => (5, Damage { base_damage: 8 }),
-            SpellKind::Blaze2 => (10, Damage { base_damage: 18 }),
-            // 単体回復
-            SpellKind::Heal1 => (3, Heal { base_heal: 15 }),
-            SpellKind::Heal2 => (7, Heal { base_heal: 40 }),
-            // 全体回復
-            SpellKind::Healall1 => (6, Heal { base_heal: 10 }),
-            SpellKind::Healall2 => (12, Heal { base_heal: 25 }),
-            // 味方単体ブロック
-            SpellKind::Shield1 => (3, Block { amount: 10 }),
-            SpellKind::Shield2 => (6, Block { amount: 20 }),
-            // 味方全体ブロック
-            SpellKind::Barrier1 => (6, Block { amount: 6 }),
-            SpellKind::Barrier2 => (10, Block { amount: 12 }),
-            // 味方単体ATK↑
-            SpellKind::Boost1 => (3, AttackBuff { amount: 3 }),
-            SpellKind::Boost2 => (6, AttackBuff { amount: 6 }),
-            // 味方全体ATK↑
-            SpellKind::Rally1 => (6, AttackBuff { amount: 2 }),
-            SpellKind::Rally2 => (10, AttackBuff { amount: 4 }),
-            // 単体MP減少
-            SpellKind::Drain1 => (4, MpDrain { base_drain: 8 }),
-            SpellKind::Drain2 => (8, MpDrain { base_drain: 18 }),
-            // 全体MP減少
-            SpellKind::Siphon1 => (6, MpDrain { base_drain: 5 }),
-            SpellKind::Siphon2 => (10, MpDrain { base_drain: 12 }),
-            // 単体眠り
-            SpellKind::Sleep1 => (4, Ailment { success_rate: 70 }),
-            // 全体眠り
-            SpellKind::Sleepall1 => (8, Ailment { success_rate: 50 }),
-            // 単体毒
-            SpellKind::Poison1 => (3, Ailment { success_rate: 80 }),
-            // 全体毒
-            SpellKind::Poisonall1 => (6, Ailment { success_rate: 60 }),
-        }
-    }
-}
-
-pub static ALL_SPELLS: &[SpellKind] = &[
-    SpellKind::Fire1,
-    SpellKind::Fire2,
-    SpellKind::Blaze1,
-    SpellKind::Blaze2,
-    SpellKind::Heal1,
-    SpellKind::Heal2,
-    SpellKind::Healall1,
-    SpellKind::Healall2,
-    SpellKind::Shield1,
-    SpellKind::Shield2,
-    SpellKind::Barrier1,
-    SpellKind::Barrier2,
-    SpellKind::Boost1,
-    SpellKind::Boost2,
-    SpellKind::Rally1,
-    SpellKind::Rally2,
-    SpellKind::Drain1,
-    SpellKind::Drain2,
-    SpellKind::Siphon1,
-    SpellKind::Siphon2,
-    SpellKind::Sleep1,
-    SpellKind::Sleepall1,
-    SpellKind::Poison1,
-    SpellKind::Poisonall1,
+pub static ALL_SPELLS: &[SpellEntry] = &[
+    FIRE1, FIRE2, BLAZE1, BLAZE2,
+    HEAL1, HEAL2, HEALALL1, HEALALL2,
+    SHIELD1, SHIELD2, BARRIER1, BARRIER2,
+    BOOST1, BOOST2, RALLY1, RALLY2,
+    DRAIN1, DRAIN2, SIPHON1, SIPHON2,
+    SLEEP1, SLEEPALL1, POISON1, POISONALL1,
 ];
 
 /// 全呪文リストを返す
-pub fn all_spells() -> &'static [SpellKind] {
+pub fn all_spells() -> &'static [SpellEntry] {
     ALL_SPELLS
 }
 
@@ -217,7 +64,6 @@ mod tests {
 
     #[test]
     fn spell_damage_basic() {
-        // base_damage=12, defense=4, divisor=4.0 → base = 12 - 1 = 11
         let damage = spell_damage(12, 4, DEFENSE_DIVISOR, 1.0);
         assert_eq!(damage, 11);
     }
@@ -226,8 +72,8 @@ mod tests {
     fn spell_damage_with_random() {
         let low = spell_damage(12, 4, DEFENSE_DIVISOR, 0.8);
         let high = spell_damage(12, 4, DEFENSE_DIVISOR, 1.2);
-        assert_eq!(low, 9); // 11 * 0.8 = 8.8 → 9
-        assert_eq!(high, 13); // 11 * 1.2 = 13.2 → 13
+        assert_eq!(low, 9);
+        assert_eq!(high, 13);
     }
 
     #[test]
@@ -257,8 +103,8 @@ mod tests {
 
     #[test]
     fn target_type_and_effect_consistency() {
-        for &spell in all_spells() {
-            match spell.effect() {
+        for spell in all_spells() {
+            match spell.effect {
                 SpellEffect::Damage { .. } => {
                     assert!(spell.is_offensive());
                 }
@@ -273,7 +119,7 @@ mod tests {
                 }
                 SpellEffect::Ailment { .. } => {
                     assert!(spell.is_offensive());
-                    assert!(spell.ailment().is_some());
+                    assert!(spell.ailment.is_some());
                 }
             }
         }

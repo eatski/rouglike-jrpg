@@ -1026,7 +1026,7 @@ impl BattleState {
 mod tests {
     use super::*;
     use enemy::{Enemy, EnemyKind};
-    use spell_data::SpellKind;
+    
     use party::{default_party, CharacterParamTable, CharacterEntry, StatGrowth, RecruitmentPath, PartyMember, PartyMemberKind};
 
     fn char_table() -> CharacterParamTable {
@@ -1036,18 +1036,18 @@ mod tests {
                 stat_growth: StatGrowth { hp: 5, mp: 1, attack: 2, defense: 1, speed: 1 },
                 recruit_method: RecruitmentPath::TavernBond,
                 spell_learn_table: const { &[
-                    (1, SpellKind::Heal1.entry()), (1, SpellKind::Boost1.entry()),
-                    (1, SpellKind::Fire1.entry()), (1, SpellKind::Fire2.entry()),
-                    (1, SpellKind::Blaze1.entry()), (1, SpellKind::Blaze2.entry()),
-                    (1, SpellKind::Heal2.entry()), (1, SpellKind::Healall1.entry()),
-                    (1, SpellKind::Healall2.entry()), (1, SpellKind::Shield1.entry()),
-                    (1, SpellKind::Shield2.entry()), (1, SpellKind::Barrier1.entry()),
-                    (1, SpellKind::Barrier2.entry()), (1, SpellKind::Boost2.entry()),
-                    (1, SpellKind::Rally1.entry()), (1, SpellKind::Rally2.entry()),
-                    (1, SpellKind::Drain1.entry()), (1, SpellKind::Drain2.entry()),
-                    (1, SpellKind::Siphon1.entry()), (1, SpellKind::Siphon2.entry()),
-                    (1, SpellKind::Sleep1.entry()), (1, SpellKind::Sleepall1.entry()),
-                    (1, SpellKind::Poison1.entry()), (1, SpellKind::Poisonall1.entry()),
+                    (1, spell_data::HEAL1), (1, spell_data::BOOST1),
+                    (1, spell_data::FIRE1), (1, spell_data::FIRE2),
+                    (1, spell_data::BLAZE1), (1, spell_data::BLAZE2),
+                    (1, spell_data::HEAL2), (1, spell_data::HEALALL1),
+                    (1, spell_data::HEALALL2), (1, spell_data::SHIELD1),
+                    (1, spell_data::SHIELD2), (1, spell_data::BARRIER1),
+                    (1, spell_data::BARRIER2), (1, spell_data::BOOST2),
+                    (1, spell_data::RALLY1), (1, spell_data::RALLY2),
+                    (1, spell_data::DRAIN1), (1, spell_data::DRAIN2),
+                    (1, spell_data::SIPHON1), (1, spell_data::SIPHON2),
+                    (1, spell_data::SLEEP1), (1, spell_data::SLEEPALL1),
+                    (1, spell_data::POISON1), (1, spell_data::POISONALL1),
                 ] },
             },
             PartyMemberKind::Marcille => CharacterEntry {
@@ -1055,13 +1055,13 @@ mod tests {
                 stat_growth: StatGrowth { hp: 3, mp: 3, attack: 1, defense: 1, speed: 1 },
                 recruit_method: RecruitmentPath::TavernBond,
                 spell_learn_table: const { &[
-                    (1, SpellKind::Fire1.entry()),
-                    (3, SpellKind::Blaze1.entry()),
-                    (5, SpellKind::Fire2.entry()),
-                    (7, SpellKind::Blaze2.entry()),
-                    (8, SpellKind::Sleep1.entry()),
-                    (9, SpellKind::Drain1.entry()),
-                    (10, SpellKind::Sleepall1.entry()),
+                    (1, spell_data::FIRE1),
+                    (3, spell_data::BLAZE1),
+                    (5, spell_data::FIRE2),
+                    (7, spell_data::BLAZE2),
+                    (8, spell_data::SLEEP1),
+                    (9, spell_data::DRAIN1),
+                    (10, spell_data::SLEEPALL1),
                 ] },
             },
             PartyMemberKind::Falin => CharacterEntry {
@@ -1069,12 +1069,12 @@ mod tests {
                 stat_growth: StatGrowth { hp: 4, mp: 2, attack: 1, defense: 1, speed: 1 },
                 recruit_method: RecruitmentPath::TavernBond,
                 spell_learn_table: const { &[
-                    (1, SpellKind::Heal1.entry()),
-                    (3, SpellKind::Healall1.entry()),
-                    (5, SpellKind::Heal2.entry()),
-                    (7, SpellKind::Shield2.entry()),
-                    (9, SpellKind::Healall2.entry()),
-                    (10, SpellKind::Barrier2.entry()),
+                    (1, spell_data::HEAL1),
+                    (3, spell_data::HEALALL1),
+                    (5, spell_data::HEAL2),
+                    (7, spell_data::SHIELD2),
+                    (9, spell_data::HEALALL2),
+                    (10, spell_data::BARRIER2),
                 ] },
             },
             PartyMemberKind::Senshi => CharacterEntry {
@@ -1082,7 +1082,7 @@ mod tests {
                 stat_growth: StatGrowth { hp: 6, mp: 0, attack: 2, defense: 2, speed: 0 },
                 recruit_method: RecruitmentPath::TavernBond,
                 spell_learn_table: const { &[
-                    (4, SpellKind::Shield1.entry()),
+                    (4, spell_data::SHIELD1),
                 ] },
             },
             PartyMemberKind::Rinsha => CharacterEntry {
@@ -1090,13 +1090,13 @@ mod tests {
                 stat_growth: StatGrowth { hp: 3, mp: 2, attack: 1, defense: 1, speed: 1 },
                 recruit_method: RecruitmentPath::TavernBond,
                 spell_learn_table: const { &[
-                    (1, SpellKind::Fire1.entry()),
-                    (3, SpellKind::Heal1.entry()),
-                    (5, SpellKind::Boost1.entry()),
-                    (6, SpellKind::Drain1.entry()),
-                    (7, SpellKind::Boost2.entry()),
-                    (8, SpellKind::Poison1.entry()),
-                    (9, SpellKind::Rally2.entry()),
+                    (1, spell_data::FIRE1),
+                    (3, spell_data::HEAL1),
+                    (5, spell_data::BOOST1),
+                    (6, spell_data::DRAIN1),
+                    (7, spell_data::BOOST2),
+                    (8, spell_data::POISON1),
+                    (9, spell_data::RALLY2),
                 ] },
             },
             _ => CharacterEntry {
@@ -1347,7 +1347,7 @@ mod tests {
                 target: TargetId::Enemy(0),
             },
             BattleAction::Spell {
-                spell: SpellKind::Fire1.entry(),
+                spell: spell_data::FIRE1,
                 target: TargetId::Enemy(0),
             },
             BattleAction::Attack {
@@ -1390,7 +1390,7 @@ mod tests {
                 target: TargetId::Enemy(0),
             },
             BattleAction::Spell {
-                spell: SpellKind::Heal1.entry(),
+                spell: spell_data::HEAL1,
                 target: TargetId::Party(0),
             },
         ];
@@ -1424,7 +1424,7 @@ mod tests {
                 target: TargetId::Enemy(0),
             },
             BattleAction::Spell {
-                spell: SpellKind::Heal1.entry(),
+                spell: spell_data::HEAL1,
                 target: TargetId::Party(0), // 倒されている → リターゲット
             },
         ];
@@ -1517,7 +1517,7 @@ mod tests {
         let mut battle = BattleState::new(party, enemies, test_item_params());
 
         let commands = vec![BattleAction::Spell {
-            spell: SpellKind::Blaze1.entry(),
+            spell: spell_data::BLAZE1,
             target: TargetId::Enemy(0), // AoEなのでダミー
         }];
         let randoms = make_random(vec![1.0; 4], 0.0);
@@ -1558,7 +1558,7 @@ mod tests {
                 target: TargetId::Enemy(0),
             },
             BattleAction::Spell {
-                spell: SpellKind::Healall1.entry(),
+                spell: spell_data::HEALALL1,
                 target: TargetId::Party(0), // AoEなのでダミー
             },
         ];
@@ -1594,7 +1594,7 @@ mod tests {
                 target: TargetId::Enemy(0),
             },
             BattleAction::Spell {
-                spell: SpellKind::Boost1.entry(),
+                spell: spell_data::BOOST1,
                 target: TargetId::Party(0),
             },
         ];
@@ -1634,7 +1634,7 @@ mod tests {
                 target: TargetId::Enemy(0),
             },
             BattleAction::Spell {
-                spell: SpellKind::Shield1.entry(),
+                spell: spell_data::SHIELD1,
                 target: TargetId::Party(0),
             },
         ];
@@ -1701,7 +1701,7 @@ mod tests {
         // Shield1を2回唱える（2ターン）
         for _ in 0..2 {
             let commands = vec![BattleAction::Spell {
-                spell: SpellKind::Shield1.entry(),
+                spell: spell_data::SHIELD1,
                 target: TargetId::Party(0),
             }];
             let randoms = make_random(vec![1.0; 2], 0.0);
@@ -1727,7 +1727,7 @@ mod tests {
 
         // ターン1: バフ付与
         let commands = vec![BattleAction::Spell {
-            spell: SpellKind::Boost1.entry(),
+            spell: spell_data::BOOST1,
             target: TargetId::Party(0),
         }];
         let randoms = make_random(vec![1.0; 2], 0.0);
@@ -1773,7 +1773,7 @@ mod tests {
 
         // Bolga(ATK+3)を付与
         let commands = vec![BattleAction::Spell {
-            spell: SpellKind::Boost1.entry(),
+            spell: spell_data::BOOST1,
             target: TargetId::Party(0),
         }];
         let randoms = make_random(vec![1.0; 2], 0.0);
@@ -1793,7 +1793,7 @@ mod tests {
 
         // Bolgarda(ATK+6)で上書き → 持続5にリセット
         let commands = vec![BattleAction::Spell {
-            spell: SpellKind::Boost2.entry(),
+            spell: spell_data::BOOST2,
             target: TargetId::Party(0),
         }];
         let randoms = make_random(vec![1.0; 2], 0.0);
@@ -1875,7 +1875,7 @@ mod tests {
         // usable.first()はBlaze2を返す → Damage呪文
         // Heal呪文のテストは直接実行
         let hp_before = battle.enemies[0].stats.hp;
-        let results = battle.execute_enemy_spell(0, SpellKind::Heal2.entry(), 1.0);
+        let results = battle.execute_enemy_spell(0, spell_data::HEAL2, 1.0);
         assert!(
             results.iter().any(|r| matches!(r, TurnResult::Healed { .. })),
             "Heal2で回復イベントが発生するはず"
@@ -2081,7 +2081,7 @@ mod tests {
         // Party(0): 成功ケース (random=0.5 → 0.5*100=50 < 70 → 成功)
         let commands = vec![
             BattleAction::Spell {
-                spell: SpellKind::Sleep1.entry(),
+                spell: spell_data::SLEEP1,
                 target: TargetId::Enemy(0),
             },
             BattleAction::Attack {
@@ -2108,7 +2108,7 @@ mod tests {
         // 失敗ケース (random=0.9 → 0.9*100=90 >= 70 → 失敗)
         let commands = vec![
             BattleAction::Spell {
-                spell: SpellKind::Sleep1.entry(),
+                spell: spell_data::SLEEP1,
                 target: TargetId::Enemy(0),
             },
             BattleAction::Attack {

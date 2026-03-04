@@ -19,6 +19,16 @@ pub struct SpellEntry {
     pub ailment: Option<Ailment>,
 }
 
+impl SpellEntry {
+    /// target_type()から導出
+    pub const fn is_offensive(&self) -> bool {
+        matches!(
+            self.target_type,
+            SpellTarget::SingleEnemy | SpellTarget::AllEnemies
+        )
+    }
+}
+
 pub const DEFENSE_DIVISOR: f32 = 4.0;
 pub const POISON_DAMAGE: i32 = 3;
 
