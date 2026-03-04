@@ -174,7 +174,6 @@ dependencies = [
  "bevy",
  "item",
  "party",
- "spell",
 ]
 
 [[package]]
@@ -328,9 +327,11 @@ checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 name = "battle"
 version = "0.1.0"
 dependencies = [
+ "enemy",
  "item",
  "party",
  "spell",
+ "spell-data",
 ]
 
 [[package]]
@@ -340,6 +341,7 @@ dependencies = [
  "app-state",
  "battle",
  "bevy",
+ "enemy",
  "hud-ui",
  "input-ui",
  "item",
@@ -2340,6 +2342,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "34aa73646ffb006b8f5147f3dc182bd4bcb190227ce861fc4a4844bf8e3cb2c0"
 
 [[package]]
+name = "enemy"
+version = "0.1.0"
+dependencies = [
+ "party",
+ "spell",
+ "spell-data",
+]
+
+[[package]]
 name = "equivalent"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3917,6 +3928,7 @@ dependencies = [
  "item",
  "item-data",
  "spell",
+ "spell-data",
 ]
 
 [[package]]
@@ -3925,7 +3937,7 @@ version = "0.1.0"
 dependencies = [
  "item",
  "party",
- "spell",
+ "spell-data",
 ]
 
 [[package]]
@@ -4383,6 +4395,7 @@ dependencies = [
  "bevy",
  "cave",
  "cave-ui",
+ "enemy",
  "field-core",
  "field-menu-ui",
  "field-walk",
@@ -4499,7 +4512,9 @@ dependencies = [
  "battle",
  "battle-ui",
  "bevy",
+ "enemy",
  "hud-ui",
+ "item-data",
  "party-data",
  "screenshot-common",
  "spell-data",

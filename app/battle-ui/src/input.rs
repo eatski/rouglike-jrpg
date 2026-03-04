@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
-use battle::{ActorId, BattleAction, SpellKind, SpellTarget, TargetId, TurnRandomFactors, TurnResult};
+use battle::{ActorId, BattleAction, TargetId, TurnRandomFactors, TurnResult};
+use spell::{SpellEffect, SpellEntry, SpellTarget};
 use item::ItemEffect;
 
 use app_state::{BattleState, CharacterParams};
@@ -141,13 +142,13 @@ fn handle_spell_select(
         let member_mp = game_state.state.party[member_index].stats.mp;
 
         // MP不足チェック
-        if member_mp < game_state.state.spell_params.mp_cost(spell) {
+        if member_mp < spell.mp_cost {
             return; // MP不足なら何もしない
         }
 
         ui_state.pending_spell = Some(spell);
 
-        match spell.target_type() {
+        match spell.target_type {
             SpellTarget::SingleEnemy => {
                 // 単体攻撃 → 敵選択へ
                 ui_state.target_offset = 0;
@@ -456,7 +457,7 @@ fn execute_turn(game_state: &mut BattleGameState, ui_state: &mut BattleUIState, 
                         messages.push(format!(
                             "{}は {}を おぼえた！",
                             member.kind.name(),
-                            spell.name()
+                            spell.name
                         ));
                     }
                 }
@@ -518,7 +519,7 @@ fn results_to_messages(
 
     // AoEメッセージ最適化: 同じキャスター+呪文の連続SpellDamage/Healed/Buffedの
     // 2件目以降は詠唱メッセージを省略
-    let mut last_aoe_caster_spell: Option<(ActorId, SpellKind)> = None;
+    let mut last_aoe_caster_spell: Option<(ActorId, SpellEntry)> = None;
 
     for result in results {
         match result {
@@ -588,7 +589,7 @@ fn results_to_messages(
                     messages.push(format!(
                         "{}は {}を となえた！ {}に {}ダメージ！{}",
                         caster_name,
-                        spell.name(),
+                        spell.name,
                         target_name,
                         damage,
                         block_suffix
@@ -600,7 +601,7 @@ fn results_to_messages(
                 if !is_continuation
                     && let ActorId::Party(ci) = caster
                 {
-                    running_party_mp[*ci] = (running_party_mp[*ci] - state.spell_params.mp_cost(*spell)).max(0);
+                    running_party_mp[*ci] = (running_party_mp[*ci] - spell.mp_cost).max(0);
                     effects.push((
                         msg_index,
                         MessageEffect::UpdatePartyMp {
@@ -650,7 +651,7 @@ fn results_to_messages(
                     messages.push(format!(
                         "{}は {}を となえた！ {}の HPが {}かいふく！",
                         caster_name,
-                        spell.name(),
+                        spell.name,
                         target_name,
                         amount
                     ));
@@ -662,7 +663,7 @@ fn results_to_messages(
                     && let ActorId::Party(ci) = caster
                 {
                     running_party_mp[*ci] =
-                        (running_party_mp[*ci] - state.spell_params.mp_cost(*spell)).max(0);
+                        (running_party_mp[*ci] - spell.mp_cost).max(0);
                     effects.push((
                         msg_index,
                         MessageEffect::UpdatePartyMp {
@@ -694,7 +695,7 @@ fn results_to_messages(
                 let target_name = target_name_str(target, state, &enemy_names);
                 let msg_index = messages.len();
 
-                let is_block = matches!(state.spell_params.effect(*spell), battle::SpellEffect::Block { .. });
+                let is_block = matches!(spell.effect, SpellEffect::Block { .. });
 
                 let is_continuation = last_aoe_caster_spell == Some((*caster, *spell));
                 if is_block {
@@ -708,7 +709,7 @@ fn results_to_messages(
                         messages.push(format!(
                             "{}は {}を となえた！ {}は {}ブロックを えた！",
                             caster_name,
-                            spell.name(),
+                            spell.name,
                             target_name,
                             amount
                         ));
@@ -723,7 +724,7 @@ fn results_to_messages(
                     messages.push(format!(
                         "{}は {}を となえた！ {}の こうげきりょくが {}あがった！",
                         caster_name,
-                        spell.name(),
+                        spell.name,
                         target_name,
                         amount
                     ));
@@ -735,7 +736,7 @@ fn results_to_messages(
                     && let ActorId::Party(ci) = caster
                 {
                     running_party_mp[*ci] =
-                        (running_party_mp[*ci] - state.spell_params.mp_cost(*spell)).max(0);
+                        (running_party_mp[*ci] - spell.mp_cost).max(0);
                     effects.push((
                         msg_index,
                         MessageEffect::UpdatePartyMp {
@@ -818,7 +819,7 @@ fn results_to_messages(
                     messages.push(format!(
                         "{}は {}を となえた！ {}の MPが {}へった！",
                         caster_name,
-                        spell.name(),
+                        spell.name,
                         target_name,
                         amount
                     ));
@@ -830,7 +831,7 @@ fn results_to_messages(
                     && let ActorId::Party(ci) = caster
                 {
                     running_party_mp[*ci] =
-                        (running_party_mp[*ci] - state.spell_params.mp_cost(*spell)).max(0);
+                        (running_party_mp[*ci] - spell.mp_cost).max(0);
                     effects.push((
                         msg_index,
                         MessageEffect::UpdatePartyMp {
@@ -898,7 +899,7 @@ fn results_to_messages(
                     messages.push(format!(
                         "{}は {}を となえた！ {}は {}になった！",
                         caster_name,
-                        spell.name(),
+                        spell.name,
                         target_name,
                         ailment.name()
                     ));
@@ -910,7 +911,7 @@ fn results_to_messages(
                     && let ActorId::Party(ci) = caster
                 {
                     running_party_mp[*ci] =
-                        (running_party_mp[*ci] - state.spell_params.mp_cost(*spell)).max(0);
+                        (running_party_mp[*ci] - spell.mp_cost).max(0);
                     effects.push((
                         msg_index,
                         MessageEffect::UpdatePartyMp {
@@ -946,7 +947,7 @@ fn results_to_messages(
                     messages.push(format!(
                         "{}は {}を となえた！ しかし {}には きかなかった！",
                         caster_name,
-                        spell.name(),
+                        spell.name,
                         target_name
                     ));
                 }
@@ -957,7 +958,7 @@ fn results_to_messages(
                     && let ActorId::Party(ci) = caster
                 {
                     running_party_mp[*ci] =
-                        (running_party_mp[*ci] - state.spell_params.mp_cost(*spell)).max(0);
+                        (running_party_mp[*ci] - spell.mp_cost).max(0);
                     effects.push((
                         msg_index,
                         MessageEffect::UpdatePartyMp {

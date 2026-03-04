@@ -1,4 +1,5 @@
-use spell::SpellKind;
+use spell::SpellEntry;
+use spell_data::SpellKind;
 use party::CombatStats;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -91,6 +92,11 @@ impl EnemyKind {
         }
     }
 
+    /// SpellEntry に変換した呪文リスト
+    fn spell_entries(self) -> Vec<SpellEntry> {
+        self.spells().iter().map(|s| s.entry()).collect()
+    }
+
     /// Tier 1 の基本ステータス (max_hp, attack, defense, speed, max_mp)
     fn base_stats(self) -> (i32, i32, i32, i32, i32) {
         match self {
@@ -125,6 +131,7 @@ pub struct Enemy {
     pub kind: EnemyKind,
     pub tier: u8,
     pub stats: CombatStats,
+    pub spells: Vec<SpellEntry>,
 }
 
 impl Enemy {
@@ -142,6 +149,7 @@ impl Enemy {
                 (spd as f32 * m).round() as i32,
                 (mp as f32 * m).round() as i32,
             ),
+            spells: kind.spell_entries(),
         }
     }
 
@@ -568,5 +576,17 @@ mod tests {
             let table = encounter_table(c, true);
             assert!(!table.is_empty(), "大陸{}の洞窟テーブルが空", c);
         }
+    }
+
+    #[test]
+    fn ghost_has_spells() {
+        let ghost = Enemy::ghost();
+        assert_eq!(ghost.spells.len(), 3);
+    }
+
+    #[test]
+    fn slime_has_no_spells() {
+        let slime = Enemy::slime();
+        assert!(slime.spells.is_empty());
     }
 }

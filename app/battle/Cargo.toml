@@ -4,6 +4,10 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+enemy = { path = "../enemy" }
 item = { path = "../item" }
 party = { path = "../party" }
 spell = { path = "../spell" }
+
+[dev-dependencies]
+spell-data = { path = "../spell-data" }

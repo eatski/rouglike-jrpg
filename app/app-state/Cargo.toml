@@ -7,4 +7,3 @@ edition = "2024"
 bevy = "0.18"
 item = { path = "../item" }
 party = { path = "../party" }
-spell = { path = "../spell" }

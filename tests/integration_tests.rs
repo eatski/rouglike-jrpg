@@ -8,7 +8,7 @@
 
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
-use battle::Enemy;
+use enemy::Enemy;
 use party::default_party;
 use terrain::{Terrain, MAP_HEIGHT, MAP_WIDTH};
 use world_gen::generate_map;
@@ -33,36 +33,6 @@ fn char_table() -> CharacterParamTable {
 
 fn test_item_params() -> item::ItemParamTable {
     item_data::item_param_table()
-}
-
-fn test_spell_params() -> spell::SpellParamTable {
-    use spell::{SpellEffect::*, SpellEntry, SpellKind, SpellParamTable};
-    SpellParamTable::from_fn(|spell| match spell {
-        SpellKind::Fire1 => SpellEntry { mp_cost: 3, effect: Damage { base_damage: 12 } },
-        SpellKind::Fire2 => SpellEntry { mp_cost: 7, effect: Damage { base_damage: 25 } },
-        SpellKind::Blaze1 => SpellEntry { mp_cost: 5, effect: Damage { base_damage: 8 } },
-        SpellKind::Blaze2 => SpellEntry { mp_cost: 10, effect: Damage { base_damage: 18 } },
-        SpellKind::Heal1 => SpellEntry { mp_cost: 3, effect: Heal { base_heal: 15 } },
-        SpellKind::Heal2 => SpellEntry { mp_cost: 7, effect: Heal { base_heal: 40 } },
-        SpellKind::Healall1 => SpellEntry { mp_cost: 6, effect: Heal { base_heal: 10 } },
-        SpellKind::Healall2 => SpellEntry { mp_cost: 12, effect: Heal { base_heal: 25 } },
-        SpellKind::Shield1 => SpellEntry { mp_cost: 3, effect: Block { amount: 10 } },
-        SpellKind::Shield2 => SpellEntry { mp_cost: 6, effect: Block { amount: 20 } },
-        SpellKind::Barrier1 => SpellEntry { mp_cost: 6, effect: Block { amount: 6 } },
-        SpellKind::Barrier2 => SpellEntry { mp_cost: 10, effect: Block { amount: 12 } },
-        SpellKind::Boost1 => SpellEntry { mp_cost: 3, effect: AttackBuff { amount: 3 } },
-        SpellKind::Boost2 => SpellEntry { mp_cost: 6, effect: AttackBuff { amount: 6 } },
-        SpellKind::Rally1 => SpellEntry { mp_cost: 6, effect: AttackBuff { amount: 2 } },
-        SpellKind::Rally2 => SpellEntry { mp_cost: 10, effect: AttackBuff { amount: 4 } },
-        SpellKind::Drain1 => SpellEntry { mp_cost: 4, effect: MpDrain { base_drain: 8 } },
-        SpellKind::Drain2 => SpellEntry { mp_cost: 8, effect: MpDrain { base_drain: 18 } },
-        SpellKind::Siphon1 => SpellEntry { mp_cost: 6, effect: MpDrain { base_drain: 5 } },
-        SpellKind::Siphon2 => SpellEntry { mp_cost: 10, effect: MpDrain { base_drain: 12 } },
-        SpellKind::Sleep1 => SpellEntry { mp_cost: 4, effect: Ailment { success_rate: 70 } },
-        SpellKind::Sleepall1 => SpellEntry { mp_cost: 8, effect: Ailment { success_rate: 50 } },
-        SpellKind::Poison1 => SpellEntry { mp_cost: 3, effect: Ailment { success_rate: 80 } },
-        SpellKind::Poisonall1 => SpellEntry { mp_cost: 6, effect: Ailment { success_rate: 60 } },
-    }, 3, 4.0)
 }
 
 const SPAWN_X: usize = 50;
@@ -788,7 +758,7 @@ fn insert_battle_resource(app: &mut App, phase: BattlePhase) {
     let table = char_table();
     let party = default_party(&table);
     let enemies = vec![Enemy::slime()];
-    let (game_state, mut ui_state) = battle_ui::init_battle_resources(party, enemies, None, test_spell_params(), test_item_params());
+    let (game_state, mut ui_state) = battle_ui::init_battle_resources(party, enemies, None, test_item_params());
 
     // テスト用にphaseを上書き
     ui_state.phase = phase;
@@ -1042,14 +1012,15 @@ fn battle_cleanup_removes_movement_lock() {
 
 #[test]
 fn battle_victory_grants_exp_and_levels_up_party() {
-    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors};
+    use battle::{BattleAction, BattleState as BattleDomainState, TargetId, TurnRandomFactors};
+    use enemy::Enemy;
     use party::default_party;
 
     let table = char_table();
     // 弱い敵1体 vs デフォルトパーティ
     let party = default_party(&table);
     let enemies = vec![Enemy::slime()];
-    let mut battle = BattleDomainState::new(party.clone(), enemies, test_spell_params(), test_item_params());
+    let mut battle = BattleDomainState::new(party.clone(), enemies, test_item_params());
 
     // 全員でスライムを攻撃（乱数最大で確実に倒す）
     let commands = vec![
@@ -1083,7 +1054,7 @@ fn battle_victory_grants_exp_and_levels_up_party() {
 
     // もう1回戦って合計経験値を10以上にすれば、レベルアップする
     let enemies2 = vec![Enemy::wolf(), Enemy::wolf()]; // 8exp x 2 = 16exp
-    let mut battle2 = BattleDomainState::new(battle.party.clone(), enemies2, test_spell_params(), test_item_params());
+    let mut battle2 = BattleDomainState::new(battle.party.clone(), enemies2, test_item_params());
 
     // ライオスの強力な攻撃で倒す（乱数最大）
     let commands2 = vec![
@@ -1115,7 +1086,7 @@ fn battle_victory_grants_exp_and_levels_up_party() {
 
 #[test]
 fn mage_learns_fire1_at_level_1_and_fire2_at_level_5() {
-    use battle::SpellKind;
+    use spell_data::SpellKind;
     use party::{available_spells, spells_learned_at_level};
     use party::PartyMemberKind;
 
@@ -1123,18 +1094,18 @@ fn mage_learns_fire1_at_level_1_and_fire2_at_level_5() {
 
     // Lv1のマルシルはFire1を知っている
     let spells = available_spells(PartyMemberKind::Marcille, 1, &table);
-    assert_eq!(spells, vec![SpellKind::Fire1]);
+    assert_eq!(spells, vec![SpellKind::Fire1.entry()]);
 
     // Lv4まではFire2は未習得
     let spells4 = available_spells(PartyMemberKind::Marcille, 4, &table);
-    assert_eq!(spells4, vec![SpellKind::Fire1, SpellKind::Blaze1]);
+    assert_eq!(spells4, vec![SpellKind::Fire1.entry(), SpellKind::Blaze1.entry()]);
 
     // Lv5でFire2を習得
     let learned = spells_learned_at_level(PartyMemberKind::Marcille, 5, &table);
-    assert_eq!(learned, vec![SpellKind::Fire2]);
+    assert_eq!(learned, vec![SpellKind::Fire2.entry()]);
 
     let spells5 = available_spells(PartyMemberKind::Marcille, 5, &table);
-    assert_eq!(spells5, vec![SpellKind::Fire1, SpellKind::Blaze1, SpellKind::Fire2]);
+    assert_eq!(spells5, vec![SpellKind::Fire1.entry(), SpellKind::Blaze1.entry(), SpellKind::Fire2.entry()]);
 }
 
 #[test]
@@ -1154,7 +1125,8 @@ fn hero_has_all_16_spells_at_level_1() {
 
 #[test]
 fn equipped_weapon_increases_battle_damage() {
-    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult};
+    use battle::{BattleAction, BattleState as BattleDomainState, TargetId, TurnRandomFactors, TurnResult};
+    use enemy::Enemy;
     use item::WeaponKind;
     use party::{PartyMember, PartyMemberKind};
 
@@ -1176,8 +1148,8 @@ fn equipped_weapon_increases_battle_damage() {
     slime1.stats.max_hp = 999;
     let slime2 = slime1.clone();
 
-    let mut battle_unarmed = BattleDomainState::new(vec![hero_unarmed], vec![slime1], test_spell_params(), test_item_params());
-    let mut battle_armed = BattleDomainState::new(vec![hero_armed], vec![slime2], test_spell_params(), test_item_params());
+    let mut battle_unarmed = BattleDomainState::new(vec![hero_unarmed], vec![slime1], test_item_params());
+    let mut battle_armed = BattleDomainState::new(vec![hero_armed], vec![slime2], test_item_params());
 
     let commands = vec![BattleAction::Attack { target: TargetId::Enemy(0) }];
     let randoms = TurnRandomFactors {
@@ -1206,7 +1178,8 @@ fn equipped_weapon_increases_battle_damage() {
 
 #[test]
 fn herb_heals_in_battle() {
-    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult};
+    use battle::{BattleAction, BattleState as BattleDomainState, TargetId, TurnRandomFactors, TurnResult};
+    use enemy::Enemy;
     use item::ItemKind;
     use party::{PartyMember, PartyMemberKind};
 
@@ -1221,7 +1194,7 @@ fn herb_heals_in_battle() {
     slime.stats.max_hp = 999;
     slime.stats.attack = 0; // 敵の攻撃を0にして干渉を防ぐ
 
-    let mut battle = BattleDomainState::new(vec![hero], vec![slime], test_spell_params(), test_item_params());
+    let mut battle = BattleDomainState::new(vec![hero], vec![slime], test_item_params());
 
     let commands = vec![
         BattleAction::UseItem { item: ItemKind::Herb, target: TargetId::Party(0) },
@@ -1247,7 +1220,8 @@ fn herb_heals_in_battle() {
 
 #[test]
 fn copper_key_is_not_usable_in_battle() {
-    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult};
+    use battle::{BattleAction, BattleState as BattleDomainState, TargetId, TurnRandomFactors, TurnResult};
+    use enemy::Enemy;
     use item::ItemKind;
     use party::{PartyMember, PartyMemberKind};
 
@@ -1260,7 +1234,7 @@ fn copper_key_is_not_usable_in_battle() {
     slime.stats.max_hp = 999;
     slime.stats.attack = 0;
 
-    let mut battle = BattleDomainState::new(vec![hero], vec![slime], test_spell_params(), test_item_params());
+    let mut battle = BattleDomainState::new(vec![hero], vec![slime], test_item_params());
 
     let commands = vec![
         BattleAction::UseItem { item: ItemKind::CopperKey, target: TargetId::Party(0) },
@@ -1287,7 +1261,8 @@ fn copper_key_is_not_usable_in_battle() {
 #[test]
 fn buy_herb_at_shop_then_use_in_battle() {
     use town::{buy_item, BuyResult};
-    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors};
+    use battle::{BattleAction, BattleState as BattleDomainState, TargetId, TurnRandomFactors};
+    use enemy::Enemy;
     use item::ItemKind;
     use party::{PartyMember, PartyMemberKind};
 
@@ -1314,7 +1289,7 @@ fn buy_herb_at_shop_then_use_in_battle() {
     slime.stats.max_hp = 999;
     slime.stats.attack = 0;
 
-    let mut battle = BattleDomainState::new(vec![hero], vec![slime], test_spell_params(), test_item_params());
+    let mut battle = BattleDomainState::new(vec![hero], vec![slime], test_item_params());
 
     // やくそうを使う
     let commands = vec![
@@ -1333,7 +1308,8 @@ fn buy_herb_at_shop_then_use_in_battle() {
 #[test]
 fn buy_weapon_at_shop_then_equip_affects_battle() {
     use town::{buy_item, BuyResult};
-    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult};
+    use battle::{BattleAction, BattleState as BattleDomainState, TargetId, TurnRandomFactors, TurnResult};
+    use enemy::Enemy;
     use item::{ItemKind, WeaponKind};
     use party::{PartyMember, PartyMemberKind};
 
@@ -1366,7 +1342,7 @@ fn buy_weapon_at_shop_then_equip_affects_battle() {
     slime.stats.hp = 999;
     slime.stats.max_hp = 999;
 
-    let mut battle = BattleDomainState::new(vec![hero], vec![slime], test_spell_params(), test_item_params());
+    let mut battle = BattleDomainState::new(vec![hero], vec![slime], test_item_params());
     let commands = vec![BattleAction::Attack { target: TargetId::Enemy(0) }];
     let randoms = TurnRandomFactors {
         damage_randoms: vec![1.0; 2],
@@ -1388,7 +1364,8 @@ fn buy_weapon_at_shop_then_equip_affects_battle() {
 #[test]
 fn inn_heals_party_before_battle() {
     use town::heal_party;
-    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors};
+    use battle::{BattleAction, BattleState as BattleDomainState, TargetId, TurnRandomFactors};
+    use enemy::Enemy;
     use party::default_party;
 
     let table = char_table();
@@ -1410,7 +1387,7 @@ fn inn_heals_party_before_battle() {
 
     // 回復後に戦闘
     let enemies = vec![Enemy::slime()];
-    let mut battle = BattleDomainState::new(party, enemies, test_spell_params(), test_item_params());
+    let mut battle = BattleDomainState::new(party, enemies, test_item_params());
 
     let commands = vec![
         BattleAction::Attack { target: TargetId::Enemy(0) },
@@ -1720,7 +1697,8 @@ fn generated_map_spawn_is_on_walkable_connected_island() {
 
 #[test]
 fn battle_action_order_respects_speed() {
-    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult, ActorId};
+    use battle::{BattleAction, BattleState as BattleDomainState, TargetId, TurnRandomFactors, TurnResult, ActorId};
+    use enemy::Enemy;
     use party::{PartyMember, PartyMemberKind};
 
     let table = char_table();
@@ -1737,7 +1715,7 @@ fn battle_action_order_respects_speed() {
     bat.stats.hp = 999;
     bat.stats.max_hp = 999;
 
-    let mut battle = BattleDomainState::new(party, vec![bat], test_spell_params(), test_item_params());
+    let mut battle = BattleDomainState::new(party, vec![bat], test_item_params());
 
     let commands = vec![
         BattleAction::Attack { target: TargetId::Enemy(0) },
@@ -1769,10 +1747,11 @@ fn battle_action_order_respects_speed() {
 
 #[test]
 fn total_exp_reward_sums_defeated_enemies_only() {
-    use battle::{BattleState as BattleDomainState, Enemy};
+    use battle::{BattleState as BattleDomainState};
+    use enemy::Enemy;
 
     let enemies = vec![Enemy::slime(), Enemy::goblin(), Enemy::ghost()]; // 3+6+10 = 19
-    let mut battle = BattleDomainState::new(vec![], enemies, test_spell_params(), test_item_params());
+    let mut battle = BattleDomainState::new(vec![], enemies, test_item_params());
 
     // まだ誰も倒していない
     assert_eq!(battle.total_exp_reward(), 0, "No exp when no enemies defeated");
@@ -1796,7 +1775,9 @@ fn total_exp_reward_sums_defeated_enemies_only() {
 
 #[test]
 fn spell_fails_silently_when_mp_insufficient() {
-    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult, SpellKind};
+    use battle::{BattleAction, BattleState as BattleDomainState, TargetId, TurnRandomFactors, TurnResult};
+    use enemy::Enemy;
+    use spell_data::SpellKind;
     use party::{PartyMember, PartyMemberKind};
 
     let table = char_table();
@@ -1808,10 +1789,10 @@ fn spell_fails_silently_when_mp_insufficient() {
     slime.stats.max_hp = 999;
     slime.stats.attack = 0;
 
-    let mut battle = BattleDomainState::new(vec![mage], vec![slime], test_spell_params(), test_item_params());
+    let mut battle = BattleDomainState::new(vec![mage], vec![slime], test_item_params());
 
     let commands = vec![
-        BattleAction::Spell { spell: SpellKind::Fire1, target: TargetId::Enemy(0) },
+        BattleAction::Spell { spell: SpellKind::Fire1.entry(), target: TargetId::Enemy(0) },
     ];
     let randoms = TurnRandomFactors {
         damage_randoms: vec![1.0; 2],
@@ -1830,7 +1811,8 @@ fn spell_fails_silently_when_mp_insufficient() {
 
 #[test]
 fn party_wipe_ends_battle_mid_turn() {
-    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult};
+    use battle::{BattleAction, BattleState as BattleDomainState, TargetId, TurnRandomFactors, TurnResult};
+    use enemy::Enemy;
     use party::{PartyMember, PartyMemberKind};
 
     let table = char_table();
@@ -1844,7 +1826,7 @@ fn party_wipe_ends_battle_mid_turn() {
     let mut wolf2 = Enemy::wolf();
     wolf2.stats.attack = 100;
 
-    let mut battle = BattleDomainState::new(vec![hero], vec![wolf1, wolf2], test_spell_params(), test_item_params());
+    let mut battle = BattleDomainState::new(vec![hero], vec![wolf1, wolf2], test_item_params());
 
     let commands = vec![
         BattleAction::Attack { target: TargetId::Enemy(0) },
@@ -1985,7 +1967,8 @@ fn exploration_map_tracks_movement_correctly() {
 
 #[test]
 fn flee_succeeds_when_random_below_threshold() {
-    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult};
+    use battle::{BattleAction, BattleState as BattleDomainState, TargetId, TurnRandomFactors, TurnResult};
+    use enemy::Enemy;
     use party::default_party;
 
     let table = char_table();
@@ -1994,7 +1977,7 @@ fn flee_succeeds_when_random_below_threshold() {
     slime.stats.hp = 999;
     slime.stats.max_hp = 999;
     let enemies = vec![slime];
-    let mut battle = BattleDomainState::new(party, enemies, test_spell_params(), test_item_params());
+    let mut battle = BattleDomainState::new(party, enemies, test_item_params());
 
     let commands = vec![
         BattleAction::Flee,
@@ -2014,7 +1997,8 @@ fn flee_succeeds_when_random_below_threshold() {
 
 #[test]
 fn flee_fails_when_random_above_threshold() {
-    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult, ActorId};
+    use battle::{BattleAction, BattleState as BattleDomainState, TargetId, TurnRandomFactors, TurnResult, ActorId};
+    use enemy::Enemy;
     use party::default_party;
 
     let table = char_table();
@@ -2023,7 +2007,7 @@ fn flee_fails_when_random_above_threshold() {
     slime.stats.hp = 999;
     slime.stats.max_hp = 999;
     let enemies = vec![slime];
-    let mut battle = BattleDomainState::new(party, enemies, test_spell_params(), test_item_params());
+    let mut battle = BattleDomainState::new(party, enemies, test_item_params());
 
     let commands = vec![
         BattleAction::Flee,
@@ -2076,17 +2060,15 @@ fn physical_damage_formula_uses_half_defense() {
 
 #[test]
 fn spell_damage_formula_uses_quarter_defense() {
-    let table = test_spell_params();
-
     // 呪文ダメージ = (power - defense/4) * random_factor, 最小1
     // power=12, defense=4, random=1.0 → 12 - 1 = 11
-    let damage = table.spell_damage(12, 4, 1.0);
+    let damage = spell::spell_damage(12, 4, spell_data::DEFENSE_DIVISOR, 1.0);
     assert_eq!(damage, 11, "Spell damage should be power - defense/4");
 
     // defense/4 であって defense*4 や +defense/4 ではないことを確認
     // power=20, defense=8, random=1.0 → 20 - 2 = 18 (defense/4の場合)
     // もし +defense/4 だったら → 20 + 2 = 22
-    let damage = table.spell_damage(20, 8, 1.0);
+    let damage = spell::spell_damage(20, 8, spell_data::DEFENSE_DIVISOR, 1.0);
     assert_eq!(damage, 18, "Spell damage should subtract defense/4");
 }
 
@@ -2096,7 +2078,9 @@ fn spell_damage_formula_uses_quarter_defense() {
 
 #[test]
 fn spell_succeeds_when_mp_exactly_equals_cost() {
-    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult, SpellKind};
+    use battle::{BattleAction, BattleState as BattleDomainState, TargetId, TurnRandomFactors, TurnResult};
+    use enemy::Enemy;
+    use spell_data::SpellKind;
     use party::{PartyMember, PartyMemberKind};
 
     let table = char_table();
@@ -2108,10 +2092,10 @@ fn spell_succeeds_when_mp_exactly_equals_cost() {
     slime.stats.max_hp = 999;
     slime.stats.attack = 0;
 
-    let mut battle = BattleDomainState::new(vec![mage], vec![slime], test_spell_params(), test_item_params());
+    let mut battle = BattleDomainState::new(vec![mage], vec![slime], test_item_params());
 
     let commands = vec![
-        BattleAction::Spell { spell: SpellKind::Fire1, target: TargetId::Enemy(0) },
+        BattleAction::Spell { spell: SpellKind::Fire1.entry(), target: TargetId::Enemy(0) },
     ];
     let randoms = TurnRandomFactors {
         damage_randoms: vec![1.0; 2],
@@ -2131,7 +2115,8 @@ fn spell_succeeds_when_mp_exactly_equals_cost() {
 
 #[test]
 fn heal_spell_does_not_exceed_max_hp() {
-    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors};
+    use battle::{BattleAction, BattleState as BattleDomainState, TargetId, TurnRandomFactors};
+    use enemy::Enemy;
     use party::{PartyMember, PartyMemberKind};
 
     let table = char_table();
@@ -2145,10 +2130,10 @@ fn heal_spell_does_not_exceed_max_hp() {
     slime.stats.max_hp = 999;
     slime.stats.attack = 0; // 最低ダメージ1は発生するがHP超過の判定には影響しない
 
-    let mut battle = BattleDomainState::new(vec![priest], vec![slime], test_spell_params(), test_item_params());
+    let mut battle = BattleDomainState::new(vec![priest], vec![slime], test_item_params());
 
     let commands = vec![
-        BattleAction::Spell { spell: battle::SpellKind::Heal1, target: TargetId::Party(0) },
+        BattleAction::Spell { spell: spell_data::SpellKind::Heal1.entry(), target: TargetId::Party(0) },
     ];
     let randoms = TurnRandomFactors {
         damage_randoms: vec![1.0; 2],
@@ -2163,7 +2148,8 @@ fn heal_spell_does_not_exceed_max_hp() {
 
 #[test]
 fn item_heal_does_not_exceed_max_hp() {
-    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors};
+    use battle::{BattleAction, BattleState as BattleDomainState, TargetId, TurnRandomFactors};
+    use enemy::Enemy;
     use item::ItemKind;
     use party::{PartyMember, PartyMemberKind};
 
@@ -2178,7 +2164,7 @@ fn item_heal_does_not_exceed_max_hp() {
     slime.stats.max_hp = 999;
     slime.stats.attack = 0;
 
-    let mut battle = BattleDomainState::new(vec![hero], vec![slime], test_spell_params(), test_item_params());
+    let mut battle = BattleDomainState::new(vec![hero], vec![slime], test_item_params());
 
     let commands = vec![
         BattleAction::UseItem { item: ItemKind::Herb, target: TargetId::Party(0) },
@@ -2262,7 +2248,9 @@ fn sell_material_item_succeeds() {
 
 #[test]
 fn battle_victory_leveling_unlocks_new_spell() {
-    use battle::{BattleState as BattleDomainState, Enemy, SpellKind};
+    use battle::{BattleState as BattleDomainState};
+    use enemy::Enemy;
+    use spell_data::SpellKind;
     use party::{available_spells, spells_learned_at_level};
     use party::{PartyMember, PartyMemberKind};
 
@@ -2270,13 +2258,13 @@ fn battle_victory_leveling_unlocks_new_spell() {
     // マルシルLv1: Fire1のみ習得
     let mut mage = PartyMember::from_kind(PartyMemberKind::Marcille, &table);
     let spells_lv1 = available_spells(PartyMemberKind::Marcille, mage.level, &table);
-    assert_eq!(spells_lv1, vec![SpellKind::Fire1]);
+    assert_eq!(spells_lv1, vec![SpellKind::Fire1.entry()]);
 
     // 十分な経験値を得るために複数回戦闘
     // exp_to_next_level(1)=10, exp_to_next_level(2)=25 → Lv3到達に累計35必要
     // Ghost×4 = 10×4 = 40exp per battle
     let enemies = vec![Enemy::ghost(), Enemy::ghost(), Enemy::ghost(), Enemy::ghost()];
-    let mut battle = BattleDomainState::new(vec![mage.clone()], enemies, test_spell_params(), test_item_params());
+    let mut battle = BattleDomainState::new(vec![mage.clone()], enemies, test_item_params());
 
     for enemy in &mut battle.enemies {
         enemy.stats.hp = 0;
@@ -2292,10 +2280,10 @@ fn battle_victory_leveling_unlocks_new_spell() {
 
     // Lv3でマルシルはBlaze1を習得
     let learned = spells_learned_at_level(PartyMemberKind::Marcille, 3, &table);
-    assert_eq!(learned, vec![SpellKind::Blaze1]);
+    assert_eq!(learned, vec![SpellKind::Blaze1.entry()]);
 
     let spells = available_spells(PartyMemberKind::Marcille, mage.level, &table);
-    assert!(spells.contains(&SpellKind::Blaze1), "Marcille at level {} should know Blaze1", mage.level);
+    assert!(spells.contains(&SpellKind::Blaze1.entry()), "Marcille at level {} should know Blaze1", mage.level);
 }
 
 // ============================================
@@ -2304,7 +2292,8 @@ fn battle_victory_leveling_unlocks_new_spell() {
 
 #[test]
 fn sync_from_battle_reflects_battle_state() {
-    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors};
+    use battle::{BattleAction, BattleState as BattleDomainState, TargetId, TurnRandomFactors};
+    use enemy::Enemy;
     use item::ItemKind;
     use party::{PartyMember, PartyMemberKind};
 
@@ -2321,7 +2310,7 @@ fn sync_from_battle_reflects_battle_state() {
     slime.stats.max_hp = 999;
     slime.stats.attack = 0;
 
-    let mut battle = BattleDomainState::new(vec![battle_hero], vec![slime], test_spell_params(), test_item_params());
+    let mut battle = BattleDomainState::new(vec![battle_hero], vec![slime], test_item_params());
 
     // HPを減らしてやくそうを使用
     battle.party[0].stats.hp = 5;
@@ -2410,7 +2399,8 @@ fn cave_treasure_sold_at_shop() {
 #[test]
 fn weapon_upgrade_replaces_old_and_changes_damage() {
     use town::{buy_item, BuyResult};
-    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult};
+    use battle::{BattleAction, BattleState as BattleDomainState, TargetId, TurnRandomFactors, TurnResult};
+    use enemy::Enemy;
     use item::{ItemKind, WeaponKind};
     use party::{PartyMember, PartyMemberKind};
 
@@ -2433,7 +2423,7 @@ fn weapon_upgrade_replaces_old_and_changes_damage() {
     let mut slime = Enemy::slime();
     slime.stats.hp = 999;
     slime.stats.max_hp = 999;
-    let mut battle1 = BattleDomainState::new(vec![hero.clone()], vec![slime.clone()], test_spell_params(), test_item_params());
+    let mut battle1 = BattleDomainState::new(vec![hero.clone()], vec![slime.clone()], test_item_params());
     let commands = vec![BattleAction::Attack { target: TargetId::Enemy(0) }];
     let randoms = TurnRandomFactors { damage_randoms: vec![1.0; 2], flee_random: 1.0, spell_randoms: vec![1.0; 10] };
     let results1 = battle1.execute_turn(&commands, &randoms);
@@ -2452,7 +2442,7 @@ fn weapon_upgrade_replaces_old_and_changes_damage() {
     assert_eq!(attack_with_steel, attack_with_iron + 5, "SteelSword(+10) should be 5 more than IronSword(+5)");
 
     // 同じ敵に同じ乱数で攻撃→ダメージが増えている
-    let mut battle2 = BattleDomainState::new(vec![hero], vec![slime], test_spell_params(), test_item_params());
+    let mut battle2 = BattleDomainState::new(vec![hero], vec![slime], test_item_params());
     let results2 = battle2.execute_turn(&commands, &randoms);
     let damage_steel = results2.iter().find_map(|r| {
         if let TurnResult::Attack { attacker: battle::ActorId::Party(0), damage, .. } = r { Some(*damage) } else { None }
@@ -2552,7 +2542,8 @@ fn heal_party_restores_to_increased_max_after_level_up() {
 #[test]
 fn recruit_party_then_battle_together() {
     use party::{initial_party, default_candidates, talk_to_candidate, PartyMember, PartyMemberKind, TalkResult};
-    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult, ActorId};
+    use battle::{BattleAction, BattleState as BattleDomainState, TargetId, TurnRandomFactors, TurnResult, ActorId};
+    use enemy::Enemy;
 
     let table = char_table();
     // ライオスのみでスタート
@@ -2575,7 +2566,7 @@ fn recruit_party_then_battle_together() {
     wolf.stats.max_hp = 999;
     wolf.stats.attack = 0;
     let enemies = vec![wolf];
-    let mut battle = BattleDomainState::new(party, enemies, test_spell_params(), test_item_params());
+    let mut battle = BattleDomainState::new(party, enemies, test_item_params());
 
     let commands = vec![
         BattleAction::Attack { target: TargetId::Enemy(0) },
@@ -2643,7 +2634,8 @@ fn buy_weapon_fails_with_full_inventory() {
 
 #[test]
 fn high_herb_heals_more_than_regular_herb_in_battle() {
-    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult};
+    use battle::{BattleAction, BattleState as BattleDomainState, TargetId, TurnRandomFactors, TurnResult};
+    use enemy::Enemy;
     use item::ItemKind;
     use party::{PartyMember, PartyMemberKind};
 
@@ -2658,7 +2650,7 @@ fn high_herb_heals_more_than_regular_herb_in_battle() {
     slime1.stats.max_hp = 999;
     slime1.stats.attack = 0;
 
-    let mut battle1 = BattleDomainState::new(vec![hero1], vec![slime1], test_spell_params(), test_item_params());
+    let mut battle1 = BattleDomainState::new(vec![hero1], vec![slime1], test_item_params());
     let commands = vec![BattleAction::UseItem { item: ItemKind::Herb, target: TargetId::Party(0) }];
     let randoms = TurnRandomFactors { damage_randoms: vec![1.0; 2], flee_random: 1.0, spell_randoms: vec![1.0; 10] };
     let results1 = battle1.execute_turn(&commands, &randoms);
@@ -2676,7 +2668,7 @@ fn high_herb_heals_more_than_regular_herb_in_battle() {
     slime2.stats.max_hp = 999;
     slime2.stats.attack = 0;
 
-    let mut battle2 = BattleDomainState::new(vec![hero2], vec![slime2], test_spell_params(), test_item_params());
+    let mut battle2 = BattleDomainState::new(vec![hero2], vec![slime2], test_item_params());
     let commands2 = vec![BattleAction::UseItem { item: ItemKind::HighHerb, target: TargetId::Party(0) }];
     let results2 = battle2.execute_turn(&commands2, &randoms);
     let heal_high = results2.iter().find_map(|r| {
@@ -2720,7 +2712,7 @@ fn all_material_items_can_be_sold_with_correct_price() {
 #[test]
 fn generated_enemy_group_battle_to_victory_and_exp() {
     use battle::{BattleAction, BattleState as BattleDomainState, TargetId, TurnRandomFactors};
-    use battle::enemy::generate_enemy_group;
+    use enemy::generate_enemy_group;
     use party::default_party;
 
     let table = char_table();
@@ -2729,7 +2721,7 @@ fn generated_enemy_group_battle_to_victory_and_exp() {
     assert!(!enemies.is_empty());
 
     let party = default_party(&table);
-    let mut battle = BattleDomainState::new(party, enemies, test_spell_params(), test_item_params());
+    let mut battle = BattleDomainState::new(party, enemies, test_item_params());
 
     // 全敵を全員で攻撃して勝利を目指す
     let commands = vec![
@@ -2768,7 +2760,8 @@ fn generated_enemy_group_battle_to_victory_and_exp() {
 
 #[test]
 fn multi_turn_battle_accumulates_turn_log() {
-    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors};
+    use battle::{BattleAction, BattleState as BattleDomainState, TargetId, TurnRandomFactors};
+    use enemy::Enemy;
     use party::default_party;
 
     let table = char_table();
@@ -2778,7 +2771,7 @@ fn multi_turn_battle_accumulates_turn_log() {
     wolf.stats.max_hp = 999;
     wolf.stats.attack = 0; // パーティを倒さない
 
-    let mut battle = BattleDomainState::new(party, vec![wolf], test_spell_params(), test_item_params());
+    let mut battle = BattleDomainState::new(party, vec![wolf], test_item_params());
 
     let commands = vec![
         BattleAction::Attack { target: TargetId::Enemy(0) },
@@ -2811,7 +2804,8 @@ fn multi_turn_battle_accumulates_turn_log() {
 #[test]
 fn full_town_equip_battle_levelup_flow() {
     use town::{buy_item, heal_party, BuyResult};
-    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors};
+    use battle::{BattleAction, BattleState as BattleDomainState, TargetId, TurnRandomFactors};
+    use enemy::Enemy;
     use item::{ItemKind, WeaponKind};
     use party::{PartyMember, PartyMemberKind};
 
@@ -2832,7 +2826,7 @@ fn full_town_equip_battle_levelup_flow() {
 
     // 3. 戦闘に入る（ゴースト3体 = 30exp）
     let enemies = vec![Enemy::ghost(), Enemy::ghost(), Enemy::ghost()];
-    let mut battle = BattleDomainState::new(vec![hero], enemies, test_spell_params(), test_item_params());
+    let mut battle = BattleDomainState::new(vec![hero], enemies, test_item_params());
 
     let commands = vec![BattleAction::Attack { target: TargetId::Enemy(0) }];
     let randoms = TurnRandomFactors { damage_randoms: vec![1.2; 4], flee_random: 1.0, spell_randoms: vec![1.0; 10] };
@@ -2863,7 +2857,8 @@ fn full_town_equip_battle_levelup_flow() {
 
 #[test]
 fn same_speed_party_acts_before_enemy() {
-    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult, ActorId};
+    use battle::{BattleAction, BattleState as BattleDomainState, TargetId, TurnRandomFactors, TurnResult, ActorId};
+    use enemy::Enemy;
     use party::{PartyMember, PartyMemberKind, CombatStats};
 
     let table = char_table();
@@ -2874,7 +2869,7 @@ fn same_speed_party_acts_before_enemy() {
     let mut enemy = Enemy::slime();
     enemy.stats = CombatStats::new(999, 5, 2, 10, 0); // speed=10 (同速)
 
-    let mut battle = BattleDomainState::new(vec![hero], vec![enemy], test_spell_params(), test_item_params());
+    let mut battle = BattleDomainState::new(vec![hero], vec![enemy], test_item_params());
 
     let commands = vec![
         BattleAction::Attack { target: TargetId::Enemy(0) },
@@ -2900,7 +2895,9 @@ fn same_speed_party_acts_before_enemy() {
 
 #[test]
 fn neld_aoe_damages_all_enemies_integration() {
-    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult, SpellKind};
+    use battle::{BattleAction, BattleState as BattleDomainState, TargetId, TurnRandomFactors, TurnResult};
+    use enemy::Enemy;
+    use spell_data::SpellKind;
     use party::{PartyMember, PartyMemberKind};
 
     let table = char_table();
@@ -2910,10 +2907,10 @@ fn neld_aoe_damages_all_enemies_integration() {
     let mage_max_mp = mage.stats.max_mp;
 
     let enemies = vec![Enemy::slime(), Enemy::slime(), Enemy::slime()];
-    let mut battle = BattleDomainState::new(vec![mage], enemies, test_spell_params(), test_item_params());
+    let mut battle = BattleDomainState::new(vec![mage], enemies, test_item_params());
 
     let commands = vec![
-        BattleAction::Spell { spell: SpellKind::Blaze1, target: TargetId::Enemy(0) },
+        BattleAction::Spell { spell: SpellKind::Blaze1.entry(), target: TargetId::Enemy(0) },
     ];
     let randoms = TurnRandomFactors {
         damage_randoms: vec![1.0; 4],
@@ -2934,7 +2931,9 @@ fn neld_aoe_damages_all_enemies_integration() {
 
 #[test]
 fn panam_aoe_heals_all_allies_integration() {
-    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult, SpellKind};
+    use battle::{BattleAction, BattleState as BattleDomainState, TargetId, TurnRandomFactors, TurnResult};
+    use enemy::Enemy;
+    use spell_data::SpellKind;
     use party::{PartyMember, PartyMemberKind};
 
     let table = char_table();
@@ -2951,12 +2950,12 @@ fn panam_aoe_heals_all_allies_integration() {
     slime.stats.max_hp = 999;
     slime.stats.attack = 0;
 
-    let mut battle = BattleDomainState::new(vec![laios, marcille, falin], vec![slime], test_spell_params(), test_item_params());
+    let mut battle = BattleDomainState::new(vec![laios, marcille, falin], vec![slime], test_item_params());
 
     let commands = vec![
         BattleAction::Attack { target: TargetId::Enemy(0) },
         BattleAction::Attack { target: TargetId::Enemy(0) },
-        BattleAction::Spell { spell: SpellKind::Healall1, target: TargetId::Party(0) },
+        BattleAction::Spell { spell: SpellKind::Healall1.entry(), target: TargetId::Party(0) },
     ];
     let randoms = TurnRandomFactors {
         damage_randoms: vec![1.0; 4],
@@ -2974,7 +2973,9 @@ fn panam_aoe_heals_all_allies_integration() {
 
 #[test]
 fn bolga_buff_increases_attack_integration() {
-    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult, SpellKind};
+    use battle::{BattleAction, BattleState as BattleDomainState, TargetId, TurnRandomFactors, TurnResult};
+    use enemy::Enemy;
+    use spell_data::SpellKind;
     use party::{PartyMember, PartyMemberKind};
 
     let table = char_table();
@@ -2987,12 +2988,12 @@ fn bolga_buff_increases_attack_integration() {
     slime.stats.max_hp = 999;
     slime.stats.attack = 0;
 
-    let mut battle = BattleDomainState::new(vec![laios, rinsha], vec![slime], test_spell_params(), test_item_params());
+    let mut battle = BattleDomainState::new(vec![laios, rinsha], vec![slime], test_item_params());
     let base_attack = battle.effective_attack_with_buff(0);
 
     let commands = vec![
         BattleAction::Attack { target: TargetId::Enemy(0) },
-        BattleAction::Spell { spell: SpellKind::Boost1, target: TargetId::Party(0) },
+        BattleAction::Spell { spell: SpellKind::Boost1.entry(), target: TargetId::Party(0) },
     ];
     let randoms = TurnRandomFactors {
         damage_randoms: vec![1.0; 3],
@@ -3011,7 +3012,9 @@ fn bolga_buff_increases_attack_integration() {
 
 #[test]
 fn block_absorbs_damage_integration() {
-    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, SpellKind, ActorId, TurnResult};
+    use battle::{BattleAction, BattleState as BattleDomainState, TargetId, TurnRandomFactors, ActorId, TurnResult};
+    use enemy::Enemy;
+    use spell_data::SpellKind;
     use party::{PartyMember, PartyMemberKind};
 
     let table = char_table();
@@ -3027,10 +3030,10 @@ fn block_absorbs_damage_integration() {
     wolf.stats.max_hp = 999;
 
     // Shield1を付与
-    let mut battle = BattleDomainState::new(vec![laios, senshi], vec![wolf], test_spell_params(), test_item_params());
+    let mut battle = BattleDomainState::new(vec![laios, senshi], vec![wolf], test_item_params());
     let commands_buff = vec![
         BattleAction::Attack { target: TargetId::Enemy(0) },
-        BattleAction::Spell { spell: SpellKind::Shield1, target: TargetId::Party(0) },
+        BattleAction::Spell { spell: SpellKind::Shield1.entry(), target: TargetId::Party(0) },
     ];
     let randoms_buff = TurnRandomFactors {
         damage_randoms: vec![1.0; 3],
@@ -3071,7 +3074,9 @@ fn block_absorbs_damage_integration() {
 
 #[test]
 fn buff_expires_after_5_turns_integration() {
-    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, SpellKind};
+    use battle::{BattleAction, BattleState as BattleDomainState, TargetId, TurnRandomFactors};
+    use enemy::Enemy;
+    use spell_data::SpellKind;
     use party::{PartyMember, PartyMemberKind};
 
     let table = char_table();
@@ -3085,10 +3090,10 @@ fn buff_expires_after_5_turns_integration() {
     slime.stats.max_hp = 999;
     slime.stats.attack = 0;
 
-    let mut battle = BattleDomainState::new(vec![rinsha], vec![slime], test_spell_params(), test_item_params());
+    let mut battle = BattleDomainState::new(vec![rinsha], vec![slime], test_item_params());
 
     // ターン1: バフ付与
-    let commands = vec![BattleAction::Spell { spell: SpellKind::Boost1, target: TargetId::Party(0) }];
+    let commands = vec![BattleAction::Spell { spell: SpellKind::Boost1.entry(), target: TargetId::Party(0) }];
     let randoms = TurnRandomFactors { damage_randoms: vec![1.0; 2], flee_random: 1.0, spell_randoms: vec![1.0; 10] };
     battle.execute_turn(&commands, &randoms);
     assert!(battle.party_buffs[0].attack_up.is_some(), "Buff should be active after cast");
@@ -3109,7 +3114,9 @@ fn buff_expires_after_5_turns_integration() {
 
 #[test]
 fn buff_overwrite_resets_duration_integration() {
-    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, SpellKind};
+    use battle::{BattleAction, BattleState as BattleDomainState, TargetId, TurnRandomFactors};
+    use enemy::Enemy;
+    use spell_data::SpellKind;
     use party::{PartyMember, PartyMemberKind};
 
     let table = char_table();
@@ -3123,10 +3130,10 @@ fn buff_overwrite_resets_duration_integration() {
     slime.stats.max_hp = 999;
     slime.stats.attack = 0;
 
-    let mut battle = BattleDomainState::new(vec![rinsha], vec![slime], test_spell_params(), test_item_params());
+    let mut battle = BattleDomainState::new(vec![rinsha], vec![slime], test_item_params());
 
     // Boost1(ATK+3)付与
-    let commands = vec![BattleAction::Spell { spell: SpellKind::Boost1, target: TargetId::Party(0) }];
+    let commands = vec![BattleAction::Spell { spell: SpellKind::Boost1.entry(), target: TargetId::Party(0) }];
     let randoms = TurnRandomFactors { damage_randoms: vec![1.0; 2], flee_random: 1.0, spell_randoms: vec![1.0; 10] };
     battle.execute_turn(&commands, &randoms);
     assert_eq!(battle.party_buffs[0].attack_up.unwrap().amount, 3);
@@ -3140,7 +3147,7 @@ fn buff_overwrite_resets_duration_integration() {
     assert!(battle.party_buffs[0].attack_up.is_some(), "Buff should still be active");
 
     // Boost2(ATK+6)で上書き
-    let commands = vec![BattleAction::Spell { spell: SpellKind::Boost2, target: TargetId::Party(0) }];
+    let commands = vec![BattleAction::Spell { spell: SpellKind::Boost2.entry(), target: TargetId::Party(0) }];
     let randoms = TurnRandomFactors { damage_randoms: vec![1.0; 2], flee_random: 1.0, spell_randoms: vec![1.0; 10] };
     battle.execute_turn(&commands, &randoms);
 
@@ -3155,7 +3162,9 @@ fn buff_overwrite_resets_duration_integration() {
 
 #[test]
 fn drain_spell_reduces_enemy_mp() {
-    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult, SpellKind};
+    use battle::{BattleAction, BattleState as BattleDomainState, TargetId, TurnRandomFactors, TurnResult};
+    use enemy::Enemy;
+    use spell_data::SpellKind;
     use party::{PartyMember, PartyMemberKind};
 
     let table = char_table();
@@ -3168,9 +3177,9 @@ fn drain_spell_reduces_enemy_mp() {
     ghost.stats.max_hp = 999;
     let initial_mp = ghost.stats.mp; // Ghost has 8 MP
 
-    let mut battle = BattleDomainState::new(vec![laios], vec![ghost], test_spell_params(), test_item_params());
+    let mut battle = BattleDomainState::new(vec![laios], vec![ghost], test_item_params());
 
-    let commands = vec![BattleAction::Spell { spell: SpellKind::Drain1, target: TargetId::Enemy(0) }];
+    let commands = vec![BattleAction::Spell { spell: SpellKind::Drain1.entry(), target: TargetId::Enemy(0) }];
     let randoms = TurnRandomFactors { damage_randoms: vec![1.0; 2], flee_random: 1.0, spell_randoms: vec![1.0; 10] };
     let results = battle.execute_turn(&commands, &randoms);
 
@@ -3184,7 +3193,9 @@ fn drain_spell_reduces_enemy_mp() {
 
 #[test]
 fn siphon_spell_reduces_all_enemies_mp() {
-    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult, SpellKind};
+    use battle::{BattleAction, BattleState as BattleDomainState, TargetId, TurnRandomFactors, TurnResult};
+    use enemy::Enemy;
+    use spell_data::SpellKind;
     use party::{PartyMember, PartyMemberKind};
 
     let table = char_table();
@@ -3200,9 +3211,9 @@ fn siphon_spell_reduces_all_enemies_mp() {
     ghost2.stats.max_hp = 999;
     let initial_mp = ghost1.stats.mp;
 
-    let mut battle = BattleDomainState::new(vec![laios], vec![ghost1, ghost2], test_spell_params(), test_item_params());
+    let mut battle = BattleDomainState::new(vec![laios], vec![ghost1, ghost2], test_item_params());
 
-    let commands = vec![BattleAction::Spell { spell: SpellKind::Siphon1, target: TargetId::Enemy(0) }];
+    let commands = vec![BattleAction::Spell { spell: SpellKind::Siphon1.entry(), target: TargetId::Enemy(0) }];
     let randoms = TurnRandomFactors { damage_randoms: vec![1.0; 3], flee_random: 1.0, spell_randoms: vec![1.0; 10] };
     let results = battle.execute_turn(&commands, &randoms);
 
@@ -3217,7 +3228,8 @@ fn siphon_spell_reduces_all_enemies_mp() {
 
 #[test]
 fn enemy_uses_drain_spell_on_party() {
-    use battle::{BattleAction, BattleState as BattleDomainState, Enemy, TargetId, TurnRandomFactors, TurnResult};
+    use battle::{BattleAction, BattleState as BattleDomainState, TargetId, TurnRandomFactors, TurnResult};
+    use enemy::Enemy;
     use party::{PartyMember, PartyMemberKind};
 
     let table = char_table();
@@ -3231,7 +3243,7 @@ fn enemy_uses_drain_spell_on_party() {
     ghost.stats.max_hp = 999;
     ghost.stats.mp = 20; // Drain1(cost=4)を使えるだけのMP
 
-    let mut battle = BattleDomainState::new(vec![marcille], vec![ghost], test_spell_params(), test_item_params());
+    let mut battle = BattleDomainState::new(vec![marcille], vec![ghost], test_item_params());
 
     // パーティは通常攻撃、敵が呪文を使う（spell_random=0.0 < 0.5で呪文使用）
     let commands = vec![BattleAction::Attack { target: TargetId::Enemy(0) }];

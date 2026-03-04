@@ -14,5 +14,7 @@ app-state = { path = "../../app/app-state" }
 spell-data = { path = "../../app/spell-data" }
 party-data = { path = "../../app/party-data" }
 battle = { path = "../../app/battle" }
+enemy = { path = "../../app/enemy" }
 battle-ui = { path = "../../app/battle-ui" }
+item-data = { path = "../../app/item-data" }
 hud-ui = { path = "../../app/hud-ui" }

@@ -2,7 +2,7 @@ use item::ItemKind;
 use party::{
     CharacterEntry, CharacterParamTable, CombatStats, PartyMemberKind, RecruitmentPath, StatGrowth,
 };
-use spell::SpellKind;
+use spell_data::SpellKind;
 
 pub fn character_param_table() -> CharacterParamTable {
     CharacterParamTable::from_fn(|kind| match kind {

@@ -1,6 +1,6 @@
 use crate::party::{PartyMemberKind, RecruitmentPath};
 use crate::stats::{CombatStats, StatGrowth};
-use spell::SpellKind;
+use spell_data::SpellKind;
 
 /// 1キャラクターのデータエントリ
 pub struct CharacterEntry {

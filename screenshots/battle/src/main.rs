@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
-use app_state::{CharacterParams, PartyState, SpellParams};
-use battle::Enemy;
+use app_state::{CharacterParams, ItemParams, PartyState};
+use enemy::Enemy;
 use battle_ui::{
     battle_status_display_system, battle_update_menu_cache, setup_battle_scene_with_config,
     BattlePhase, BattleSceneConfig, BattleUIState,
@@ -46,7 +46,7 @@ fn main() {
     app.insert_resource(make_config(variant))
         .insert_resource(CharacterParams(char_table))
         .insert_resource(party_state)
-        .insert_resource(SpellParams(spell_data::spell_param_table()))
+        .insert_resource(ItemParams(item_data::item_param_table()))
         .add_systems(
             Startup,
             (setup_camera, setup_battle_scene_with_config).chain(),

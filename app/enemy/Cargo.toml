@@ -1,12 +1,9 @@
 [package]
-name = "party"
+name = "enemy"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-item = { path = "../item" }
+party = { path = "../party" }
 spell = { path = "../spell" }
 spell-data = { path = "../spell-data" }
-
-[dev-dependencies]
-item-data = { path = "../item-data" }

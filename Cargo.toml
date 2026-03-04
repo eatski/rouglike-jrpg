@@ -26,6 +26,8 @@ item = { path = "app/item" }
 party = { path = "app/party" }
 party-data = { path = "app/party-data" }
 spell = { path = "app/spell" }
+spell-data = { path = "app/spell-data" }
+enemy = { path = "app/enemy" }
 cave = { path = "app/cave" }
 town = { path = "app/town" }
 field-walk = { path = "app/field-walk" }
@@ -46,6 +48,7 @@ members = [
     "app/item-data",
     "app/town",
     "app/cave",
+    "app/enemy",
     "app/battle",
     "app/app-state",
     "app/input-ui",

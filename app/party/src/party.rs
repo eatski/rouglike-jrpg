@@ -272,7 +272,7 @@ mod tests {
 
     #[test]
     fn has_item_finds_in_member_inventory() {
-        let mut members = vec![PartyMember::laios()];
+        let mut members = vec![PartyMember::from_kind(PartyMemberKind::Laios, &char_table())];
         let bag = Inventory::with_capacity(10);
         members[0].inventory.add(ItemKind::Herb, 1);
         assert!(has_item(&members, &bag, ItemKind::Herb));
@@ -281,7 +281,7 @@ mod tests {
 
     #[test]
     fn has_item_finds_in_bag() {
-        let members = vec![PartyMember::laios()];
+        let members = vec![PartyMember::from_kind(PartyMemberKind::Laios, &char_table())];
         let mut bag = Inventory::with_capacity(10);
         bag.add(ItemKind::HighHerb, 1);
         assert!(has_item(&members, &bag, ItemKind::HighHerb));
@@ -289,7 +289,7 @@ mod tests {
 
     #[test]
     fn consume_item_prefers_member_over_bag() {
-        let mut members = vec![PartyMember::laios()];
+        let mut members = vec![PartyMember::from_kind(PartyMemberKind::Laios, &char_table())];
         let mut bag = Inventory::with_capacity(10);
         members[0].inventory.add(ItemKind::Herb, 1);
         bag.add(ItemKind::Herb, 1);
@@ -301,7 +301,7 @@ mod tests {
 
     #[test]
     fn consume_item_falls_back_to_bag() {
-        let mut members = vec![PartyMember::laios()];
+        let mut members = vec![PartyMember::from_kind(PartyMemberKind::Laios, &char_table())];
         let mut bag = Inventory::with_capacity(10);
         bag.add(ItemKind::Herb, 1);
         assert!(consume_item(&mut members, &mut bag, ItemKind::Herb));
@@ -310,7 +310,7 @@ mod tests {
 
     #[test]
     fn consume_item_returns_false_when_absent() {
-        let mut members = vec![PartyMember::laios()];
+        let mut members = vec![PartyMember::from_kind(PartyMemberKind::Laios, &char_table())];
         let mut bag = Inventory::with_capacity(10);
         assert!(!consume_item(&mut members, &mut bag, ItemKind::Herb));
     }

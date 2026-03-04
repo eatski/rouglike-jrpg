@@ -1,5 +1,5 @@
-use crate::enemy::Enemy;
-use spell::{Ailment, SpellEffect, SpellKind, SpellParamTable, SpellTarget};
+use enemy::Enemy;
+use spell::{Ailment, SpellEffect, SpellEntry, SpellTarget};
 use item::{ItemEffect, ItemKind, ItemParamTable};
 use party::{CombatStats, PartyMember};
 
@@ -18,7 +18,7 @@ pub enum TargetId {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BattleAction {
     Attack { target: TargetId },
-    Spell { spell: SpellKind, target: TargetId },
+    Spell { spell: SpellEntry, target: TargetId },
     UseItem { item: ItemKind, target: TargetId },
     Flee,
 }
@@ -63,20 +63,20 @@ pub enum TurnResult {
     },
     SpellDamage {
         caster: ActorId,
-        spell: SpellKind,
+        spell: SpellEntry,
         target: TargetId,
         damage: i32,
         blocked: i32,
     },
     Healed {
         caster: ActorId,
-        spell: SpellKind,
+        spell: SpellEntry,
         target: TargetId,
         amount: i32,
     },
     Buffed {
         caster: ActorId,
-        spell: SpellKind,
+        spell: SpellEntry,
         target: TargetId,
         amount: i32,
     },
@@ -92,7 +92,7 @@ pub enum TurnResult {
     },
     MpDrained {
         caster: ActorId,
-        spell: SpellKind,
+        spell: SpellEntry,
         target: TargetId,
         amount: i32,
     },
@@ -101,13 +101,13 @@ pub enum TurnResult {
     },
     AilmentInflicted {
         caster: ActorId,
-        spell: SpellKind,
+        spell: SpellEntry,
         target: TargetId,
         ailment: Ailment,
     },
     AilmentResisted {
         caster: ActorId,
-        spell: SpellKind,
+        spell: SpellEntry,
         target: TargetId,
     },
     Sleeping {
@@ -153,12 +153,11 @@ pub struct BattleState {
     pub party_buffs: Vec<ActorBuffs>,
     pub party_ailments: Vec<ActorAilments>,
     pub enemy_ailments: Vec<ActorAilments>,
-    pub spell_params: SpellParamTable,
     pub item_params: ItemParamTable,
 }
 
 impl BattleState {
-    pub fn new(party: Vec<PartyMember>, enemies: Vec<Enemy>, spell_params: SpellParamTable, item_params: ItemParamTable) -> Self {
+    pub fn new(party: Vec<PartyMember>, enemies: Vec<Enemy>, item_params: ItemParamTable) -> Self {
         let party_count = party.len();
         let enemy_count = enemies.len();
         Self {
@@ -168,7 +167,6 @@ impl BattleState {
             party_buffs: vec![ActorBuffs::default(); party_count],
             party_ailments: vec![ActorAilments::default(); party_count],
             enemy_ailments: vec![ActorAilments::default(); enemy_count],
-            spell_params,
             item_params,
         }
     }
@@ -355,25 +353,24 @@ impl BattleState {
     fn execute_spell(
         &mut self,
         caster_idx: usize,
-        spell: SpellKind,
+        spell: SpellEntry,
         target: TargetId,
         random_factor: f32,
     ) -> Vec<TurnResult> {
         let mut results = Vec::new();
 
         // MP消費
-        if !self.party[caster_idx].stats.use_mp(self.spell_params.mp_cost(spell)) {
+        if !self.party[caster_idx].stats.use_mp(spell.mp_cost) {
             return results;
         }
 
-        match self.spell_params.effect(spell) {
+        match spell.effect {
             SpellEffect::Damage { base_damage } => {
-                let base_damage = *base_damage;
-                match spell.target_type() {
+                match spell.target_type {
                     SpellTarget::SingleEnemy => {
                         let actual_target = self.retarget_enemy(target);
                         if let Some(TargetId::Enemy(ei)) = actual_target {
-                            let damage = self.spell_params.spell_damage(base_damage, self.enemies[ei].stats.defense, random_factor);
+                            let damage = spell::spell_damage(base_damage, self.enemies[ei].stats.defense, spell::DEFENSE_DIVISOR, random_factor);
                             self.enemies[ei].stats.take_damage(damage);
                             results.push(TurnResult::SpellDamage {
                                 caster: ActorId::Party(caster_idx),
@@ -391,7 +388,7 @@ impl BattleState {
                     }
                     SpellTarget::AllEnemies => {
                         for ei in self.alive_enemy_indices() {
-                            let damage = self.spell_params.spell_damage(base_damage, self.enemies[ei].stats.defense, random_factor);
+                            let damage = spell::spell_damage(base_damage, self.enemies[ei].stats.defense, spell::DEFENSE_DIVISOR, random_factor);
                             self.enemies[ei].stats.take_damage(damage);
                             results.push(TurnResult::SpellDamage {
                                 caster: ActorId::Party(caster_idx),
@@ -411,12 +408,11 @@ impl BattleState {
                 }
             }
             SpellEffect::Heal { base_heal } => {
-                let base_heal = *base_heal;
-                match spell.target_type() {
+                match spell.target_type {
                     SpellTarget::SingleAlly => {
                         let actual_target = self.retarget_ally(target);
                         if let Some(TargetId::Party(pi)) = actual_target {
-                            let amount = SpellParamTable::heal_amount(base_heal, random_factor);
+                            let amount = spell::heal_amount(base_heal, random_factor);
                             let member = &mut self.party[pi];
                             member.stats.hp = (member.stats.hp + amount).min(member.stats.max_hp);
                             results.push(TurnResult::Healed {
@@ -429,7 +425,7 @@ impl BattleState {
                     }
                     SpellTarget::AllAllies => {
                         for pi in self.alive_party_indices() {
-                            let amount = SpellParamTable::heal_amount(base_heal, random_factor);
+                            let amount = spell::heal_amount(base_heal, random_factor);
                             let member = &mut self.party[pi];
                             member.stats.hp = (member.stats.hp + amount).min(member.stats.max_hp);
                             results.push(TurnResult::Healed {
@@ -444,8 +440,7 @@ impl BattleState {
                 }
             }
             SpellEffect::AttackBuff { amount } => {
-                let amount = *amount;
-                match spell.target_type() {
+                match spell.target_type {
                     SpellTarget::SingleAlly => {
                         let actual_target = self.retarget_ally(target);
                         if let Some(TargetId::Party(pi)) = actual_target {
@@ -479,8 +474,7 @@ impl BattleState {
                 }
             }
             SpellEffect::Block { amount } => {
-                let amount = *amount;
-                match spell.target_type() {
+                match spell.target_type {
                     SpellTarget::SingleAlly => {
                         let actual_target = self.retarget_ally(target);
                         if let Some(TargetId::Party(pi)) = actual_target {
@@ -508,12 +502,11 @@ impl BattleState {
                 }
             }
             SpellEffect::MpDrain { base_drain } => {
-                let base_drain = *base_drain;
-                match spell.target_type() {
+                match spell.target_type {
                     SpellTarget::SingleEnemy => {
                         let actual_target = self.retarget_enemy(target);
                         if let Some(TargetId::Enemy(ei)) = actual_target {
-                            let amount = SpellParamTable::mp_drain_amount(base_drain, random_factor);
+                            let amount = spell::mp_drain_amount(base_drain, random_factor);
                             self.enemies[ei].stats.drain_mp(amount);
                             results.push(TurnResult::MpDrained {
                                 caster: ActorId::Party(caster_idx),
@@ -525,7 +518,7 @@ impl BattleState {
                     }
                     SpellTarget::AllEnemies => {
                         for ei in self.alive_enemy_indices() {
-                            let amount = SpellParamTable::mp_drain_amount(base_drain, random_factor);
+                            let amount = spell::mp_drain_amount(base_drain, random_factor);
                             self.enemies[ei].stats.drain_mp(amount);
                             results.push(TurnResult::MpDrained {
                                 caster: ActorId::Party(caster_idx),
@@ -539,13 +532,12 @@ impl BattleState {
                 }
             }
             SpellEffect::Ailment { success_rate } => {
-                let ailment = spell.ailment().expect("Ailment spell must have ailment");
-                let success_rate = *success_rate;
-                match spell.target_type() {
+                let ailment = spell.ailment.expect("Ailment spell must have ailment");
+                match spell.target_type {
                     SpellTarget::SingleEnemy => {
                         let actual_target = self.retarget_enemy(target);
                         if let Some(TargetId::Enemy(ei)) = actual_target {
-                            if SpellParamTable::ailment_success(success_rate, random_factor) {
+                            if spell::ailment_success(success_rate, random_factor) {
                                 self.apply_ailment_to_enemy(ei, ailment);
                                 results.push(TurnResult::AilmentInflicted {
                                     caster: ActorId::Party(caster_idx),
@@ -564,7 +556,7 @@ impl BattleState {
                     }
                     SpellTarget::AllEnemies => {
                         for ei in self.alive_enemy_indices() {
-                            if SpellParamTable::ailment_success(success_rate, random_factor) {
+                            if spell::ailment_success(success_rate, random_factor) {
                                 self.apply_ailment_to_enemy(ei, ailment);
                                 results.push(TurnResult::AilmentInflicted {
                                     caster: ActorId::Party(caster_idx),
@@ -607,7 +599,7 @@ impl BattleState {
 
                 let actual_target = self.retarget_ally(target);
                 if let Some(TargetId::Party(pi)) = actual_target {
-                    let amount = SpellParamTable::heal_amount(power, random_factor);
+                    let amount = spell::heal_amount(power, random_factor);
                     let member = &mut self.party[pi];
                     member.stats.hp = (member.stats.hp + amount).min(member.stats.max_hp);
                     results.push(TurnResult::ItemUsed {
@@ -676,12 +668,12 @@ impl BattleState {
         random_factor: f32,
         spell_random: f32,
     ) -> Vec<TurnResult> {
-        let spells = self.enemies[enemy_idx].kind.spells();
+        let spells = &self.enemies[enemy_idx].spells;
         if !spells.is_empty() && spell_random < 0.5 {
             // 使用可能な呪文からMP足りるものを選択
-            let usable: Vec<SpellKind> = spells
+            let usable: Vec<SpellEntry> = spells
                 .iter()
-                .filter(|s| self.enemies[enemy_idx].stats.mp >= self.spell_params.mp_cost(**s))
+                .filter(|s| self.enemies[enemy_idx].stats.mp >= s.mp_cost)
                 .copied()
                 .collect();
             if let Some(&spell) = usable.first() {
@@ -695,25 +687,24 @@ impl BattleState {
     fn execute_enemy_spell(
         &mut self,
         enemy_idx: usize,
-        spell: SpellKind,
+        spell: SpellEntry,
         random_factor: f32,
     ) -> Vec<TurnResult> {
         let mut results = Vec::new();
 
         // MP消費
-        if !self.enemies[enemy_idx].stats.use_mp(self.spell_params.mp_cost(spell)) {
+        if !self.enemies[enemy_idx].stats.use_mp(spell.mp_cost) {
             return self.execute_enemy_attack(enemy_idx, random_factor);
         }
 
-        match self.spell_params.effect(spell) {
+        match spell.effect {
             SpellEffect::Damage { base_damage } => {
-                let base_damage = *base_damage;
-                match spell.target_type() {
+                match spell.target_type {
                     SpellTarget::SingleEnemy => {
                         // 敵から見て「敵」= パーティメンバー → 先頭の生存メンバーを攻撃
                         let alive_party = self.alive_party_indices();
                         if let Some(&pi) = alive_party.first() {
-                            let raw_damage = self.spell_params.spell_damage(base_damage, self.party[pi].stats.defense, random_factor);
+                            let raw_damage = spell::spell_damage(base_damage, self.party[pi].stats.defense, spell::DEFENSE_DIVISOR, random_factor);
                             let (damage, blocked) = self.apply_block(pi, raw_damage);
                             self.party[pi].stats.take_damage(damage);
                             results.push(TurnResult::SpellDamage {
@@ -733,7 +724,7 @@ impl BattleState {
                     SpellTarget::AllEnemies => {
                         // 敵から見て「全体敵」= パーティ全員
                         for pi in self.alive_party_indices() {
-                            let raw_damage = self.spell_params.spell_damage(base_damage, self.party[pi].stats.defense, random_factor);
+                            let raw_damage = spell::spell_damage(base_damage, self.party[pi].stats.defense, spell::DEFENSE_DIVISOR, random_factor);
                             let (damage, blocked) = self.apply_block(pi, raw_damage);
                             self.party[pi].stats.take_damage(damage);
                             results.push(TurnResult::SpellDamage {
@@ -755,7 +746,7 @@ impl BattleState {
             }
             SpellEffect::Heal { base_heal } => {
                 // 自身を回復
-                let amount = SpellParamTable::heal_amount(*base_heal, random_factor);
+                let amount = spell::heal_amount(base_heal, random_factor);
                 let enemy = &mut self.enemies[enemy_idx];
                 enemy.stats.hp = (enemy.stats.hp + amount).min(enemy.stats.max_hp);
                 results.push(TurnResult::Healed {
@@ -766,13 +757,12 @@ impl BattleState {
                 });
             }
             SpellEffect::MpDrain { base_drain } => {
-                let base_drain = *base_drain;
-                match spell.target_type() {
+                match spell.target_type {
                     SpellTarget::SingleEnemy => {
                         // 敵から見て「敵」= パーティメンバー → 先頭の生存メンバーのMP減少
                         let alive_party = self.alive_party_indices();
                         if let Some(&pi) = alive_party.first() {
-                            let amount = SpellParamTable::mp_drain_amount(base_drain, random_factor);
+                            let amount = spell::mp_drain_amount(base_drain, random_factor);
                             self.party[pi].stats.drain_mp(amount);
                             results.push(TurnResult::MpDrained {
                                 caster: ActorId::Enemy(enemy_idx),
@@ -785,7 +775,7 @@ impl BattleState {
                     SpellTarget::AllEnemies => {
                         // 敵から見て「全体敵」= パーティ全員のMP減少
                         for pi in self.alive_party_indices() {
-                            let amount = SpellParamTable::mp_drain_amount(base_drain, random_factor);
+                            let amount = spell::mp_drain_amount(base_drain, random_factor);
                             self.party[pi].stats.drain_mp(amount);
                             results.push(TurnResult::MpDrained {
                                 caster: ActorId::Enemy(enemy_idx),
@@ -799,13 +789,12 @@ impl BattleState {
                 }
             }
             SpellEffect::Ailment { success_rate } => {
-                let ailment = spell.ailment().expect("Ailment spell must have ailment");
-                let success_rate = *success_rate;
-                match spell.target_type() {
+                let ailment = spell.ailment.expect("Ailment spell must have ailment");
+                match spell.target_type {
                     SpellTarget::SingleEnemy => {
                         let alive_party = self.alive_party_indices();
                         if let Some(&pi) = alive_party.first() {
-                            if SpellParamTable::ailment_success(success_rate, random_factor) {
+                            if spell::ailment_success(success_rate, random_factor) {
                                 self.apply_ailment_to_party(pi, ailment);
                                 results.push(TurnResult::AilmentInflicted {
                                     caster: ActorId::Enemy(enemy_idx),
@@ -824,7 +813,7 @@ impl BattleState {
                     }
                     SpellTarget::AllEnemies => {
                         for pi in self.alive_party_indices() {
-                            if SpellParamTable::ailment_success(success_rate, random_factor) {
+                            if spell::ailment_success(success_rate, random_factor) {
                                 self.apply_ailment_to_party(pi, ailment);
                                 results.push(TurnResult::AilmentInflicted {
                                     caster: ActorId::Enemy(enemy_idx),
@@ -901,7 +890,7 @@ impl BattleState {
     /// ターン終了時の毒ダメージ処理
     fn tick_poison(&mut self) -> Vec<TurnResult> {
         let mut results = Vec::new();
-        let poison_damage = self.spell_params.poison_damage;
+        let poison_damage = spell::POISON_DAMAGE;
 
         for pi in 0..self.party.len() {
             if self.party[pi].stats.is_alive() && self.party_ailments[pi].poison {
@@ -1036,7 +1025,8 @@ impl BattleState {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::enemy::{Enemy, EnemyKind};
+    use enemy::{Enemy, EnemyKind};
+    use spell_data::SpellKind;
     use party::{default_party, CharacterParamTable, CharacterEntry, StatGrowth, RecruitmentPath, PartyMember, PartyMemberKind};
 
     fn char_table() -> CharacterParamTable {
@@ -1118,36 +1108,6 @@ mod tests {
         })
     }
 
-    fn test_spell_params() -> SpellParamTable {
-        use spell::{SpellEffect::*, SpellEntry};
-        SpellParamTable::from_fn(|spell| match spell {
-            SpellKind::Fire1 => SpellEntry { mp_cost: 3, effect: Damage { base_damage: 12 } },
-            SpellKind::Fire2 => SpellEntry { mp_cost: 7, effect: Damage { base_damage: 25 } },
-            SpellKind::Blaze1 => SpellEntry { mp_cost: 5, effect: Damage { base_damage: 8 } },
-            SpellKind::Blaze2 => SpellEntry { mp_cost: 10, effect: Damage { base_damage: 18 } },
-            SpellKind::Heal1 => SpellEntry { mp_cost: 3, effect: Heal { base_heal: 15 } },
-            SpellKind::Heal2 => SpellEntry { mp_cost: 7, effect: Heal { base_heal: 40 } },
-            SpellKind::Healall1 => SpellEntry { mp_cost: 6, effect: Heal { base_heal: 10 } },
-            SpellKind::Healall2 => SpellEntry { mp_cost: 12, effect: Heal { base_heal: 25 } },
-            SpellKind::Shield1 => SpellEntry { mp_cost: 3, effect: Block { amount: 10 } },
-            SpellKind::Shield2 => SpellEntry { mp_cost: 6, effect: Block { amount: 20 } },
-            SpellKind::Barrier1 => SpellEntry { mp_cost: 6, effect: Block { amount: 6 } },
-            SpellKind::Barrier2 => SpellEntry { mp_cost: 10, effect: Block { amount: 12 } },
-            SpellKind::Boost1 => SpellEntry { mp_cost: 3, effect: AttackBuff { amount: 3 } },
-            SpellKind::Boost2 => SpellEntry { mp_cost: 6, effect: AttackBuff { amount: 6 } },
-            SpellKind::Rally1 => SpellEntry { mp_cost: 6, effect: AttackBuff { amount: 2 } },
-            SpellKind::Rally2 => SpellEntry { mp_cost: 10, effect: AttackBuff { amount: 4 } },
-            SpellKind::Drain1 => SpellEntry { mp_cost: 4, effect: MpDrain { base_drain: 8 } },
-            SpellKind::Drain2 => SpellEntry { mp_cost: 8, effect: MpDrain { base_drain: 18 } },
-            SpellKind::Siphon1 => SpellEntry { mp_cost: 6, effect: MpDrain { base_drain: 5 } },
-            SpellKind::Siphon2 => SpellEntry { mp_cost: 10, effect: MpDrain { base_drain: 12 } },
-            SpellKind::Sleep1 => SpellEntry { mp_cost: 4, effect: Ailment { success_rate: 70 } },
-            SpellKind::Sleepall1 => SpellEntry { mp_cost: 8, effect: Ailment { success_rate: 50 } },
-            SpellKind::Poison1 => SpellEntry { mp_cost: 3, effect: Ailment { success_rate: 80 } },
-            SpellKind::Poisonall1 => SpellEntry { mp_cost: 6, effect: Ailment { success_rate: 60 } },
-        }, 3, 4.0)
-    }
-
     fn test_item_params() -> ItemParamTable {
         use item::{ItemEffect::*, ItemEntry, WeaponEntry, WeaponKind};
         ItemParamTable::from_fn(
@@ -1193,7 +1153,7 @@ mod tests {
         let table = char_table();
         let party = default_party(&table);
         let enemies = vec![Enemy::slime(), Enemy::slime()];
-        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
+        let mut battle = BattleState::new(party, enemies, test_item_params());
 
         let commands = vec![
             BattleAction::Attack {
@@ -1223,7 +1183,7 @@ mod tests {
         let party = default_party(&table);
         // Marcille(SPD7) > Laios(SPD5) > Falin(SPD4) > Slime(SPD3)
         let enemies = vec![Enemy::slime()];
-        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
+        let mut battle = BattleState::new(party, enemies, test_item_params());
 
         let commands = vec![
             BattleAction::Attack {
@@ -1255,7 +1215,7 @@ mod tests {
         let table = char_table();
         let party = vec![PartyMember::from_kind(PartyMemberKind::Laios, &table), PartyMember::from_kind(PartyMemberKind::Marcille, &table)];
         let enemies = vec![Enemy::slime(), Enemy::slime()];
-        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
+        let mut battle = BattleState::new(party, enemies, test_item_params());
 
         // 敵0を事前に倒す
         battle.enemies[0].stats.hp = 0;
@@ -1289,7 +1249,7 @@ mod tests {
         let table = char_table();
         let party = default_party(&table);
         let enemies = vec![Enemy::slime()];
-        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
+        let mut battle = BattleState::new(party, enemies, test_item_params());
 
         let commands = vec![
             BattleAction::Flee,
@@ -1312,7 +1272,7 @@ mod tests {
         let table = char_table();
         let party = default_party(&table);
         let enemies = vec![Enemy::slime()];
-        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
+        let mut battle = BattleState::new(party, enemies, test_item_params());
 
         let commands = vec![
             BattleAction::Flee,
@@ -1349,7 +1309,7 @@ mod tests {
         let table = char_table();
         let party = default_party(&table);
         let enemies = vec![Enemy::slime()];
-        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
+        let mut battle = BattleState::new(party, enemies, test_item_params());
 
         // 敵を倒す
         battle.enemies[0].stats.hp = 0;
@@ -1363,7 +1323,7 @@ mod tests {
         let table = char_table();
         let party = default_party(&table);
         let enemies = vec![Enemy::slime()];
-        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
+        let mut battle = BattleState::new(party, enemies, test_item_params());
 
         // 全員倒す
         for member in &mut battle.party {
@@ -1379,7 +1339,7 @@ mod tests {
         let table = char_table();
         let party = default_party(&table);
         let enemies = vec![Enemy::slime()];
-        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
+        let mut battle = BattleState::new(party, enemies, test_item_params());
 
         let mage_mp_before = battle.party[1].stats.mp;
         let commands = vec![
@@ -1387,7 +1347,7 @@ mod tests {
                 target: TargetId::Enemy(0),
             },
             BattleAction::Spell {
-                spell: SpellKind::Fire1,
+                spell: SpellKind::Fire1.entry(),
                 target: TargetId::Enemy(0),
             },
             BattleAction::Attack {
@@ -1417,7 +1377,7 @@ mod tests {
         slime.stats.hp = 999;
         slime.stats.max_hp = 999;
         let enemies = vec![slime];
-        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
+        let mut battle = BattleState::new(party, enemies, test_item_params());
 
         // ライオスのHPを減らす
         battle.party[0].stats.hp = 10;
@@ -1430,7 +1390,7 @@ mod tests {
                 target: TargetId::Enemy(0),
             },
             BattleAction::Spell {
-                spell: SpellKind::Heal1,
+                spell: SpellKind::Heal1.entry(),
                 target: TargetId::Party(0),
             },
         ];
@@ -1454,7 +1414,7 @@ mod tests {
         let table = char_table();
         let party = default_party(&table);
         let enemies = vec![Enemy::slime()];
-        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
+        let mut battle = BattleState::new(party, enemies, test_item_params());
 
         // ライオスを倒す
         battle.party[0].stats.hp = 0;
@@ -1464,7 +1424,7 @@ mod tests {
                 target: TargetId::Enemy(0),
             },
             BattleAction::Spell {
-                spell: SpellKind::Heal1,
+                spell: SpellKind::Heal1.entry(),
                 target: TargetId::Party(0), // 倒されている → リターゲット
             },
         ];
@@ -1487,7 +1447,7 @@ mod tests {
         slime.stats.hp = 999;
         slime.stats.max_hp = 999;
         let enemies = vec![slime];
-        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
+        let mut battle = BattleState::new(party, enemies, test_item_params());
 
         // ライオスを倒す
         battle.party[0].stats.hp = 0;
@@ -1554,10 +1514,10 @@ mod tests {
         let table = char_table();
         let party = vec![PartyMember::from_kind(PartyMemberKind::Marcille, &table)];
         let enemies = vec![Enemy::slime(), Enemy::slime(), Enemy::slime()];
-        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
+        let mut battle = BattleState::new(party, enemies, test_item_params());
 
         let commands = vec![BattleAction::Spell {
-            spell: SpellKind::Blaze1,
+            spell: SpellKind::Blaze1.entry(),
             target: TargetId::Enemy(0), // AoEなのでダミー
         }];
         let randoms = make_random(vec![1.0; 4], 0.0);
@@ -1588,7 +1548,7 @@ mod tests {
         slime.stats.max_hp = 999;
         slime.stats.attack = 0;
         let enemies = vec![slime];
-        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
+        let mut battle = BattleState::new(party, enemies, test_item_params());
 
         let commands = vec![
             BattleAction::Attack {
@@ -1598,7 +1558,7 @@ mod tests {
                 target: TargetId::Enemy(0),
             },
             BattleAction::Spell {
-                spell: SpellKind::Healall1,
+                spell: SpellKind::Healall1.entry(),
                 target: TargetId::Party(0), // AoEなのでダミー
             },
         ];
@@ -1625,7 +1585,7 @@ mod tests {
         slime.stats.max_hp = 999;
         slime.stats.attack = 0;
         let enemies = vec![slime];
-        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
+        let mut battle = BattleState::new(party, enemies, test_item_params());
 
         let base_attack = battle.effective_attack_with_buff(0);
 
@@ -1634,7 +1594,7 @@ mod tests {
                 target: TargetId::Enemy(0),
             },
             BattleAction::Spell {
-                spell: SpellKind::Boost1,
+                spell: SpellKind::Boost1.entry(),
                 target: TargetId::Party(0),
             },
         ];
@@ -1665,7 +1625,7 @@ mod tests {
         slime.stats.max_hp = 999;
         slime.stats.attack = 0;
         let enemies = vec![slime];
-        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
+        let mut battle = BattleState::new(party, enemies, test_item_params());
 
         assert_eq!(battle.party_buffs[0].block, 0);
 
@@ -1674,7 +1634,7 @@ mod tests {
                 target: TargetId::Enemy(0),
             },
             BattleAction::Spell {
-                spell: SpellKind::Shield1,
+                spell: SpellKind::Shield1.entry(),
                 target: TargetId::Party(0),
             },
         ];
@@ -1695,7 +1655,7 @@ mod tests {
         wolf.stats.hp = 999;
         wolf.stats.max_hp = 999;
         let enemies = vec![wolf];
-        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
+        let mut battle = BattleState::new(party, enemies, test_item_params());
 
         // ブロックを直接設定
         battle.party_buffs[0].block = 10;
@@ -1736,12 +1696,12 @@ mod tests {
         slime.stats.max_hp = 999;
         slime.stats.attack = 0;
         let enemies = vec![slime];
-        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
+        let mut battle = BattleState::new(party, enemies, test_item_params());
 
         // Shield1を2回唱える（2ターン）
         for _ in 0..2 {
             let commands = vec![BattleAction::Spell {
-                spell: SpellKind::Shield1,
+                spell: SpellKind::Shield1.entry(),
                 target: TargetId::Party(0),
             }];
             let randoms = make_random(vec![1.0; 2], 0.0);
@@ -1763,11 +1723,11 @@ mod tests {
         slime.stats.max_hp = 999;
         slime.stats.attack = 0;
         let enemies = vec![slime];
-        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
+        let mut battle = BattleState::new(party, enemies, test_item_params());
 
         // ターン1: バフ付与
         let commands = vec![BattleAction::Spell {
-            spell: SpellKind::Boost1,
+            spell: SpellKind::Boost1.entry(),
             target: TargetId::Party(0),
         }];
         let randoms = make_random(vec![1.0; 2], 0.0);
@@ -1809,11 +1769,11 @@ mod tests {
         slime.stats.max_hp = 999;
         slime.stats.attack = 0;
         let enemies = vec![slime];
-        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
+        let mut battle = BattleState::new(party, enemies, test_item_params());
 
         // Bolga(ATK+3)を付与
         let commands = vec![BattleAction::Spell {
-            spell: SpellKind::Boost1,
+            spell: SpellKind::Boost1.entry(),
             target: TargetId::Party(0),
         }];
         let randoms = make_random(vec![1.0; 2], 0.0);
@@ -1833,7 +1793,7 @@ mod tests {
 
         // Bolgarda(ATK+6)で上書き → 持続5にリセット
         let commands = vec![BattleAction::Spell {
-            spell: SpellKind::Boost2,
+            spell: SpellKind::Boost2.entry(),
             target: TargetId::Party(0),
         }];
         let randoms = make_random(vec![1.0; 2], 0.0);
@@ -1850,7 +1810,7 @@ mod tests {
         let party = vec![PartyMember::from_kind(PartyMemberKind::Laios, &table)];
         let ghost = Enemy::ghost();
         let enemies = vec![ghost];
-        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
+        let mut battle = BattleState::new(party, enemies, test_item_params());
 
         let hp_before = battle.party[0].stats.hp;
 
@@ -1876,7 +1836,7 @@ mod tests {
         let mut ghost = Enemy::ghost();
         ghost.stats.mp = 0; // MP枯渇
         let enemies = vec![ghost];
-        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
+        let mut battle = BattleState::new(party, enemies, test_item_params());
 
         let commands = vec![BattleAction::Attack {
             target: TargetId::Enemy(0),
@@ -1899,7 +1859,7 @@ mod tests {
         let mut dark_lord = Enemy::dark_lord();
         dark_lord.stats.hp = 50; // HPを減らす
         let enemies = vec![dark_lord];
-        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
+        let mut battle = BattleState::new(party, enemies, test_item_params());
 
         // DarkLordの呪文: [Blaze2, Fire2, Heal2] — 最初のMP足りるものを使う
         // Heal2(MP7)を使わせるために、Blaze2(MP10)とFire2(MP7)のMPを消費させる
@@ -1915,7 +1875,7 @@ mod tests {
         // usable.first()はBlaze2を返す → Damage呪文
         // Heal呪文のテストは直接実行
         let hp_before = battle.enemies[0].stats.hp;
-        let results = battle.execute_enemy_spell(0, SpellKind::Heal2, 1.0);
+        let results = battle.execute_enemy_spell(0, SpellKind::Heal2.entry(), 1.0);
         assert!(
             results.iter().any(|r| matches!(r, TurnResult::Healed { .. })),
             "Heal2で回復イベントが発生するはず"
@@ -1929,7 +1889,7 @@ mod tests {
         let party = vec![PartyMember::from_kind(PartyMemberKind::Laios, &table), PartyMember::from_kind(PartyMemberKind::Marcille, &table), PartyMember::from_kind(PartyMemberKind::Falin, &table)];
         let dragon = Enemy::new(EnemyKind::Dragon, 1);
         let enemies = vec![dragon];
-        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
+        let mut battle = BattleState::new(party, enemies, test_item_params());
 
         let commands = vec![
             BattleAction::Attack { target: TargetId::Enemy(0) },
@@ -1956,7 +1916,7 @@ mod tests {
         slime.stats.max_hp = 999;
         slime.stats.attack = 0;
         let enemies = vec![slime];
-        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
+        let mut battle = BattleState::new(party, enemies, test_item_params());
 
         // ライオスを眠り状態にする
         battle.party_ailments[0].sleep = true;
@@ -1988,7 +1948,7 @@ mod tests {
         slime.stats.max_hp = 999;
         slime.stats.speed = 99; // 敵が先に行動するようにする
         let enemies = vec![slime];
-        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
+        let mut battle = BattleState::new(party, enemies, test_item_params());
 
         // 敵を眠り状態にする
         battle.enemy_ailments[0].sleep = true;
@@ -2020,7 +1980,7 @@ mod tests {
         slime.stats.max_hp = 999;
         slime.stats.attack = 0;
         let enemies = vec![slime];
-        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
+        let mut battle = BattleState::new(party, enemies, test_item_params());
 
         // ライオスを毒状態にする
         battle.party_ailments[0].poison = true;
@@ -2039,7 +1999,7 @@ mod tests {
         // 敵攻撃（最低1ダメージ）＋毒ダメージ分HPが減っていること
         let hp_after = battle.party[0].stats.hp;
         let max_hp = battle.party[0].stats.max_hp;
-        let poison_damage = test_spell_params().poison_damage;
+        let poison_damage = spell::POISON_DAMAGE;
         assert!(hp_after <= max_hp - poison_damage, "毒ダメージ分以上HPが減るはず");
     }
 
@@ -2052,7 +2012,7 @@ mod tests {
         slime.stats.max_hp = 999;
         slime.stats.attack = 0;
         let enemies = vec![slime];
-        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
+        let mut battle = BattleState::new(party, enemies, test_item_params());
 
         // 敵を毒状態にする
         battle.enemy_ailments[0].poison = true;
@@ -2078,7 +2038,7 @@ mod tests {
         slime.stats.max_hp = 999;
         slime.stats.attack = 0;
         let enemies = vec![slime];
-        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
+        let mut battle = BattleState::new(party, enemies, test_item_params());
 
         // 敵を眠り状態にする
         battle.enemy_ailments[0].sleep = true;
@@ -2115,13 +2075,13 @@ mod tests {
         slime.stats.max_hp = 999;
         slime.stats.attack = 0;
         let enemies = vec![slime];
-        let mut battle = BattleState::new(party, enemies, test_spell_params(), test_item_params());
+        let mut battle = BattleState::new(party, enemies, test_item_params());
 
         // Sleep1 power=70 → random_factor < 0.7 で成功
         // Party(0): 成功ケース (random=0.5 → 0.5*100=50 < 70 → 成功)
         let commands = vec![
             BattleAction::Spell {
-                spell: SpellKind::Sleep1,
+                spell: SpellKind::Sleep1.entry(),
                 target: TargetId::Enemy(0),
             },
             BattleAction::Attack {
@@ -2148,7 +2108,7 @@ mod tests {
         // 失敗ケース (random=0.9 → 0.9*100=90 >= 70 → 失敗)
         let commands = vec![
             BattleAction::Spell {
-                spell: SpellKind::Sleep1,
+                spell: SpellKind::Sleep1.entry(),
                 target: TargetId::Enemy(0),
             },
             BattleAction::Attack {

@@ -1,22 +1,22 @@
 use crate::character_table::CharacterParamTable;
 use crate::party::PartyMemberKind;
-use spell::SpellKind;
+use spell::SpellEntry;
 
 /// クラスとレベルに応じた使用可能な呪文リストを返す
-pub fn available_spells(kind: PartyMemberKind, level: u32, table: &CharacterParamTable) -> Vec<SpellKind> {
+pub fn available_spells(kind: PartyMemberKind, level: u32, table: &CharacterParamTable) -> Vec<SpellEntry> {
     table.spell_learn_table(kind)
         .iter()
         .filter(|(req_level, _)| level >= *req_level)
-        .map(|(_, spell)| *spell)
+        .map(|(_, spell)| spell.entry())
         .collect()
 }
 
 /// 指定レベルで新たに習得する呪文を返す
-pub fn spells_learned_at_level(kind: PartyMemberKind, level: u32, table: &CharacterParamTable) -> Vec<SpellKind> {
+pub fn spells_learned_at_level(kind: PartyMemberKind, level: u32, table: &CharacterParamTable) -> Vec<SpellEntry> {
     table.spell_learn_table(kind)
         .iter()
         .filter(|(req_level, _)| *req_level == level)
-        .map(|(_, spell)| *spell)
+        .map(|(_, spell)| spell.entry())
         .collect()
 }
 
@@ -26,6 +26,7 @@ mod tests {
     use crate::character_table::{CharacterEntry, CharacterParamTable};
     use crate::party::RecruitmentPath;
     use crate::stats::{CombatStats, StatGrowth};
+    use spell_data::SpellKind;
 
     fn char_table() -> CharacterParamTable {
         CharacterParamTable::from_fn(|kind| match kind {
@@ -139,14 +140,14 @@ mod tests {
     fn marcille_learns_fire1_at_level_1() {
         let table = char_table();
         let spells = available_spells(PartyMemberKind::Marcille, 1, &table);
-        assert_eq!(spells, vec![SpellKind::Fire1]);
+        assert_eq!(spells, vec![SpellKind::Fire1.entry()]);
     }
 
     #[test]
     fn marcille_learns_blaze1_at_level_3() {
         let table = char_table();
         let spells = available_spells(PartyMemberKind::Marcille, 3, &table);
-        assert_eq!(spells, vec![SpellKind::Fire1, SpellKind::Blaze1]);
+        assert_eq!(spells, vec![SpellKind::Fire1.entry(), SpellKind::Blaze1.entry()]);
     }
 
     #[test]
@@ -155,7 +156,7 @@ mod tests {
         let spells = available_spells(PartyMemberKind::Marcille, 5, &table);
         assert_eq!(
             spells,
-            vec![SpellKind::Fire1, SpellKind::Blaze1, SpellKind::Fire2]
+            vec![SpellKind::Fire1.entry(), SpellKind::Blaze1.entry(), SpellKind::Fire2.entry()]
         );
     }
 
@@ -163,7 +164,7 @@ mod tests {
     fn falin_learns_heal1_at_level_1() {
         let table = char_table();
         let spells = available_spells(PartyMemberKind::Falin, 1, &table);
-        assert_eq!(spells, vec![SpellKind::Heal1]);
+        assert_eq!(spells, vec![SpellKind::Heal1.entry()]);
     }
 
     #[test]
@@ -178,11 +179,11 @@ mod tests {
         let table = char_table();
         assert_eq!(
             spells_learned_at_level(PartyMemberKind::Marcille, 1, &table),
-            vec![SpellKind::Fire1]
+            vec![SpellKind::Fire1.entry()]
         );
         assert_eq!(
             spells_learned_at_level(PartyMemberKind::Marcille, 3, &table),
-            vec![SpellKind::Blaze1]
+            vec![SpellKind::Blaze1.entry()]
         );
         assert!(spells_learned_at_level(PartyMemberKind::Marcille, 2, &table).is_empty());
     }
@@ -191,7 +192,7 @@ mod tests {
     fn senshi_learns_shield1_at_level_4() {
         let table = char_table();
         let spells = available_spells(PartyMemberKind::Senshi, 4, &table);
-        assert_eq!(spells, vec![SpellKind::Shield1]);
+        assert_eq!(spells, vec![SpellKind::Shield1.entry()]);
     }
 
     #[test]
@@ -206,22 +207,22 @@ mod tests {
     fn marcille_learns_drain1_at_level_9() {
         let table = char_table();
         let spells = available_spells(PartyMemberKind::Marcille, 9, &table);
-        assert!(spells.contains(&SpellKind::Drain1));
+        assert!(spells.contains(&SpellKind::Drain1.entry()));
     }
 
     #[test]
     fn rinsha_learns_drain1_at_level_6() {
         let table = char_table();
         let spells = available_spells(PartyMemberKind::Rinsha, 6, &table);
-        assert!(spells.contains(&SpellKind::Drain1));
-        assert!(!available_spells(PartyMemberKind::Rinsha, 5, &table).contains(&SpellKind::Drain1));
+        assert!(spells.contains(&SpellKind::Drain1.entry()));
+        assert!(!available_spells(PartyMemberKind::Rinsha, 5, &table).contains(&SpellKind::Drain1.entry()));
     }
 
     #[test]
     fn kabru_learns_siphon1_at_level_6() {
         let table = char_table();
         let spells = available_spells(PartyMemberKind::Kabru, 6, &table);
-        assert!(spells.contains(&SpellKind::Siphon1));
-        assert!(!available_spells(PartyMemberKind::Kabru, 5, &table).contains(&SpellKind::Siphon1));
+        assert!(spells.contains(&SpellKind::Siphon1.entry()));
+        assert!(!available_spells(PartyMemberKind::Kabru, 5, &table).contains(&SpellKind::Siphon1.entry()));
     }
 }
