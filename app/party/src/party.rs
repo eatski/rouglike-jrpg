@@ -1,4 +1,5 @@
-use item::{Equipment, Inventory, ItemKind};
+use item::{Equipment, Inventory};
+use item_data::ItemKey;
 use crate::character_table::CharacterParamTable;
 use crate::stats::CombatStats;
 
@@ -39,8 +40,8 @@ pub struct PartyMember {
     pub level: u32,
     pub exp: u32,
     pub stats: CombatStats,
-    pub inventory: Inventory,
-    pub equipment: Equipment,
+    pub inventory: Inventory<ItemKey>,
+    pub equipment: Equipment<ItemKey>,
 }
 
 /// 次のレベルに必要な累計経験値
@@ -61,8 +62,8 @@ impl PartyMember {
     }
 
     /// 装備込みの実効攻撃力
-    pub fn effective_attack(&self, item_table: &item::ItemParamTable) -> i32 {
-        self.stats.attack + self.equipment.attack_bonus(item_table)
+    pub fn effective_attack(&self) -> i32 {
+        self.stats.attack + self.equipment.attack_bonus()
     }
 
     /// 経験値を獲得し、レベルアップがあれば回数を返す
@@ -110,7 +111,7 @@ pub enum RecruitmentPath {
     /// 金を払って雇う
     GoldHire { cost: u32 },
     /// アイテムと引き換えに仲間になる
-    ItemTrade { item: ItemKind },
+    ItemTrade { item: ItemKey },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -179,12 +180,12 @@ pub fn talk_to_candidate(candidate: &mut RecruitCandidate) -> TalkResult {
 }
 
 /// パーティ全体（メンバー+ふくろ）で指定アイテムを持っているか
-pub fn has_item(members: &[PartyMember], bag: &Inventory, item: ItemKind) -> bool {
+pub fn has_item(members: &[PartyMember], bag: &Inventory<ItemKey>, item: ItemKey) -> bool {
     members.iter().any(|m| m.inventory.count(item) > 0) || bag.count(item) > 0
 }
 
 /// メンバー→ふくろの順で指定アイテムを1つ消費する。成功したらtrue
-pub fn consume_item(members: &mut [PartyMember], bag: &mut Inventory, item: ItemKind) -> bool {
+pub fn consume_item(members: &mut [PartyMember], bag: &mut Inventory<ItemKey>, item: ItemKey) -> bool {
     for member in members.iter_mut() {
         if member.inventory.remove_item(item) {
             return true;
@@ -274,62 +275,59 @@ mod tests {
     fn has_item_finds_in_member_inventory() {
         let mut members = vec![PartyMember::from_kind(PartyMemberKind::Laios, &char_table())];
         let bag = Inventory::with_capacity(10);
-        members[0].inventory.add(ItemKind::Herb, 1);
-        assert!(has_item(&members, &bag, ItemKind::Herb));
-        assert!(!has_item(&members, &bag, ItemKind::HighHerb));
+        members[0].inventory.add(ItemKey::Herb, 1);
+        assert!(has_item(&members, &bag, ItemKey::Herb));
+        assert!(!has_item(&members, &bag, ItemKey::HighHerb));
     }
 
     #[test]
     fn has_item_finds_in_bag() {
         let members = vec![PartyMember::from_kind(PartyMemberKind::Laios, &char_table())];
         let mut bag = Inventory::with_capacity(10);
-        bag.add(ItemKind::HighHerb, 1);
-        assert!(has_item(&members, &bag, ItemKind::HighHerb));
+        bag.add(ItemKey::HighHerb, 1);
+        assert!(has_item(&members, &bag, ItemKey::HighHerb));
     }
 
     #[test]
     fn consume_item_prefers_member_over_bag() {
         let mut members = vec![PartyMember::from_kind(PartyMemberKind::Laios, &char_table())];
         let mut bag = Inventory::with_capacity(10);
-        members[0].inventory.add(ItemKind::Herb, 1);
-        bag.add(ItemKind::Herb, 1);
-        assert!(consume_item(&mut members, &mut bag, ItemKind::Herb));
+        members[0].inventory.add(ItemKey::Herb, 1);
+        bag.add(ItemKey::Herb, 1);
+        assert!(consume_item(&mut members, &mut bag, ItemKey::Herb));
         // メンバーから先に消費される
-        assert_eq!(members[0].inventory.count(ItemKind::Herb), 0);
-        assert_eq!(bag.count(ItemKind::Herb), 1);
+        assert_eq!(members[0].inventory.count(ItemKey::Herb), 0);
+        assert_eq!(bag.count(ItemKey::Herb), 1);
     }
 
     #[test]
     fn consume_item_falls_back_to_bag() {
         let mut members = vec![PartyMember::from_kind(PartyMemberKind::Laios, &char_table())];
         let mut bag = Inventory::with_capacity(10);
-        bag.add(ItemKind::Herb, 1);
-        assert!(consume_item(&mut members, &mut bag, ItemKind::Herb));
-        assert_eq!(bag.count(ItemKind::Herb), 0);
+        bag.add(ItemKey::Herb, 1);
+        assert!(consume_item(&mut members, &mut bag, ItemKey::Herb));
+        assert_eq!(bag.count(ItemKey::Herb), 0);
     }
 
     #[test]
     fn consume_item_returns_false_when_absent() {
         let mut members = vec![PartyMember::from_kind(PartyMemberKind::Laios, &char_table())];
         let mut bag = Inventory::with_capacity(10);
-        assert!(!consume_item(&mut members, &mut bag, ItemKind::Herb));
+        assert!(!consume_item(&mut members, &mut bag, ItemKey::Herb));
     }
 
     #[test]
     fn effective_attack_without_weapon() {
         let table = char_table();
-        let item_table = item_data::item_param_table();
         let laios = PartyMember::from_kind(PartyMemberKind::Laios, &table);
-        assert_eq!(laios.effective_attack(&item_table), laios.stats.attack);
+        assert_eq!(laios.effective_attack(), laios.stats.attack);
     }
 
     #[test]
     fn effective_attack_with_weapon() {
-        use item::WeaponKind;
         let table = char_table();
-        let item_table = item_data::item_param_table();
         let mut laios = PartyMember::from_kind(PartyMemberKind::Laios, &table);
-        laios.equipment.equip_weapon(WeaponKind::IronSword);
-        assert_eq!(laios.effective_attack(&item_table), laios.stats.attack + 5);
+        laios.equipment.equip_weapon(ItemKey::IronSword);
+        assert_eq!(laios.effective_attack(), laios.stats.attack + 5);
     }
 }

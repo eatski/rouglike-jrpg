@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use input_ui::{is_cancel_just_pressed, is_confirm_just_pressed};
-use item::ItemKind;
+use item_data::ItemKey;
 
 use app_state::{PartyState, SceneState};
 use field_core::{Player, TilePosition};
@@ -69,9 +69,9 @@ fn handle_open_door(
     let total_fragments: u32 = party_state
         .members
         .iter()
-        .map(|m| m.inventory.count(ItemKind::MoonFragment))
+        .map(|m| m.inventory.count(ItemKey::MoonFragment))
         .sum::<u32>()
-        + party_state.bag.count(ItemKind::MoonFragment);
+        + party_state.bag.count(ItemKey::MoonFragment);
 
     if total_fragments < required {
         hokora_res.phase = HokoraMenuPhase::ShowMessage {

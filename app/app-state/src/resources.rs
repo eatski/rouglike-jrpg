@@ -2,7 +2,8 @@ use bevy::prelude::*;
 
 use std::collections::{HashMap, HashSet};
 
-use item::{Inventory, ItemKind, BAG_CAPACITY};
+use item::{Inventory, BAG_CAPACITY};
+use item_data::ItemKey;
 use party::{default_candidates, initial_party, CharacterParamTable, PartyMember, RecruitCandidate};
 
 /// パーティの永続的な状態を管理するリソース（戦闘間でHP/MPを引き継ぐ）
@@ -13,13 +14,13 @@ pub struct PartyState {
     /// 仲間候補の一覧（状態付き）
     pub candidates: Vec<RecruitCandidate>,
     /// パーティ共有の袋
-    pub bag: Inventory,
+    pub bag: Inventory<ItemKey>,
 }
 
 impl PartyState {
     pub fn new(table: &CharacterParamTable) -> Self {
         let mut members = initial_party(table);
-        members[0].inventory.add(ItemKind::Herb, 2);
+        members[0].inventory.add(ItemKey::Herb, 2);
         Self {
             members,
             gold: 100,
@@ -106,5 +107,5 @@ pub struct HeardTavernHints {
 #[derive(Resource, Default)]
 pub struct TavernBounties {
     /// 居酒屋で依頼を聞いた街 → 対象アイテム
-    pub active: HashMap<(usize, usize), ItemKind>,
+    pub active: HashMap<(usize, usize), ItemKey>,
 }

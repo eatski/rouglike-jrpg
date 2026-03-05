@@ -3,9 +3,9 @@ use bevy::prelude::*;
 use battle::{BattleAction, BattleState};
 use enemy::{generate_enemy_group, Enemy};
 use spell::SpellEntry;
-use item::ItemKind;
+use item_data::ItemKey;
 
-use app_state::{BossBattlePending, CharacterParams, EncounterZone, ItemParams, PartyState, SceneState};
+use app_state::{BossBattlePending, CharacterParams, EncounterZone, PartyState, SceneState};
 
 use hud_ui::command_menu::{CommandMenu, CommandMenuItem, CommandMenuScrollDown, CommandMenuScrollUp};
 
@@ -103,7 +103,7 @@ pub struct BattleUIState {
     /// アイテム選択中のカーソル位置
     pub selected_item: usize,
     /// 選択済みのアイテム（ターゲット選択へ渡す）
-    pub pending_item: Option<ItemKind>,
+    pub pending_item: Option<ItemKey>,
     /// 味方ターゲット選択中の生存味方リスト内オフセット
     pub ally_target_offset: usize,
     /// メッセージindex → 適用する視覚効果のリスト
@@ -160,25 +160,26 @@ impl BattleUIState {
                 let owned = member.inventory.owned_items();
                 for (i, &item) in owned.iter().enumerate() {
                     let count = member.inventory.count(item);
-                    if let Some(w) = item.as_weapon() {
-                        let equipped = member.equipment.weapon == Some(w);
+                    let entry = item.entry();
+                    if entry.is_weapon() {
+                        let equipped = member.equipment.weapon == Some(item);
                         let equip_mark = if equipped { "E " } else { "" };
                         self.cached_labels.push(format!(
                             "{}{} x{}",
                             equip_mark,
-                            item.name(),
+                            entry.name,
                             count
                         ));
                     } else {
                         self.cached_labels
-                            .push(format!("{} x{}", item.name(), count));
+                            .push(format!("{} x{}", entry.name, count));
                     }
+                    let effect = entry.effect;
                     if matches!(
-                        game_state.state.item_params.effect(item),
-                        item::ItemEffect::KeyItem
-                            | item::ItemEffect::Material
-                            | item::ItemEffect::Equip
-                    ) {
+                        effect,
+                        item::ItemEffect::KeyItem | item::ItemEffect::Material
+                    ) || entry.is_weapon()
+                    {
                         self.disabled_indices.push(i);
                     }
                 }
@@ -328,7 +329,6 @@ pub fn init_battle_resources(
     party: Vec<party::PartyMember>,
     enemies: Vec<Enemy>,
     initial_phase: Option<BattlePhase>,
-    item_params: item::ItemParamTable,
 ) -> (BattleGameState, BattleUIState) {
     let display_names = enemy_display_names(&enemies);
 
@@ -343,7 +343,7 @@ pub fn init_battle_resources(
     };
 
     let enemy_count = enemies.len();
-    let battle_state = BattleState::new(party, enemies, item_params);
+    let battle_state = BattleState::new(party, enemies);
 
     let party_size = battle_state.party.len();
     let display_party_hp = battle_state.party.iter().map(|m| m.stats.hp).collect();
@@ -387,7 +387,6 @@ pub fn setup_battle_scene(
     party_state: Res<PartyState>,
     boss_battle: Option<Res<BossBattlePending>>,
     encounter_zone: Option<Res<EncounterZone>>,
-    item_params: Res<ItemParams>,
 ) {
     let config = if boss_battle.is_some() {
         commands.remove_resource::<BossBattlePending>();
@@ -400,7 +399,7 @@ pub fn setup_battle_scene(
         let zone = encounter_zone.as_deref().unwrap_or(&default_zone);
         BattleSceneConfig::from_zone(zone)
     };
-    setup_battle_scene_inner(&mut commands, &asset_server, &party_state, config, &item_params);
+    setup_battle_scene_inner(&mut commands, &asset_server, &party_state, config);
 }
 
 /// BattleSceneConfigリソースから設定を読んでシーンを構築するシステム
@@ -409,14 +408,13 @@ pub fn setup_battle_scene_with_config(
     asset_server: Res<AssetServer>,
     party_state: Res<PartyState>,
     config: Res<BattleSceneConfig>,
-    item_params: Res<ItemParams>,
 ) {
     let config = BattleSceneConfig {
         enemies: config.enemies.clone(),
         initial_phase: config.initial_phase.clone(),
     };
     commands.remove_resource::<BattleSceneConfig>();
-    setup_battle_scene_inner(&mut commands, &asset_server, &party_state, config, &item_params);
+    setup_battle_scene_inner(&mut commands, &asset_server, &party_state, config);
 }
 
 fn setup_battle_scene_inner(
@@ -424,7 +422,6 @@ fn setup_battle_scene_inner(
     asset_server: &AssetServer,
     party_state: &PartyState,
     config: BattleSceneConfig,
-    item_params: &ItemParams,
 ) {
     let party = party_state.members.clone();
     let enemies = config.enemies;
@@ -435,7 +432,7 @@ fn setup_battle_scene_inner(
         .map(|e| asset_server.load(e.kind.sprite_path()))
         .collect();
 
-    let (game_state, ui_state) = init_battle_resources(party, enemies, config.initial_phase, item_params.0.clone());
+    let (game_state, ui_state) = init_battle_resources(party, enemies, config.initial_phase);
 
     let font: Handle<Font> = asset_server.load("fonts/NotoSansJP-Bold.ttf");
 

@@ -173,6 +173,7 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "item",
+ "item-data",
  "party",
 ]
 
@@ -329,6 +330,7 @@ version = "0.1.0"
 dependencies = [
  "enemy",
  "item",
+ "item-data",
  "party",
  "spell",
  "spell-data",
@@ -345,6 +347,7 @@ dependencies = [
  "hud-ui",
  "input-ui",
  "item",
+ "item-data",
  "party",
  "rand 0.8.5",
  "spell",
@@ -1782,6 +1785,7 @@ name = "cave"
 version = "0.1.0"
 dependencies = [
  "item",
+ "item-data",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "terrain",
@@ -1798,6 +1802,7 @@ dependencies = [
  "field-walk-ui",
  "input-ui",
  "item",
+ "item-data",
  "party",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
@@ -2454,6 +2459,7 @@ dependencies = [
  "hud-ui",
  "input-ui",
  "item",
+ "item-data",
  "party",
  "rand 0.8.5",
  "spell",
@@ -2983,6 +2989,7 @@ dependencies = [
  "hud-ui",
  "input-ui",
  "item",
+ "item-data",
  "party",
  "terrain",
 ]
@@ -3935,7 +3942,7 @@ dependencies = [
 name = "party-data"
 version = "0.1.0"
 dependencies = [
- "item",
+ "item-data",
  "party",
  "spell-data",
 ]
@@ -4564,7 +4571,7 @@ dependencies = [
  "app-state",
  "bevy",
  "hud-ui",
- "item",
+ "item-data",
  "party-data",
  "screenshot-common",
  "town-ui",
@@ -5036,6 +5043,7 @@ name = "town"
 version = "0.1.0"
 dependencies = [
  "item",
+ "item-data",
  "party",
  "terrain",
 ]
@@ -5050,6 +5058,7 @@ dependencies = [
  "hud-ui",
  "input-ui",
  "item",
+ "item-data",
  "party",
  "rand 0.8.5",
  "town",

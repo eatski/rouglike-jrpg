@@ -6,4 +6,5 @@ edition = "2024"
 [dependencies]
 bevy = "0.18"
 item = { path = "../item" }
+item-data = { path = "../item-data" }
 party = { path = "../party" }

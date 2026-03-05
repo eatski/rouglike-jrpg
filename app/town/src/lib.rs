@@ -1,4 +1,5 @@
-use item::{Inventory, ItemKind, ItemParamTable, WeaponKind};
+use item::Inventory;
+use item_data::ItemKey;
 use party::{PartyMember, PartyMemberKind};
 use terrain::{Structure, MAP_HEIGHT, MAP_WIDTH};
 
@@ -16,8 +17,8 @@ pub enum BuyResult {
 }
 
 /// アイテムを購入する
-pub fn buy_item(item: ItemKind, gold: u32, inventory: &mut Inventory, table: &ItemParamTable) -> BuyResult {
-    let price = table.price(item);
+pub fn buy_item(item: ItemKey, gold: u32, inventory: &mut Inventory<ItemKey>) -> BuyResult {
+    let price = item.entry().price;
     if gold < price {
         return BuyResult::InsufficientGold;
     }
@@ -40,14 +41,14 @@ pub enum SellResult {
 /// アイテムを売却する
 ///
 /// `equipped_weapon` が `Some` かつ該当武器が1本のみの場合、売却不可。
-pub fn sell_item(item: ItemKind, inventory: &mut Inventory, equipped_weapon: Option<WeaponKind>, table: &ItemParamTable) -> SellResult {
-    let sell_price = table.sell_price(item);
+pub fn sell_item(item: ItemKey, inventory: &mut Inventory<ItemKey>, equipped_weapon: Option<ItemKey>) -> SellResult {
+    let sell_price = item.entry().sell_price;
     if sell_price == 0 {
         return SellResult::CannotSell;
     }
     // 装備中の武器が1本のみの場合は売却不可
-    if let Some(w) = item.as_weapon()
-        && equipped_weapon == Some(w)
+    if item.entry().is_weapon()
+        && equipped_weapon == Some(item)
         && inventory.count(item) <= 1
     {
         return SellResult::CannotSell;
@@ -340,30 +341,30 @@ pub fn hokora_hint_dialogue(
 }
 
 /// 買い取り対象の素材アイテム一覧（安い順）
-pub fn bounty_eligible_items() -> [ItemKind; 4] {
+pub fn bounty_eligible_items() -> [ItemKey; 4] {
     [
-        ItemKind::MagicStone,
-        ItemKind::SilverOre,
-        ItemKind::AncientCoin,
-        ItemKind::DragonScale,
+        ItemKey::MagicStone,
+        ItemKey::SilverOre,
+        ItemKey::AncientCoin,
+        ItemKey::DragonScale,
     ]
 }
 
 /// 街座標から決定論的に買い取り対象アイテムを決定する
-pub fn tavern_bounty_item(town_x: usize, town_y: usize) -> ItemKind {
+pub fn tavern_bounty_item(town_x: usize, town_y: usize) -> ItemKey {
     let items = bounty_eligible_items();
     let hash = town_x.wrapping_mul(31).wrapping_add(town_y.wrapping_mul(97));
     items[hash % items.len()]
 }
 
 /// 買い取り価格（売価×3）
-pub fn bounty_buy_price(item: ItemKind, table: &ItemParamTable) -> u32 {
-    table.sell_price(item) * 3
+pub fn bounty_buy_price(item: ItemKey) -> u32 {
+    item.entry().sell_price * 3
 }
 
 /// 買い取り依頼の台詞（持っていない場合）
-pub fn bounty_offer_dialogue(item: ItemKind, table: &ItemParamTable) -> String {
-    let price = bounty_buy_price(item, table);
+pub fn bounty_offer_dialogue(item: ItemKey) -> String {
+    let price = bounty_buy_price(item);
     format!(
         "{}G はらった。\n「{}を もってきてくれ。\n{}Gで かいとるぞ」",
         TAVERN_PRICE,
@@ -373,8 +374,8 @@ pub fn bounty_offer_dialogue(item: ItemKind, table: &ItemParamTable) -> String {
 }
 
 /// 買い取り依頼の台詞（持っている場合）
-pub fn bounty_has_item_dialogue(item: ItemKind, table: &ItemParamTable) -> String {
-    let price = bounty_buy_price(item, table);
+pub fn bounty_has_item_dialogue(item: ItemKey) -> String {
+    let price = bounty_buy_price(item);
     format!(
         "{}G はらった。\n「おっ {}を もっているのか！\n{}Gで かいとるぞ！」",
         TAVERN_PRICE,
@@ -384,18 +385,18 @@ pub fn bounty_has_item_dialogue(item: ItemKind, table: &ItemParamTable) -> Strin
 }
 
 /// 買い取り依頼で売却完了時のメッセージ
-pub fn bounty_sold_dialogue(item: ItemKind, table: &ItemParamTable) -> String {
-    let price = bounty_buy_price(item, table);
+pub fn bounty_sold_dialogue(item: ItemKey) -> String {
+    let price = bounty_buy_price(item);
     format!("{}を {}Gで かいとった！", item.name(), price)
 }
 
 /// 買い取り依頼でアイテムを売却する（売価×3）
-pub fn sell_bounty_item(item: ItemKind, inventory: &mut Inventory, table: &ItemParamTable) -> SellResult {
+pub fn sell_bounty_item(item: ItemKey, inventory: &mut Inventory<ItemKey>) -> SellResult {
     if !inventory.remove_item(item) {
         return SellResult::NotOwned;
     }
     SellResult::Success {
-        earned_gold: bounty_buy_price(item, table),
+        earned_gold: bounty_buy_price(item),
     }
 }
 
@@ -403,32 +404,6 @@ pub fn sell_bounty_item(item: ItemKind, inventory: &mut Inventory, table: &ItemP
 mod tests {
     use super::*;
     use party::default_party;
-    use item::{ItemEntry, WeaponEntry};
-
-    fn test_item_table() -> ItemParamTable {
-        use item::ItemEffect::*;
-        ItemParamTable::from_fn(
-            |item| match item {
-                ItemKind::Herb => ItemEntry { effect: Heal { power: 25 }, description: "", price: 8, sell_price: 4 },
-                ItemKind::HighHerb => ItemEntry { effect: Heal { power: 50 }, description: "", price: 24, sell_price: 12 },
-                ItemKind::MoonFragment => ItemEntry { effect: Material, description: "", price: 50, sell_price: 25 },
-                ItemKind::MagicStone => ItemEntry { effect: Material, description: "", price: 0, sell_price: 30 },
-                ItemKind::SilverOre => ItemEntry { effect: Material, description: "", price: 0, sell_price: 60 },
-                ItemKind::AncientCoin => ItemEntry { effect: Material, description: "", price: 0, sell_price: 120 },
-                ItemKind::DragonScale => ItemEntry { effect: Material, description: "", price: 0, sell_price: 250 },
-                _ => ItemEntry { effect: KeyItem, description: "", price: 0, sell_price: 0 },
-            },
-            |weapon| match weapon {
-                WeaponKind::WoodenSword => WeaponEntry { attack_bonus: 2, price: 10, description: "" },
-                WeaponKind::IronSword => WeaponEntry { attack_bonus: 5, price: 50, description: "" },
-                WeaponKind::SteelSword => WeaponEntry { attack_bonus: 10, price: 150, description: "" },
-                WeaponKind::MageStaff => WeaponEntry { attack_bonus: 3, price: 30, description: "" },
-                WeaponKind::HolyStaff => WeaponEntry { attack_bonus: 4, price: 80, description: "" },
-            },
-            vec![],
-            vec![],
-        )
-    }
 
     fn char_table() -> party::CharacterParamTable {
         party::CharacterParamTable::from_fn(|kind| party::CharacterEntry {
@@ -680,39 +655,35 @@ mod tests {
 
     #[test]
     fn buy_item_success() {
-        let t = test_item_table();
         let mut inv = Inventory::new();
-        let result = buy_item(ItemKind::Herb, 100, &mut inv, &t);
+        let result = buy_item(ItemKey::Herb, 100, &mut inv);
         assert_eq!(result, BuyResult::Success { remaining_gold: 92 });
-        assert_eq!(inv.count(ItemKind::Herb), 1);
+        assert_eq!(inv.count(ItemKey::Herb), 1);
     }
 
     #[test]
     fn buy_item_insufficient_gold() {
-        let t = test_item_table();
         let mut inv = Inventory::new();
-        let result = buy_item(ItemKind::Herb, 5, &mut inv, &t);
+        let result = buy_item(ItemKey::Herb, 5, &mut inv);
         assert_eq!(result, BuyResult::InsufficientGold);
-        assert_eq!(inv.count(ItemKind::Herb), 0);
+        assert_eq!(inv.count(ItemKey::Herb), 0);
     }
 
     #[test]
     fn buy_item_exact_gold() {
-        let t = test_item_table();
         let mut inv = Inventory::new();
-        let result = buy_item(ItemKind::Herb, 8, &mut inv, &t);
+        let result = buy_item(ItemKey::Herb, 8, &mut inv);
         assert_eq!(result, BuyResult::Success { remaining_gold: 0 });
-        assert_eq!(inv.count(ItemKind::Herb), 1);
+        assert_eq!(inv.count(ItemKey::Herb), 1);
     }
 
     #[test]
     fn buy_item_inventory_full() {
-        let t = test_item_table();
         let mut inv = Inventory::new();
-        inv.add(ItemKind::Herb, 6); // 容量いっぱい
-        let result = buy_item(ItemKind::Herb, 100, &mut inv, &t);
+        inv.add(ItemKey::Herb, 6); // 容量いっぱい
+        let result = buy_item(ItemKey::Herb, 100, &mut inv);
         assert_eq!(result, BuyResult::InventoryFull);
-        assert_eq!(inv.count(ItemKind::Herb), 6);
+        assert_eq!(inv.count(ItemKey::Herb), 6);
     }
 
     #[test]
@@ -747,46 +718,39 @@ mod tests {
 
     #[test]
     fn buy_weapon_item_success() {
-        let t = test_item_table();
-        use item::{Inventory, WeaponKind};
         let mut inv = Inventory::new();
-        let result = buy_item(ItemKind::Weapon(WeaponKind::WoodenSword), 100, &mut inv, &t);
+        let result = buy_item(ItemKey::WoodenSword, 100, &mut inv);
         assert_eq!(
             result,
             BuyResult::Success {
                 remaining_gold: 90
             }
         );
-        assert_eq!(inv.count(ItemKind::Weapon(WeaponKind::WoodenSword)), 1);
+        assert_eq!(inv.count(ItemKey::WoodenSword), 1);
     }
 
     #[test]
     fn buy_weapon_item_insufficient_gold() {
-        let t = test_item_table();
-        use item::{Inventory, WeaponKind};
         let mut inv = Inventory::new();
-        let result = buy_item(ItemKind::Weapon(WeaponKind::IronSword), 10, &mut inv, &t);
+        let result = buy_item(ItemKey::IronSword, 10, &mut inv);
         assert_eq!(result, BuyResult::InsufficientGold);
-        assert_eq!(inv.count(ItemKind::Weapon(WeaponKind::IronSword)), 0);
+        assert_eq!(inv.count(ItemKey::IronSword), 0);
     }
 
     #[test]
     fn buy_weapon_item_inventory_full() {
-        let t = test_item_table();
-        use item::{Inventory, WeaponKind};
         let mut inv = Inventory::new();
-        inv.add(ItemKind::Herb, 6); // 容量いっぱい
-        let result = buy_item(ItemKind::Weapon(WeaponKind::IronSword), 100, &mut inv, &t);
+        inv.add(ItemKey::Herb, 6); // 容量いっぱい
+        let result = buy_item(ItemKey::IronSword, 100, &mut inv);
         assert_eq!(result, BuyResult::InventoryFull);
     }
 
     #[test]
     fn bounty_buy_price_is_triple_sell_price() {
-        let t = test_item_table();
-        assert_eq!(bounty_buy_price(ItemKind::MagicStone, &t), 90);
-        assert_eq!(bounty_buy_price(ItemKind::SilverOre, &t), 180);
-        assert_eq!(bounty_buy_price(ItemKind::AncientCoin, &t), 360);
-        assert_eq!(bounty_buy_price(ItemKind::DragonScale, &t), 750);
+        assert_eq!(bounty_buy_price(ItemKey::MagicStone), 90);
+        assert_eq!(bounty_buy_price(ItemKey::SilverOre), 180);
+        assert_eq!(bounty_buy_price(ItemKey::AncientCoin), 360);
+        assert_eq!(bounty_buy_price(ItemKey::DragonScale), 750);
     }
 
     #[test]
@@ -801,19 +765,17 @@ mod tests {
 
     #[test]
     fn sell_bounty_item_success() {
-        let t = test_item_table();
         let mut inv = Inventory::new();
-        inv.add(ItemKind::MagicStone, 1);
-        let result = sell_bounty_item(ItemKind::MagicStone, &mut inv, &t);
+        inv.add(ItemKey::MagicStone, 1);
+        let result = sell_bounty_item(ItemKey::MagicStone, &mut inv);
         assert_eq!(result, SellResult::Success { earned_gold: 90 });
-        assert_eq!(inv.count(ItemKind::MagicStone), 0);
+        assert_eq!(inv.count(ItemKey::MagicStone), 0);
     }
 
     #[test]
     fn sell_bounty_item_not_owned() {
-        let t = test_item_table();
         let mut inv = Inventory::new();
-        let result = sell_bounty_item(ItemKind::MagicStone, &mut inv, &t);
+        let result = sell_bounty_item(ItemKey::MagicStone, &mut inv);
         assert_eq!(result, SellResult::NotOwned);
     }
 }

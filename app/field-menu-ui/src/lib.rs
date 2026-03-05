@@ -1,12 +1,13 @@
 use bevy::prelude::*;
 
-use app_state::{CharacterParams, FieldMenuOpen, InField, ItemParams, PartyState};
+use app_state::{CharacterParams, FieldMenuOpen, InField, PartyState};
 use hud_ui::command_menu::{
     self, CommandMenu, CommandMenuItem, CommandMenuScrollDown, CommandMenuScrollUp,
 };
 use input_ui::InputSystemSet;
 use party::available_spells;
-use item::{Inventory, ItemEffect, ItemKind, BAG_CAPACITY, BAG_MEMBER_INDEX};
+use item::{Inventory, ItemEffect, BAG_CAPACITY, BAG_MEMBER_INDEX};
+use item_data::ItemKey;
 use spell::{SpellEffect, SpellEntry, SpellTarget};
 
 /// ターゲット選択の文脈（呪文 or アイテム）
@@ -19,7 +20,7 @@ pub enum TargetContext {
     },
     Item {
         member: usize,
-        items: Vec<ItemKind>,
+        items: Vec<ItemKey>,
         item_cursor: usize,
     },
 }
@@ -36,7 +37,7 @@ pub enum FieldMenuPhase {
     /// メンバー選択（アイテムフロー）
     MemberSelect { candidates: Vec<usize>, cursor: usize },
     /// アイテム選択
-    ItemSelect { member: usize, items: Vec<ItemKind>, cursor: usize },
+    ItemSelect { member: usize, items: Vec<ItemKey>, cursor: usize },
     /// ターゲット選択（共用）
     TargetSelect { candidates: Vec<usize>, cursor: usize, context: TargetContext },
     /// メッセージ表示
@@ -52,22 +53,22 @@ pub struct FieldMenuState {
 }
 
 impl FieldMenuState {
-    pub fn new(phase: FieldMenuPhase, party_state: &PartyState, item_params: &ItemParams) -> Self {
+    pub fn new(phase: FieldMenuPhase, party_state: &PartyState) -> Self {
         let mut s = Self {
             phase,
             cached_labels: Vec::new(),
             disabled_indices: Vec::new(),
         };
-        s.rebuild_cache(party_state, item_params);
+        s.rebuild_cache(party_state);
         s
     }
 
-    fn set_phase(&mut self, phase: FieldMenuPhase, party_state: &PartyState, item_params: &ItemParams) {
+    fn set_phase(&mut self, phase: FieldMenuPhase, party_state: &PartyState) {
         self.phase = phase;
-        self.rebuild_cache(party_state, item_params);
+        self.rebuild_cache(party_state);
     }
 
-    fn rebuild_cache(&mut self, party_state: &PartyState, item_params: &ItemParams) {
+    fn rebuild_cache(&mut self, party_state: &PartyState) {
         self.cached_labels.clear();
         self.disabled_indices.clear();
         match &self.phase {
@@ -120,28 +121,29 @@ impl FieldMenuState {
                 let inv = get_inventory(party_state, *member);
                 for &item in items {
                     let count = inv.count(item);
-                    if let Some(w) = item.as_weapon() {
+                    let entry = item.entry();
+                    if entry.is_weapon() {
                         if *member == BAG_MEMBER_INDEX {
                             self.cached_labels.push(format!(
                                 "{} ATK+{} x{}",
-                                item.name(),
-                                item_params.weapon_attack_bonus(w),
+                                entry.name,
+                                entry.attack_bonus,
                                 count
                             ));
                         } else {
-                            let equipped = party_state.members[*member].equipment.weapon == Some(w);
+                            let equipped = party_state.members[*member].equipment.weapon == Some(item);
                             let equip_mark = if equipped { "E " } else { "" };
                             self.cached_labels.push(format!(
                                 "{}{} ATK+{} x{}",
                                 equip_mark,
-                                item.name(),
-                                item_params.weapon_attack_bonus(w),
+                                entry.name,
+                                entry.attack_bonus,
                                 count
                             ));
                         }
                     } else {
                         self.cached_labels
-                            .push(format!("{} x{}", item.name(), count));
+                            .push(format!("{} x{}", entry.name, count));
                     }
                 }
             }
@@ -367,7 +369,6 @@ fn field_menu_input_system(
     state: Option<ResMut<FieldMenuState>>,
     root_query: Query<Entity, With<FieldMenuRoot>>,
     char_params: Res<CharacterParams>,
-    item_params: Res<ItemParams>,
 ) {
     if menu_open.is_none() {
         // メニュー非表示: 確認キーで開く
@@ -380,7 +381,6 @@ fn field_menu_input_system(
             commands.insert_resource(FieldMenuState::new(
                 FieldMenuPhase::TopMenu { cursor: 0 },
                 &party_state,
-                &item_params,
             ));
 
             spawn_menu_ui(&mut commands, &asset_server);
@@ -400,11 +400,10 @@ fn field_menu_input_system(
                 &mut commands,
                 &root_query,
                 cursor,
-                &item_params,
             );
         }
         FieldMenuPhase::CasterSelect { candidates, cursor } => {
-            handle_caster_select(&keyboard, &mut state, &party_state, candidates, cursor, &char_params, &item_params);
+            handle_caster_select(&keyboard, &mut state, &party_state, candidates, cursor, &char_params);
         }
         FieldMenuPhase::SpellSelect {
             caster,
@@ -418,11 +417,10 @@ fn field_menu_input_system(
                 caster,
                 spells,
                 cursor,
-                &item_params,
             );
         }
         FieldMenuPhase::MemberSelect { candidates, cursor } => {
-            handle_member_select(&keyboard, &mut state, &party_state, candidates, cursor, &item_params);
+            handle_member_select(&keyboard, &mut state, &party_state, candidates, cursor);
         }
         FieldMenuPhase::ItemSelect {
             member,
@@ -436,7 +434,6 @@ fn field_menu_input_system(
                 member,
                 items,
                 cursor,
-                &item_params,
             );
         }
         FieldMenuPhase::TargetSelect {
@@ -451,12 +448,11 @@ fn field_menu_input_system(
                 candidates,
                 cursor,
                 context,
-                &item_params,
             );
         }
         FieldMenuPhase::ShowMessage { .. } => {
             if input_ui::is_confirm_just_pressed(&keyboard) {
-                state.set_phase(FieldMenuPhase::TopMenu { cursor: 0 }, &party_state, &item_params);
+                state.set_phase(FieldMenuPhase::TopMenu { cursor: 0 }, &party_state);
             }
             if input_ui::is_cancel_just_pressed(&keyboard) {
                 close_menu(&mut commands, &root_query);
@@ -472,7 +468,6 @@ fn handle_top_menu(
     commands: &mut Commands,
     root_query: &Query<Entity, With<FieldMenuRoot>>,
     mut cursor: usize,
-    item_params: &ItemParams,
 ) {
     if input_ui::is_up_just_pressed(keyboard) && cursor > 0 {
         cursor -= 1;
@@ -497,7 +492,6 @@ fn handle_top_menu(
                     cursor: 0,
                 },
                 party_state,
-                item_params,
             );
         } else {
             // どうぐ → MemberSelect（末尾にふくろを追加）
@@ -509,7 +503,6 @@ fn handle_top_menu(
                     cursor: 0,
                 },
                 party_state,
-                item_params,
             );
         }
     }
@@ -522,7 +515,6 @@ fn handle_caster_select(
     candidates: Vec<usize>,
     mut cursor: usize,
     char_params: &CharacterParams,
-    item_params: &ItemParams,
 ) {
     let count = candidates.len();
     if input_ui::is_up_just_pressed(keyboard) && cursor > 0 {
@@ -537,7 +529,7 @@ fn handle_caster_select(
     };
 
     if input_ui::is_cancel_just_pressed(keyboard) {
-        state.set_phase(FieldMenuPhase::TopMenu { cursor: 0 }, party_state, item_params);
+        state.set_phase(FieldMenuPhase::TopMenu { cursor: 0 }, party_state);
         return;
     }
 
@@ -554,7 +546,6 @@ fn handle_caster_select(
                     message: "じゅもんを おぼえていない".to_string(),
                 },
                 party_state,
-                item_params,
             );
         } else {
             state.set_phase(
@@ -564,7 +555,6 @@ fn handle_caster_select(
                     cursor: 0,
                 },
                 party_state,
-                item_params,
             );
         }
     }
@@ -577,7 +567,6 @@ fn handle_spell_select(
     caster: usize,
     spells: Vec<SpellEntry>,
     mut cursor: usize,
-    item_params: &ItemParams,
 ) {
     let count = spells.len();
     if input_ui::is_up_just_pressed(keyboard) && cursor > 0 {
@@ -600,7 +589,6 @@ fn handle_spell_select(
                 cursor: 0,
             },
             party_state,
-            item_params,
         );
         return;
     }
@@ -619,11 +607,10 @@ fn handle_spell_select(
                     message: "フィールドでは つかえない".to_string(),
                 },
                 party_state,
-                item_params,
             );
         } else if spell.target_type == SpellTarget::AllAllies {
             // 全体回復: ターゲット選択スキップ、全味方に一括実行
-            execute_aoe_heal(state, party_state, caster, spell, item_params);
+            execute_aoe_heal(state, party_state, caster, spell);
         } else {
             // 単体回復: ターゲット選択へ
             let target_candidates = alive_member_indices(party_state);
@@ -638,7 +625,6 @@ fn handle_spell_select(
                     },
                 },
                 party_state,
-                item_params,
             );
         }
     }
@@ -650,7 +636,6 @@ fn handle_member_select(
     party_state: &PartyState,
     candidates: Vec<usize>,
     mut cursor: usize,
-    item_params: &ItemParams,
 ) {
     let count = candidates.len();
     if input_ui::is_up_just_pressed(keyboard) && cursor > 0 {
@@ -665,7 +650,7 @@ fn handle_member_select(
     };
 
     if input_ui::is_cancel_just_pressed(keyboard) {
-        state.set_phase(FieldMenuPhase::TopMenu { cursor: 0 }, party_state, item_params);
+        state.set_phase(FieldMenuPhase::TopMenu { cursor: 0 }, party_state);
         return;
     }
 
@@ -678,7 +663,6 @@ fn handle_member_select(
                     message: "もちものが ない".to_string(),
                 },
                 party_state,
-                item_params,
             );
         } else {
             state.set_phase(
@@ -688,7 +672,6 @@ fn handle_member_select(
                     cursor: 0,
                 },
                 party_state,
-                item_params,
             );
         }
     }
@@ -699,9 +682,8 @@ fn handle_item_select(
     state: &mut FieldMenuState,
     party_state: &mut PartyState,
     member: usize,
-    items: Vec<ItemKind>,
+    items: Vec<ItemKey>,
     mut cursor: usize,
-    item_params: &ItemParams,
 ) {
     let count = items.len();
     if input_ui::is_up_just_pressed(keyboard) && cursor > 0 {
@@ -725,14 +707,14 @@ fn handle_item_select(
                 cursor: 0,
             },
             party_state,
-            item_params,
         );
         return;
     }
 
     if input_ui::is_confirm_just_pressed(keyboard) {
         let item = items[cursor];
-        match item_params.effect(item) {
+        let entry = item.entry();
+        match entry.effect {
             ItemEffect::Heal { .. } => {
                 let target_candidates = alive_member_indices(party_state);
                 state.set_phase(
@@ -746,10 +728,9 @@ fn handle_item_select(
                         },
                     },
                     party_state,
-                    item_params,
                 );
             }
-            ItemEffect::Equip => {
+            _ if entry.is_weapon() => {
                 if member == BAG_MEMBER_INDEX {
                     // ふくろから装備 → 誰に装備するかターゲット選択
                     let target_candidates = alive_member_indices(party_state);
@@ -764,21 +745,18 @@ fn handle_item_select(
                             },
                         },
                         party_state,
-                        item_params,
                     );
                 } else {
-                    let weapon = item.as_weapon().expect("Equip effect must be Weapon");
                     let member_ref = &mut party_state.members[member];
                     let member_name = member_ref.kind.name();
-                    let old_weapon = member_ref.equipment.equip_weapon(weapon);
-                    let mut msg = format!("{}は {}を そうびした！", member_name, weapon.name());
+                    let old_weapon = member_ref.equipment.equip_weapon(item);
+                    let mut msg = format!("{}は {}を そうびした！", member_name, item.name());
                     if let Some(old_w) = old_weapon {
                         msg.push_str(&format!("\n{}を はずした", old_w.name()));
                     }
                     state.set_phase(
                         FieldMenuPhase::ShowMessage { message: msg },
                         party_state,
-                        item_params,
                     );
                 }
             }
@@ -790,11 +768,10 @@ fn handle_item_select(
                             "{}は {}を しらべた。\n{}",
                             name,
                             item.name(),
-                            item_params.description(item)
+                            entry.description
                         ),
                     },
                     party_state,
-                    item_params,
                 );
             }
         }
@@ -807,7 +784,6 @@ fn execute_aoe_heal(
     party_state: &mut PartyState,
     caster: usize,
     spell: SpellEntry,
-    item_params: &ItemParams,
 ) {
     let consumed = party_state.members[caster].stats.use_mp(spell.mp_cost);
     if !consumed {
@@ -837,7 +813,6 @@ fn execute_aoe_heal(
             message: lines.join("\n"),
         },
         party_state,
-        item_params,
     );
 }
 
@@ -848,7 +823,6 @@ fn handle_target_select(
     candidates: Vec<usize>,
     mut cursor: usize,
     context: TargetContext,
-    item_params: &ItemParams,
 ) {
     let count = candidates.len();
     if input_ui::is_up_just_pressed(keyboard) && cursor > 0 {
@@ -877,7 +851,6 @@ fn handle_target_select(
                         cursor: item_cursor,
                     },
                     party_state,
-                    item_params,
                 );
             }
             TargetContext::Spell {
@@ -892,7 +865,6 @@ fn handle_target_select(
                         cursor: spell_cursor,
                     },
                     party_state,
-                    item_params,
                 );
             }
         }
@@ -909,7 +881,8 @@ fn handle_target_select(
                 item_cursor,
             } => {
                 let item = items[item_cursor];
-                match item_params.effect(item) {
+                let entry = item.entry();
+                match entry.effect {
                     ItemEffect::Heal { power } => {
                         let used = get_inventory_mut(party_state, member).use_item(item);
                         if !used {
@@ -932,21 +905,19 @@ fn handle_target_select(
                             amount
                         )
                     }
-                    ItemEffect::Equip if member == BAG_MEMBER_INDEX => {
-                        let weapon = item.as_weapon().expect("Equip effect must be Weapon");
+                    _ if entry.is_weapon() && member == BAG_MEMBER_INDEX => {
                         let removed = party_state.bag.remove_item(item);
                         if !removed {
                             return;
                         }
                         let target_member = &mut party_state.members[target_idx];
                         let target_name = target_member.kind.name().to_string();
-                        let old_weapon = target_member.equipment.equip_weapon(weapon);
-                        let mut msg = format!("{}は {}を そうびした！", target_name, weapon.name());
+                        let old_weapon = target_member.equipment.equip_weapon(item);
+                        let mut msg = format!("{}は {}を そうびした！", target_name, item.name());
                         if let Some(old_w) = old_weapon {
                             // 旧武器をターゲットのインベントリへ、満杯なら袋へ
-                            let old_item = ItemKind::Weapon(old_w);
-                            if !party_state.members[target_idx].inventory.try_add(old_item, 1) {
-                                party_state.bag.add(old_item, 1);
+                            if !party_state.members[target_idx].inventory.try_add(old_w, 1) {
+                                party_state.bag.add(old_w, 1);
                                 msg.push_str(&format!("\n{}を ふくろに しまった", old_w.name()));
                             } else {
                                 msg.push_str(&format!("\n{}を はずした", old_w.name()));
@@ -993,7 +964,6 @@ fn handle_target_select(
         state.set_phase(
             FieldMenuPhase::ShowMessage { message },
             party_state,
-            item_params,
         );
     }
 }
@@ -1040,7 +1010,7 @@ fn field_menu_title_system(
 }
 
 /// ふくろ/メンバーのインベントリ参照を取得するヘルパー
-fn get_inventory(party: &PartyState, idx: usize) -> &Inventory {
+fn get_inventory(party: &PartyState, idx: usize) -> &Inventory<ItemKey> {
     if idx == BAG_MEMBER_INDEX {
         &party.bag
     } else {
@@ -1049,7 +1019,7 @@ fn get_inventory(party: &PartyState, idx: usize) -> &Inventory {
 }
 
 /// ふくろ/メンバーのインベントリ可変参照を取得するヘルパー
-fn get_inventory_mut(party: &mut PartyState, idx: usize) -> &mut Inventory {
+fn get_inventory_mut(party: &mut PartyState, idx: usize) -> &mut Inventory<ItemKey> {
     if idx == BAG_MEMBER_INDEX {
         &mut party.bag
     } else {

@@ -8,7 +8,7 @@ use hud_ui::menu_style;
 pub use input::town_input_system;
 pub use scene::{
     build_town_commands, cleanup_town_scene, setup_town_scene, setup_town_scene_with_config,
-    town_extra_display_system, ShopGoods, TownCommand, TownMenuPhase, TownResource, TownSceneConfig,
+    town_extra_display_system, TownCommand, TownMenuPhase, TownResource, TownSceneConfig,
 };
 
 pub struct TownPlugin;

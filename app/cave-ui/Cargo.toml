@@ -9,6 +9,7 @@ rand = "0.8"
 rand_chacha = "0.3"
 cave = { path = "../cave" }
 item = { path = "../item" }
+item-data = { path = "../item-data" }
 party = { path = "../party" }
 terrain = { path = "../terrain" }
 app-state = { path = "../app-state" }

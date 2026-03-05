@@ -4,8 +4,8 @@ use std::collections::HashMap;
 use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
 
-use cave::{generate_boss_cave_map, generate_cave_map, TreasureChest, TreasureContent, CAVE_HEIGHT, CAVE_WIDTH};
-use item::ItemKind;
+use cave::{generate_boss_cave_map, generate_cave_map, TreasureChest, CAVE_HEIGHT, CAVE_WIDTH};
+use item_data::ItemKey;
 use party::{RecruitmentPath, RecruitmentStatus};
 use terrain::Structure;
 
@@ -108,7 +108,7 @@ pub fn setup_cave_scene(
     // 洞窟マップ生成（ワールドマップ座標からシードを決定し、同じ洞窟は常に同じ形にする）
     let seed = tile_pos.x as u64 * 10007 + tile_pos.y as u64;
     let mut rng = ChaCha8Rng::seed_from_u64(seed);
-    let guaranteed_items: Vec<TreasureContent> =
+    let guaranteed_items: Vec<ItemKey> =
         if let Some((continent_idx, caves)) = continent_caves
             .caves_by_continent
             .iter()
@@ -120,7 +120,7 @@ pub fn setup_cave_scene(
             let base = 3 / num_caves;
             let remainder = 3 % num_caves;
             let count = base + if cave_idx < remainder { 1 } else { 0 };
-            let mut items = vec![TreasureContent::Item(ItemKind::MoonFragment); count];
+            let mut items = vec![ItemKey::MoonFragment; count];
 
             // 未加入の ItemTrade キャラ用アイテムを確定スポーン（所属大陸のみ）
             for (cand_idx, candidate) in party_state.candidates.iter().enumerate() {
@@ -134,7 +134,7 @@ pub fn setup_cave_scene(
                     // 大陸内の洞窟間で分散配置（候補インデックスを洞窟数で割る）
                     let candidate_hash = candidate.kind as usize;
                     if num_caves > 0 && candidate_hash % num_caves == cave_idx {
-                        items.push(TreasureContent::Item(*item));
+                        items.push(*item);
                     }
                 }
             }

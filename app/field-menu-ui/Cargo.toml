@@ -7,6 +7,7 @@ edition = "2024"
 bevy = "0.18"
 rand = "0.8"
 item = { path = "../item" }
+item-data = { path = "../item-data" }
 party = { path = "../party" }
 spell = { path = "../spell" }
 app-state = { path = "../app-state" }

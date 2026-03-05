@@ -1,7 +1,7 @@
 use rand::seq::SliceRandom;
 use rand::Rng;
 
-use item::{ItemKind, WeaponKind};
+use item_data::ItemKey;
 use terrain::{Structure, Terrain};
 
 pub const CAVE_WIDTH: usize = 30;
@@ -10,28 +10,12 @@ pub const CAVE_HEIGHT: usize = 30;
 const RANDOM_WALK_STEPS: usize = 400;
 const MAX_TREASURES: usize = 3;
 
-/// 宝箱の中身
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TreasureContent {
-    Item(ItemKind),
-    Weapon(WeaponKind),
-}
-
-impl TreasureContent {
-    pub fn name(self) -> &'static str {
-        match self {
-            TreasureContent::Item(item) => item.name(),
-            TreasureContent::Weapon(weapon) => weapon.name(),
-        }
-    }
-}
-
 /// 宝箱の定義（位置と中身）
 #[derive(Debug, Clone)]
 pub struct TreasureChest {
     pub x: usize,
     pub y: usize,
-    pub content: TreasureContent,
+    pub content: ItemKey,
 }
 
 pub struct CaveMapData {
@@ -43,7 +27,7 @@ pub struct CaveMapData {
     pub treasures: Vec<TreasureChest>,
 }
 
-pub fn generate_cave_map(rng: &mut impl Rng, guaranteed_items: &[TreasureContent]) -> CaveMapData {
+pub fn generate_cave_map(rng: &mut impl Rng, guaranteed_items: &[ItemKey]) -> CaveMapData {
     let mut grid = vec![vec![Terrain::CaveWall; CAVE_WIDTH]; CAVE_HEIGHT];
 
     // ランダムウォークで通路を掘る
@@ -236,17 +220,17 @@ fn find_boss_position(grid: &[Vec<Terrain>], spawn: (usize, usize)) -> (usize, u
     farthest
 }
 
-fn random_treasure_content(rng: &mut impl Rng) -> TreasureContent {
+fn random_treasure_content(rng: &mut impl Rng) -> ItemKey {
     // (中身, 重み)
-    let table: &[(TreasureContent, u32)] = &[
-        (TreasureContent::Item(ItemKind::Herb), 25),
-        (TreasureContent::Item(ItemKind::HighHerb), 15),
-        (TreasureContent::Item(ItemKind::MagicStone), 25),
-        (TreasureContent::Item(ItemKind::SilverOre), 15),
-        (TreasureContent::Item(ItemKind::AncientCoin), 10),
-        (TreasureContent::Item(ItemKind::DragonScale), 3),
-        (TreasureContent::Item(ItemKind::MoonFragment), 10),
-        (TreasureContent::Weapon(WeaponKind::WoodenSword), 2),
+    let table: &[(ItemKey, u32)] = &[
+        (ItemKey::Herb, 25),
+        (ItemKey::HighHerb, 15),
+        (ItemKey::MagicStone, 25),
+        (ItemKey::SilverOre, 15),
+        (ItemKey::AncientCoin, 10),
+        (ItemKey::DragonScale, 3),
+        (ItemKey::MoonFragment, 10),
+        (ItemKey::WoodenSword, 2),
     ];
     let total: u32 = table.iter().map(|(_, w)| w).sum();
     let mut roll = rng.gen_range(0..total);

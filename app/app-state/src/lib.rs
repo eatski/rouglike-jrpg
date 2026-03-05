@@ -1,7 +1,6 @@
 mod resources;
 
 use bevy::prelude::*;
-use std::ops::Deref;
 
 pub use resources::{
     BossBattlePending, BossDefeated, ContinentCavePositions, ContinentMap, EncounterZone,
@@ -9,22 +8,11 @@ pub use resources::{
     TavernBounties, TavernHintKind,
 };
 
-/// アイテムパラメータの Bevy Resource ラッパー
-#[derive(Resource, Clone)]
-pub struct ItemParams(pub item::ItemParamTable);
-
-impl Deref for ItemParams {
-    type Target = item::ItemParamTable;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
 /// キャラクターパラメータの Bevy Resource ラッパー
 #[derive(Resource)]
 pub struct CharacterParams(pub party::CharacterParamTable);
 
-impl Deref for CharacterParams {
+impl std::ops::Deref for CharacterParams {
     type Target = party::CharacterParamTable;
     fn deref(&self) -> &Self::Target {
         &self.0

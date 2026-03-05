@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 enemy = { path = "../enemy" }
 item = { path = "../item" }
+item-data = { path = "../item-data" }
 party = { path = "../party" }
 spell = { path = "../spell" }
 

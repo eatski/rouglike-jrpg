@@ -1,8 +1,8 @@
 pub mod equipment;
 pub mod item;
 
-pub use equipment::{all_weapons, Equipment, WeaponEntry, WeaponKind};
+pub use equipment::Equipment;
 pub use item::{
-    all_items, Inventory, ItemEffect, ItemEntry, ItemKind, ItemParamTable, BAG_CAPACITY,
-    BAG_MEMBER_INDEX, INVENTORY_CAPACITY,
+    Inventory, ItemEffect, ItemEntry, ItemLookup, BAG_CAPACITY, BAG_MEMBER_INDEX,
+    INVENTORY_CAPACITY,
 };

@@ -1,4 +1,4 @@
-use item::ItemKind;
+use item_data::ItemKey;
 use party::{
     CharacterEntry, CharacterParamTable, CombatStats, PartyMemberKind, RecruitmentPath, StatGrowth,
 };
@@ -46,7 +46,7 @@ pub fn character_param_table() -> CharacterParamTable {
         PartyMemberKind::Senshi => CharacterEntry {
             initial_stats: CombatStats::new(40, 7, 6, 2, 3),
             stat_growth: StatGrowth { hp: 6, mp: 0, attack: 2, defense: 2, speed: 0 },
-            recruit_method: RecruitmentPath::ItemTrade { item: ItemKind::DragonScale },
+            recruit_method: RecruitmentPath::ItemTrade { item: ItemKey::DragonScale },
             spell_learn_table: &[
                 (4, spell_data::SHIELD1),
             ],
@@ -67,7 +67,7 @@ pub fn character_param_table() -> CharacterParamTable {
         PartyMemberKind::Izutsumi => CharacterEntry {
             initial_stats: CombatStats::new(20, 7, 1, 10, 3),
             stat_growth: StatGrowth { hp: 3, mp: 1, attack: 2, defense: 0, speed: 2 },
-            recruit_method: RecruitmentPath::ItemTrade { item: ItemKind::AncientCoin },
+            recruit_method: RecruitmentPath::ItemTrade { item: ItemKey::AncientCoin },
             spell_learn_table: &[
                 (5, spell_data::FIRE1),
                 (8, spell_data::BOOST1),

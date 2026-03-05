@@ -31,9 +31,6 @@ fn char_table() -> CharacterParamTable {
     party_data::character_param_table()
 }
 
-fn test_item_params() -> item::ItemParamTable {
-    item_data::item_param_table()
-}
 
 const SPAWN_X: usize = 50;
 const SPAWN_Y: usize = 50;
@@ -758,7 +755,7 @@ fn insert_battle_resource(app: &mut App, phase: BattlePhase) {
     let table = char_table();
     let party = default_party(&table);
     let enemies = vec![Enemy::slime()];
-    let (game_state, mut ui_state) = battle_ui::init_battle_resources(party, enemies, None, test_item_params());
+    let (game_state, mut ui_state) = battle_ui::init_battle_resources(party, enemies, None);
 
     // テスト用にphaseを上書き
     ui_state.phase = phase;
@@ -1020,7 +1017,7 @@ fn battle_victory_grants_exp_and_levels_up_party() {
     // 弱い敵1体 vs デフォルトパーティ
     let party = default_party(&table);
     let enemies = vec![Enemy::slime()];
-    let mut battle = BattleDomainState::new(party.clone(), enemies, test_item_params());
+    let mut battle = BattleDomainState::new(party.clone(), enemies);
 
     // 全員でスライムを攻撃（乱数最大で確実に倒す）
     let commands = vec![
@@ -1054,7 +1051,7 @@ fn battle_victory_grants_exp_and_levels_up_party() {
 
     // もう1回戦って合計経験値を10以上にすれば、レベルアップする
     let enemies2 = vec![Enemy::wolf(), Enemy::wolf()]; // 8exp x 2 = 16exp
-    let mut battle2 = BattleDomainState::new(battle.party.clone(), enemies2, test_item_params());
+    let mut battle2 = BattleDomainState::new(battle.party.clone(), enemies2);
 
     // ライオスの強力な攻撃で倒す（乱数最大）
     let commands2 = vec![
@@ -1127,18 +1124,18 @@ fn hero_has_all_16_spells_at_level_1() {
 fn equipped_weapon_increases_battle_damage() {
     use battle::{BattleAction, BattleState as BattleDomainState, TargetId, TurnRandomFactors, TurnResult};
     use enemy::Enemy;
-    use item::WeaponKind;
+    use item_data::ItemKey;
     use party::{PartyMember, PartyMemberKind};
 
     let table = char_table();
     // 武器なしのライオス
     let hero_unarmed = PartyMember::from_kind(PartyMemberKind::Laios, &table);
-    let unarmed_attack = hero_unarmed.effective_attack(&test_item_params());
+    let unarmed_attack = hero_unarmed.effective_attack();
 
     // 武器装備のライオス
     let mut hero_armed = PartyMember::from_kind(PartyMemberKind::Laios, &table);
-    hero_armed.equipment.equip_weapon(WeaponKind::SteelSword);
-    let armed_attack = hero_armed.effective_attack(&test_item_params());
+    hero_armed.equipment.equip_weapon(ItemKey::SteelSword);
+    let armed_attack = hero_armed.effective_attack();
 
     assert_eq!(armed_attack, unarmed_attack + 10, "SteelSword should add 10 attack");
 
@@ -1148,8 +1145,8 @@ fn equipped_weapon_increases_battle_damage() {
     slime1.stats.max_hp = 999;
     let slime2 = slime1.clone();
 
-    let mut battle_unarmed = BattleDomainState::new(vec![hero_unarmed], vec![slime1], test_item_params());
-    let mut battle_armed = BattleDomainState::new(vec![hero_armed], vec![slime2], test_item_params());
+    let mut battle_unarmed = BattleDomainState::new(vec![hero_unarmed], vec![slime1]);
+    let mut battle_armed = BattleDomainState::new(vec![hero_armed], vec![slime2]);
 
     let commands = vec![BattleAction::Attack { target: TargetId::Enemy(0) }];
     let randoms = TurnRandomFactors {
@@ -1180,13 +1177,13 @@ fn equipped_weapon_increases_battle_damage() {
 fn herb_heals_in_battle() {
     use battle::{BattleAction, BattleState as BattleDomainState, TargetId, TurnRandomFactors, TurnResult};
     use enemy::Enemy;
-    use item::ItemKind;
+    use item_data::ItemKey;
     use party::{PartyMember, PartyMemberKind};
 
     let table = char_table();
     let mut hero = PartyMember::from_kind(PartyMemberKind::Laios, &table);
     hero.stats.hp = 5; // HPを低くしておく
-    hero.inventory.add(ItemKind::Herb, 1);
+    hero.inventory.add(ItemKey::Herb, 1);
 
     // HP999の敵で戦闘が終わらないようにする
     let mut slime = Enemy::slime();
@@ -1194,10 +1191,10 @@ fn herb_heals_in_battle() {
     slime.stats.max_hp = 999;
     slime.stats.attack = 0; // 敵の攻撃を0にして干渉を防ぐ
 
-    let mut battle = BattleDomainState::new(vec![hero], vec![slime], test_item_params());
+    let mut battle = BattleDomainState::new(vec![hero], vec![slime]);
 
     let commands = vec![
-        BattleAction::UseItem { item: ItemKind::Herb, target: TargetId::Party(0) },
+        BattleAction::UseItem { item: ItemKey::Herb, target: TargetId::Party(0) },
     ];
     let randoms = TurnRandomFactors {
         damage_randoms: vec![1.0; 2],
@@ -1215,29 +1212,29 @@ fn herb_heals_in_battle() {
     assert!(battle.party[0].stats.hp <= battle.party[0].stats.max_hp, "HP should not exceed max");
 
     // やくそうが消費されている
-    assert_eq!(battle.party[0].inventory.count(ItemKind::Herb), 0, "Herb should be consumed");
+    assert_eq!(battle.party[0].inventory.count(ItemKey::Herb), 0, "Herb should be consumed");
 }
 
 #[test]
 fn copper_key_is_not_usable_in_battle() {
     use battle::{BattleAction, BattleState as BattleDomainState, TargetId, TurnRandomFactors, TurnResult};
     use enemy::Enemy;
-    use item::ItemKind;
+    use item_data::ItemKey;
     use party::{PartyMember, PartyMemberKind};
 
     let table = char_table();
     let mut hero = PartyMember::from_kind(PartyMemberKind::Laios, &table);
-    hero.inventory.add(ItemKind::CopperKey, 1);
+    hero.inventory.add(ItemKey::CopperKey, 1);
 
     let mut slime = Enemy::slime();
     slime.stats.hp = 999;
     slime.stats.max_hp = 999;
     slime.stats.attack = 0;
 
-    let mut battle = BattleDomainState::new(vec![hero], vec![slime], test_item_params());
+    let mut battle = BattleDomainState::new(vec![hero], vec![slime]);
 
     let commands = vec![
-        BattleAction::UseItem { item: ItemKind::CopperKey, target: TargetId::Party(0) },
+        BattleAction::UseItem { item: ItemKey::CopperKey, target: TargetId::Party(0) },
     ];
     let randoms = TurnRandomFactors {
         damage_randoms: vec![1.0; 2],
@@ -1251,7 +1248,7 @@ fn copper_key_is_not_usable_in_battle() {
     assert!(!item_used, "CopperKey should not be usable in battle");
 
     // CopperKeyは消費されない
-    assert_eq!(battle.party[0].inventory.count(ItemKind::CopperKey), 1, "CopperKey should not be consumed");
+    assert_eq!(battle.party[0].inventory.count(ItemKey::CopperKey), 1, "CopperKey should not be consumed");
 }
 
 // ============================================
@@ -1263,7 +1260,7 @@ fn buy_herb_at_shop_then_use_in_battle() {
     use town::{buy_item, BuyResult};
     use battle::{BattleAction, BattleState as BattleDomainState, TargetId, TurnRandomFactors};
     use enemy::Enemy;
-    use item::ItemKind;
+    use item_data::ItemKey;
     use party::{PartyMember, PartyMemberKind};
 
     let table = char_table();
@@ -1271,7 +1268,7 @@ fn buy_herb_at_shop_then_use_in_battle() {
     let mut gold = 100u32;
 
     // 街でやくそうを購入
-    let result = buy_item(ItemKind::Herb, gold, &mut hero.inventory, &test_item_params());
+    let result = buy_item(ItemKey::Herb, gold, &mut hero.inventory);
     match result {
         BuyResult::Success { remaining_gold } => {
             gold = remaining_gold;
@@ -1279,7 +1276,7 @@ fn buy_herb_at_shop_then_use_in_battle() {
         }
         _ => panic!("Should succeed buying herb"),
     }
-    assert_eq!(hero.inventory.count(ItemKind::Herb), 1);
+    assert_eq!(hero.inventory.count(ItemKey::Herb), 1);
 
     // HPを減らして戦闘に入る
     hero.stats.hp = 1;
@@ -1289,11 +1286,11 @@ fn buy_herb_at_shop_then_use_in_battle() {
     slime.stats.max_hp = 999;
     slime.stats.attack = 0;
 
-    let mut battle = BattleDomainState::new(vec![hero], vec![slime], test_item_params());
+    let mut battle = BattleDomainState::new(vec![hero], vec![slime]);
 
     // やくそうを使う
     let commands = vec![
-        BattleAction::UseItem { item: ItemKind::Herb, target: TargetId::Party(0) },
+        BattleAction::UseItem { item: ItemKey::Herb, target: TargetId::Party(0) },
     ];
     let randoms = TurnRandomFactors {
         damage_randoms: vec![1.0; 2],
@@ -1302,7 +1299,7 @@ fn buy_herb_at_shop_then_use_in_battle() {
     battle.execute_turn(&commands, &randoms);
 
     assert!(battle.party[0].stats.hp > 1, "Herb should heal in battle");
-    assert_eq!(battle.party[0].inventory.count(ItemKind::Herb), 0, "Herb consumed after use");
+    assert_eq!(battle.party[0].inventory.count(ItemKey::Herb), 0, "Herb consumed after use");
 }
 
 #[test]
@@ -1310,7 +1307,7 @@ fn buy_weapon_at_shop_then_equip_affects_battle() {
     use town::{buy_item, BuyResult};
     use battle::{BattleAction, BattleState as BattleDomainState, TargetId, TurnRandomFactors, TurnResult};
     use enemy::Enemy;
-    use item::{ItemKind, WeaponKind};
+    use item_data::ItemKey;
     use party::{PartyMember, PartyMemberKind};
 
     let table = char_table();
@@ -1318,10 +1315,10 @@ fn buy_weapon_at_shop_then_equip_affects_battle() {
     let gold = 100u32;
 
     // 武器購入前の攻撃力を記録
-    let attack_before = hero.effective_attack(&test_item_params());
+    let attack_before = hero.effective_attack();
 
     // 街で鉄の剣を購入（インベントリに入る）
-    let result = buy_item(ItemKind::Weapon(WeaponKind::IronSword), gold, &mut hero.inventory, &test_item_params());
+    let result = buy_item(ItemKey::IronSword, gold, &mut hero.inventory);
     match result {
         BuyResult::Success { remaining_gold } => {
             assert_eq!(remaining_gold, 50); // 100 - 50 = 50
@@ -1330,19 +1327,19 @@ fn buy_weapon_at_shop_then_equip_affects_battle() {
     }
 
     // 道具メニューから装備する（武器はインベントリに残る）
-    hero.equipment.equip_weapon(WeaponKind::IronSword);
+    hero.equipment.equip_weapon(ItemKey::IronSword);
 
     // 攻撃力が上がっていることを確認
-    let attack_after = hero.effective_attack(&test_item_params());
+    let attack_after = hero.effective_attack();
     assert_eq!(attack_after, attack_before + 5, "IronSword should add 5 attack");
-    assert_eq!(hero.inventory.count(ItemKind::Weapon(WeaponKind::IronSword)), 1, "Weapon stays in inventory");
+    assert_eq!(hero.inventory.count(ItemKey::IronSword), 1, "Weapon stays in inventory");
 
     // 戦闘でダメージを確認
     let mut slime = Enemy::slime();
     slime.stats.hp = 999;
     slime.stats.max_hp = 999;
 
-    let mut battle = BattleDomainState::new(vec![hero], vec![slime], test_item_params());
+    let mut battle = BattleDomainState::new(vec![hero], vec![slime]);
     let commands = vec![BattleAction::Attack { target: TargetId::Enemy(0) }];
     let randoms = TurnRandomFactors {
         damage_randoms: vec![1.0; 2],
@@ -1387,7 +1384,7 @@ fn inn_heals_party_before_battle() {
 
     // 回復後に戦闘
     let enemies = vec![Enemy::slime()];
-    let mut battle = BattleDomainState::new(party, enemies, test_item_params());
+    let mut battle = BattleDomainState::new(party, enemies);
 
     let commands = vec![
         BattleAction::Attack { target: TargetId::Enemy(0) },
@@ -1549,7 +1546,7 @@ fn cave_diagonal_movement_is_always_blocked() {
 
 #[test]
 fn cave_treasure_adds_to_inventory() {
-    use cave::{generate_cave_map, TreasureContent};
+    use cave::generate_cave_map;
     use terrain::Structure;
     use rand::SeedableRng;
     use rand_chacha::ChaCha8Rng;
@@ -1573,17 +1570,9 @@ fn cave_treasure_adds_to_inventory() {
     assert!(hero.inventory.is_empty());
 
     // 宝箱を開ける（ドメインロジックとして直接追加）
-    let mut item_count = 0u32;
+    let item_count = cave.treasures.len() as u32;
     for chest in &cave.treasures {
-        match chest.content {
-            TreasureContent::Item(item) => {
-                hero.inventory.add(item, 1);
-                item_count += 1;
-            }
-            TreasureContent::Weapon(_weapon) => {
-                // 武器はインベントリに追加しない（装備扱い）
-            }
-        }
+        hero.inventory.add(chest.content, 1);
     }
 
     // 宝箱のアイテム分だけインベントリに追加されている
@@ -1715,7 +1704,7 @@ fn battle_action_order_respects_speed() {
     bat.stats.hp = 999;
     bat.stats.max_hp = 999;
 
-    let mut battle = BattleDomainState::new(party, vec![bat], test_item_params());
+    let mut battle = BattleDomainState::new(party, vec![bat]);
 
     let commands = vec![
         BattleAction::Attack { target: TargetId::Enemy(0) },
@@ -1751,7 +1740,7 @@ fn total_exp_reward_sums_defeated_enemies_only() {
     use enemy::Enemy;
 
     let enemies = vec![Enemy::slime(), Enemy::goblin(), Enemy::ghost()]; // 3+6+10 = 19
-    let mut battle = BattleDomainState::new(vec![], enemies, test_item_params());
+    let mut battle = BattleDomainState::new(vec![], enemies);
 
     // まだ誰も倒していない
     assert_eq!(battle.total_exp_reward(), 0, "No exp when no enemies defeated");
@@ -1789,7 +1778,7 @@ fn spell_fails_silently_when_mp_insufficient() {
     slime.stats.max_hp = 999;
     slime.stats.attack = 0;
 
-    let mut battle = BattleDomainState::new(vec![mage], vec![slime], test_item_params());
+    let mut battle = BattleDomainState::new(vec![mage], vec![slime]);
 
     let commands = vec![
         BattleAction::Spell { spell: spell_data::FIRE1, target: TargetId::Enemy(0) },
@@ -1826,7 +1815,7 @@ fn party_wipe_ends_battle_mid_turn() {
     let mut wolf2 = Enemy::wolf();
     wolf2.stats.attack = 100;
 
-    let mut battle = BattleDomainState::new(vec![hero], vec![wolf1, wolf2], test_item_params());
+    let mut battle = BattleDomainState::new(vec![hero], vec![wolf1, wolf2]);
 
     let commands = vec![
         BattleAction::Attack { target: TargetId::Enemy(0) },
@@ -1852,21 +1841,22 @@ fn party_wipe_ends_battle_mid_turn() {
 #[test]
 fn shop_rejects_purchase_when_inventory_full() {
     use town::{buy_item, BuyResult};
-    use item::{ItemKind, Inventory, INVENTORY_CAPACITY};
+    use item::{Inventory, INVENTORY_CAPACITY};
+    use item_data::ItemKey;
 
     let mut inv = Inventory::new();
     let gold = 1000u32;
 
     // 容量いっぱいまでやくそうを購入
     for i in 0..INVENTORY_CAPACITY {
-        let result = buy_item(ItemKind::Herb, gold, &mut inv, &test_item_params());
+        let result = buy_item(ItemKey::Herb, gold, &mut inv);
         assert!(matches!(result, BuyResult::Success { .. }), "Purchase {} should succeed", i);
     }
 
     assert_eq!(inv.total_count(), INVENTORY_CAPACITY);
 
     // 容量いっぱいの状態でさらに購入しようとする
-    let result = buy_item(ItemKind::Herb, gold, &mut inv, &test_item_params());
+    let result = buy_item(ItemKey::Herb, gold, &mut inv);
     assert_eq!(result, BuyResult::InventoryFull, "Should reject when inventory is full");
     assert_eq!(inv.total_count(), INVENTORY_CAPACITY);
 }
@@ -1977,7 +1967,7 @@ fn flee_succeeds_when_random_below_threshold() {
     slime.stats.hp = 999;
     slime.stats.max_hp = 999;
     let enemies = vec![slime];
-    let mut battle = BattleDomainState::new(party, enemies, test_item_params());
+    let mut battle = BattleDomainState::new(party, enemies);
 
     let commands = vec![
         BattleAction::Flee,
@@ -2007,7 +1997,7 @@ fn flee_fails_when_random_above_threshold() {
     slime.stats.hp = 999;
     slime.stats.max_hp = 999;
     let enemies = vec![slime];
-    let mut battle = BattleDomainState::new(party, enemies, test_item_params());
+    let mut battle = BattleDomainState::new(party, enemies);
 
     let commands = vec![
         BattleAction::Flee,
@@ -2092,7 +2082,7 @@ fn spell_succeeds_when_mp_exactly_equals_cost() {
     slime.stats.max_hp = 999;
     slime.stats.attack = 0;
 
-    let mut battle = BattleDomainState::new(vec![mage], vec![slime], test_item_params());
+    let mut battle = BattleDomainState::new(vec![mage], vec![slime]);
 
     let commands = vec![
         BattleAction::Spell { spell: spell_data::FIRE1, target: TargetId::Enemy(0) },
@@ -2130,7 +2120,7 @@ fn heal_spell_does_not_exceed_max_hp() {
     slime.stats.max_hp = 999;
     slime.stats.attack = 0; // 最低ダメージ1は発生するがHP超過の判定には影響しない
 
-    let mut battle = BattleDomainState::new(vec![priest], vec![slime], test_item_params());
+    let mut battle = BattleDomainState::new(vec![priest], vec![slime]);
 
     let commands = vec![
         BattleAction::Spell { spell: spell_data::HEAL1, target: TargetId::Party(0) },
@@ -2150,24 +2140,24 @@ fn heal_spell_does_not_exceed_max_hp() {
 fn item_heal_does_not_exceed_max_hp() {
     use battle::{BattleAction, BattleState as BattleDomainState, TargetId, TurnRandomFactors};
     use enemy::Enemy;
-    use item::ItemKind;
+    use item_data::ItemKey;
     use party::{PartyMember, PartyMemberKind};
 
     let table = char_table();
     // HPをmax_hpの1だけ下に。Herb power=25 → キャップなしなら max_hp+24
     let mut hero = PartyMember::from_kind(PartyMemberKind::Laios, &table);
     hero.stats.hp = hero.stats.max_hp - 1;
-    hero.inventory.add(ItemKind::Herb, 1);
+    hero.inventory.add(ItemKey::Herb, 1);
 
     let mut slime = Enemy::slime();
     slime.stats.hp = 999;
     slime.stats.max_hp = 999;
     slime.stats.attack = 0;
 
-    let mut battle = BattleDomainState::new(vec![hero], vec![slime], test_item_params());
+    let mut battle = BattleDomainState::new(vec![hero], vec![slime]);
 
     let commands = vec![
-        BattleAction::UseItem { item: ItemKind::Herb, target: TargetId::Party(0) },
+        BattleAction::UseItem { item: ItemKey::Herb, target: TargetId::Party(0) },
     ];
     let randoms = TurnRandomFactors {
         damage_randoms: vec![1.0; 2],
@@ -2201,14 +2191,15 @@ fn take_damage_does_not_go_below_zero() {
 #[test]
 fn buy_item_succeeds_with_exact_gold() {
     use town::{buy_item, BuyResult};
-    use item::{Inventory, ItemKind};
+    use item::Inventory;
+    use item_data::ItemKey;
 
     let mut inv = Inventory::new();
     // やくそうの価格は8ゴールド
-    let result = buy_item(ItemKind::Herb, 8, &mut inv, &test_item_params());
+    let result = buy_item(ItemKey::Herb, 8, &mut inv);
     assert_eq!(result, BuyResult::Success { remaining_gold: 0 },
         "Should succeed when gold exactly equals price");
-    assert_eq!(inv.count(ItemKind::Herb), 1);
+    assert_eq!(inv.count(ItemKey::Herb), 1);
 }
 
 // ============================================
@@ -2218,28 +2209,30 @@ fn buy_item_succeeds_with_exact_gold() {
 #[test]
 fn sell_key_item_is_rejected() {
     use town::{sell_item, SellResult};
-    use item::{Inventory, ItemKind};
+    use item::Inventory;
+    use item_data::ItemKey;
 
     let mut inv = Inventory::new();
-    inv.add(ItemKind::CopperKey, 1);
+    inv.add(ItemKey::CopperKey, 1);
 
-    let result = sell_item(ItemKind::CopperKey, &mut inv, None, &test_item_params());
+    let result = sell_item(ItemKey::CopperKey, &mut inv, None);
     assert_eq!(result, SellResult::CannotSell, "Key items should not be sellable");
-    assert_eq!(inv.count(ItemKind::CopperKey), 1, "Key item should remain in inventory");
+    assert_eq!(inv.count(ItemKey::CopperKey), 1, "Key item should remain in inventory");
 }
 
 #[test]
 fn sell_material_item_succeeds() {
     use town::{sell_item, SellResult};
-    use item::{Inventory, ItemKind};
+    use item::Inventory;
+    use item_data::ItemKey;
 
     let mut inv = Inventory::new();
-    inv.add(ItemKind::MagicStone, 1);
+    inv.add(ItemKey::MagicStone, 1);
 
-    let result = sell_item(ItemKind::MagicStone, &mut inv, None, &test_item_params());
+    let result = sell_item(ItemKey::MagicStone, &mut inv, None);
     assert_eq!(result, SellResult::Success { earned_gold: 30 },
         "Material item should sell for its sell_price");
-    assert_eq!(inv.count(ItemKind::MagicStone), 0, "Item should be removed after selling");
+    assert_eq!(inv.count(ItemKey::MagicStone), 0, "Item should be removed after selling");
 }
 
 // ============================================
@@ -2264,7 +2257,7 @@ fn battle_victory_leveling_unlocks_new_spell() {
     // exp_to_next_level(1)=10, exp_to_next_level(2)=25 → Lv3到達に累計35必要
     // Ghost×4 = 10×4 = 40exp per battle
     let enemies = vec![Enemy::ghost(), Enemy::ghost(), Enemy::ghost(), Enemy::ghost()];
-    let mut battle = BattleDomainState::new(vec![mage.clone()], enemies, test_item_params());
+    let mut battle = BattleDomainState::new(vec![mage.clone()], enemies);
 
     for enemy in &mut battle.enemies {
         enemy.stats.hp = 0;
@@ -2294,13 +2287,13 @@ fn battle_victory_leveling_unlocks_new_spell() {
 fn sync_from_battle_reflects_battle_state() {
     use battle::{BattleAction, BattleState as BattleDomainState, TargetId, TurnRandomFactors};
     use enemy::Enemy;
-    use item::ItemKind;
+    use item_data::ItemKey;
     use party::{PartyMember, PartyMemberKind};
 
     let table = char_table();
     // パーティ側（元データ）
     let mut original_hero = PartyMember::from_kind(PartyMemberKind::Laios, &table);
-    original_hero.inventory.add(ItemKind::Herb, 2);
+    original_hero.inventory.add(ItemKey::Herb, 2);
     // 戦闘用コピー
     let battle_hero = original_hero.clone();
 
@@ -2310,12 +2303,12 @@ fn sync_from_battle_reflects_battle_state() {
     slime.stats.max_hp = 999;
     slime.stats.attack = 0;
 
-    let mut battle = BattleDomainState::new(vec![battle_hero], vec![slime], test_item_params());
+    let mut battle = BattleDomainState::new(vec![battle_hero], vec![slime]);
 
     // HPを減らしてやくそうを使用
     battle.party[0].stats.hp = 5;
     let commands = vec![
-        BattleAction::UseItem { item: ItemKind::Herb, target: TargetId::Party(0) },
+        BattleAction::UseItem { item: ItemKey::Herb, target: TargetId::Party(0) },
     ];
     let randoms = TurnRandomFactors {
         damage_randoms: vec![1.0; 2],
@@ -2325,7 +2318,7 @@ fn sync_from_battle_reflects_battle_state() {
 
     // 戦闘後のHP（回復済み）とインベントリ（Herb 1つ消費）
     let battle_hp = battle.party[0].stats.hp;
-    let battle_herb_count = battle.party[0].inventory.count(ItemKind::Herb);
+    let battle_herb_count = battle.party[0].inventory.count(ItemKey::Herb);
     assert!(battle_hp > 5, "HP should be healed in battle");
     assert_eq!(battle_herb_count, 1, "One herb should be consumed");
 
@@ -2333,7 +2326,7 @@ fn sync_from_battle_reflects_battle_state() {
     original_hero.sync_from_battle(&battle.party[0]);
 
     assert_eq!(original_hero.stats.hp, battle_hp, "HP should be synced");
-    assert_eq!(original_hero.inventory.count(ItemKind::Herb), 1, "Inventory should be synced");
+    assert_eq!(original_hero.inventory.count(ItemKey::Herb), 1, "Inventory should be synced");
 }
 
 // ============================================
@@ -2342,7 +2335,7 @@ fn sync_from_battle_reflects_battle_state() {
 
 #[test]
 fn cave_treasure_sold_at_shop() {
-    use cave::{generate_cave_map, TreasureContent};
+    use cave::generate_cave_map;
     use town::{sell_item, SellResult};
     use rand::SeedableRng;
     use rand_chacha::ChaCha8Rng;
@@ -2355,9 +2348,7 @@ fn cave_treasure_sold_at_shop() {
     let mut hero = PartyMember::from_kind(PartyMemberKind::Laios, &table);
     // 洞窟の宝箱からアイテムを入手
     for chest in &cave.treasures {
-        if let TreasureContent::Item(item) = chest.content {
-            hero.inventory.add(item, 1);
-        }
+        hero.inventory.add(chest.content, 1);
     }
 
     // 所持アイテムのうち売却可能なものをすべて売る
@@ -2366,15 +2357,14 @@ fn cave_treasure_sold_at_shop() {
     for item in &owned {
         // 同じアイテムが複数ある場合に全て売却
         while hero.inventory.count(*item) > 0 {
-            let result = sell_item(*item, &mut hero.inventory, None, &test_item_params());
+            let result = sell_item(*item, &mut hero.inventory, None);
             match result {
                 SellResult::Success { earned_gold } => {
                     total_earned += earned_gold;
                     assert!(earned_gold > 0, "Sold item should earn gold");
                 }
                 SellResult::CannotSell => {
-                    let table = test_item_params();
-                    assert_eq!(table.sell_price(*item), 0, "CannotSell should only happen for items with sell_price=0");
+                    assert_eq!(item.entry().sell_price, 0, "CannotSell should only happen for items with sell_price=0");
                     break;
                 }
                 _ => break,
@@ -2383,9 +2373,8 @@ fn cave_treasure_sold_at_shop() {
     }
 
     // 売却可能なアイテムはすべてインベントリから消えている
-    let table = test_item_params();
     for item in &owned {
-        if table.sell_price(*item) > 0 {
+        if item.entry().sell_price > 0 {
             assert_eq!(hero.inventory.count(*item), 0, "{} should be removed after selling", item.name());
         }
     }
@@ -2401,7 +2390,7 @@ fn weapon_upgrade_replaces_old_and_changes_damage() {
     use town::{buy_item, BuyResult};
     use battle::{BattleAction, BattleState as BattleDomainState, TargetId, TurnRandomFactors, TurnResult};
     use enemy::Enemy;
-    use item::{ItemKind, WeaponKind};
+    use item_data::ItemKey;
     use party::{PartyMember, PartyMemberKind};
 
     let table = char_table();
@@ -2409,21 +2398,21 @@ fn weapon_upgrade_replaces_old_and_changes_damage() {
     let gold = 500u32;
 
     // 鉄の剣を購入して装備（+5）— 武器はインベントリに残る
-    let result = buy_item(ItemKind::Weapon(WeaponKind::IronSword), gold, &mut hero.inventory, &test_item_params());
+    let result = buy_item(ItemKey::IronSword, gold, &mut hero.inventory);
     let remaining = match result {
         BuyResult::Success { remaining_gold } => remaining_gold,
         _ => panic!("Should buy IronSword"),
     };
-    hero.equipment.equip_weapon(WeaponKind::IronSword);
-    assert_eq!(hero.equipment.weapon, Some(WeaponKind::IronSword));
-    assert_eq!(hero.inventory.count(ItemKind::Weapon(WeaponKind::IronSword)), 1);
-    let attack_with_iron = hero.effective_attack(&test_item_params());
+    hero.equipment.equip_weapon(ItemKey::IronSword);
+    assert_eq!(hero.equipment.weapon, Some(ItemKey::IronSword));
+    assert_eq!(hero.inventory.count(ItemKey::IronSword), 1);
+    let attack_with_iron = hero.effective_attack();
 
     // HP999の敵にダメージを与えて記録
     let mut slime = Enemy::slime();
     slime.stats.hp = 999;
     slime.stats.max_hp = 999;
-    let mut battle1 = BattleDomainState::new(vec![hero.clone()], vec![slime.clone()], test_item_params());
+    let mut battle1 = BattleDomainState::new(vec![hero.clone()], vec![slime.clone()]);
     let commands = vec![BattleAction::Attack { target: TargetId::Enemy(0) }];
     let randoms = TurnRandomFactors { damage_randoms: vec![1.0; 2], flee_random: 1.0, spell_randoms: vec![1.0; 10] };
     let results1 = battle1.execute_turn(&commands, &randoms);
@@ -2432,17 +2421,17 @@ fn weapon_upgrade_replaces_old_and_changes_damage() {
     }).unwrap();
 
     // 鋼の剣を購入して装備（+10）— 旧武器もインベントリに残る
-    let result = buy_item(ItemKind::Weapon(WeaponKind::SteelSword), remaining, &mut hero.inventory, &test_item_params());
+    let result = buy_item(ItemKey::SteelSword, remaining, &mut hero.inventory);
     assert!(matches!(result, BuyResult::Success { .. }));
-    hero.equipment.equip_weapon(WeaponKind::SteelSword);
-    assert_eq!(hero.equipment.weapon, Some(WeaponKind::SteelSword));
-    assert_eq!(hero.inventory.count(ItemKind::Weapon(WeaponKind::IronSword)), 1, "Old weapon stays in inventory");
-    assert_eq!(hero.inventory.count(ItemKind::Weapon(WeaponKind::SteelSword)), 1);
-    let attack_with_steel = hero.effective_attack(&test_item_params());
+    hero.equipment.equip_weapon(ItemKey::SteelSword);
+    assert_eq!(hero.equipment.weapon, Some(ItemKey::SteelSword));
+    assert_eq!(hero.inventory.count(ItemKey::IronSword), 1, "Old weapon stays in inventory");
+    assert_eq!(hero.inventory.count(ItemKey::SteelSword), 1);
+    let attack_with_steel = hero.effective_attack();
     assert_eq!(attack_with_steel, attack_with_iron + 5, "SteelSword(+10) should be 5 more than IronSword(+5)");
 
     // 同じ敵に同じ乱数で攻撃→ダメージが増えている
-    let mut battle2 = BattleDomainState::new(vec![hero], vec![slime], test_item_params());
+    let mut battle2 = BattleDomainState::new(vec![hero], vec![slime]);
     let results2 = battle2.execute_turn(&commands, &randoms);
     let damage_steel = results2.iter().find_map(|r| {
         if let TurnResult::Attack { attacker: battle::ActorId::Party(0), damage, .. } = r { Some(*damage) } else { None }
@@ -2487,26 +2476,28 @@ fn large_exp_gain_causes_multiple_level_ups() {
 #[test]
 fn sell_item_not_owned_returns_not_owned() {
     use town::{sell_item, SellResult};
-    use item::{Inventory, ItemKind};
+    use item::Inventory;
+    use item_data::ItemKey;
 
     let mut inv = Inventory::new();
     // 所持していないアイテムを売却しようとする
-    let result = sell_item(ItemKind::Herb, &mut inv, None, &test_item_params());
+    let result = sell_item(ItemKey::Herb, &mut inv, None);
     assert_eq!(result, SellResult::NotOwned, "Selling unowned item should return NotOwned");
 }
 
 #[test]
 fn sell_herb_succeeds_at_half_price() {
     use town::{sell_item, SellResult};
-    use item::{Inventory, ItemKind};
+    use item::Inventory;
+    use item_data::ItemKey;
 
     let mut inv = Inventory::new();
-    inv.add(ItemKind::Herb, 1);
+    inv.add(ItemKey::Herb, 1);
 
     // やくそうは売却可能（sell_price=4、購入価格8の半額）
-    let result = sell_item(ItemKind::Herb, &mut inv, None, &test_item_params());
+    let result = sell_item(ItemKey::Herb, &mut inv, None);
     assert_eq!(result, SellResult::Success { earned_gold: 4 }, "Herb should sell for 4 gold");
-    assert_eq!(inv.count(ItemKind::Herb), 0, "Herb should be removed after selling");
+    assert_eq!(inv.count(ItemKey::Herb), 0, "Herb should be removed after selling");
 }
 
 // ============================================
@@ -2566,7 +2557,7 @@ fn recruit_party_then_battle_together() {
     wolf.stats.max_hp = 999;
     wolf.stats.attack = 0;
     let enemies = vec![wolf];
-    let mut battle = BattleDomainState::new(party, enemies, test_item_params());
+    let mut battle = BattleDomainState::new(party, enemies);
 
     let commands = vec![
         BattleAction::Attack { target: TargetId::Enemy(0) },
@@ -2592,39 +2583,40 @@ fn recruit_party_then_battle_together() {
 #[test]
 fn buy_item_fails_with_insufficient_gold() {
     use town::{buy_item, BuyResult};
-    use item::{Inventory, ItemKind};
+    use item::Inventory;
+    use item_data::ItemKey;
 
     let mut inv = Inventory::new();
     // やくそうは8ゴールド
-    let result = buy_item(ItemKind::Herb, 7, &mut inv, &test_item_params());
+    let result = buy_item(ItemKey::Herb, 7, &mut inv);
     assert_eq!(result, BuyResult::InsufficientGold, "Should fail with 7 gold for 8-gold herb");
-    assert_eq!(inv.count(ItemKind::Herb), 0, "No herb should be added");
+    assert_eq!(inv.count(ItemKey::Herb), 0, "No herb should be added");
 }
 
 #[test]
 fn buy_weapon_fails_with_insufficient_gold() {
     use town::{buy_item, BuyResult};
-    use item::{ItemKind, WeaponKind};
+    use item_data::ItemKey;
     use party::{PartyMember, PartyMemberKind};
 
     let table = char_table();
     let mut hero = PartyMember::from_kind(PartyMemberKind::Laios, &table);
     // 鉄の剣は50ゴールド
-    let result = buy_item(ItemKind::Weapon(WeaponKind::IronSword), 49, &mut hero.inventory, &test_item_params());
+    let result = buy_item(ItemKey::IronSword, 49, &mut hero.inventory);
     assert_eq!(result, BuyResult::InsufficientGold, "Should fail with 49 gold for 50-gold sword");
-    assert_eq!(hero.inventory.count(ItemKind::Weapon(WeaponKind::IronSword)), 0, "No weapon should be in inventory");
+    assert_eq!(hero.inventory.count(ItemKey::IronSword), 0, "No weapon should be in inventory");
 }
 
 #[test]
 fn buy_weapon_fails_with_full_inventory() {
     use town::{buy_item, BuyResult};
-    use item::{ItemKind, WeaponKind};
+    use item_data::ItemKey;
     use party::{PartyMember, PartyMemberKind};
 
     let table = char_table();
     let mut hero = PartyMember::from_kind(PartyMemberKind::Laios, &table);
-    hero.inventory.add(ItemKind::Herb, 6); // 容量いっぱい
-    let result = buy_item(ItemKind::Weapon(WeaponKind::IronSword), 100, &mut hero.inventory, &test_item_params());
+    hero.inventory.add(ItemKey::Herb, 6); // 容量いっぱい
+    let result = buy_item(ItemKey::IronSword, 100, &mut hero.inventory);
     assert_eq!(result, BuyResult::InventoryFull, "Should fail when inventory is full");
 }
 
@@ -2636,22 +2628,22 @@ fn buy_weapon_fails_with_full_inventory() {
 fn high_herb_heals_more_than_regular_herb_in_battle() {
     use battle::{BattleAction, BattleState as BattleDomainState, TargetId, TurnRandomFactors, TurnResult};
     use enemy::Enemy;
-    use item::ItemKind;
+    use item_data::ItemKey;
     use party::{PartyMember, PartyMemberKind};
 
     let table = char_table();
     // ライオス1: やくそうで回復
     let mut hero1 = PartyMember::from_kind(PartyMemberKind::Laios, &table);
     hero1.stats.hp = 1;
-    hero1.inventory.add(ItemKind::Herb, 1);
+    hero1.inventory.add(ItemKey::Herb, 1);
 
     let mut slime1 = Enemy::slime();
     slime1.stats.hp = 999;
     slime1.stats.max_hp = 999;
     slime1.stats.attack = 0;
 
-    let mut battle1 = BattleDomainState::new(vec![hero1], vec![slime1], test_item_params());
-    let commands = vec![BattleAction::UseItem { item: ItemKind::Herb, target: TargetId::Party(0) }];
+    let mut battle1 = BattleDomainState::new(vec![hero1], vec![slime1]);
+    let commands = vec![BattleAction::UseItem { item: ItemKey::Herb, target: TargetId::Party(0) }];
     let randoms = TurnRandomFactors { damage_randoms: vec![1.0; 2], flee_random: 1.0, spell_randoms: vec![1.0; 10] };
     let results1 = battle1.execute_turn(&commands, &randoms);
     let heal_herb = results1.iter().find_map(|r| {
@@ -2661,15 +2653,15 @@ fn high_herb_heals_more_than_regular_herb_in_battle() {
     // ライオス2: 上やくそうで回復
     let mut hero2 = PartyMember::from_kind(PartyMemberKind::Laios, &table);
     hero2.stats.hp = 1;
-    hero2.inventory.add(ItemKind::HighHerb, 1);
+    hero2.inventory.add(ItemKey::HighHerb, 1);
 
     let mut slime2 = Enemy::slime();
     slime2.stats.hp = 999;
     slime2.stats.max_hp = 999;
     slime2.stats.attack = 0;
 
-    let mut battle2 = BattleDomainState::new(vec![hero2], vec![slime2], test_item_params());
-    let commands2 = vec![BattleAction::UseItem { item: ItemKind::HighHerb, target: TargetId::Party(0) }];
+    let mut battle2 = BattleDomainState::new(vec![hero2], vec![slime2]);
+    let commands2 = vec![BattleAction::UseItem { item: ItemKey::HighHerb, target: TargetId::Party(0) }];
     let results2 = battle2.execute_turn(&commands2, &randoms);
     let heal_high = results2.iter().find_map(|r| {
         if let TurnResult::ItemUsed { amount, .. } = r { Some(*amount) } else { None }
@@ -2685,20 +2677,21 @@ fn high_herb_heals_more_than_regular_herb_in_battle() {
 #[test]
 fn all_material_items_can_be_sold_with_correct_price() {
     use town::{sell_item, SellResult};
-    use item::{Inventory, ItemKind};
+    use item::Inventory;
+    use item_data::ItemKey;
 
     let materials = [
-        (ItemKind::MagicStone, 30),
-        (ItemKind::SilverOre, 60),
-        (ItemKind::AncientCoin, 120),
-        (ItemKind::DragonScale, 250),
+        (ItemKey::MagicStone, 30),
+        (ItemKey::SilverOre, 60),
+        (ItemKey::AncientCoin, 120),
+        (ItemKey::DragonScale, 250),
     ];
 
     for (item, expected_price) in &materials {
         let mut inv = Inventory::new();
         inv.add(*item, 1);
 
-        let result = sell_item(*item, &mut inv, None, &test_item_params());
+        let result = sell_item(*item, &mut inv, None);
         assert_eq!(result, SellResult::Success { earned_gold: *expected_price },
             "{} should sell for {} gold", item.name(), expected_price);
         assert_eq!(inv.count(*item), 0, "{} should be removed after selling", item.name());
@@ -2721,7 +2714,7 @@ fn generated_enemy_group_battle_to_victory_and_exp() {
     assert!(!enemies.is_empty());
 
     let party = default_party(&table);
-    let mut battle = BattleDomainState::new(party, enemies, test_item_params());
+    let mut battle = BattleDomainState::new(party, enemies);
 
     // 全敵を全員で攻撃して勝利を目指す
     let commands = vec![
@@ -2771,7 +2764,7 @@ fn multi_turn_battle_accumulates_turn_log() {
     wolf.stats.max_hp = 999;
     wolf.stats.attack = 0; // パーティを倒さない
 
-    let mut battle = BattleDomainState::new(party, vec![wolf], test_item_params());
+    let mut battle = BattleDomainState::new(party, vec![wolf]);
 
     let commands = vec![
         BattleAction::Attack { target: TargetId::Enemy(0) },
@@ -2806,7 +2799,7 @@ fn full_town_equip_battle_levelup_flow() {
     use town::{buy_item, heal_party, BuyResult};
     use battle::{BattleAction, BattleState as BattleDomainState, TargetId, TurnRandomFactors};
     use enemy::Enemy;
-    use item::{ItemKind, WeaponKind};
+    use item_data::ItemKey;
     use party::{PartyMember, PartyMemberKind};
 
     let table = char_table();
@@ -2814,19 +2807,19 @@ fn full_town_equip_battle_levelup_flow() {
     let mut gold = 500u32;
 
     // 1. 街で武器を買って装備する（武器はインベントリに残る）
-    if let BuyResult::Success { remaining_gold } = buy_item(ItemKind::Weapon(WeaponKind::IronSword), gold, &mut hero.inventory, &test_item_params()) {
+    if let BuyResult::Success { remaining_gold } = buy_item(ItemKey::IronSword, gold, &mut hero.inventory) {
         gold = remaining_gold;
-        hero.equipment.equip_weapon(WeaponKind::IronSword);
+        hero.equipment.equip_weapon(ItemKey::IronSword);
     }
 
     // 2. やくそうを買う
-    if let BuyResult::Success { remaining_gold } = buy_item(ItemKind::Herb, gold, &mut hero.inventory, &test_item_params()) {
+    if let BuyResult::Success { remaining_gold } = buy_item(ItemKey::Herb, gold, &mut hero.inventory) {
         let _gold = remaining_gold;
     }
 
     // 3. 戦闘に入る（ゴースト3体 = 30exp）
     let enemies = vec![Enemy::ghost(), Enemy::ghost(), Enemy::ghost()];
-    let mut battle = BattleDomainState::new(vec![hero], enemies, test_item_params());
+    let mut battle = BattleDomainState::new(vec![hero], enemies);
 
     let commands = vec![BattleAction::Attack { target: TargetId::Enemy(0) }];
     let randoms = TurnRandomFactors { damage_randoms: vec![1.2; 4], flee_random: 1.0, spell_randoms: vec![1.0; 10] };
@@ -2869,7 +2862,7 @@ fn same_speed_party_acts_before_enemy() {
     let mut enemy = Enemy::slime();
     enemy.stats = CombatStats::new(999, 5, 2, 10, 0); // speed=10 (同速)
 
-    let mut battle = BattleDomainState::new(vec![hero], vec![enemy], test_item_params());
+    let mut battle = BattleDomainState::new(vec![hero], vec![enemy]);
 
     let commands = vec![
         BattleAction::Attack { target: TargetId::Enemy(0) },
@@ -2907,7 +2900,7 @@ fn neld_aoe_damages_all_enemies_integration() {
     let mage_max_mp = mage.stats.max_mp;
 
     let enemies = vec![Enemy::slime(), Enemy::slime(), Enemy::slime()];
-    let mut battle = BattleDomainState::new(vec![mage], enemies, test_item_params());
+    let mut battle = BattleDomainState::new(vec![mage], enemies);
 
     let commands = vec![
         BattleAction::Spell { spell: spell_data::BLAZE1, target: TargetId::Enemy(0) },
@@ -2950,7 +2943,7 @@ fn panam_aoe_heals_all_allies_integration() {
     slime.stats.max_hp = 999;
     slime.stats.attack = 0;
 
-    let mut battle = BattleDomainState::new(vec![laios, marcille, falin], vec![slime], test_item_params());
+    let mut battle = BattleDomainState::new(vec![laios, marcille, falin], vec![slime]);
 
     let commands = vec![
         BattleAction::Attack { target: TargetId::Enemy(0) },
@@ -2988,7 +2981,7 @@ fn bolga_buff_increases_attack_integration() {
     slime.stats.max_hp = 999;
     slime.stats.attack = 0;
 
-    let mut battle = BattleDomainState::new(vec![laios, rinsha], vec![slime], test_item_params());
+    let mut battle = BattleDomainState::new(vec![laios, rinsha], vec![slime]);
     let base_attack = battle.effective_attack_with_buff(0);
 
     let commands = vec![
@@ -3030,7 +3023,7 @@ fn block_absorbs_damage_integration() {
     wolf.stats.max_hp = 999;
 
     // Shield1を付与
-    let mut battle = BattleDomainState::new(vec![laios, senshi], vec![wolf], test_item_params());
+    let mut battle = BattleDomainState::new(vec![laios, senshi], vec![wolf]);
     let commands_buff = vec![
         BattleAction::Attack { target: TargetId::Enemy(0) },
         BattleAction::Spell { spell: spell_data::SHIELD1, target: TargetId::Party(0) },
@@ -3090,7 +3083,7 @@ fn buff_expires_after_5_turns_integration() {
     slime.stats.max_hp = 999;
     slime.stats.attack = 0;
 
-    let mut battle = BattleDomainState::new(vec![rinsha], vec![slime], test_item_params());
+    let mut battle = BattleDomainState::new(vec![rinsha], vec![slime]);
 
     // ターン1: バフ付与
     let commands = vec![BattleAction::Spell { spell: spell_data::BOOST1, target: TargetId::Party(0) }];
@@ -3130,7 +3123,7 @@ fn buff_overwrite_resets_duration_integration() {
     slime.stats.max_hp = 999;
     slime.stats.attack = 0;
 
-    let mut battle = BattleDomainState::new(vec![rinsha], vec![slime], test_item_params());
+    let mut battle = BattleDomainState::new(vec![rinsha], vec![slime]);
 
     // Boost1(ATK+3)付与
     let commands = vec![BattleAction::Spell { spell: spell_data::BOOST1, target: TargetId::Party(0) }];
@@ -3177,7 +3170,7 @@ fn drain_spell_reduces_enemy_mp() {
     ghost.stats.max_hp = 999;
     let initial_mp = ghost.stats.mp; // Ghost has 8 MP
 
-    let mut battle = BattleDomainState::new(vec![laios], vec![ghost], test_item_params());
+    let mut battle = BattleDomainState::new(vec![laios], vec![ghost]);
 
     let commands = vec![BattleAction::Spell { spell: spell_data::DRAIN1, target: TargetId::Enemy(0) }];
     let randoms = TurnRandomFactors { damage_randoms: vec![1.0; 2], flee_random: 1.0, spell_randoms: vec![1.0; 10] };
@@ -3211,7 +3204,7 @@ fn siphon_spell_reduces_all_enemies_mp() {
     ghost2.stats.max_hp = 999;
     let initial_mp = ghost1.stats.mp;
 
-    let mut battle = BattleDomainState::new(vec![laios], vec![ghost1, ghost2], test_item_params());
+    let mut battle = BattleDomainState::new(vec![laios], vec![ghost1, ghost2]);
 
     let commands = vec![BattleAction::Spell { spell: spell_data::SIPHON1, target: TargetId::Enemy(0) }];
     let randoms = TurnRandomFactors { damage_randoms: vec![1.0; 3], flee_random: 1.0, spell_randoms: vec![1.0; 10] };
@@ -3243,7 +3236,7 @@ fn enemy_uses_drain_spell_on_party() {
     ghost.stats.max_hp = 999;
     ghost.stats.mp = 20; // Drain1(cost=4)を使えるだけのMP
 
-    let mut battle = BattleDomainState::new(vec![marcille], vec![ghost], test_item_params());
+    let mut battle = BattleDomainState::new(vec![marcille], vec![ghost]);
 
     // パーティは通常攻撃、敵が呪文を使う（spell_random=0.0 < 0.5で呪文使用）
     let commands = vec![BattleAction::Attack { target: TargetId::Enemy(0) }];
@@ -3267,59 +3260,63 @@ fn enemy_uses_drain_spell_on_party() {
 #[test]
 fn sell_equipped_weapon_only_one_is_rejected() {
     use town::{sell_item, SellResult};
-    use item::{Inventory, ItemKind, WeaponKind};
+    use item::Inventory;
+    use item_data::ItemKey;
 
     let mut inv = Inventory::new();
-    inv.add(ItemKind::Weapon(WeaponKind::IronSword), 1);
+    inv.add(ItemKey::IronSword, 1);
 
     // 装備中の武器が1本のみ → 売却不可
-    let result = sell_item(ItemKind::Weapon(WeaponKind::IronSword), &mut inv, Some(WeaponKind::IronSword), &test_item_params());
+    let result = sell_item(ItemKey::IronSword, &mut inv, Some(ItemKey::IronSword));
     assert_eq!(result, SellResult::CannotSell, "Equipped weapon (only 1) should not be sellable");
-    assert_eq!(inv.count(ItemKind::Weapon(WeaponKind::IronSword)), 1, "Weapon should remain");
+    assert_eq!(inv.count(ItemKey::IronSword), 1, "Weapon should remain");
 }
 
 #[test]
 fn sell_equipped_weapon_two_copies_allows_one_sale() {
     use town::{sell_item, SellResult};
-    use item::{Inventory, ItemKind, WeaponKind};
+    use item::Inventory;
+    use item_data::ItemKey;
 
     let mut inv = Inventory::new();
-    inv.add(ItemKind::Weapon(WeaponKind::IronSword), 2);
+    inv.add(ItemKey::IronSword, 2);
 
     // 同じ武器2本持ち、1本装備中 → 1本は売却可能
-    let result = sell_item(ItemKind::Weapon(WeaponKind::IronSword), &mut inv, Some(WeaponKind::IronSword), &test_item_params());
+    let result = sell_item(ItemKey::IronSword, &mut inv, Some(ItemKey::IronSword));
     assert_eq!(result, SellResult::Success { earned_gold: 25 }, "Should sell one copy of equipped weapon");
-    assert_eq!(inv.count(ItemKind::Weapon(WeaponKind::IronSword)), 1, "One copy should remain");
+    assert_eq!(inv.count(ItemKey::IronSword), 1, "One copy should remain");
 
     // 残り1本は装備中なので売却不可
-    let result2 = sell_item(ItemKind::Weapon(WeaponKind::IronSword), &mut inv, Some(WeaponKind::IronSword), &test_item_params());
+    let result2 = sell_item(ItemKey::IronSword, &mut inv, Some(ItemKey::IronSword));
     assert_eq!(result2, SellResult::CannotSell, "Last equipped weapon should not be sellable");
 }
 
 #[test]
 fn sell_unequipped_weapon_succeeds() {
     use town::{sell_item, SellResult};
-    use item::{Inventory, ItemKind, WeaponKind};
+    use item::Inventory;
+    use item_data::ItemKey;
 
     let mut inv = Inventory::new();
-    inv.add(ItemKind::Weapon(WeaponKind::IronSword), 1);
+    inv.add(ItemKey::IronSword, 1);
 
     // 装備していない武器は売却可能
-    let result = sell_item(ItemKind::Weapon(WeaponKind::IronSword), &mut inv, None, &test_item_params());
+    let result = sell_item(ItemKey::IronSword, &mut inv, None);
     assert_eq!(result, SellResult::Success { earned_gold: 25 }, "Unequipped weapon should be sellable");
-    assert_eq!(inv.count(ItemKind::Weapon(WeaponKind::IronSword)), 0);
+    assert_eq!(inv.count(ItemKey::IronSword), 0);
 }
 
 #[test]
 fn sell_different_weapon_while_another_equipped() {
     use town::{sell_item, SellResult};
-    use item::{Inventory, ItemKind, WeaponKind};
+    use item::Inventory;
+    use item_data::ItemKey;
 
     let mut inv = Inventory::new();
-    inv.add(ItemKind::Weapon(WeaponKind::WoodenSword), 1);
+    inv.add(ItemKey::WoodenSword, 1);
 
     // 鉄の剣を装備中、木の剣は装備していないので売却可能
-    let result = sell_item(ItemKind::Weapon(WeaponKind::WoodenSword), &mut inv, Some(WeaponKind::IronSword), &test_item_params());
+    let result = sell_item(ItemKey::WoodenSword, &mut inv, Some(ItemKey::IronSword));
     assert_eq!(result, SellResult::Success { earned_gold: 5 }, "Non-equipped weapon should be sellable");
-    assert_eq!(inv.count(ItemKind::Weapon(WeaponKind::WoodenSword)), 0);
+    assert_eq!(inv.count(ItemKey::WoodenSword), 0);
 }

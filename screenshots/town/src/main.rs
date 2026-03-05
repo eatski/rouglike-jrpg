@@ -1,10 +1,10 @@
 use bevy::prelude::*;
 
 use app_state::{CharacterParams, PartyState};
-use item::ItemKind;
+use item_data::ItemKey;
 use screenshot_common::{setup_camera, ScreenshotAppBuilder};
 use town_ui::{
-    setup_town_scene_with_config, town_extra_display_system, ShopGoods, TownMenuPhase,
+    setup_town_scene_with_config, town_extra_display_system, TownMenuPhase,
     TownResource, TownSceneConfig,
 };
 
@@ -14,7 +14,7 @@ fn make_config(variant: &str) -> TownSceneConfig {
         "shop" => (TownMenuPhase::ShopSelect { selected: 0 }, 1),
         "shop_char" => (
             TownMenuPhase::ShopCharacterSelect {
-                goods: ShopGoods::Item(ItemKind::Herb),
+                goods: ItemKey::Herb,
                 selected: 0,
             },
             1,

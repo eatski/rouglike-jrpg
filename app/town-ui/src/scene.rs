@@ -1,8 +1,9 @@
 use bevy::prelude::*;
 
-use item::{ItemKind, ItemParamTable, WeaponKind, BAG_CAPACITY, INVENTORY_CAPACITY};
+use item_data::ItemKey;
+use item::{BAG_CAPACITY, INVENTORY_CAPACITY};
 use party::PartyMemberKind;
-use app_state::{ItemParams, PartyState, RecruitmentMap, TavernBounties};
+use app_state::{PartyState, RecruitmentMap, TavernBounties};
 use field_core::{Player, TilePosition};
 use hud_ui::command_menu::{self, CommandMenu};
 use hud_ui::menu_style::{self, SceneMenu, PANEL_BG, PANEL_BORDER, FONT_PATH};
@@ -13,7 +14,7 @@ pub enum TownCommand {
     Inn,
     Shop,
     Tavern,
-    SellBounty(ItemKind),
+    SellBounty(ItemKey),
     HireCompanion(PartyMemberKind),
     Leave,
 }
@@ -32,7 +33,7 @@ impl TownCommand {
 }
 
 /// デフォルトの町メニューコマンドを構築する
-pub fn build_town_commands(bounty: Option<ItemKind>, hire_candidates: &[PartyMemberKind]) -> Vec<TownCommand> {
+pub fn build_town_commands(bounty: Option<ItemKey>, hire_candidates: &[PartyMemberKind]) -> Vec<TownCommand> {
     let mut cmds = vec![
         TownCommand::Inn,
         TownCommand::Shop,
@@ -48,33 +49,10 @@ pub fn build_town_commands(bounty: Option<ItemKind>, hire_candidates: &[PartyMem
     cmds
 }
 
-/// よろず屋の商品（アイテムと武器を統合）
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ShopGoods {
-    Item(ItemKind),
-    Weapon(WeaponKind),
-}
-
-impl ShopGoods {
-    pub fn name(self) -> &'static str {
-        match self {
-            ShopGoods::Item(item) => item.name(),
-            ShopGoods::Weapon(weapon) => weapon.name(),
-        }
-    }
-
-    pub fn price(self, table: &ItemParamTable) -> u32 {
-        match self {
-            ShopGoods::Item(item) => table.price(item),
-            ShopGoods::Weapon(weapon) => table.weapon_price(weapon),
-        }
-    }
-}
-
 /// よろず屋で購入可能な商品一覧
-pub fn shop_goods(table: &ItemParamTable) -> Vec<ShopGoods> {
-    let mut goods: Vec<ShopGoods> = table.shop_items().iter().map(|&i| ShopGoods::Item(i)).collect();
-    goods.extend(table.shop_weapons().iter().map(|&w| ShopGoods::Weapon(w)));
+pub fn shop_goods() -> Vec<ItemKey> {
+    let mut goods: Vec<ItemKey> = item_data::SHOP_ITEMS.to_vec();
+    goods.extend(item_data::SHOP_WEAPONS);
     goods
 }
 
@@ -92,7 +70,7 @@ pub enum TownMenuPhase {
     /// よろず屋 — 商品選択中
     ShopSelect { selected: usize },
     /// よろず屋 — キャラクター選択中
-    ShopCharacterSelect { goods: ShopGoods, selected: usize },
+    ShopCharacterSelect { goods: ItemKey, selected: usize },
     /// よろず屋 — 購入結果メッセージ表示中
     ShopMessage { message: String },
     /// 仲間候補との会話メッセージ表示中
@@ -104,11 +82,11 @@ pub enum TownMenuPhase {
     /// よろず屋 — 売却アイテム選択
     SellItemSelect { member_index: usize, selected: usize },
     /// 買い取り依頼 — キャラクター選択
-    BountyCharacterSelect { item: ItemKind, selected: usize },
+    BountyCharacterSelect { item: ItemKey, selected: usize },
     /// 買い取り依頼 — 結果メッセージ
     BountyMessage { message: String },
     /// アイテム交換雇用 — はい/いいえ確認
-    ItemTradeConfirm { kind: PartyMemberKind, item: ItemKind, selected: usize },
+    ItemTradeConfirm { kind: PartyMemberKind, item: ItemKey, selected: usize },
 }
 
 /// 町の状態管理リソース
@@ -197,20 +175,18 @@ const SHOP_PANEL_MAX_ITEMS: usize = 7;
 /// メインメニューの最大項目数（基本4 + 買い取り依頼1 + 雇用1）
 const TOWN_MENU_MAX_ITEMS: usize = 6;
 
-fn format_goods_label(prefix: &str, goods: &ShopGoods, table: &ItemParamTable) -> String {
-    match goods {
-        ShopGoods::Item(item) => {
-            format!("{}{}  {}G", prefix, item.name(), table.price(*item))
-        }
-        ShopGoods::Weapon(weapon) => {
-            format!(
-                "{}{}  {}G  ATK+{}",
-                prefix,
-                weapon.name(),
-                table.weapon_price(*weapon),
-                table.weapon_attack_bonus(*weapon),
-            )
-        }
+fn format_goods_label(prefix: &str, item: ItemKey) -> String {
+    let entry = item.entry();
+    if entry.is_weapon() {
+        format!(
+            "{}{}  {}G  ATK+{}",
+            prefix,
+            entry.name,
+            entry.price,
+            entry.attack_bonus,
+        )
+    } else {
+        format!("{}{}  {}G", prefix, entry.name, entry.price)
     }
 }
 
@@ -230,12 +206,11 @@ pub fn setup_town_scene(
     tavern_bounties: Res<TavernBounties>,
     recruitment_map: Res<RecruitmentMap>,
     player_query: Query<&TilePosition, With<Player>>,
-    item_params: Res<ItemParams>,
 ) {
     let town_pos = player_query.single().ok().map(|pos| (pos.x, pos.y));
     let bounty_item = town_pos.and_then(|tp| tavern_bounties.active.get(&tp).copied());
     let hire_candidates = collect_hire_candidates(town_pos, &recruitment_map, &party_state);
-    setup_town_scene_inner(&mut commands, &asset_server, &party_state, TownMenuPhase::MenuSelect, 0, bounty_item, &hire_candidates, &item_params);
+    setup_town_scene_inner(&mut commands, &asset_server, &party_state, TownMenuPhase::MenuSelect, 0, bounty_item, &hire_candidates);
 }
 
 /// TownSceneConfigリソースから設定を読んでシーンを構築するシステム
@@ -247,7 +222,6 @@ pub fn setup_town_scene_with_config(
     tavern_bounties: Res<TavernBounties>,
     recruitment_map: Res<RecruitmentMap>,
     player_query: Query<&TilePosition, With<Player>>,
-    item_params: Res<ItemParams>,
 ) {
     let phase = config.initial_phase.clone();
     let selected = config.selected_item;
@@ -255,7 +229,7 @@ pub fn setup_town_scene_with_config(
     let town_pos = player_query.single().ok().map(|pos| (pos.x, pos.y));
     let bounty_item = town_pos.and_then(|tp| tavern_bounties.active.get(&tp).copied());
     let hire_candidates = collect_hire_candidates(town_pos, &recruitment_map, &party_state);
-    setup_town_scene_inner(&mut commands, &asset_server, &party_state, phase, selected, bounty_item, &hire_candidates, &item_params);
+    setup_town_scene_inner(&mut commands, &asset_server, &party_state, phase, selected, bounty_item, &hire_candidates);
 }
 
 /// 雇用可能なキャラを収集する
@@ -279,9 +253,8 @@ fn setup_town_scene_inner(
     party_state: &PartyState,
     initial_phase: TownMenuPhase,
     selected_item: usize,
-    bounty_item: Option<ItemKind>,
+    bounty_item: Option<ItemKey>,
     hire_candidates: &[PartyMemberKind],
-    item_params: &ItemParams,
 ) {
     let town_commands = build_town_commands(bounty_item, hire_candidates);
     let initial_labels: Vec<String> = town_commands.iter().map(|c| c.label()).collect();
@@ -339,7 +312,7 @@ fn setup_town_scene_inner(
                 ));
 
                 // メニュー項目（購入・売却で共用）
-                let goods = shop_goods(item_params);
+                let goods = shop_goods();
                 for i in 0..SHOP_PANEL_MAX_ITEMS {
                     let display = if i < goods.len() {
                         Display::Flex
@@ -348,7 +321,7 @@ fn setup_town_scene_inner(
                     };
                     let (label, color) = if i < goods.len() {
                         let prefix = if i == 0 { "> " } else { "  " };
-                        let label = format_goods_label(prefix, &goods[i], item_params);
+                        let label = format_goods_label(prefix, goods[i]);
                         (label, Color::WHITE)
                     } else {
                         (String::new(), Color::WHITE)
@@ -446,7 +419,6 @@ pub fn cleanup_town_scene(
 pub fn town_extra_display_system(
     town_res: Res<TownResource>,
     party_state: Res<PartyState>,
-    item_params: Res<ItemParams>,
     mut shop_root_query: Query<&mut Node, (With<ShopMenuRoot>, Without<ShopCharacterPanel>, Without<ShopMenuItem>)>,
     mut shop_item_query: Query<
         (&ShopMenuItem, &mut Text, &mut TextColor, &mut Node),
@@ -526,12 +498,10 @@ pub fn town_extra_display_system(
                     .inventory
                     .owned_items()
                     .iter()
-                    .filter(|i| item_params.sell_price(**i) > 0)
+                    .filter(|i| i.entry().sell_price > 0)
                     .map(|i| {
                         let cnt = member.inventory.count(*i);
-                        if let Some(w) = i.as_weapon()
-                            && equipped_weapon == Some(w)
-                        {
+                        if i.entry().is_weapon() && equipped_weapon == Some(*i) {
                             return cnt.saturating_sub(1);
                         }
                         cnt
@@ -543,7 +513,7 @@ pub fn town_extra_display_system(
                 let sellable_count: u32 = party_state.bag
                     .owned_items()
                     .iter()
-                    .filter(|i| item_params.sell_price(**i) > 0)
+                    .filter(|i| i.entry().sell_price > 0)
                     .map(|i| party_state.bag.count(*i))
                     .sum();
                 **text = format!("{}ふくろ  売却可: {}個", prefix, sellable_count);
@@ -555,12 +525,12 @@ pub fn town_extra_display_system(
     // ショップパネル項目の更新
     match &town_res.phase {
         TownMenuPhase::ShopSelect { selected } => {
-            let goods_list = shop_goods(&item_params);
+            let goods_list = shop_goods();
             for (shop_item, mut text, mut color, mut node) in &mut shop_item_query {
                 if shop_item.index < goods_list.len() {
                     let is_selected = shop_item.index == *selected;
                     let prefix = if is_selected { "> " } else { "  " };
-                    **text = format_goods_label(prefix, &goods_list[shop_item.index], &item_params);
+                    **text = format_goods_label(prefix, goods_list[shop_item.index]);
                     *color = command_menu::menu_item_color(false);
                     node.display = Display::Flex;
                 } else {
@@ -599,10 +569,8 @@ pub fn town_extra_display_system(
                 .owned_items()
                 .into_iter()
                 .filter(|i| {
-                    if item_params.sell_price(*i) == 0 { return false; }
-                    if let Some(w) = i.as_weapon()
-                        && equipped_weapon == Some(w)
-                    {
+                    if i.entry().sell_price == 0 { return false; }
+                    if i.entry().is_weapon() && equipped_weapon == Some(*i) {
                         return inventory.count(*i) > 1;
                     }
                     true
@@ -614,8 +582,8 @@ pub fn town_extra_display_system(
                     let count = inventory.count(item);
                     let is_selected = shop_item.index == *selected;
                     let prefix = if is_selected { "> " } else { "  " };
-                    if let Some(w) = item.as_weapon() {
-                        let is_equipped = equipped_weapon == Some(w);
+                    if item.entry().is_weapon() {
+                        let is_equipped = equipped_weapon == Some(item);
                         let equip_mark = if is_equipped { "E " } else { "" };
                         **text = format!(
                             "{}{}{} x{}  {}G",
@@ -623,7 +591,7 @@ pub fn town_extra_display_system(
                             equip_mark,
                             item.name(),
                             count,
-                            item_params.sell_price(item)
+                            item.entry().sell_price
                         );
                     } else {
                         **text = format!(
@@ -631,7 +599,7 @@ pub fn town_extra_display_system(
                             prefix,
                             item.name(),
                             count,
-                            item_params.sell_price(item)
+                            item.entry().sell_price
                         );
                     }
                     *color = command_menu::menu_item_color(false);

@@ -1,6 +1,5 @@
 use bevy::prelude::*;
 
-use cave::TreasureContent;
 use terrain::Structure;
 
 use app_state::{BossBattlePending, OpenedChests, PartyState};
@@ -51,11 +50,7 @@ pub fn check_chest_system(
                 continue;
             }
 
-            // アイテム/武器の取得処理
-            let chest_item = match treasure.content {
-                TreasureContent::Item(item) => item,
-                TreasureContent::Weapon(weapon) => item::ItemKind::Weapon(weapon),
-            };
+            let chest_item = treasure.content;
 
             // 先頭メンバーから順にインベントリ追加を試みる
             let mut added = false;
