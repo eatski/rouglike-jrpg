@@ -3,7 +3,8 @@ use std::time::Duration;
 use bevy::prelude::*;
 use bevy::window::{Window, WindowResolution};
 use bevy::winit::{UpdateMode, WinitSettings};
-use app_state::{CharacterParams, InField, PartyState};
+use party_state::{CharacterParams, PartyState};
+use scene_state::InField;
 use field_core::WINDOW_SIZE;
 
 fn main() {
@@ -36,7 +37,9 @@ fn main() {
         .insert_resource(CharacterParams(char_table))
         .insert_resource(party_state)
         .add_plugins((
-            app_state::AppStatePlugin,
+            scene_state::SceneStatePlugin,
+            progress_state::ProgressStatePlugin,
+            tavern_state::TavernStatePlugin,
             field_walk_ui::MovementPlugin,
             field_walk_ui::WorldPlugin,
             battle_ui::BattlePlugin,

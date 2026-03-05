@@ -2,7 +2,8 @@ mod input;
 mod scene;
 
 use bevy::prelude::*;
-use app_state::{HeardTavernHints, SceneState};
+use scene_state::SceneState;
+use tavern_state::HeardTavernHints;
 use hud_ui::menu_style;
 
 pub use input::town_input_system;

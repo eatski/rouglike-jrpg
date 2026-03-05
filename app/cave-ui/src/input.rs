@@ -2,7 +2,8 @@ use bevy::prelude::*;
 
 use terrain::Structure;
 
-use app_state::{BossBattlePending, OpenedChests, PartyState};
+use progress_state::{BossBattlePending, OpenedChests};
+use party_state::PartyState;
 use field_core::{ActiveMap, Player, TilePosition};
 use field_walk_ui::{FieldMessageState, SimpleTileMap, TileEnteredEvent};
 
@@ -108,7 +109,7 @@ pub fn check_boss_proximity_system(
     player_query: Query<&TilePosition, With<Player>>,
     boss_query: Query<&BossEntity>,
     _boss_cave_state: Option<Res<BossCaveState>>,
-    mut next_battle_state: ResMut<NextState<app_state::BattleState>>,
+    mut next_battle_state: ResMut<NextState<scene_state::BattleState>>,
 ) {
     for _event in events.read() {
         let Ok(tile_pos) = player_query.single() else {
@@ -123,7 +124,7 @@ pub fn check_boss_proximity_system(
             if (dx == 1 && dy == 0) || (dx == 0 && dy == 1) {
                 // ボス戦闘トリガーを挿入
                 commands.insert_resource(BossBattlePending);
-                next_battle_state.set(app_state::BattleState::Active);
+                next_battle_state.set(scene_state::BattleState::Active);
                 return;
             }
         }

@@ -59,7 +59,11 @@ pub use tile_action::check_tile_action_system;
 pub use field_rendering::SpawnPosition;
 
 use bevy::prelude::*;
-use app_state::{BattleState, InField, SceneState};
+use scene_state::{BattleState, InField, SceneState};
+
+/// フィールドメニュー開閉のマーカーリソース（存在=開、不在=閉）
+#[derive(Resource)]
+pub struct FieldMenuOpen;
 use field_core::{ActiveMap, Player, TilePosition};
 
 /// フィールド離脱時にプレイヤーの移動関連コンポーネントと状態をクリーンアップする。

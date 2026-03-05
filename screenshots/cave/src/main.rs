@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
 
-use app_state::OpenedChests;
+use progress_state::OpenedChests;
 use cave::{generate_cave_map, CAVE_HEIGHT, CAVE_WIDTH};
 use field_core::{ActiveMap, Player, TilePosition, TILE_SIZE};
 use screenshot_common::screenshot_app;

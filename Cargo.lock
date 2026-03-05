@@ -168,16 +168,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "app-state"
-version = "0.1.0"
-dependencies = [
- "bevy",
- "item",
- "item-data",
- "party",
-]
-
-[[package]]
 name = "approx"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -340,7 +330,6 @@ dependencies = [
 name = "battle-ui"
 version = "0.1.0"
 dependencies = [
- "app-state",
  "battle",
  "bevy",
  "enemy",
@@ -349,8 +338,12 @@ dependencies = [
  "item",
  "item-data",
  "party",
+ "party-state",
+ "progress-state",
  "rand 0.8.5",
+ "scene-state",
  "spell",
+ "world-state",
 ]
 
 [[package]]
@@ -1795,7 +1788,6 @@ dependencies = [
 name = "cave-ui"
 version = "0.1.0"
 dependencies = [
- "app-state",
  "bevy",
  "cave",
  "field-core",
@@ -1804,9 +1796,13 @@ dependencies = [
  "item",
  "item-data",
  "party",
+ "party-state",
+ "progress-state",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
+ "scene-state",
  "terrain",
+ "world-state",
 ]
 
 [[package]]
@@ -2454,14 +2450,16 @@ dependencies = [
 name = "field-menu-ui"
 version = "0.1.0"
 dependencies = [
- "app-state",
  "bevy",
+ "field-walk-ui",
  "hud-ui",
  "input-ui",
  "item",
  "item-data",
  "party",
+ "party-state",
  "rand 0.8.5",
+ "scene-state",
  "spell",
 ]
 
@@ -2476,7 +2474,6 @@ dependencies = [
 name = "field-walk-ui"
 version = "0.1.0"
 dependencies = [
- "app-state",
  "bevy",
  "field-core",
  "field-walk",
@@ -2484,8 +2481,10 @@ dependencies = [
  "input-ui",
  "party",
  "rand 0.8.5",
+ "scene-state",
  "terrain",
  "world-gen",
+ "world-state",
 ]
 
 [[package]]
@@ -2983,7 +2982,6 @@ checksum = "dfa686283ad6dd069f105e5ab091b04c62850d3e4cf5d67debad1933f55023df"
 name = "hokora-ui"
 version = "0.1.0"
 dependencies = [
- "app-state",
  "bevy",
  "field-core",
  "hud-ui",
@@ -2991,16 +2989,19 @@ dependencies = [
  "item",
  "item-data",
  "party",
+ "party-state",
+ "scene-state",
  "terrain",
+ "world-state",
 ]
 
 [[package]]
 name = "hud-ui"
 version = "0.1.0"
 dependencies = [
- "app-state",
  "bevy",
  "input-ui",
+ "party-state",
 ]
 
 [[package]]
@@ -3948,6 +3949,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "party-state"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "item",
+ "item-data",
+ "party",
+]
+
+[[package]]
 name = "paste"
 version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4123,6 +4134,13 @@ name = "profiling"
 version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3eb8486b569e12e2c32ad3e204dbaba5e4b5b216e9367044f25f1dba42341773"
+
+[[package]]
+name = "progress-state"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+]
 
 [[package]]
 name = "pxfm"
@@ -4396,7 +4414,6 @@ dependencies = [
 name = "rouglike-jrpg"
 version = "0.1.0"
 dependencies = [
- "app-state",
  "battle",
  "battle-ui",
  "bevy",
@@ -4412,10 +4429,14 @@ dependencies = [
  "item-data",
  "party",
  "party-data",
+ "party-state",
+ "progress-state",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
+ "scene-state",
  "spell",
  "spell-data",
+ "tavern-state",
  "terrain",
  "town",
  "town-ui",
@@ -4500,6 +4521,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "scene-state"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+]
+
+[[package]]
 name = "scoped-tls"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4515,7 +4543,6 @@ checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 name = "screenshot-battle"
 version = "0.1.0"
 dependencies = [
- "app-state",
  "battle",
  "battle-ui",
  "bevy",
@@ -4523,6 +4550,7 @@ dependencies = [
  "hud-ui",
  "item-data",
  "party-data",
+ "party-state",
  "screenshot-common",
  "spell-data",
 ]
@@ -4531,11 +4559,11 @@ dependencies = [
 name = "screenshot-cave"
 version = "0.1.0"
 dependencies = [
- "app-state",
  "bevy",
  "cave",
  "field-core",
  "field-walk-ui",
+ "progress-state",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "screenshot-common",
@@ -4555,11 +4583,11 @@ dependencies = [
 name = "screenshot-field"
 version = "0.1.0"
 dependencies = [
- "app-state",
  "bevy",
  "field-core",
  "field-walk-ui",
  "party-data",
+ "party-state",
  "screenshot-common",
  "terrain",
 ]
@@ -4568,11 +4596,11 @@ dependencies = [
 name = "screenshot-town"
 version = "0.1.0"
 dependencies = [
- "app-state",
  "bevy",
  "hud-ui",
  "item-data",
  "party-data",
+ "party-state",
  "screenshot-common",
  "town-ui",
 ]
@@ -4883,6 +4911,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "tavern-state"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "item-data",
+]
+
+[[package]]
 name = "tempfile"
 version = "3.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5052,7 +5088,6 @@ dependencies = [
 name = "town-ui"
 version = "0.1.0"
 dependencies = [
- "app-state",
  "bevy",
  "field-core",
  "hud-ui",
@@ -5060,8 +5095,12 @@ dependencies = [
  "item",
  "item-data",
  "party",
+ "party-state",
  "rand 0.8.5",
+ "scene-state",
+ "tavern-state",
  "town",
+ "world-state",
 ]
 
 [[package]]
@@ -6104,6 +6143,13 @@ dependencies = [
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "terrain",
+]
+
+[[package]]
+name = "world-state"
+version = "0.1.0"
+dependencies = [
+ "bevy",
 ]
 
 [[package]]

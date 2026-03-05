@@ -12,7 +12,10 @@ item = { path = "../item" }
 item-data = { path = "../item-data" }
 party = { path = "../party" }
 terrain = { path = "../terrain" }
-app-state = { path = "../app-state" }
+scene-state = { path = "../scene-state" }
+party-state = { path = "../party-state" }
+world-state = { path = "../world-state" }
+progress-state = { path = "../progress-state" }
 input-ui = { path = "../input-ui" }
 field-core = { path = "../field-core" }
 field-walk-ui = { path = "../field-walk-ui" }

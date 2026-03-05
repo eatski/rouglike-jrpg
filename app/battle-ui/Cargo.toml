@@ -12,6 +12,9 @@ spell = { path = "../spell" }
 item = { path = "../item" }
 item-data = { path = "../item-data" }
 party = { path = "../party" }
-app-state = { path = "../app-state" }
+scene-state = { path = "../scene-state" }
+party-state = { path = "../party-state" }
+progress-state = { path = "../progress-state" }
+world-state = { path = "../world-state" }
 input-ui = { path = "../input-ui" }
 hud-ui = { path = "../hud-ui" }

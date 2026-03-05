@@ -10,6 +10,8 @@ item = { path = "../item" }
 item-data = { path = "../item-data" }
 party = { path = "../party" }
 spell = { path = "../spell" }
-app-state = { path = "../app-state" }
+scene-state = { path = "../scene-state" }
+party-state = { path = "../party-state" }
+field-walk-ui = { path = "../field-walk-ui" }
 input-ui = { path = "../input-ui" }
 hud-ui = { path = "../hud-ui" }

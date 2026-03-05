@@ -2,7 +2,7 @@ mod input;
 mod scene;
 
 use bevy::prelude::*;
-use app_state::SceneState;
+use scene_state::SceneState;
 use hud_ui::menu_style;
 
 pub use input::hokora_input_system;

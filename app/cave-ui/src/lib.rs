@@ -2,7 +2,7 @@ mod input;
 mod scene;
 
 use bevy::prelude::*;
-use app_state::{BattleState, SceneState};
+use scene_state::{BattleState, SceneState};
 use input_ui::InputSystemSet;
 use field_walk_ui::{start_bounce, start_smooth_move, update_bounce, update_smooth_move};
 use field_walk_ui::{camera_follow, check_encounter_system, handle_simple_move_completed, player_movement, reset_map_mode_system, toggle_map_mode_system, update_simple_tiles};

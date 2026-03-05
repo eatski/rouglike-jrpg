@@ -15,14 +15,14 @@ use world_gen::generate_map;
 use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
 use std::time::Duration;
-use app_state::{BattleState, SceneState};
+use scene_state::{BattleState, SceneState};
 use battle_ui::{BattlePhase, BattleUIState};
 use field_core::{ActiveMap, Boat, OnBoat, Player, TilePosition, TILE_SIZE};
 use field_walk_ui::{
     MovementBlockedEvent, MovementLocked, MovementState,
     PlayerMovedEvent,
 };
-use app_state::PartyState;
+use party_state::PartyState;
 use field_walk_ui::MapModeState;
 use field_walk_ui::SpawnPosition;
 use party::CharacterParamTable;
@@ -728,7 +728,7 @@ fn setup_battle_test_app() -> App {
     // cleanup_battle_sceneが必要とするリソース
     app.insert_resource(MovementState::default());
     let table = char_table();
-    app.insert_resource(app_state::CharacterParams(table));
+    app.insert_resource(party_state::CharacterParams(table));
     app.insert_resource(PartyState::new(&char_table()));
     app.insert_resource(ActiveMap {
         grid: vec![vec![Terrain::Plains; 1]; 1],
@@ -964,9 +964,9 @@ fn battle_cleanup_removes_movement_lock() {
     let mut app = setup_test_app_with_map(grid, SPAWN_X, SPAWN_Y);
 
     // InField ComputedStateを登録し、OnExit(InField)でクリーンアップを配線
-    app.add_computed_state::<app_state::InField>();
+    app.add_computed_state::<scene_state::InField>();
     app.add_systems(
-        OnExit(app_state::InField),
+        OnExit(scene_state::InField),
         field_walk_ui::cleanup_player_movement,
     );
 

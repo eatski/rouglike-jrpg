@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use terrain::TileAction;
 
-use app_state::SceneState;
+use scene_state::SceneState;
 use field_core::{ActiveMap, OnBoat, Player, TilePosition};
 use crate::TileEnteredEvent;
 

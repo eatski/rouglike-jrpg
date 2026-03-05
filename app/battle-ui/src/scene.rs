@@ -5,7 +5,10 @@ use enemy::{generate_enemy_group, Enemy};
 use spell::SpellEntry;
 use item_data::ItemKey;
 
-use app_state::{BossBattlePending, CharacterParams, EncounterZone, PartyState, SceneState};
+use scene_state::SceneState;
+use party_state::{CharacterParams, PartyState};
+use progress_state::BossBattlePending;
+use world_state::EncounterZone;
 
 use hud_ui::command_menu::{CommandMenu, CommandMenuItem, CommandMenuScrollDown, CommandMenuScrollUp};
 
@@ -799,7 +802,7 @@ pub fn cleanup_battle_scene(
 
     // ボス洞窟で戦闘勝利した場合、ボス撃破フラグを設定
     if *scene_state.get() == SceneState::BossCave && game_state.state.enemies.iter().all(|e| e.stats.hp <= 0) {
-        commands.insert_resource(app_state::BossDefeated);
+        commands.insert_resource(progress_state::BossDefeated);
     }
 
     for entity in &query {

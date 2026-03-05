@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use app_state::BattleState;
+use scene_state::BattleState;
 use field_core::{ActiveMap, OnBoat, Player, TilePosition};
 use crate::TileEnteredEvent;
 

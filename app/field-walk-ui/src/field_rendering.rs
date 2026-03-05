@@ -9,7 +9,7 @@ use world_gen::{
 
 use field_core::{ActiveMap, Player, TilePosition, TILE_SIZE};
 use party::default_candidates;
-use app_state::{ContinentCavePositions, ContinentMap, EncounterZone, HokoraPositions, RecruitmentMap};
+use world_state::{ContinentCavePositions, ContinentMap, EncounterZone, HokoraPositions, RecruitmentMap};
 use terrain::Structure;
 
 use crate::{load_tile_textures, spawn_boat_entities, BoatSpawnsResource, BossCaveWorldPos};

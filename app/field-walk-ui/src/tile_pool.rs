@@ -4,7 +4,7 @@ use std::collections::{HashMap, HashSet};
 use crate::coast_lookup;
 use terrain::{Structure, Terrain, MAP_HEIGHT, MAP_WIDTH};
 
-use app_state::ContinentMap;
+use world_state::ContinentMap;
 use field_core::{ActiveMap, MapTile, Player, TilePosition, TILE_SIZE, VISIBLE_CELLS};
 use crate::SmoothMove;
 use crate::smooth_move::is_smooth_moving;

@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use app_state::{CharacterParams, PartyState};
+use party_state::{CharacterParams, PartyState};
 use enemy::Enemy;
 use battle_ui::{
     battle_status_display_system, battle_update_menu_cache, setup_battle_scene_with_config,

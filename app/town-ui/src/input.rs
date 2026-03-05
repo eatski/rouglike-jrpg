@@ -7,10 +7,11 @@ use party::{consume_item, has_item, talk_to_candidate, PartyMember, RecruitmentP
 use town::{buy_item, candidate_first_dialogue, candidate_join_dialogue, cave_hint_dialogue, companion_hint_dialogue, heal_party, hire_success_dialogue, hokora_hint_dialogue, sell_item, BuyResult, SellResult, INN_PRICE, TAVERN_PRICE};
 use town::{tavern_bounty_item, bounty_offer_dialogue, bounty_has_item_dialogue, bounty_sold_dialogue, sell_bounty_item};
 
-use app_state::SceneState;
-use app_state::CharacterParams;
+use scene_state::SceneState;
+use party_state::{CharacterParams, PartyState};
 use field_core::{ActiveMap, Player, TilePosition};
-use app_state::{ContinentMap, HeardTavernHints, PartyState, RecruitmentMap, TavernBounties, TavernHintKind};
+use world_state::{ContinentMap, RecruitmentMap};
+use tavern_state::{HeardTavernHints, TavernBounties, TavernHintKind};
 use hud_ui::menu_style;
 
 use crate::scene::{build_town_commands, shop_goods, TownCommand, TownMenuPhase, TownResource};

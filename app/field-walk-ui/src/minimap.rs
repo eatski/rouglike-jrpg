@@ -5,7 +5,7 @@ use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 use field_walk::exploration::TileVisibility;
 use terrain::{Structure, Terrain, MAP_HEIGHT, MAP_WIDTH};
 
-use app_state::ContinentMap;
+use world_state::ContinentMap;
 use field_core::{ActiveMap, MAP_PIXEL_WIDTH};
 
 use crate::map_mode::MapModeState;

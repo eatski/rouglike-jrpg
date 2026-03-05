@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use app_state::CharacterParams;
+use party_state::CharacterParams;
 
 use super::scene::{
     enemy_display_names, BattleGameState, BattlePhase, BattleSceneRoot, BattleUIState,

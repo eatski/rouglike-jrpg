@@ -7,7 +7,7 @@ use crate::{
     execute_move, process_movement_input, ExecuteMoveResult,
     MovementBlockedEvent, MovementLocked, MovementState, PendingMove, PlayerMovedEvent,
 };
-use app_state::FieldMenuOpen;
+use crate::FieldMenuOpen;
 
 use crate::map_mode::MapModeState;
 

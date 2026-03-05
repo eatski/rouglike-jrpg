@@ -9,7 +9,9 @@ use item_data::ItemKey;
 use party::{RecruitmentPath, RecruitmentStatus};
 use terrain::Structure;
 
-use app_state::{BossDefeated, CharacterParams, ContinentCavePositions, ContinentMap, EncounterZone, OpenedChests, PartyState};
+use party_state::{CharacterParams, PartyState};
+use world_state::{ContinentCavePositions, ContinentMap, EncounterZone};
+use progress_state::{BossDefeated, OpenedChests};
 use field_core::{ActiveMap, Boat, Player, TilePosition, WorldMapData, TILE_SIZE};
 use field_walk_ui::{FieldMessageState, FieldMessageUI, MovementState};
 

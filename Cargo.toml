@@ -6,7 +6,10 @@ edition = "2024"
 [dependencies]
 bevy = "0.18"
 rand = "0.8"
-app-state = { path = "app/app-state" }
+scene-state = { path = "app/scene-state" }
+party-state = { path = "app/party-state" }
+progress-state = { path = "app/progress-state" }
+tavern-state = { path = "app/tavern-state" }
 spell-data = { path = "app/spell-data" }
 party-data = { path = "app/party-data" }
 item-data = { path = "app/item-data" }
@@ -50,7 +53,11 @@ members = [
     "app/cave",
     "app/enemy",
     "app/battle",
-    "app/app-state",
+    "app/scene-state",
+    "app/party-state",
+    "app/world-state",
+    "app/progress-state",
+    "app/tavern-state",
     "app/input-ui",
     "app/battle-ui",
     "app/town-ui",

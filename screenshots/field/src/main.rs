@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use app_state::{CharacterParams, PartyState};
+use party_state::{CharacterParams, PartyState};
 use field_core::{ActiveMap, Player, TilePosition};
 use screenshot_common::{screenshot_app, ScreenshotRng};
 use terrain::Terrain;

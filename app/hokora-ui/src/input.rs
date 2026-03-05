@@ -3,7 +3,8 @@ use bevy::prelude::*;
 use input_ui::{is_cancel_just_pressed, is_confirm_just_pressed};
 use item_data::ItemKey;
 
-use app_state::{PartyState, SceneState};
+use party_state::PartyState;
+use scene_state::SceneState;
 use field_core::{Player, TilePosition};
 use hud_ui::menu_style;
 

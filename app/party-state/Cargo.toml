@@ -1,5 +1,5 @@
 [package]
-name = "app-state"
+name = "party-state"
 version = "0.1.0"
 edition = "2024"
 

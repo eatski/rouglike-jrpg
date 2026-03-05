@@ -3,7 +3,7 @@ pub mod menu_style;
 
 use bevy::prelude::*;
 
-use app_state::PartyState;
+use party_state::PartyState;
 
 /// HUDルートエンティティのマーカー
 #[derive(Component)]

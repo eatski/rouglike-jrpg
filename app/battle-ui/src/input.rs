@@ -4,7 +4,8 @@ use battle::{ActorId, BattleAction, TargetId, TurnRandomFactors, TurnResult};
 use spell::{SpellEffect, SpellEntry, SpellTarget};
 use item::ItemEffect;
 
-use app_state::{BattleState, CharacterParams};
+use scene_state::BattleState;
+use party_state::CharacterParams;
 
 use super::scene::{
     enemy_display_names, BattleGameState, BattlePhase, BattleUIState, MessageEffect,

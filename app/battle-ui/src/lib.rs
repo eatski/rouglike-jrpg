@@ -3,7 +3,7 @@ mod input;
 mod scene;
 
 use bevy::prelude::*;
-use app_state::BattleState;
+use scene_state::BattleState;
 
 pub use display::{battle_blink_system, battle_shake_system, battle_status_display_system, battle_update_menu_cache};
 pub use input::battle_input_system;

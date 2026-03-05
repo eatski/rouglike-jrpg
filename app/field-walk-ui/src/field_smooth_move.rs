@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use terrain::TileAction;
 
-use app_state::SceneState;
+use scene_state::SceneState;
 use field_core::{ActiveMap, Boat, OnBoat, Player, TilePosition};
 use crate::{
     apply_simple_move, execute_move, MovementBlockedEvent,

@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use app_state::{CharacterParams, PartyState};
+use party_state::{CharacterParams, PartyState};
 use item_data::ItemKey;
 use screenshot_common::{setup_camera, ScreenshotAppBuilder};
 use town_ui::{

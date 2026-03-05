@@ -1,6 +1,8 @@
 use bevy::prelude::*;
 
-use app_state::{CharacterParams, FieldMenuOpen, InField, PartyState};
+use party_state::{CharacterParams, PartyState};
+use scene_state::InField;
+use field_walk_ui::FieldMenuOpen;
 use hud_ui::command_menu::{
     self, CommandMenu, CommandMenuItem, CommandMenuScrollDown, CommandMenuScrollUp,
 };

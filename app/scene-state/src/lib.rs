@@ -1,33 +1,12 @@
-mod resources;
-
 use bevy::prelude::*;
 
-pub use resources::{
-    BossBattlePending, BossDefeated, ContinentCavePositions, ContinentMap, EncounterZone,
-    FieldMenuOpen, HeardTavernHints, HokoraPositions, OpenedChests, PartyState, RecruitmentMap,
-    TavernBounties, TavernHintKind,
-};
+pub struct SceneStatePlugin;
 
-/// キャラクターパラメータの Bevy Resource ラッパー
-#[derive(Resource)]
-pub struct CharacterParams(pub party::CharacterParamTable);
-
-impl std::ops::Deref for CharacterParams {
-    type Target = party::CharacterParamTable;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-pub struct AppStatePlugin;
-
-impl Plugin for AppStatePlugin {
+impl Plugin for SceneStatePlugin {
     fn build(&self, app: &mut App) {
         app.init_state::<SceneState>()
             .init_state::<BattleState>()
-            .add_computed_state::<InField>()
-            .init_resource::<OpenedChests>()
-            .init_resource::<TavernBounties>();
+            .add_computed_state::<InField>();
     }
 }
 
